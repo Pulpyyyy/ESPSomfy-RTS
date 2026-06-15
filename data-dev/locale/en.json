@@ -94,7 +94,6 @@
     "FW_CREDITS_DOC_DESC": "Configuration Guide",
     "FW_CREDITS_BUG": "Report an issue",
     "FW_CREDITS_BUG_DESC": "Report a bug or a functional error",
-
     "FW_CREDITS_BUG_TOOLTIP_0": "Be responsible do not open a ticket for configuration questions or personal assistance. The documentation is made for this, please consult it.",
     "FW_CREDITS_BUG_TOOLTIP_1": "Only report real bugs that concern the firmware.",
     "FW_CREDITS_MAIN": "Project Author",
