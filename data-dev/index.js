@@ -1680,7 +1680,7 @@ class Security {
 var security = new Security();
 class General {
     initialized = false;
-    appVersion = 'v2.5.5';
+    appVersion = 'v2.5.6';
     reloadApp = false;
     init() {
         if (this.initialized) return;
@@ -3097,8 +3097,8 @@ class Somfy {
             }
     }
     pinMaps = [
-        { name: '', maxPins: 39, inputs: [0, 1, 2, 6, 7, 8, 9, 10, 11, 37, 38], outputs: [2, 3, 6, 7, 8, 9, 10, 11, 34, 35, 36, 37, 38, 39] },
-        { name: 's2', maxPins: 46, inputs: [0, 2, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 45], outputs: [0, 2, 19, 20, 26, 27, 28, 29, 30, 31, 32, 45, 46]},
+        { name: '', maxPins: 39, inputs: [0, 1, 6, 7, 8, 9, 10, 11, 37, 38], outputs: [3, 6, 7, 8, 9, 10, 11, 34, 35, 36, 37, 38, 39] },
+        { name: 's2', maxPins: 46, inputs: [0, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 45], outputs: [0, 19, 20, 26, 27, 28, 29, 30, 31, 32, 45, 46]},
         { name: 's3', maxPins: 48, inputs: [19, 20, 22, 23, 24, 25, 27, 28, 29, 30, 31, 32], outputs: [19, 20, 22, 23, 24, 25, 27, 28, 29, 30, 31, 32] },
         { name: 'c3', maxPins: 21, inputs: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20], outputs: [11, 12, 13, 14, 15, 16, 17, 21] }
     ];
@@ -3114,9 +3114,7 @@ class Somfy {
         }
 
         for (let i = 0; i <= pm.maxPins; i++) {
-            if (i === 2 && (cm === '' || cm === null)) {
-                continue;
-            }
+
             if (type.includes('in') && pm.inputs.includes(i)) continue;
             if (type.includes('out') && pm.outputs.includes(i)) continue;
 
@@ -4423,6 +4421,7 @@ class Somfy {
             g('spanShadeId').innerText = isNew ? '*' : shadeId;
 
             ui.toElement(g('somfyShade'), shade);
+            if (g('selShadeBitLength')) g('somfyShade').setAttribute('data-bitlength', g('selShadeBitLength').value);
             this.onShadeTypeChanged(g('selShadeType'));
             this.showEditShade(true);
         });
