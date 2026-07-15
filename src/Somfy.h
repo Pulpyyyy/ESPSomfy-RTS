@@ -279,6 +279,7 @@ class SomfyShade : public SomfyRemote {
     bool noWindDone = true;
     float startPos = 0.0f;
     float startTiltPos = 0.0f;
+    float startLiftPos = 0.0f;
     bool settingMyPos = false;
     bool settingPos = false;
     bool settingTiltPos = false;
@@ -294,6 +295,10 @@ class SomfyShade : public SomfyRemote {
     #endif
     float currentPos = 0.0f;
     float currentTiltPos = 0.0f;
+    // Fraction of the slats stacked at the fully closed position (0=unstacked, 1=stacked).
+    // Updated continuously in checkMovement like currentPos so that re-snapshotting
+    // startPos/moveStart (received frames, stops) never loses slat progress.
+    float liftPos = 0.0f;
     int8_t lastMovement = 0;
     int8_t direction = 0; // 0 = stopped, 1=down, -1=up.
     int8_t tiltDirection = 0; // 0=stopped, 1=clockwise, -1=counter clockwise
@@ -321,6 +326,9 @@ class SomfyShade : public SomfyRemote {
     bool save();
     bool isIdle();
     bool isInGroup();
+    uint32_t effectiveLiftTime();
+    float stepUpTarget(uint32_t msStep);
+    float stepDownTarget(uint32_t msStep);
     void checkMovement();
     void processFrame(somfy_frame_t &frame, bool internal = false);
     void processInternalCommand(somfy_commands cmd, uint8_t repeat = 1);

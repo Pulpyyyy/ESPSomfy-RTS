@@ -852,6 +852,8 @@ bool ShadeConfigFile::readShadeRecord(SomfyShade *shade) {
   }
   shade->target = floor(shade->currentPos);
   shade->tiltTarget = floor(shade->currentTiltPos);
+  // A shade that loads fully closed has its slats stacked.
+  shade->liftPos = shade->currentPos >= 100.0f ? 1.0f : 0.0f;
   if(this->header.version >= 9) shade->flipCommands = this->readBool(false);
   if(this->header.version >= 10) shade->flipPosition = this->readBool(false);
   if(this->header.version >= 12) shade->repeats = this->readUInt8(1);
@@ -877,7 +879,9 @@ bool ShadeConfigFile::readShadeRecord(SomfyShade *shade) {
   if(shade->proto == radio_proto::GP_Remote)
     pinMode(shade->gpioMy, OUTPUT);
   if(this->header.version >= 19) shade->roomId = this->readUInt8(0);
+  // Reset to 0 for older backups so restoring one rolls the setting back too.
   if(this->header.version > 25) shade->liftTime = this->readUInt32(0);
+  else shade->liftTime = 0;
   if(this->file.position() != startPos + this->header.shadeRecordSize) {
     Serial.println("Reading to end of shade record");
     this->seekChar(CFG_REC_END);

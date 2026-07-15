@@ -4307,6 +4307,9 @@ class Somfy {
             disp('divTiltSettings', st.tilt);
             disp('divShadeTimings', hasLift);
             disp('divLiftSettings', showLiftSettings);
+            // Le temps de décollage des lames ne concerne que les tabliers sans inclinaison
+            // (le firmware l'ignore pour les autres types via effectiveLiftTime).
+            disp('divLiftTime', curTilt === 0);
             disp('divSunSensor', st.sun);
             disp('divLightSwitch', st.light);
             disp('divFlipPosition', st.fpos);
@@ -4577,12 +4580,15 @@ class Somfy {
         obj = ui.fromElement(g('somfyShade')),
         settings = g('divSomfySettings');
 
+        // Champ vide ou firmware plus ancien que l'UI (JSON sans liftTime) : 0 = comportement d'origine.
+        if (isNaN(obj.liftTime)) obj.liftTime = 0;
+
         const checks = [
             [isNaN(obj.remoteAddress) || obj.remoteAddress < 1 || obj.remoteAddress > 16777215, 'ERR_REMOTE_ADDRESS_INVALID'],
             [!obj.name || obj.name.length > 20, 'ERR_DEVIVE_NAME_INVALID'],
             [isNaN(obj.upTime) || obj.upTime < 1 || obj.upTime > 180000, 'ERR_UP_TIME_INVALID'],
             [isNaN(obj.downTime) || obj.downTime < 1 || obj.downTime > 180000, 'ERR_DOWN_TIME_INVALID'],
-            [isNaN(obj.liftTime) || obj.liftTime < 0 || obj.liftTime > 60000, 'ERR_LIFT_TIME_INVALID']
+            [obj.liftTime < 0 || obj.liftTime > 60000, 'ERR_LIFT_TIME_INVALID']
         ];
 
         const basicError = checks.find(c => c[0]);
@@ -4754,64 +4760,6 @@ class Somfy {
                 }
             });
         }
-    }
-    sendPairCommand(shadeId) {
-        putJSON('/pairShade', { shadeId }, (err, shade) => {
-            if (err) return console.log(err);
-            console.log(shade);
-
-            get('somfyMain').style.display = 'none';
-            get('somfyShade').style.display = '';
-            get('btnSaveShade').style.display = 'inline-block';
-            get('btnLinkRemote').style.display = '';
-
-            const fields = { shadeAddress: 'remoteAddress', shadeName: 'name', shadeUpTime: 'upTime', shadeDownTime: 'downTime', shadeLiftTime: 'liftTime' };
-            for (const f in fields) document.getElementsByName(f)[0].value = shade[fields[f]];
-
-            const svg = get('icoShade');
-            if (svg) {
-                const pos = shade.flipPosition ? 100 - shade.position : shade.position;
-                svg.style.setProperty('--shade-position', pos);
-                svg.style.setProperty('--fpos', `${shade.position}%`);
-                svg.setAttribute('data-shadeid', shade.shadeId);
-            }
-
-            get('btnPairShade').style.display = shade.paired ? 'none' : 'inline-block';
-            get('btnUnpairShade').style.display = shade.paired ? 'inline-block' : 'none';
-
-            this.setLinkedRemotesList(shade);
-            const divP = qs('divPairing');
-            if (divP) divP.remove();
-        });
-    }
-    sendUnpairCommand(shadeId) {
-        putJSON('/unpairShade', { shadeId }, (err, shade) => {
-            if (err) return console.log(err);
-            console.log(shade);
-
-            get('somfyMain').style.display = 'none';
-            get('somfyShade').style.display = '';
-            get('btnSaveShade').style.display = 'inline-block';
-            get('btnLinkRemote').style.display = '';
-
-            const fields = { shadeAddress: 'remoteAddress', shadeName: 'name', shadeUpTime: 'upTime', shadeDownTime: 'downTime', shadeLiftTime: 'liftTime' };
-            for (const f in fields) document.getElementsByName(f)[0].value = shade[fields[f]];
-
-            const svg = get('icoShade');
-            if (svg) {
-                const pos = shade.flipPosition ? 100 - shade.position : shade.position;
-                svg.style.setProperty('--shade-position', pos);
-                svg.style.setProperty('--fpos', `${shade.position}%`);
-                svg.setAttribute('data-shadeid', shade.shadeId);
-            }
-
-            get('btnPairShade').style.display = shade.paired ? 'none' : 'inline-block';
-            get('btnUnpairShade').style.display = shade.paired ? 'inline-block' : 'none';
-
-            this.setLinkedRemotesList(shade);
-            const divP = get('divPairing');
-            if (divP) divP.remove();
-        });
     }
     setRollingCode(shadeId, rollingCode) {
         putJSONSync('/setRollingCode', { shadeId: shadeId, rollingCode: rollingCode }, (err, shade) => {

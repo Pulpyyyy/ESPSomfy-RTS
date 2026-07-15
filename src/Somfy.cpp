@@ -671,6 +671,8 @@ void SomfyShade::clear() {
   this->noWindDone = true;
   this->startPos = 0.0f;
   this->startTiltPos = 0.0f;
+  this->startLiftPos = 0.0f;
+  this->liftPos = 0.0f;
   this->settingMyPos = false;
   this->settingPos = false;
   this->settingTiltPos = false;
@@ -1050,6 +1052,51 @@ void SomfyShade::triggerGPIOs(somfy_frame_t &frame) {
     this->gpioDir = dir;
   }  
 }
+uint32_t SomfyShade::effectiveLiftTime() {
+  // The slat lift dead time only applies to plain rollers/shutters with interlocking
+  // slats. Tilted blinds model their closed-end dead time with tiltTime and dry
+  // contacts have none, so liftTime is inert for those types.
+  if(this->tiltType != tilt_types::none) return 0;
+  if(this->shadeType == shade_types::drycontact || this->shadeType == shade_types::drycontact2) return 0;
+  return this->liftTime;
+}
+float SomfyShade::stepUpTarget(uint32_t msStep) {
+  // Compute the position target for an up step jog of msStep ms. When the slats are
+  // stacked the motor spends the jog unstacking them before the curtain can travel so
+  // that time produces slat progress instead of movement.
+  uint32_t liftTime = this->effectiveLiftTime();
+  if(liftTime > 0 && this->liftPos > 0.0f) {
+    float lp = this->liftPos - (float)msStep / (float)liftTime;
+    if(lp > 0.0f) {
+      // The whole jog went into unstacking the slats; the curtain did not move.
+      this->liftPos = this->startLiftPos = lp;
+      return this->currentPos;
+    }
+    // Part of the jog freed the slats; only the remainder travels.
+    msStep = (uint32_t)floor(-lp * (float)liftTime);
+    this->liftPos = this->startLiftPos = 0.0f;
+  }
+  return max(0.0f, this->currentPos - (100.0f * (float)msStep / (float)this->upTime));
+}
+float SomfyShade::stepDownTarget(uint32_t msStep) {
+  // Compute the position target for a down step jog of msStep ms. The part of the jog
+  // left after the curtain reaches the sill stacks the slats; a single step only closes
+  // the vents completely if it also covers the remaining lift time.
+  float target = this->currentPos + (100.0f * (float)msStep / (float)this->downTime);
+  uint32_t liftTime = this->effectiveLiftTime();
+  if(target > 100.0f && liftTime > 0) {
+    float msStack = (target - 100.0f) / 100.0f * (float)this->downTime;
+    float lp = this->liftPos + msStack / (float)liftTime;
+    if(lp < 1.0f) {
+      // The curtain is at the sill but the slats are not fully stacked yet.
+      this->liftPos = this->startLiftPos = lp;
+      return 99.9f;
+    }
+    // The jog also finishes the stacking; let checkMovement close it out from the
+    // snapshot taken when the command was received.
+  }
+  return min(100.0f, target);
+}
 void SomfyShade::checkMovement() {
   const uint64_t curTime = millis();
   const bool sunFlag = this->flags & static_cast<uint8_t>(somfy_flags_t::SunFlag);
@@ -1060,11 +1107,8 @@ void SomfyShade::checkMovement() {
   int32_t downTime = (int32_t)this->downTime;
   int32_t upTime = (int32_t)this->upTime;
   int32_t tiltTime = (int32_t)this->tiltTime;
-  int32_t liftTime = (int32_t)this->liftTime;
-  if(this->shadeType == shade_types::drycontact || this->shadeType == shade_types::drycontact2) {
-    downTime = upTime = tiltTime = 1;
-    liftTime = 0;
-  }
+  int32_t liftTime = (int32_t)this->effectiveLiftTime();
+  if(this->shadeType == shade_types::drycontact || this->shadeType == shade_types::drycontact2) downTime = upTime = tiltTime = 1;
   
 
   // We are checking movement for essentially 3 types of motors.
@@ -1130,6 +1174,7 @@ void SomfyShade::checkMovement() {
   if(!tilt_first && this->direction > 0) {
     if(downTime == 0) {
       this->p_currentPos(100.0);
+      this->liftPos = 1.0f;
       //this->p_direction(0);
     }
     else {
@@ -1143,27 +1188,24 @@ void SomfyShade::checkMovement() {
       // So if the start position is .1 it is 10% closed so we have a 1000ms (1sec) of time to account for
       // before we add any more time.
       msFrom0 += (curTime - this->moveStart);
-      // When the shade is closing all the way the slats still need liftTime ms to stack and
-      // close the vents after the curtain reaches the sill so the shade is not fully closed
-      // until downTime + liftTime has elapsed.
-      int32_t closeTime = downTime + (this->target >= 100.0f ? liftTime : 0);
-      // Now we should have the total number of ms that the shade moved from the top.  But just so we
-      // don't have any rounding errors make sure that it is not greater than the max down time.
-      msFrom0 = min(closeTime, msFrom0);
-      if(msFrom0 >= closeTime) {
-        this->p_currentPos(100.0f);
-        //this->p_direction(0);
+      if(msFrom0 < downTime) {
+        // The curtain is still travelling toward the sill. The current position is the
+        // ratio of the time travelled over the total time to go 100%.
+        this->p_currentPos(max((float)0.0, (float)msFrom0 / (float)downTime) * 100);
+      }
+      else if(this->target >= 100.0f && liftTime > 0) {
+        // The curtain is at the sill but the slats still need liftTime ms to stack and close
+        // the vents. Track that progress in liftPos, resuming from the snapshot taken when
+        // the move (re)started so an interrupted or re-latched move never loses progress.
+        this->liftPos = min((float)1.0, this->startLiftPos + (float)(msFrom0 - downTime) / (float)liftTime);
+        // Hold the position just shy of closed until the slats are fully stacked. It must stay
+        // strictly below 100 or the completion check below would end the move early.
+        this->p_currentPos(this->liftPos >= 1.0f ? 100.0f : 99.9f);
       }
       else {
-        // So now we know how much time has elapsed from the 0 position to down.  The current position should be
-        // a ratio of how much time has travelled over the total time to go 100%.
-
-        // We should now have the number of ms it will take to reach the shade fully close.
-        float fpos = (min(max((float)0.0, (float)min(msFrom0, downTime) / (float)downTime), (float)1.0)) * 100;
-        // If the position reaches 100 the curtain is at the sill but the slats are still
-        // stacking so hold the position just shy of closed until liftTime has also elapsed.
-        if(fpos >= 100.0f && closeTime > downTime) fpos = 99.9f;
-        this->p_currentPos(fpos);
+        this->p_currentPos(100.0f);
+        // With no lift time configured a fully closed shade has its slats stacked.
+        if(this->target >= 100.0f) this->liftPos = 1.0f;
       }
     }
     if(this->currentPos >= this->target) {
@@ -1191,6 +1233,7 @@ void SomfyShade::checkMovement() {
   else if(!tilt_first && this->direction < 0) {
     if(upTime == 0) {
       this->p_currentPos(0);
+      this->liftPos = 0.0f;
       //this->p_direction(0);
     }
     else {
@@ -1199,9 +1242,15 @@ void SomfyShade::checkMovement() {
       // can be calculated.
       // 10000ms from 100 to 0;
       int32_t msElapsed = (int32_t)(curTime - this->moveStart);
-      // When the shade starts fully closed the motor spends the first liftTime ms unstacking
-      // the slats before the curtain actually leaves the sill so that time does not move the shade.
-      if(liftTime > 0 && this->startPos >= 100.0f) msElapsed = max((int32_t)0, msElapsed - liftTime);
+      if(liftTime > 0 && this->startLiftPos > 0.0f) {
+        // The motor first unstacks the slats before the curtain leaves the sill; that time
+        // does not move the shade. startLiftPos carries the stacking progress across stops
+        // and re-latched frames so only the remaining unstack time is charged.
+        int32_t unstackTime = (int32_t)floor(this->startLiftPos * (float)liftTime);
+        this->liftPos = max((float)0.0, this->startLiftPos - (float)msElapsed / (float)liftTime);
+        msElapsed = max((int32_t)0, msElapsed - unstackTime);
+      }
+      else this->liftPos = 0.0f;
       int32_t msFrom100 = upTime - (int32_t)floor((this->startPos/100) * upTime);
       msFrom100 += msElapsed;
       msFrom100 = min(upTime, msFrom100);
@@ -1269,6 +1318,7 @@ void SomfyShade::checkMovement() {
         this->p_currentTiltPos(100.0f);
         this->moveStart = curTime;
         this->startPos = this->currentPos;
+        this->startLiftPos = this->liftPos;
         //this->p_tiltDirection(0);
         //Serial.println("Setting tiltDirection to 0 (tilt_first)");
       }
@@ -1320,6 +1370,7 @@ void SomfyShade::checkMovement() {
         this->p_currentTiltPos(0.0f);
         this->moveStart = curTime;
         this->startPos = this->currentPos;
+        this->startLiftPos = this->liftPos;
         //this->p_tiltDirection(0);
       }
     }
@@ -1406,6 +1457,8 @@ void SomfyShade::load() {
     this->setRemoteAddress(pref.getUInt("remoteAddress", 0));
     this->currentPos = pref.getFloat("currentPos", 0);
     this->target = floor(this->currentPos);
+    // A shade that rebooted fully closed has its slats stacked.
+    this->liftPos = this->startLiftPos = this->currentPos >= 100.0f ? 1.0f : 0.0f;
     this->myPos = static_cast<float>(pref.getUShort("myPos", this->myPos));
     this->tiltType = pref.getBool("hasTilt", false) ? tilt_types::none : tilt_types::tiltmotor;
     this->shadeType = static_cast<shade_types>(pref.getChar("shadeType", static_cast<uint8_t>(this->shadeType)));
@@ -2218,6 +2271,7 @@ void SomfyShade::processFrame(somfy_frame_t &frame, bool internal) {
   this->moveStart = this->tiltStart = curTime;
   this->startPos = this->currentPos;
   this->startTiltPos = this->currentTiltPos;
+  this->startLiftPos = this->liftPos;
   // If the command is coming from a remote then we are aborting all these positioning operations.
   if(!internal) this->settingMyPos = this->settingPos = this->settingTiltPos = false;
   somfy_commands cmd = this->transformCommand(frame.cmd);
@@ -2490,7 +2544,7 @@ void SomfyShade::processFrame(somfy_frame_t &frame, bool internal) {
       }
       else if(this->currentPos > 0.0f) {
         if(this->downTime == 0 || this->stepSize == 0) return;
-        this->p_target(max(0.0f, this->currentPos - (100.0f/(static_cast<float>(this->upTime/static_cast<float>(this->stepSize * this->lastFrame.stepSize))))));
+        this->p_target(this->stepUpTarget((uint32_t)this->stepSize * this->lastFrame.stepSize));
       }
       this->emitCommand(cmd, internal ? "internal" : "remote", frame.remoteAddress);
       break;
@@ -2532,7 +2586,7 @@ void SomfyShade::processFrame(somfy_frame_t &frame, bool internal) {
       }
       else if(this->currentPos < 100.0f) {
         if(this->downTime == 0 || this->stepSize == 0) return;
-        this->p_target(min(100.0f, this->currentPos + (100.0f/(static_cast<float>(this->downTime/static_cast<float>(this->stepSize * this->lastFrame.stepSize))))));
+        this->p_target(this->stepDownTarget((uint32_t)this->stepSize * this->lastFrame.stepSize));
       }
       this->emitCommand(cmd, internal ? "internal" : "remote", frame.remoteAddress);
       break;
@@ -2581,6 +2635,7 @@ void SomfyShade::processInternalCommand(somfy_commands cmd, uint8_t repeat) {
   this->moveStart = this->tiltStart = curTime;
   this->startPos = this->currentPos;
   this->startTiltPos = this->currentTiltPos;
+  this->startLiftPos = this->liftPos;
   // If the command is coming from a remote then we are aborting all these positioning operations.
   switch(cmd) {
     case somfy_commands::Up:
@@ -2670,7 +2725,7 @@ void SomfyShade::processInternalCommand(somfy_commands cmd, uint8_t repeat) {
       }
       else if(this->currentPos > 0.0f) {
         if(this->upTime == 0) return;
-        this->p_target(max(0.0f, this->currentPos - (100.0f/(static_cast<float>(this->upTime/static_cast<float>(this->stepSize))))));
+        this->p_target(this->stepUpTarget(this->stepSize));
       }
       break;
     case somfy_commands::StepDown:
@@ -2706,7 +2761,7 @@ void SomfyShade::processInternalCommand(somfy_commands cmd, uint8_t repeat) {
       }
       else if(this->currentPos < 100.0f) {
         if(this->downTime == 0 || this->stepSize == 0) return;
-        this->p_target(min(100.0f, this->currentPos + (100.0f/(static_cast<float>(this->downTime/static_cast<float>(this->stepSize))))));
+        this->p_target(this->stepDownTarget(this->stepSize));
       }
       break;
     case somfy_commands::Flag:
@@ -2774,6 +2829,7 @@ void SomfyShade::setMovement(int8_t dir) {
     this->tiltStart = this->moveStart = millis();
     this->startPos = this->currentPos;
     this->startTiltPos = this->currentTiltPos;
+    this->startLiftPos = this->liftPos;
   }
   if(this->direction != currDir || currTiltDir != this->tiltDirection) {
     this->emitState();
@@ -3232,7 +3288,9 @@ int8_t SomfyShade::fromJSON(JsonObject &obj) {
     if(obj.containsKey("roomId")) this->roomId = obj["roomId"];
     if(obj.containsKey("upTime")) this->upTime = obj["upTime"];
     if(obj.containsKey("downTime")) this->downTime = obj["downTime"];
-    if(obj.containsKey("liftTime")) this->liftTime = obj["liftTime"];
+    // Clamp to the same range as the UI; an out of range value cast to int32 in
+    // checkMovement would otherwise wrap negative and break the position math.
+    if(obj.containsKey("liftTime")) this->liftTime = min(obj["liftTime"].as<uint32_t>(), (uint32_t)60000);
     if(obj.containsKey("remoteAddress")) this->setRemoteAddress(obj["remoteAddress"]);
     if(obj.containsKey("tiltTime")) this->tiltTime = obj["tiltTime"];
     if(obj.containsKey("stepSize")) this->stepSize = obj["stepSize"];
