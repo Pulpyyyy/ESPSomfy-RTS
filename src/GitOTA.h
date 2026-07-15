@@ -6,6 +6,11 @@
 #include "ConfigSettings.h"
 #include "WResp.h"
 
+// Depot GitHub interroge pour les mises a jour OTA (releases + assets).
+// Les binaires publies doivent etre construits avec les memes tables de
+// partitions que ce firmware (partitions_4mb.csv / partitions_8mb.csv).
+#define GIT_REPO_PATH "Pulpyyyy/ESPSomfy-RTS"
+
 #define GIT_MAX_RELEASES 5
 #define GIT_STATUS_READY 0
 #define GIT_STATUS_CHECK 1

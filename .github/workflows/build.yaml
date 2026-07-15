@@ -78,24 +78,28 @@ jobs:
             name: ESP32
             chip: ESP32
             addr_bootloader: "0x1000"
+            addr_littlefs: "0x310000"
             fwname: SomfyController.ino.esp32.bin
             obname: SomfyController.onboard.esp32.bin
           - env: esp32wrover
             name: ESP32-Wrover
             chip: ESP32
             addr_bootloader: "0x1000"
+            addr_littlefs: "0x310000"
             fwname: SomfyController.ino.esp32wrover.bin
             obname: SomfyController.onboard.esp32wrover.bin
           - env: esp32c3
             name: ESP32C3
             chip: ESP32-C3
             addr_bootloader: "0x0"
+            addr_littlefs: "0x310000"
             fwname: SomfyController.ino.esp32c3.bin
             obname: SomfyController.onboard.esp32c3.bin
           - env: esp32s2
             name: ESP32S2
             chip: ESP32-S2
             addr_bootloader: "0x1000"
+            addr_littlefs: "0x310000"
             fwname: SomfyController.ino.esp32s2.bin
             obname: SomfyController.onboard.esp32s2.bin
 
@@ -104,6 +108,7 @@ jobs:
             name: ESP32S3_4MB
             chip: ESP32-S3
             addr_bootloader: "0x0"
+            addr_littlefs: "0x310000"
             fwname: SomfyController.ino.esp32s3_4mb.bin
             obname: SomfyController.onboard.esp32s3_4mb.bin
 
@@ -112,6 +117,7 @@ jobs:
             name: ESP32S3_8MB
             chip: ESP32-S3
             addr_bootloader: "0x0"
+            addr_littlefs: "0x6F0000"
             fwname: SomfyController.ino.esp32s3_8mb.bin
             obname: SomfyController.onboard.esp32s3_8mb.bin
 
@@ -151,7 +157,7 @@ jobs:
             ${{ matrix.addr_bootloader }} .pio/build/${{ matrix.env }}/bootloader.bin \
             0x8000 .pio/build/${{ matrix.env }}/partitions.bin \
             0x10000 .pio/build/${{ matrix.env }}/firmware.bin \
-            0x290000 SomfyController.littlefs.bin
+            ${{ matrix.addr_littlefs }} SomfyController.littlefs.bin
 
       # Compression de l'image onboard avec son nom d'archive propre
       - name: Compress onboard image

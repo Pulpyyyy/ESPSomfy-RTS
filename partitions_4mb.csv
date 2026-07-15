@@ -1,0 +1,13 @@
+# Table de partitions 4 Mo avec double banque OTA de 1,6875 Mo par application
+# (default.csv plafonne a 1,31 Mo par slot, deja rempli a ~97 %).
+# LittleFS 512 Ko : UI gzippee ~200 Ko + shades.cfg + backup temporaire,
+# soit ~250 Ko libres pour le wear-leveling et la croissance de l'UI.
+# ATTENTION : changer de table impose UN flash USB (image onboard) ; les OTA
+# suivants restent classiques (double banque + rollback via otadata).
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x5000,
+otadata,  data, ota,     0xe000,   0x2000,
+app0,     app,  ota_0,   0x10000,  0x1B0000,
+app1,     app,  ota_1,   0x1C0000, 0x1B0000,
+spiffs,   data, spiffs,  0x370000, 0x80000,
+coredump, data, coredump,0x3F0000, 0x10000,

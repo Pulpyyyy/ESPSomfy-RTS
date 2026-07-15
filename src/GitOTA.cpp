@@ -102,7 +102,7 @@ int16_t GitRepo::getReleases(uint8_t num) {
   uint8_t count = min((uint8_t)GIT_MAX_RELEASES, num);
   char url[128];
   memset(this->releases, 0x00, sizeof(GitRelease) * GIT_MAX_RELEASES);
-  sprintf(url, "https://api.github.com/repos/xkain/ESPSomfy-RTS/releases?per_page=%d&page=1", count);
+  sprintf(url, "https://api.github.com/repos/" GIT_REPO_PATH "/releases?per_page=%d&page=1", count);
   HTTPClient https;
   https.setReuse(false);
   if(https.begin(sclient, url)) {
@@ -354,7 +354,7 @@ int GitUpdater::checkInternet() {
   esp_task_wdt_reset();
   HTTPClient https;
   https.setReuse(false);
-  if(https.begin(sclient, "https://github.com/xkain/ESPSomfy-RTS")) {
+  if(https.begin(sclient, "https://github.com/" GIT_REPO_PATH)) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
     https.setTimeout(3000);
     esp_task_wdt_reset();
@@ -432,7 +432,7 @@ void GitUpdater::setFirmwareFile() {
 }
 bool GitUpdater::beginUpdate(const char *version) {
   Serial.println("Begin update called...");
-  sprintf(this->baseUrl, "https://github.com/xkain/ESPSomfy-RTS/releases/download/%s/", version);
+  sprintf(this->baseUrl, "https://github.com/" GIT_REPO_PATH "/releases/download/%s/", version);
 
   strcpy(this->targetRelease, version);
   this->emitUpdateCheck();
@@ -467,7 +467,7 @@ bool GitUpdater::beginUpdate(const char *version) {
   return true;
 }
 bool GitUpdater::recoverFilesystem() {
-  sprintf(this->baseUrl, "https://github.com/xkain/ESPSomfy-RTS/releases/download/%s/", settings.fwVersion.name);
+  sprintf(this->baseUrl, "https://github.com/" GIT_REPO_PATH "/releases/download/%s/", settings.fwVersion.name);
   strcpy(this->currentFile, "SomfyController.littlefs.bin");
   this->status = GIT_UPDATING;
   this->partition = U_SPIFFS;

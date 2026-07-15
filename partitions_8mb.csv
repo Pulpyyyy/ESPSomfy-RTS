@@ -1,0 +1,11 @@
+# Table de partitions 8 Mo : double banque OTA de 3,6875 Mo par application.
+# Le LittleFS reste a 512 Ko (0x80000) : il DOIT avoir la meme taille que sur
+# les cartes 4 Mo car une seule image SomfyController.littlefs.bin est publiee
+# pour toutes les cibles.
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x5000,
+otadata,  data, ota,     0xe000,   0x2000,
+app0,     app,  ota_0,   0x10000,  0x3B0000,
+app1,     app,  ota_1,   0x3C0000, 0x3B0000,
+spiffs,   data, spiffs,  0x770000, 0x80000,
+coredump, data, coredump,0x7F0000, 0x10000,
