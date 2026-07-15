@@ -697,6 +697,7 @@ void SomfyShade::clear() {
   this->name[0] = 0x00;
   this->upTime = 10000;
   this->downTime = 10000;
+  this->liftTime = 0;
   this->tiltTime = 7000;
   this->stepSize = 100;
   this->repeats = 1;
@@ -1059,7 +1060,11 @@ void SomfyShade::checkMovement() {
   int32_t downTime = (int32_t)this->downTime;
   int32_t upTime = (int32_t)this->upTime;
   int32_t tiltTime = (int32_t)this->tiltTime;
-  if(this->shadeType == shade_types::drycontact || this->shadeType == shade_types::drycontact2) downTime = upTime = tiltTime = 1;
+  int32_t liftTime = (int32_t)this->liftTime;
+  if(this->shadeType == shade_types::drycontact || this->shadeType == shade_types::drycontact2) {
+    downTime = upTime = tiltTime = 1;
+    liftTime = 0;
+  }
   
 
   // We are checking movement for essentially 3 types of motors.
@@ -1134,28 +1139,31 @@ void SomfyShade::checkMovement() {
       // if we take the starting position * the total down time then this will tell us how many ms it
       // has moved in the down position.
       int32_t msFrom0 = (int32_t)floor((this->startPos/100) * downTime);
-      
+
       // So if the start position is .1 it is 10% closed so we have a 1000ms (1sec) of time to account for
       // before we add any more time.
       msFrom0 += (curTime - this->moveStart);
+      // When the shade is closing all the way the slats still need liftTime ms to stack and
+      // close the vents after the curtain reaches the sill so the shade is not fully closed
+      // until downTime + liftTime has elapsed.
+      int32_t closeTime = downTime + (this->target >= 100.0f ? liftTime : 0);
       // Now we should have the total number of ms that the shade moved from the top.  But just so we
       // don't have any rounding errors make sure that it is not greater than the max down time.
-      msFrom0 = min(downTime, msFrom0);
-      if(msFrom0 >= downTime) {
+      msFrom0 = min(closeTime, msFrom0);
+      if(msFrom0 >= closeTime) {
         this->p_currentPos(100.0f);
-        //this->p_direction(0);        
+        //this->p_direction(0);
       }
       else {
         // So now we know how much time has elapsed from the 0 position to down.  The current position should be
         // a ratio of how much time has travelled over the total time to go 100%.
-  
+
         // We should now have the number of ms it will take to reach the shade fully close.
-        this->p_currentPos((min(max((float)0.0, (float)msFrom0 / (float)downTime), (float)1.0)) * 100);
-        // If the current position is >= 1 then we are at the bottom of the shade.
-        if(this->currentPos >= 100) {
-          this->p_currentPos(100.0);
-          //this->p_direction(0);
-        }
+        float fpos = (min(max((float)0.0, (float)min(msFrom0, downTime) / (float)downTime), (float)1.0)) * 100;
+        // If the position reaches 100 the curtain is at the sill but the slats are still
+        // stacking so hold the position just shy of closed until liftTime has also elapsed.
+        if(fpos >= 100.0f && closeTime > downTime) fpos = 99.9f;
+        this->p_currentPos(fpos);
       }
     }
     if(this->currentPos >= this->target) {
@@ -1190,8 +1198,12 @@ void SomfyShade::checkMovement() {
       // often move slower in the up position so since we are using a relative position the up time
       // can be calculated.
       // 10000ms from 100 to 0;
+      int32_t msElapsed = (int32_t)(curTime - this->moveStart);
+      // When the shade starts fully closed the motor spends the first liftTime ms unstacking
+      // the slats before the curtain actually leaves the sill so that time does not move the shade.
+      if(liftTime > 0 && this->startPos >= 100.0f) msElapsed = max((int32_t)0, msElapsed - liftTime);
       int32_t msFrom100 = upTime - (int32_t)floor((this->startPos/100) * upTime);
-      msFrom100 += (curTime - this->moveStart);
+      msFrom100 += msElapsed;
       msFrom100 = min(upTime, msFrom100);
       if(msFrom100 >= upTime) {
         this->p_currentPos(0.0f);
@@ -1390,6 +1402,7 @@ void SomfyShade::load() {
       this->downTime = pref.getUInt("downTime", this->downTime);
       this->tiltTime = pref.getUInt("tiltTime", this->tiltTime);
     }
+    this->liftTime = pref.getUInt("liftTime", this->liftTime);
     this->setRemoteAddress(pref.getUInt("remoteAddress", 0));
     this->currentPos = pref.getFloat("currentPos", 0);
     this->target = floor(this->currentPos);
@@ -3087,6 +3100,7 @@ bool SomfyShade::save() {
     pref.putBool("paired", this->paired);
     pref.putUInt("upTime", this->upTime);
     pref.putUInt("downTime", this->downTime);
+    pref.putUInt("liftTime", this->liftTime);
     pref.putUInt("tiltTime", this->tiltTime);
     pref.putFloat("currentPos", this->currentPos);
     pref.putFloat("currentTiltPos", this->currentTiltPos);
@@ -3218,6 +3232,7 @@ int8_t SomfyShade::fromJSON(JsonObject &obj) {
     if(obj.containsKey("roomId")) this->roomId = obj["roomId"];
     if(obj.containsKey("upTime")) this->upTime = obj["upTime"];
     if(obj.containsKey("downTime")) this->downTime = obj["downTime"];
+    if(obj.containsKey("liftTime")) this->liftTime = obj["liftTime"];
     if(obj.containsKey("remoteAddress")) this->setRemoteAddress(obj["remoteAddress"]);
     if(obj.containsKey("tiltTime")) this->tiltTime = obj["tiltTime"];
     if(obj.containsKey("stepSize")) this->stepSize = obj["stepSize"];
@@ -3333,6 +3348,7 @@ void SomfyShade::toJSON(JsonResponse &json) {
   json.addElem("remoteAddress", (uint32_t)this->m_remoteAddress);
   json.addElem("upTime", (uint32_t)this->upTime);
   json.addElem("downTime", (uint32_t)this->downTime);
+  json.addElem("liftTime", (uint32_t)this->liftTime);
   json.addElem("paired", this->paired);
   json.addElem("lastRollingCode", (uint32_t)this->lastRollingCode);
   json.addElem("position", this->transformPosition(this->currentPos));

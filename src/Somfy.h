@@ -313,6 +313,9 @@ class SomfyShade : public SomfyRemote {
     uint8_t getShadeId() { return shadeId; }
     uint32_t upTime = 10000;
     uint32_t downTime = 10000;
+    // Time for the slats to stack/unstack at the fully closed position. The shade does not
+    // actually travel during this time so it is added to upTime/downTime at the closed end.
+    uint32_t liftTime = 0;
     uint32_t tiltTime = 7000;
     uint16_t stepSize = 100;
     bool save();

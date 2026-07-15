@@ -4387,7 +4387,7 @@ class Somfy {
 
             if (isNew) {
                 Object.assign(shade, {
-                    name: '', shadeType: 4, roomId: 0, downTime: 10000, upTime: 10000,
+                    name: '', shadeType: 4, roomId: 0, downTime: 10000, upTime: 10000, liftTime: 0,
                     tiltTime: 7000, tiltType: 0, flipCommands: 0, flipPosition: 0, paired: 0, sunSensor: 0, simMy: 0, repeats: 0
                 });
             }
@@ -4581,7 +4581,8 @@ class Somfy {
             [isNaN(obj.remoteAddress) || obj.remoteAddress < 1 || obj.remoteAddress > 16777215, 'ERR_REMOTE_ADDRESS_INVALID'],
             [!obj.name || obj.name.length > 20, 'ERR_DEVIVE_NAME_INVALID'],
             [isNaN(obj.upTime) || obj.upTime < 1 || obj.upTime > 180000, 'ERR_UP_TIME_INVALID'],
-            [isNaN(obj.downTime) || obj.downTime < 1 || obj.downTime > 180000, 'ERR_DOWN_TIME_INVALID']
+            [isNaN(obj.downTime) || obj.downTime < 1 || obj.downTime > 180000, 'ERR_DOWN_TIME_INVALID'],
+            [isNaN(obj.liftTime) || obj.liftTime < 0 || obj.liftTime > 60000, 'ERR_LIFT_TIME_INVALID']
         ];
 
         const basicError = checks.find(c => c[0]);
@@ -4764,7 +4765,7 @@ class Somfy {
             get('btnSaveShade').style.display = 'inline-block';
             get('btnLinkRemote').style.display = '';
 
-            const fields = { shadeAddress: 'remoteAddress', shadeName: 'name', shadeUpTime: 'upTime', shadeDownTime: 'downTime' };
+            const fields = { shadeAddress: 'remoteAddress', shadeName: 'name', shadeUpTime: 'upTime', shadeDownTime: 'downTime', shadeLiftTime: 'liftTime' };
             for (const f in fields) document.getElementsByName(f)[0].value = shade[fields[f]];
 
             const svg = get('icoShade');
@@ -4793,7 +4794,7 @@ class Somfy {
             get('btnSaveShade').style.display = 'inline-block';
             get('btnLinkRemote').style.display = '';
 
-            const fields = { shadeAddress: 'remoteAddress', shadeName: 'name', shadeUpTime: 'upTime', shadeDownTime: 'downTime' };
+            const fields = { shadeAddress: 'remoteAddress', shadeName: 'name', shadeUpTime: 'upTime', shadeDownTime: 'downTime', shadeLiftTime: 'liftTime' };
             for (const f in fields) document.getElementsByName(f)[0].value = shade[fields[f]];
 
             const svg = get('icoShade');
