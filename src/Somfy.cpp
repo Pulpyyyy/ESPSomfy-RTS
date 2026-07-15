@@ -1054,16 +1054,76 @@ void SomfyShade::checkMovement() {
   const bool sunFlag = this->flags & static_cast<uint8_t>(somfy_flags_t::SunFlag);
   const bool isSunny = this->flags & static_cast<uint8_t>(somfy_flags_t::Sunny);
   const bool isWindy = this->flags & static_cast<uint8_t>(somfy_flags_t::Windy);
-  // We need to first evaluate the sensor flags as these could be triggering movement from previous sensor inputs. So
-  // we must check this before setting the directional items or it will not get processed until the next loop.
   int32_t downTime = (int32_t)this->downTime;
   int32_t upTime = (int32_t)this->upTime;
   int32_t tiltTime = (int32_t)this->tiltTime;
   if(this->shadeType == shade_types::drycontact || this->shadeType == shade_types::drycontact2) downTime = upTime = tiltTime = 1;
-  
+
+
+  // We need to first evaluate the sensor flags as these could be triggering movement from previous sensor inputs. So
+  // we must check this before setting the directional items or it will not get processed until the next loop.
+  bool sensorRetarget = false;
+  if (sunFlag) {
+    if (isSunny && !isWindy) {  // It is sunny and there is no wind so we should be extended
+      if (this->noWindDone
+          && !this->sunDone
+          && this->sunStart
+          && (curTime - this->sunStart) >= SOMFY_SUN_TIMEOUT)
+      {
+        this->p_target(this->myPos >= 0 ? this->myPos : 100.0f);
+        //this->target = this->myPos >= 0 ? this->myPos : 100.0f;
+        this->sunDone = true;
+        sensorRetarget = true;
+        Serial.printf("[%u] Sun -> done\r\n", this->shadeId);
+      }
+      if (!this->noWindDone
+          && this->noWindStart
+          && (curTime - this->noWindStart) >= SOMFY_NO_WIND_TIMEOUT)
+      {
+        this->p_target(this->myPos >= 0 ? this->myPos : 100.0f);
+        //this->target = this->myPos >= 0 ? this->myPos : 100.0f;
+        this->noWindDone = true;
+        sensorRetarget = true;
+        Serial.printf("[%u] No Wind -> done\r\n", this->shadeId);
+      }
+    }
+    if (!isSunny
+        && !this->noSunDone
+        && this->noSunStart
+        && (curTime - this->noSunStart) >= SOMFY_NO_SUN_TIMEOUT)
+    {
+      if(this->tiltType == tilt_types::tiltonly) this->p_tiltTarget(0.0f);
+      this->p_target(0.0f);
+      this->noSunDone = true;
+      sensorRetarget = true;
+      Serial.printf("[%u] No Sun -> done\r\n", this->shadeId);
+    }
+  }
+
+  if (isWindy
+      && !this->windDone
+      && this->windStart
+      && (curTime - this->windStart) >= SOMFY_WIND_TIMEOUT)
+  {
+    if(this->tiltType == tilt_types::tiltonly) this->p_tiltTarget(0.0f);
+    this->p_target(0.0f);
+    this->windDone = true;
+    sensorRetarget = true;
+    Serial.printf("[%u] Wind -> done\r\n", this->shadeId);
+  }
+  if(sensorRetarget) {
+    // The motor acts on sensor events by itself; re-baseline the movement math so the
+    // position tracks that autonomous travel from where the shade is now. The stale
+    // moveStart/startPos of a previous move would otherwise snap the position straight
+    // to the new target (and abort any pending positioning like a remote command does).
+    this->moveStart = this->tiltStart = curTime;
+    this->startPos = this->currentPos;
+    this->startTiltPos = this->currentTiltPos;
+    this->settingMyPos = this->settingPos = this->settingTiltPos = false;
+  }
 
   // We are checking movement for essentially 3 types of motors.
-  // If this is an integrated tilt we need to first tilt in the direction we are moving then move.  We know 
+  // If this is an integrated tilt we need to first tilt in the direction we are moving then move.  We know
   // what needs to be done by the tilt type.  Set a tilt first flag to indicate whether we should be tilting or
   // moving. If this is only a tilt action then the regular tilt action should operate fine.
   int8_t currDir = this->direction;
@@ -1077,50 +1137,6 @@ void SomfyShade::checkMovement() {
   uint8_t currPos = floor(this->currentPos);
   uint8_t currTiltPos = floor(this->currentTiltPos);
   if(this->direction != 0) this->lastMovement = this->direction;
-  if (sunFlag) {
-    if (isSunny && !isWindy) {  // It is sunny and there is no wind so we should be extended
-      if (this->noWindDone
-          && !this->sunDone
-          && this->sunStart
-          && (curTime - this->sunStart) >= SOMFY_SUN_TIMEOUT)
-      {
-        this->p_target(this->myPos >= 0 ? this->myPos : 100.0f);
-        //this->target = this->myPos >= 0 ? this->myPos : 100.0f;
-        this->sunDone = true;
-        Serial.printf("[%u] Sun -> done\r\n", this->shadeId);
-      }
-      if (!this->noWindDone
-          && this->noWindStart
-          && (curTime - this->noWindStart) >= SOMFY_NO_WIND_TIMEOUT)
-      {
-        this->p_target(this->myPos >= 0 ? this->myPos : 100.0f);
-        //this->target = this->myPos >= 0 ? this->myPos : 100.0f;
-        this->noWindDone = true;
-        Serial.printf("[%u] No Wind -> done\r\n", this->shadeId);
-      }
-    }
-    if (!isSunny
-        && !this->noSunDone
-        && this->noSunStart
-        && (curTime - this->noSunStart) >= SOMFY_NO_SUN_TIMEOUT)
-    {
-      if(this->tiltType == tilt_types::tiltonly) this->p_tiltTarget(0.0f);
-      this->p_target(0.0f);
-      this->noSunDone = true;
-      Serial.printf("[%u] No Sun -> done\r\n", this->shadeId);
-    }
-  }
-
-  if (isWindy
-      && !this->windDone
-      && this->windStart
-      && (curTime - this->windStart) >= SOMFY_WIND_TIMEOUT)
-  {
-    if(this->tiltType == tilt_types::tiltonly) this->p_tiltTarget(0.0f);
-    this->p_target(0.0f);
-    this->windDone = true;
-    Serial.printf("[%u] Wind -> done\r\n", this->shadeId);
-  }
 
   if(!tilt_first && this->direction > 0) {
     if(downTime == 0) {
