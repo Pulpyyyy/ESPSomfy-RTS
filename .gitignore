@@ -8,6 +8,7 @@ extdata/
 
 # --- Dossiers de build et fichiers de sortie ---
 build/
+data/
 .cache/
 *.bin
 *.elf
