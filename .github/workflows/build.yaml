@@ -36,6 +36,17 @@ jobs:
       - name: Install PlatformIO
         run: pip install platformio
 
+      # Sur une release, la version de l'UI est prise du tag (ex: v2.6.0)
+      # pour rester synchrone avec le firmware et l'OTA GitHub.
+      - name: Inject release version into UI
+        if: github.event_name == 'release'
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          echo "${TAG#v}" > data-dev/appversion
+          sed -i "s/appVersion = 'v[0-9][^']*'/appVersion = '${TAG}'/" data-dev/index.js
+          grep -n "appVersion = " data-dev/index.js | head -1
+          cat data-dev/appversion
+
       - name: Build LittleFS image (générique via esp32dev)
         run: pio run -e esp32dev -t buildfs
 
@@ -145,6 +156,15 @@ jobs:
 
       - name: Install PlatformIO and esptool
         run: pip install platformio esptool
+
+      # Sur une release, FW_VERSION est pris du tag pour que le firmware
+      # publié s'identifie correctement (comparaison de versions de l'OTA).
+      - name: Inject release version into firmware
+        if: github.event_name == 'release'
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          sed -i "s/#define FW_VERSION \"[^\"]*\"/#define FW_VERSION \"${TAG}\"/" src/ConfigSettings.h
+          grep -n "FW_VERSION" src/ConfigSettings.h | head -1
 
       - name: Build firmware
         run: pio run -e ${{ matrix.env }}
