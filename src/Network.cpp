@@ -135,7 +135,8 @@ void Network::loop() {
     else if(this->connected() && ctype == conn_types_t::wifi && settings.WIFI.roaming
       && millis() - this->lastRoam > ROAM_MIN_INTERVAL) {
       // Periodically look for a roaming AP, but not while roaming is on cooldown.
-      if(millis() > SSID_SCAN_INTERVAL + this->lastWifiScan) {
+      // Subtractive form: millis() > X + last breaks when X + last wraps past 2^32.
+      if(millis() - this->lastWifiScan > SSID_SCAN_INTERVAL) {
         //Serial.println("Started scan for access points");
         if(!_apScanning && WiFi.scanNetworks(true, false, true, 300, 0, settings.WIFI.ssid) == -1) {
           _apScanning = true;
