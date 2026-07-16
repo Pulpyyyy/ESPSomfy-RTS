@@ -25,6 +25,9 @@ public:
   uint32_t lastWifiScan = 0;
   conn_types_t connType = conn_types_t::unset;
   conn_types_t connTarget = conn_types_t::unset;
+  // Written by networkEvent (WiFi event task), consumed by loop(): setConnected()
+  // emits on the sockets and must never run outside the main loop.
+  volatile conn_types_t connectedPending = conn_types_t::unset;
 
   bool connected();
   bool connecting();
