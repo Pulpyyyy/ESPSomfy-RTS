@@ -288,6 +288,16 @@ void Network::setConnected(conn_types_t connType) {
       sockEmit.endEmit();
     }
   }
+  // Previously done by the ETH_GOT_IP handler on every event (from the network
+  // event task): refresh the stored DHCP lease on reconnects and renewals too,
+  // not just on the first connect handled above.
+  else if(this->connType == conn_types_t::ethernet && settings.IP.dhcp) {
+    settings.IP.ip = ETH.localIP();
+    settings.IP.subnet = ETH.subnetMask();
+    settings.IP.gateway = ETH.gatewayIP();
+    settings.IP.dns1 = ETH.dnsIP(0);
+    settings.IP.dns2 = ETH.dnsIP(1);
+  }
   SSDP.setHTTPPort(80);
   SSDP.setSchemaURL(0, "upnp.xml");
   SSDP.setChipId(0, this->getChipId());
@@ -577,19 +587,13 @@ void Network::networkEvent(WiFiEvent_t event) {
     case ARDUINO_EVENT_ETH_GOT_IP:
       if(WiFi.status() == WL_CONNECTED) WiFi.disconnect(true);
       Serial.print(F("Ethernet IP: "));
-    Serial.println(ETH.localIP());
-    net.connectTime = millis();
-    net.connType = conn_types_t::ethernet;
-    if(settings.IP.dhcp) {
-      settings.IP.ip = ETH.localIP();
-      settings.IP.subnet = ETH.subnetMask();
-      settings.IP.gateway = ETH.gatewayIP();
-      settings.IP.dns1 = ETH.dnsIP(0);
-      settings.IP.dns2 = ETH.dnsIP(1);
-    }
-    net.connType = conn_types_t::ethernet;
-    net.connectedPending = conn_types_t::ethernet;
-    break;
+      Serial.println(ETH.localIP());
+      net.connectTime = millis();
+      net.connType = conn_types_t::ethernet;
+      // The DHCP lease copy into settings.IP happens in setConnected(), which
+      // loop() runs on the main task: no cross-task writes from this handler.
+      net.connectedPending = conn_types_t::ethernet;
+      break;
     case ARDUINO_EVENT_ETH_CONNECTED:    Serial.println(F("Ethernet connected")); break;
     case ARDUINO_EVENT_ETH_DISCONNECTED:
       Serial.println(F("Ethernet disconnected"));
