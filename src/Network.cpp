@@ -79,6 +79,13 @@ void Network::loop() {
   //    b. WiFi: Perform synchronous scan for APs related to the SSID.  If the SSID can be found then perform
   //       the connection process for the WiFi connection.
   //    c. SoftAP: This condition retains the Soft AP because no other connection method is available.
+  // setConnected() (MDNS, SSDP, socket emissions) is deferred here: networkEvent runs
+  // in the WiFi event task and shares the socket buffer with the main loop.
+  if(this->connectedPending != conn_types_t::unset) {
+    conn_types_t pending = this->connectedPending;
+    this->connectedPending = conn_types_t::unset;
+    this->setConnected(pending);
+  }
   conn_types_t ctype = this->preferredConnType();
   this->connect(ctype); // Connection timeout handled in connect function as well as the opening of the Soft AP if needed.
   if(this->connecting()) return; // If we are currently attempting to connect to something then we need to bail here.
@@ -561,7 +568,7 @@ void Network::networkEvent(WiFiEvent_t event) {
       Serial.println(WiFi.localIP());
       net.connType = conn_types_t::wifi;
       net.connectTime = millis();
-      net.setConnected(conn_types_t::wifi);
+      net.connectedPending = conn_types_t::wifi;
       break;
     case ARDUINO_EVENT_WIFI_STA_LOST_IP:        Serial.println(F("WiFi lost IP")); break;
     case ARDUINO_EVENT_ETH_GOT_IP:
@@ -577,7 +584,8 @@ void Network::networkEvent(WiFiEvent_t event) {
       settings.IP.dns1 = ETH.dnsIP(0);
       settings.IP.dns2 = ETH.dnsIP(1);
     }
-    net.setConnected(conn_types_t::ethernet);
+    net.connType = conn_types_t::ethernet;
+    net.connectedPending = conn_types_t::ethernet;
     break;
     case ARDUINO_EVENT_ETH_CONNECTED:    Serial.println(F("Ethernet connected")); break;
     case ARDUINO_EVENT_ETH_DISCONNECTED:
