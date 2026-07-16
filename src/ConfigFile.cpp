@@ -18,14 +18,43 @@ extern Preferences pref;
 extern ConfigSettings settings;
 
 bool ConfigFile::begin(const char* filename, bool readOnly) {
-  this->file = LittleFS.open(filename, readOnly ? "r" : "w");
+  this->readOnly = readOnly;
+  this->_finalName[0] = '\0';
+  if(readOnly) {
+    // If power was lost between remove() and rename() in end(), only the
+    // (complete) .tmp exists: promote it before reading.
+    if(!LittleFS.exists(filename)) {
+      char tmp[sizeof(this->_finalName) + 4];
+      snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
+      if(LittleFS.exists(tmp)) LittleFS.rename(tmp, filename);
+    }
+    this->file = LittleFS.open(filename, "r");
+  }
+  else {
+    // Atomic write: everything goes through a .tmp renamed in end(). A power
+    // loss while writing leaves the previous file untouched.
+    snprintf(this->_finalName, sizeof(this->_finalName), "%s", filename);
+    char tmp[sizeof(this->_finalName) + 4];
+    snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
+    this->file = LittleFS.open(tmp, "w");
+  }
   this->_opened = true;
   return true;
 }
 void ConfigFile::end() {
   if(this->isOpen()) {
-    if(!this->readOnly) this->file.flush();
-    this->file.close();
+    if(!this->readOnly) {
+      this->file.flush();
+      this->file.close();
+      if(this->_finalName[0] != '\0') {
+        char tmp[sizeof(this->_finalName) + 4];
+        snprintf(tmp, sizeof(tmp), "%s.tmp", this->_finalName);
+        if(LittleFS.exists(this->_finalName)) LittleFS.remove(this->_finalName);
+        LittleFS.rename(tmp, this->_finalName);
+        this->_finalName[0] = '\0';
+      }
+    }
+    else this->file.close();
   }
   this->_opened = false;
 }
@@ -1073,4 +1102,9 @@ bool ShadeConfigFile::writeTransRecord(transceiver_config_t &cfg) {
   this->writeInt8(cfg.txPower, CFG_REC_END);
   return true;
 }
-bool ShadeConfigFile::exists() { return LittleFS.exists("/shades.cfg"); }
+bool ShadeConfigFile::exists() {
+  // Promote an orphaned .tmp (power loss between remove and rename in end()) before the check.
+  if(!LittleFS.exists("/shades.cfg") && LittleFS.exists("/shades.cfg.tmp"))
+    LittleFS.rename("/shades.cfg.tmp", "/shades.cfg");
+  return LittleFS.exists("/shades.cfg");
+}
