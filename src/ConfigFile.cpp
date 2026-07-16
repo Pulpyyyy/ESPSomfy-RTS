@@ -38,6 +38,14 @@ bool ConfigFile::begin(const char* filename, bool readOnly) {
     snprintf(tmp, sizeof(tmp), "%s.tmp", filename);
     this->file = LittleFS.open(tmp, "w");
   }
+  // A failed open (missing file, corrupted or full filesystem) used to be
+  // reported as success, so a save could silently write nothing.
+  if(!this->file) {
+    Serial.printf("Failed to open %s (%s)\n", filename, readOnly ? "r" : "w");
+    this->_finalName[0] = '\0';
+    this->_opened = false;
+    return false;
+  }
   this->_opened = true;
   return true;
 }
@@ -545,7 +553,7 @@ bool ShadeConfigFile::restoreFile(SomfyShadeController *s, const char *filename,
   bool opened = false;
   if(!this->isOpen()) {
     Serial.println("Opening shade restore file");
-    this->begin(filename, true);
+    if(!this->begin(filename, true)) return false;
     opened = true;
   }
   if(!this->validate()) {
@@ -921,7 +929,7 @@ bool ShadeConfigFile::loadFile(SomfyShadeController *s, const char *filename) {
   bool opened = false;
   if(!this->isOpen()) {
     Serial.println("Opening shade config file");
-    this->begin(filename, true);
+    if(!this->begin(filename, true)) return false;
     opened = true;
   }
   if(!this->validate()) {
