@@ -10,6 +10,7 @@
 #include "Somfy.h"
 #include "MQTT.h"
 #include "GitOTA.h"
+#include "Rollback.h"
 #include "Recovery.h"
 
 ConfigSettings settings;
@@ -30,6 +31,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
   Serial.println("Startup/Boot....");
+  OTARollback::checkBoot();
   handlePowerCycleReset();
   Serial.println("Mounting File System...");
   if(LittleFS.begin()) Serial.println("File system mounted successfully");
@@ -53,6 +55,9 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   //uint32_t heap = ESP.getFreeHeap();
+  // One minute of loop without crash or watchdog reset = firmware is valid, cancel rollback.
+  static bool fwValidated = false;
+  if(!fwValidated && millis() > 60000) { OTARollback::markValid(); fwValidated = true; }
   if(rebootDelay.reboot && millis() > rebootDelay.rebootTime) {
     Serial.print("Rebooting after ");
     Serial.print(rebootDelay.rebootTime);

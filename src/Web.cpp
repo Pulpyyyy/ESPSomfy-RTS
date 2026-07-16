@@ -13,6 +13,7 @@
 #include "Web.h"
 #include "MQTT.h"
 #include "GitOTA.h"
+#include "Rollback.h"
 #include "Network.h"
 
 extern ConfigSettings settings;
@@ -2161,6 +2162,7 @@ void Web::begin() {
         if (Update.end(true)) { //true to set the size to the current progress
           Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
           webServer.uploadSuccess = true;
+          OTARollback::markPending(); // The application partition has been flashed.
         }
         else {
           Update.printError(Serial);
