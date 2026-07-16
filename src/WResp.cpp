@@ -9,8 +9,14 @@ void JsonSockEvent::beginEvent(WebSocketsServer *server, const char *evt, char *
 }
 void JsonSockEvent::closeEvent() {
   if(!this->_closed) {
-    if(strlen(this->buff) < buffSize) strcat(this->buff, "]");
-    else this->buff[buffSize - 1] = ']';
+    // strlen == buffSize - 1 means the buffer is exactly full: strcat would put
+    // the terminator one byte past the end. Overwrite the last character with
+    // the closing bracket instead so the string stays in bounds and terminated.
+    if(strlen(this->buff) < this->buffSize - 1) strcat(this->buff, "]");
+    else {
+      this->buff[this->buffSize - 2] = ']';
+      this->buff[this->buffSize - 1] = '\0';
+    }
   }
   this->_nocomma = true;
   this->_closed = true;
