@@ -7,6 +7,7 @@
 #include "ConfigSettings.h"
 #include "GitOTA.h"
 #include "GitCerts.h"
+#include "Rollback.h"
 #include "Utils.h"
 #include "Sockets.h"
 #include "Somfy.h"
@@ -469,6 +470,7 @@ bool GitUpdater::beginUpdate(const char *version) {
       somfy.commit();
     }
 
+    OTARollback::markPending(); // The application partition has been flashed.
     rebootDelay.reboot = true;
     rebootDelay.rebootTime = millis() + 500;
   }
