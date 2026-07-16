@@ -24,3 +24,6 @@ debug_custom.json
 esp32.svd
 debug.cfg
 
+
+# PlatformIO ino->cpp conversion artifact (regenerated at each build)
+src/*.ino.cpp
