@@ -20,7 +20,9 @@
 #define SSDP_MULTICAST_TTL          2
 #define SSDP_HTTP_PORT              80
 #define SSDP_CHILD_DEVICES          0
-#define SSDP_QUEUE_SIZE             5
+// 5 slots dropped discovery replies when several clients (HA, phones, TVs,
+// voice assistants) sent M-SEARCH at the same time; ~90 bytes per slot.
+#define SSDP_QUEUE_SIZE             20
 
 //#define DEBUG_SSDP Serial
 //#define DEBUG_SSDP_PACKET Serial
