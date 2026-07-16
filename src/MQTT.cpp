@@ -69,31 +69,37 @@ void MQTTClass::receive(const char *topic, byte* payload, uint32_t length) {
   size_t vlen = (length < sizeof(value) - 1) ? length : sizeof(value) - 1;
   memcpy(value, payload, vlen);
   value[vlen] = '\0';
-  int val = atoi(value);
+  // atoi() would silently turn a non-numeric payload into 0 (= fully open for a
+  // target command): ignore any payload that is not strictly an integer.
+  char *endp;
+  long lval = strtol(value, &endp, 10);
+  while(*endp == ' ' || *endp == '\t' || *endp == '\r' || *endp == '\n') endp++;
+  if(endp == value || *endp != '\0') return;
+  int val = (int)constrain(lval, -1000L, 1000L);
 
   if(strcmp(entityType, "shades") == 0) {
     SomfyShade* shade = somfy.getShadeById(atoi(entityId));
     if (shade) {
-      if(strcmp(command, "target") == 0) shade->moveToTarget(shade->transformPosition(val));
-      else if(strcmp(command, "tiltTarget") == 0) shade->moveToTiltTarget(val);
+      if(strcmp(command, "target") == 0) shade->moveToTarget(shade->transformPosition(constrain(val, 0, 100)));
+      else if(strcmp(command, "tiltTarget") == 0) shade->moveToTiltTarget(constrain(val, 0, 100));
       else if(strcmp(command, "direction") == 0) {
         if(val < 0) shade->sendCommand(somfy_commands::Up);
         else if(val > 0) shade->sendCommand(somfy_commands::Down);
         else shade->sendCommand(somfy_commands::My);
       }
-      else if(strcmp(command, "mypos") == 0) shade->setMyPosition(val);
-      else if(strcmp(command, "myTiltPos") == 0) shade->setMyPosition(shade->myPos, val);
+      else if(strcmp(command, "mypos") == 0) shade->setMyPosition(constrain(val, -1, 100));
+      else if(strcmp(command, "myTiltPos") == 0) shade->setMyPosition(shade->myPos, constrain(val, -1, 100));
       else if(strcmp(command, "sunFlag") == 0) shade->sendCommand(val > 0 ? somfy_commands::SunFlag : somfy_commands::Flag);
       else if(strcmp(command, "position") == 0) {
-        shade->target = shade->currentPos = shade->transformPosition((float)val);
+        shade->target = shade->currentPos = shade->transformPosition((float)constrain(val, 0, 100));
         shade->emitState();
       }
       else if(strcmp(command, "tiltPosition") == 0) {
-        shade->tiltTarget = shade->currentTiltPos = (float)val;
+        shade->tiltTarget = shade->currentTiltPos = (float)constrain(val, 0, 100);
         shade->emitState();
       }
-      else if(strcmp(command, "sunny") == 0) shade->sendSensorCommand(-1, val, shade->repeats);
-      else if(strcmp(command, "windy") == 0) shade->sendSensorCommand(val, -1, shade->repeats);
+      else if(strcmp(command, "sunny") == 0) shade->sendSensorCommand(-1, constrain(val, 0, 1), shade->repeats);
+      else if(strcmp(command, "windy") == 0) shade->sendSensorCommand(constrain(val, 0, 1), -1, shade->repeats);
     }
   }
   else if(strcmp(entityType, "groups") == 0) {
@@ -105,8 +111,8 @@ void MQTTClass::receive(const char *topic, byte* payload, uint32_t length) {
         else group->sendCommand(somfy_commands::My);
       }
       else if(strcmp(command, "sunFlag") == 0) group->sendCommand(val > 0 ? somfy_commands::Flag : somfy_commands::SunFlag);
-      else if(strcmp(command, "sunny") == 0) group->sendSensorCommand(-1, val, group->repeats);
-      else if(strcmp(command, "windy") == 0) group->sendSensorCommand(val, -1, group->repeats);
+      else if(strcmp(command, "sunny") == 0) group->sendSensorCommand(-1, constrain(val, 0, 1), group->repeats);
+      else if(strcmp(command, "windy") == 0) group->sendSensorCommand(constrain(val, 0, 1), -1, group->repeats);
     }
   }
   esp_task_wdt_reset();
