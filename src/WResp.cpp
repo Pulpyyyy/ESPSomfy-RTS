@@ -53,10 +53,15 @@ void JsonResponse::send() {
   this->_headersSent = true;
 }
 void JsonResponse::_safecat(const char *val, bool escape) {
-  size_t len = (escape ? this->calcEscapedLength(val) : strlen(val)) + strlen(this->buff);
-  if(escape) len += 2;
-  if(len >= this->buffSize) {
+  size_t vlen = (escape ? this->calcEscapedLength(val) : strlen(val)) + (escape ? 2 : 0);
+  if(vlen + strlen(this->buff) >= this->buffSize) {
     this->send();
+    // A value larger than the whole buffer cannot be sent even after the
+    // flush: drop it instead of overflowing the buffer.
+    if(vlen >= this->buffSize) {
+      Serial.printf("JSON value exceeds response buffer %d - %d\n", this->buffSize, vlen);
+      return;
+    }
   }
   if(escape) strcat(this->buff, "\"");
   if(escape) this->escapeString(val, &this->buff[strlen(this->buff)]);
@@ -147,9 +152,12 @@ void JsonFormatter::_safecat(const char *val, bool escape) {
 }
 void JsonFormatter::_appendNumber(const char *name) { this->appendElem(name); this->_safecat(this->_numbuff); } 
 uint32_t JsonFormatter::calcEscapedLength(const char *raw) {
+  // The previous loop ran from strlen(raw) down to 1: it counted the '\0' and
+  // skipped raw[0], under-counting by one byte when the first character needed
+  // escaping, which let _safecat overflow the buffer by one byte.
   uint32_t len = 0;
   for(size_t i = strlen(raw); i > 0; i--) {
-    switch(raw[i]) {
+    switch(raw[i - 1]) {
       case '"':
       case '/':
       case '\b':
@@ -168,37 +176,22 @@ uint32_t JsonFormatter::calcEscapedLength(const char *raw) {
   return len;
 }
 void JsonFormatter::escapeString(const char *raw, char *escaped) {
-  for(uint32_t i = 0; i < strlen(raw); i++) {
-    switch(raw[i]) {
-      case '"':
-        strcat(escaped, "\\\"");
-        break;
-      case '/':
-        strcat(escaped, "\\/");
-        break;
-      case '\b':
-        strcat(escaped, "\\b");
-        break;
-      case '\f':
-        strcat(escaped, "\\f");
-        break;
-      case '\n':
-        strcat(escaped, "\\n");
-        break;
-      case '\r':
-        strcat(escaped, "\\r");
-        break;
-      case '\t':
-        strcat(escaped, "\\t");
-        break;
-      case '\\':
-        strcat(escaped, "\\\\");
-        break;
-      default:
-        size_t len = strlen(escaped);
-        escaped[len] = raw[i];
-        escaped[len+1] = 0x00;
-        break;
+  // Direct pointer writes: the previous strcat-per-character version rescanned
+  // the whole output on every character, making escaping O(n^2). Bounds are
+  // guaranteed by the callers, which check calcEscapedLength() first.
+  char *p = escaped;
+  for(const char *s = raw; *s; s++) {
+    switch(*s) {
+      case '"':  *p++ = '\\'; *p++ = '"';  break;
+      case '/':  *p++ = '\\'; *p++ = '/';  break;
+      case '\b': *p++ = '\\'; *p++ = 'b';  break;
+      case '\f': *p++ = '\\'; *p++ = 'f';  break;
+      case '\n': *p++ = '\\'; *p++ = 'n';  break;
+      case '\r': *p++ = '\\'; *p++ = 'r';  break;
+      case '\t': *p++ = '\\'; *p++ = 't';  break;
+      case '\\': *p++ = '\\'; *p++ = '\\'; break;
+      default:   *p++ = *s;                break;
     }
   }
+  *p = '\0';
 }
