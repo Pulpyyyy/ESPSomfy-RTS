@@ -5,6 +5,11 @@
 
 #define CONNECT_TIMEOUT 20000
 #define SSID_SCAN_INTERVAL 30000
+// Roaming hysteresis: a candidate AP must be at least this much stronger (dB),
+// and two roams must be separated by ROAM_MIN_INTERVAL, to avoid AP ping-pong
+// on mesh networks whose RSSI oscillates a few dB around the threshold.
+#define ROAM_HYSTERESIS_DB 15
+#define ROAM_MIN_INTERVAL 600000UL
 
 class Network {
 protected:
@@ -23,6 +28,7 @@ public:
   bool needsBroadcast = true;
 
   uint32_t lastWifiScan = 0;
+  uint32_t lastRoam = 0;
   conn_types_t connType = conn_types_t::unset;
   conn_types_t connTarget = conn_types_t::unset;
   // Written by networkEvent (WiFi event task), consumed by loop(): setConnected()

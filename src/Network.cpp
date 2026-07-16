@@ -109,7 +109,7 @@ void Network::loop() {
               Serial.printf("Connecting to AP %02X:%02X:%02X:%02X:%02X:%02X CH: %d\n", bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5], channel);
               this->connectWiFi(bssid, channel);
             }
-            else {
+            else if(millis() - this->lastRoam > ROAM_MIN_INTERVAL) {
               Serial.printf("Found stronger AP %02X:%02X:%02X:%02X:%02X:%02X CH: %d\n", bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5], channel);
               this->changeAP(bssid, channel);
             }
@@ -132,8 +132,9 @@ void Network::loop() {
         }
       }
     }
-    else if(this->connected() && ctype == conn_types_t::wifi && settings.WIFI.roaming) {
-      // Periodically look for a roaming AP.
+    else if(this->connected() && ctype == conn_types_t::wifi && settings.WIFI.roaming
+      && millis() - this->lastRoam > ROAM_MIN_INTERVAL) {
+      // Periodically look for a roaming AP, but not while roaming is on cooldown.
       if(millis() > SSID_SCAN_INTERVAL + this->lastWifiScan) {
         //Serial.println("Started scan for access points");
         if(!_apScanning && WiFi.scanNetworks(true, false, true, 300, 0, settings.WIFI.ssid) == -1) {
@@ -163,6 +164,7 @@ void Network::loop() {
 }
 bool Network::changeAP(const uint8_t *bssid, const int32_t channel) {
   esp_task_wdt_reset(); // Make sure we do not reboot here.
+  this->lastRoam = millis();
   if(SSDP.isStarted) SSDP.end();
   mqtt.disconnect();
   //sockEmit.end();
@@ -499,8 +501,8 @@ uint32_t Network::getChipId() {
   return chipId;
 }
 bool Network::getStrongestAP(const char *ssid, uint8_t *bssid, int32_t *channel) {
-  // The new AP must be at least 10dbm greater.
-  int32_t strength = this->connected() ? WiFi.RSSI() + 10 : -127;
+  // The new AP must be at least ROAM_HYSTERESIS_DB stronger than the current one.
+  int32_t strength = this->connected() ? WiFi.RSSI() + ROAM_HYSTERESIS_DB : -127;
   int32_t chan = -1;
   memset(bssid, 0x00, 6);
   esp_task_wdt_delete(NULL);
