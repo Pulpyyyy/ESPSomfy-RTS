@@ -3,8 +3,10 @@
 #include <Update.h>
 #include <HTTPClient.h>
 #include <esp_task_wdt.h>
+#include <time.h>
 #include "ConfigSettings.h"
 #include "GitOTA.h"
+#include "GitCerts.h"
 #include "Utils.h"
 #include "Sockets.h"
 #include "Somfy.h"
@@ -20,6 +22,9 @@ extern rebootDelay_t rebootDelay;
 extern Web webServer;
 extern Network net;
 
+// Certificate validation requires a correct clock: before NTP sync the ESP32
+// starts in 1970 and every legitimate TLS handshake would wrongly fail.
+static bool _clockIsSet() { return time(nullptr) > 1750000000; } // 2025-06-15
 
 #define MAX_BUFF_SIZE 4096
 void GitRelease::setReleaseProperty(const char *key, const char *val) {
@@ -95,9 +100,10 @@ void GitRelease::toJSON(JsonResponse &json) {
 #define ERR_CLIENT_OFFSET -50
 
 int16_t GitRepo::getReleases(uint8_t num) {
+  if(!_clockIsSet()) return ERR_CLIENT_OFFSET;
   WiFiClientSecure sclient;
-  sclient.setInsecure();
-  sclient.setHandshakeTimeout(3);
+  sclient.setCACert(GITHUB_ROOT_CAS);
+  sclient.setHandshakeTimeout(10); // Chain verification makes the handshake longer.
   uint8_t ndx = 0;
   uint8_t count = min((uint8_t)GIT_MAX_RELEASES, num);
   char url[128];
@@ -348,9 +354,14 @@ void GitUpdater::emitUpdateCheck(uint8_t num) {
 int GitUpdater::checkInternet() {
   int err = 500;
   uint32_t t = millis();
+  if(!_clockIsSet()) {
+    Serial.println("Update check skipped: clock not synced yet (TLS validation needs the time)");
+    this->inetAvailable = false;
+    return err;
+  }
   WiFiClientSecure sclient;
-  sclient.setInsecure();
-  sclient.setHandshakeTimeout(3);
+  sclient.setCACert(GITHUB_ROOT_CAS);
+  sclient.setHandshakeTimeout(10); // Chain verification makes the handshake longer.
   esp_task_wdt_reset();
   HTTPClient https;
   https.setReuse(false);
@@ -487,8 +498,10 @@ bool GitUpdater::recoverFilesystem() {
 bool GitUpdater::endUpdate() { return true; }
 int8_t GitUpdater::downloadFile() {
   Serial.printf("Begin update %s\n", this->currentFile);
+  if(!_clockIsSet()) return -44;
   WiFiClientSecure sclient;
-  sclient.setInsecure();
+  sclient.setCACert(GITHUB_ROOT_CAS);
+  sclient.setHandshakeTimeout(10); // Chain verification makes the handshake longer.
   HTTPClient https;
   char url[196];
   sprintf(url, "%s%s", this->baseUrl, this->currentFile);
