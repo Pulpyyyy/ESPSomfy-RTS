@@ -524,8 +524,10 @@ int8_t GitUpdater::downloadFile() {
           https.end();
           return -(Update.getError() + UPDATE_ERR_OFFSET);
         }
-        uint8_t *buff = (uint8_t *)malloc(MAX_BUFF_SIZE);
-        if(buff) {
+        // Static buffer: a malloc/free per downloaded file fragmented the heap
+        // over successive OTA updates, alongside the TLS session allocations.
+        static uint8_t buff[MAX_BUFF_SIZE];
+        {
           this->emitDownloadProgress(len, total);
           int timeouts = 0;
           while(https.connected() && (len > 0 || len == -1) && total < len) {
@@ -535,7 +537,6 @@ int8_t GitUpdater::downloadFile() {
               timeouts = 0;
               if(this->cancelled && !this->lockFS) {
                 Update.abort();
-                free(buff);
                 https.end();
                 return -(Update.getError() + UPDATE_ERR_OFFSET);
               }
@@ -545,7 +546,6 @@ int8_t GitUpdater::downloadFile() {
               if (Update.write(buff, c) != c) {
                 Update.printError(Serial);
                 Serial.printf("Upload of %s aborted invalid size %d\n", url, c);
-                free(buff);
                 https.end();
                 sclient.stop();
                 return -(Update.getError() + UPDATE_ERR_OFFSET);
@@ -575,7 +575,6 @@ int8_t GitUpdater::downloadFile() {
               if(timeouts >= 500) {
                 Update.abort();
                 https.end();
-                free(buff);
                 Serial.println("Stream timeout!!!");
                 return -43;
               }
@@ -584,7 +583,6 @@ int8_t GitUpdater::downloadFile() {
               delay(100);
             }
           }
-          free(buff);
           if(len > total) {
             Update.abort();
             somfy.commit();
@@ -593,10 +591,6 @@ int8_t GitUpdater::downloadFile() {
           }
           else
             Serial.printf("Update %s complete\n", this->currentFile);
-        }
-        else {
-          // TODO: memory allocation error.
-          Serial.println("Unable to allocate memory for update!!!");
         }
       }
       else {
