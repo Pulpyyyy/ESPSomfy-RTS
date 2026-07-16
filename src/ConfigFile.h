@@ -35,6 +35,7 @@ class ConfigFile {
     bool begin(const char *filename, bool readOnly = false);
     uint32_t startRecPos = 0;
     bool _opened = false;
+    char _finalName[48] = ""; // Final name of the file being written (atomic write via .tmp)
   public:
     config_header_t header;
     void end();
