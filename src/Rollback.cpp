@@ -42,7 +42,10 @@ void OTARollback::checkBoot() {
 void OTARollback::markValid() {
   Preferences p;
   p.begin("fw_rb", false);
-  if(p.getUChar("pending", 0)) {
+  // boots == 0 means the marker was set in the current session (right after
+  // flashing, before the post-OTA reboot): that firmware has not booted yet
+  // and must not be validated. Only clear once the new image has booted.
+  if(p.getUChar("pending", 0) && p.getUChar("boots", 0) > 0) {
     p.putUChar("pending", 0);
     p.putUChar("boots", 0);
     Serial.println("[OTA] Firmware validated");

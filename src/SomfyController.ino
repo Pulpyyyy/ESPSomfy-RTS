@@ -62,6 +62,10 @@ void loop() {
     Serial.print("Rebooting after ");
     Serial.print(rebootDelay.rebootTime);
     Serial.println("ms");
+    // A user-requested reboot proves the running firmware works: validate it so
+    // quick successive reboots do not trip the OTA rollback. markValid() keeps
+    // a marker set in this session (post-flash, pre-reboot) pending.
+    OTARollback::markValid();
     net.end();
     ESP.restart();
     return;
@@ -92,6 +96,7 @@ void loop() {
     timing = millis();
   }
   if(rebootDelay.reboot && millis() > rebootDelay.rebootTime) {
+    OTARollback::markValid();
     net.end();
     ESP.restart();
   }
