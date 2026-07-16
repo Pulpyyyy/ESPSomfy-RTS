@@ -105,7 +105,11 @@ void performFactoryReset() {
   somfy.end();
   nvs_flash_erase();
   nvs_flash_init();
-  const char* targets[] = {"/shades.cfg", "/shades.cfg.bak", "/controller.backup"};
+  // The .tmp twins must go too: ShadeConfigFile::exists() and ConfigFile::begin()
+  // promote an orphaned .tmp, which would resurrect the erased config after the
+  // factory reset. /shades.tmp is the web upload staging file.
+  const char* targets[] = {"/shades.cfg", "/shades.cfg.tmp", "/shades.cfg.bak",
+                           "/controller.backup", "/controller.backup.tmp", "/shades.tmp"};
   for (const char* t : targets) {
     if (LittleFS.exists(t)) LittleFS.remove(t);
   }
