@@ -623,7 +623,11 @@ void SomfyShadeController::commit() {
   if(git.lockFS) return;
   esp_task_wdt_reset(); // Make sure we don't reset inadvertently.
   ShadeConfigFile file;
-  file.begin();
+  if(!file.begin()) {
+    // Keep isDirty so a later commit retries instead of dropping the changes.
+    Serial.println("Cannot open shades.cfg for writing: config NOT saved!");
+    return;
+  }
   file.save(this);
   file.end();
   this->isDirty = false;
@@ -633,7 +637,10 @@ void SomfyShadeController::writeBackup() {
   if(git.lockFS) return;
   esp_task_wdt_reset(); // Make sure we don't reset inadvertently.
   ShadeConfigFile file;
-  file.begin("/controller.backup", false);
+  if(!file.begin("/controller.backup", false)) {
+    Serial.println("Cannot open controller.backup for writing: backup NOT saved!");
+    return;
+  }
   file.backup(this);
   file.end();
 }
