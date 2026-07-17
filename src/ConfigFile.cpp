@@ -7,9 +7,9 @@
 
 extern Preferences pref;
 
-#define SHADE_HDR_VER 26
+#define SHADE_HDR_VER 27
 #define SHADE_HDR_SIZE 76
-#define SHADE_REC_SIZE 287
+#define SHADE_REC_SIZE 299
 #define GROUP_REC_SIZE 200
 #define TRANS_REC_SIZE 78
 #define ROOM_REC_SIZE 29
@@ -919,6 +919,10 @@ bool ShadeConfigFile::readShadeRecord(SomfyShade *shade) {
   // Reset to 0 for older backups so restoring one rolls the setting back too.
   if(this->header.version > 25) shade->liftTime = this->readUInt32(0);
   else shade->liftTime = 0;
+  // curveGain added in v27; a v26 file (or older) defaults to 0 = linear, so no
+  // existing shade changes behaviour after the upgrade.
+  if(this->header.version > 26) shade->curveGain = this->readFloat(0.0f);
+  else shade->curveGain = 0.0f;
   if(this->file.position() != startPos + this->header.shadeRecordSize) {
     Serial.println("Reading to end of shade record");
     this->seekChar(CFG_REC_END);
@@ -1056,7 +1060,8 @@ bool ShadeConfigFile::writeShadeRecord(SomfyShade *shade) {
   this->writeUInt8(shade->gpioMy);
   this->writeUInt8(shade->gpioFlags);
   this->writeUInt8(shade->roomId);
-  this->writeUInt32(shade->liftTime, CFG_REC_END);
+  this->writeUInt32(shade->liftTime);
+  this->writeFloat(shade->curveGain, 4, CFG_REC_END);
   return true;
 }
 bool ShadeConfigFile::writeSettingsRecord() {

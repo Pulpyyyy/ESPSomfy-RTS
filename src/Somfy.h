@@ -322,11 +322,18 @@ class SomfyShade : public SomfyRemote {
     // actually travel during this time so it is added to upTime/downTime at the closed end.
     uint32_t liftTime = 0;
     uint32_t tiltTime = 7000;
+    // Winding non-linearity correction (0 = linear/off). The roller changes diameter as the
+    // curtain winds, so the visible position is not linear in travel time. curveForward maps
+    // the time-linear internal position to the visible position; curveInverse does the reverse.
+    // Kept internal to the timing engine so all stored positions stay in visible units.
+    float curveGain = 0.0f;
     uint16_t stepSize = 100;
     bool save();
     bool isIdle();
     bool isInGroup();
     uint32_t effectiveLiftTime();
+    float curveForward(float pos);  // time-linear internal % -> visible %
+    float curveInverse(float pos);  // visible % -> time-linear internal %
     float stepUpTarget(uint32_t msStep);
     float stepDownTarget(uint32_t msStep);
     void checkMovement();
