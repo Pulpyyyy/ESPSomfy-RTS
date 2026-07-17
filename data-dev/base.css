@@ -491,8 +491,9 @@ select:focus,
 input[type=password]:focus,
 input[type=number]:focus,
 input[type=text]:focus {
-    border-color: #4C669F;
-    outline: 0;
+    border-color: var(--accent-color);
+    outline: 2px solid color-mix(in srgb, var(--accent-color) 30%, transparent);
+    outline-offset: 0;
 }
 input[type="checkbox"] {
     width: 45px;
