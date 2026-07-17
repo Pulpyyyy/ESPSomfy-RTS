@@ -2093,7 +2093,7 @@ class General {
         <div class="overlay-scroll-content">
         ${overlayHeader('Configuration Boîtier', 'Assistant de configuration automatique pour votre boitier', 'svg-leboncoin')}
         <div>
-        <div class="warning"><svg><use href=#svg-warning></use></svg><div><span>Cet assistant est uniquement réservé aux personnes ayant acheté l'un de <a href="https://github.com/xkain/ESPSomfy-RTS/releases" target="_blank" class="link">mes boîtiers</a> sur Leboncoin, si ce n'est pas votre cas fermez cette page</span></div></div>
+        <div class="warning"><svg><use href=#svg-warning></use></svg><div><span>Cet assistant est uniquement réservé aux personnes ayant acheté l'un de mes boîtiers sur Leboncoin, si ce n'est pas votre cas fermez cette page</span></div></div>
         <div class="divInfoLine"><div class="InfoLine"><p>Par défaut, le firmware adopte des réglages universels et sécurisés. Cet assistant applique les paramètres régionaux et injecte la configuration matérielle de votre modèle.</p></div>
         <p class="uppercaseText">1. Sélectionnez votre boîtier :</p>
         <div class="button-container-row lbc-cards-container lbc-responsive-container">
