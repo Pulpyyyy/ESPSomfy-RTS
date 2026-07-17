@@ -210,6 +210,7 @@
     "SHADE_UP_TIME": "Tiempo de subida (ms)",
     "SHADE_DOWN_TIME": "Tiempo de bajada (ms)",
     "SHADE_LIFT_TIME": "Tiempo de despegue de lamas (ms)",
+    "SHADE_CURVE_GAIN": "Corrección de enrollamiento",
     "SHADE_TILT_TYPE": "Tipo de inclinación",
     "SHADE_OPT_TILT_MOTOR": "Motor de inclinación",
     "SHADE_OPT_INTEGRATED": "Integrado",
