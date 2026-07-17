@@ -995,7 +995,7 @@ async function calWizNext() {
     const s = w.plan[w.i];
     const startClosed = s.dir === 'down' ? 0 : 100;
     w.phase = 'returning';
-    calWizText('Remise en position de départ (' + (startClosed === 0 ? 'ouvert' : 'fermé') + ')…', '');
+    calWizText('Remise en position de départ (' + (startClosed === 0 ? 'ouvert' : 'fermé') + ')…', w.lastResult || '');
     calWizButtons([]);
     await calWizGoto(startClosed);
     if (!_calWiz) return;
@@ -1022,8 +1022,10 @@ function calWizOnCommand(msg) {
     } else if (w.phase === 'await_stop' && (cmd === 'my' || cmd === 'stop')) {
         const dt = Date.now() - w.t0;
         w.res[s.key] = dt; w.phase = 'done'; w.i++;
-        calWizText('Mesuré : ' + dt + ' ms.', '');
-        setTimeout(calWizNext, 400);
+        const labels = { down: 'Temps descente', up: 'Temps montée', c50: 'Point milieu (50%)', c25: 'Point 25%', c75: 'Point 75%', lift: 'Seuil / lames' };
+        w.lastResult = '✔ ' + (labels[s.key] || s.key) + ' : ' + dt + ' ms';
+        calWizText(w.lastResult, '');
+        setTimeout(calWizNext, 700);
     }
 }
 // Drive to a closed% and wait until it stops (internal command -> ignored by the listener).
