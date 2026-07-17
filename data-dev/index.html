@@ -1068,6 +1068,15 @@
                                             <label class="label" for="fldShadeCurveGain" tr="SHADE_CURVE_GAIN"></label>
                                             <input id="fldShadeCurveGain" class="inputAndSelect" name="shadeCurveGain" type="number" data-bind="curveGain" data-datatype="float" min="0" max="0.95" step="0.01" placeholder="0.00 - 0.95"/>
                                         </div>
+                                        <hr>
+                                        <div class="divButton">
+                                            <button id="btnCalibrateShade" class="buttonUpdate" type="button" onclick="startShadeCalibration();">
+                                                <div class="devButtonUpdate">
+                                                    <div tr="SHADE_CALIBRATE"></div>
+                                                    <div class="uniStatus" tr="SHADE_CALIBRATE_DESC"></div>
+                                                </div>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div id="divTiltSettings" style="display:none;">

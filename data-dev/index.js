@@ -932,6 +932,104 @@ function shOverlay(div, onClose) {
     get('divContainer').appendChild(div);
     window.scrollTo(0, 0);
 }
+// --- Calibration wizard (v1) -------------------------------------------------
+// 100% UI: drives the shade via /shadeCommand, times the user's taps locally,
+// computes downTime/upTime/curveGain and writes them into the shade form fields.
+// Guided single-button flow: each tap records a timestamp and advances.
+function startShadeCalibration() {
+    const g = get;
+    const sh = ui.fromElement(g('somfyShade'));
+    const sId = parseInt(g('spanShadeId').innerText, 10);
+    if (isNaN(sId) || sId >= 255) { ui.errorMessage(tr('ERR_CAL_SAVE_FIRST')); return; }
+    if (sh.paired === false) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
+
+    const cmd = (command) => putJSON('/shadeCommand', { shadeId: sId, command: command }, () => {});
+    const marks = {};
+    let idx = 0;
+
+    // Each step: instruction text, button label, and an action run on click.
+    const steps = [
+        { t: "Assure-toi que le volet est OUVERT à fond, puis continue.", b: "Le volet est ouvert →", run: () => {} },
+        { t: "Le volet va DESCENDRE. Prépare-toi à cliquer dès qu'il bouge.", b: "Démarrer la descente ▼", run: () => cmd('Down') },
+        { t: "Clique à l'instant où le tablier COMMENCE à bouger.", b: "▶ Ça bouge !", run: () => marks.t0d = Date.now() },
+        { t: "Clique quand le bas du tablier est au MILIEU de la fenêtre.", b: "◑ Milieu de la fenêtre", run: () => marks.tMid = Date.now() },
+        { t: "Clique quand le tablier atteint le SEUIL (tout en bas).", b: "■ Seuil atteint", run: () => marks.tEndd = Date.now() },
+        { t: "Bien ! Maintenant le volet va REMONTER. Prépare-toi.", b: "Démarrer la montée ▲", run: () => cmd('Up') },
+        { t: "Clique dès que le tablier COMMENCE à bouger.", b: "▶ Ça bouge !", run: () => marks.t0u = Date.now() },
+        { t: "Clique quand le volet est TOUT EN HAUT (ouvert à fond).", b: "■ Tout en haut", run: () => { marks.tEndu = Date.now(); calWizardCompute(marks); } }
+    ];
+
+    const div = document.createElement('div');
+    div.className = 'inst-overlay';
+    div.id = 'divCalWizard';
+    div.innerHTML = `
+    <div class="instructions-content">
+      <div class="overlay-scroll-content">
+        ${overlayHeader('Calibration automatique', 'Mesure des temps de course et de la non-linéarité', 'svg-simpleShutter')}
+        <div class="unibloc">
+          <p id="calWizText" style="min-height:3em;font-size:1.05em;"></p>
+          <div class="warning" id="calWizWarn" style="display:none;"><svg><use href=#svg-warning></use></svg><div><span>Ne quitte pas des yeux le volet : le minutage dépend de tes clics.</span></div></div>
+          <div id="calWizResult"></div>
+        </div>
+        <div class="button-container-row">
+          <div class="divButton"><button id="calWizBtn" class="buttonUpdate" type="button"><div class="devButtonUpdate"><div id="calWizBtnLbl"></div></div></button></div>
+        </div>
+      </div>
+    </div>`;
+
+    const render = () => {
+        g('calWizText').innerText = steps[idx].t;
+        g('calWizBtnLbl').innerText = steps[idx].b;
+        g('calWizWarn').style.display = idx >= 1 ? '' : 'none';
+    };
+    g('calWizBtn') || 0;
+    shOverlay(div);
+    // Wire the single action button.
+    div.querySelector('#calWizBtn').onclick = () => {
+        steps[idx].run();
+        if (idx < steps.length - 1) { idx++; render(); }
+    };
+    render();
+}
+// Compute times + curveGain from the recorded marks and render the result step.
+function calWizCompute_write(dn, up, k) {
+    const g = get;
+    if (g('fldShadeDownTime')) g('fldShadeDownTime').value = dn;
+    if (g('fldShadeUpTime')) g('fldShadeUpTime').value = up;
+    if (g('fldShadeCurveGain')) g('fldShadeCurveGain').value = k.toFixed(2);
+    // Nudge the bindings if the framework listens on change/input.
+    ['fldShadeDownTime', 'fldShadeUpTime', 'fldShadeCurveGain'].forEach(id => {
+        const el = g(id); if (el) el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+}
+function calWizardCompute(m) {
+    const g = get;
+    const dn = m.tEndd - m.t0d;      // full descent time (ms)
+    const up = m.tEndu - m.t0u;      // full ascent time (ms)
+    // Time fraction at the visual middle during the descent.
+    const tau = (m.tMid - m.t0d) / dn;      // 0..1
+    const P = Math.min(99, Math.max(1, tau * 100));   // time-linear closed % at the visual middle
+    // Visible middle = 50% closed. curveForward(P) = 50 => solve k.
+    let k = (50 - P) / (P * (100 - P) / 100);
+    k = Math.min(0.95, Math.max(0, k));
+    const res = g('calWizResult');
+    if (res) {
+        res.innerHTML = `<hr>
+          <div>Temps de descente : <b>${dn} ms</b></div>
+          <div>Temps de montée : <b>${up} ms</b></div>
+          <div>Correction d'enroulement : <b>${k.toFixed(2)}</b></div>
+          <p style="opacity:.8">Vérifie que les temps sont cohérents (course pleine ~10–25 s). « Appliquer » remplit les champs ; pense à Enregistrer le volet ensuite.</p>`;
+    }
+    // Turn the last step into an "apply" action.
+    const btn = g('calWizBtn'), lbl = g('calWizBtnLbl'), txt = g('calWizText');
+    if (txt) txt.innerText = "Calibration terminée. Applique les valeurs mesurées.";
+    if (lbl) lbl.innerText = "Appliquer ✓";
+    if (btn) btn.onclick = () => {
+        calWizCompute_write(dn, up, k);
+        closeOverlay(document.getElementById('divCalWizard'));
+        ui.successMessage("Valeurs appliquées — pense à Enregistrer le volet.");
+    };
+}
 function toggleTooltip(el) {
     const tooltip = el.querySelector('.tooltip-text');
     const isVisible = tooltip.style.display === 'block';
