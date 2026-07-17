@@ -983,7 +983,7 @@ function calWizStop() { window.calWizardOnCommand = null; _calWiz = null; }
 // closed% convention: 0 = fully open, 100 = fully closed (matches curveForward).
 function calWizBegin(mode) {
     _calWiz.plan = mode === 'quick'
-        ? [{ dir: 'down', at: 100, key: 'down' }, { dir: 'down', at: 50, key: 'c50' }, { dir: 'up', at: 0, key: 'up' }]
+        ? [{ dir: 'down', at: 99, key: 'lift' }, { dir: 'down', at: 100, key: 'down' }, { dir: 'down', at: 50, key: 'c50' }, { dir: 'up', at: 0, key: 'up' }]
         : [{ dir: 'down', at: 25, key: 'c25' }, { dir: 'down', at: 50, key: 'c50' }, { dir: 'down', at: 75, key: 'c75' },
            { dir: 'down', at: 99, key: 'lift' }, { dir: 'down', at: 100, key: 'down' }, { dir: 'up', at: 0, key: 'up' }];
     _calWiz.i = 0;
@@ -999,8 +999,9 @@ async function calWizNext() {
     calWizButtons([]);
     await calWizGoto(startClosed);
     if (!_calWiz) return;
-    const atTxt = s.at === 100 ? 'le SEUIL (fermé)' : s.at === 0 ? 'le HAUT (ouvert)'
-        : s.at === 99 ? 'le point où les LAMES se ferment (tout en bas)' : (s.at + '% fermé');
+    const atTxt = s.at === 99 ? 'le SEUIL : le bas du tablier touche (lames PAS encore tassées)'
+        : s.at === 100 ? 'FERMÉ complet : lames tassées, ajours clos'
+        : s.at === 0 ? 'le HAUT (ouvert)' : (s.at + '% fermé');
     const startCmd = s.dir === 'down' ? 'DESCENTE' : 'MONTÉE';
     w.phase = 'await_start';
     calWizText('Mesure ' + (w.i + 1) + '/' + w.plan.length + ' — appuie sur ' + startCmd
