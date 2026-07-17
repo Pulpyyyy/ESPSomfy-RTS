@@ -1010,7 +1010,7 @@ cursor: pointer;
     margin: 5px 0;
 }
 .md-link, .md-link-auto {
-    color: #58a6ff !important;
+    color: var(--accent-color) !important;
     text-decoration: underline;
 }
 .md-link {

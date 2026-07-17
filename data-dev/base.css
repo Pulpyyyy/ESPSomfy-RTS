@@ -946,7 +946,7 @@ button:disabled:active {
 }
 .information {
     background: rgba(54, 128, 244, 0.1);
-    border: 1px solid #365df42e;
+    border: 1px solid color-mix(in srgb, var(--accent-color) 18%, transparent);
 }
 .success {
     background: rgba(76, 175, 80, 0.1);
@@ -978,7 +978,7 @@ button:disabled:active {
 .warning b,
 .warning svg {color:#ff9800;}
 .information b,
-.information svg {color: #5089ec;}
+.information svg {color: var(--accent-color);}
 .success b,
 .success svg {color: #4caf50;}
 .error b,
