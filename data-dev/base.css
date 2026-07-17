@@ -151,6 +151,22 @@ body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif; }
 .unibloc { border-radius: 12px; box-shadow: var(--md-elevation-1); }
 .inputAndSelect { border-radius: 6px; }
 button, .buttonUpdate { border-radius: 20px; }
+/* ---- Material Design 3 theme layer (iteration 2) --------------------------
+   Filled-tonal medium-emphasis buttons, MD3 switches, and hover/press state
+   layers. The primary filled save buttons are bare <button> and stay untouched. */
+:root[data-theme="light"] { --md-secondary-container:#dae2f9; --md-on-secondary-container:#131c2b; }
+:root[data-theme="dark"]  { --md-secondary-container:#3b4858; --md-on-secondary-container:#dae2f9; }
+.divButton { background: var(--md-secondary-container); border: none; box-shadow: none; }
+.divButton .buttonUpdate { color: var(--md-on-secondary-container); }
+.divButton .uniStatus { opacity: .75; }
+.divButton:hover { background: color-mix(in srgb, var(--md-primary) 8%, var(--md-secondary-container)); border: none; }
+.divButton:active { background: color-mix(in srgb, var(--md-primary) 12%, var(--md-secondary-container)); }
+/* MD3 switch: outlined track when off, primary fill when on. */
+.switch { background: var(--md-surface-container-highest); border-color: var(--md-outline); }
+.switch div { background: var(--md-outline); }
+.switch:has(input:checked) { background: var(--md-primary); border-color: var(--md-primary); }
+.switch input:checked + div { background: var(--md-on-primary); }
+.switch input:checked + div::after { border-color: var(--md-primary); }
 html, body {
     margin: 0;
     padding: 0;
