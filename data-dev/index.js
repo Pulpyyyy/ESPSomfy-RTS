@@ -354,6 +354,7 @@ function getJSON(url, cb) {
     xhr.onload = () => {
         let status = xhr.status;
         if (status !== 200) {
+            if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
             let err = xhr.response || {};
             err.htmlError = status;
             err.service = `GET ${url}`;
@@ -381,6 +382,7 @@ function getJSONSync(url, cb) {
     xhr.onload = () => {
         let status = xhr.status;
         if (status !== 200) {
+            if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
             let err = xhr.response || {};
             err.htmlError = status;
             err.service = `GET ${url}`;
@@ -420,6 +422,7 @@ function getText(url, cb) {
     xhr.onload = () => {
         let status = xhr.status;
         if (status !== 200) {
+            if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
             let err = xhr.response || {};
             err.htmlError = status;
             err.service = `GET ${url}`;
@@ -456,6 +459,7 @@ function postJSONSync(url, data, cb) {
             let status = xhr.status;
             console.log(xhr);
             if (status !== 200) {
+                if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
                 let err = xhr.response || {};
                 err.htmlError = status;
                 err.service = `POST ${url}`;
@@ -492,6 +496,7 @@ function putJSON(url, data, cb) {
     xhr.onload = () => {
         let status = xhr.status;
         if (status !== 200) {
+            if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
             let err = xhr.response || {};
             err.htmlError = status;
             err.service = `PUT ${url}`;
@@ -528,6 +533,7 @@ function putJSONSync(url, data, cb) {
         xhr.onload = () => {
             let status = xhr.status;
             if (status !== 200) {
+                if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
                 let err = xhr.response || {};
                 err.htmlError = status;
                 err.service = `PUT ${url}`;
@@ -2048,10 +2054,23 @@ class Security {
         get('btnCancelLogin').style.display = 'inline-block';
     }
     cancelLogin() {
+        this._loginShown = false;
         let evt = new CustomEvent('afterlogin', { detail: { authenticated: this.authenticated } });
         get('divAuthenticated').style.display = '';
         get('divUnauthenticated').style.display = 'none';
         get('divContainer').dispatchEvent(evt);
+    }
+    // A config-protected call returned 401 while we hold no valid session (e.g. under
+    // ConfigOnly the app shows without a login, but the network/MQTT panels still need
+    // auth). Send the user to the login screen once; the _loginShown guard swallows the
+    // concurrent 401s the panel auto-loads fire. Returns true when handled so the caller
+    // stays quiet. type 0 = no auth; already authenticated => let the caller surface it.
+    promptLoginOn401() {
+        if (this.type === 0 || this.authenticated) return false;
+        if (this._loginShown) return true;
+        this._loginShown = true;
+        this.authUser();
+        return true;
     }
     login() {
         console.log('Logging in...');
@@ -2084,6 +2103,7 @@ class Security {
                     get('divContainer').setAttribute('data-auth', true);
                     this.apiKey = log.apiKey;
                     this.authenticated = true;
+                    this._loginShown = false;
                     let evt = new CustomEvent('afterlogin', { detail: { authenticated: true } });
                     get('divContainer').dispatchEvent(evt);
                 }
@@ -5885,6 +5905,7 @@ class Firmware {
                 if (typeof overlay !== 'undefined') overlay.remove();
                 let status = xhr.status;
                 if (status !== 200) {
+                    if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
                     let err = xhr.response || {};
                     err.htmlError = status;
                     err.service = `GET /backup`;
