@@ -6,6 +6,7 @@
 #include "ConfigSettings.h"
 #include "Utils.h"
 #include "esp_chip_info.h"
+#include "esp_random.h"
 
 
 Preferences pref;
@@ -232,6 +233,13 @@ bool ConfigSettings::load() {
   this->swShowGpio = pref.getBool("swShowGpio", false);
   this->connType = static_cast<conn_types_t>(pref.getChar("connType", 0x00));
   //Serial.printf("Preference GFG Free Entries: %d\n", pref.freeEntries());
+  // API token HMAC key: a random 16-byte secret generated once and persisted here.
+  // Kept out of every JSON/endpoint so the token signing key stays private.
+  if(pref.getBytes("apiSecret", this->apiSecret, sizeof(this->apiSecret)) != sizeof(this->apiSecret)) {
+    for(size_t i = 0; i < sizeof(this->apiSecret); i++) this->apiSecret[i] = (uint8_t)esp_random();
+    pref.putBytes("apiSecret", this->apiSecret, sizeof(this->apiSecret));
+    Serial.println("Generated new API token secret");
+  }
   pref.end();
   if(this->connType == conn_types_t::unset) {
     // We are doing this to convert the data from previous versions.
