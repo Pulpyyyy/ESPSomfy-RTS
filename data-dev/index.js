@@ -354,7 +354,7 @@ function getJSON(url, cb) {
     xhr.onload = () => {
         let status = xhr.status;
         if (status !== 200) {
-            if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
+            if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
             let err = xhr.response || {};
             err.htmlError = status;
             err.service = `GET ${url}`;
@@ -382,7 +382,7 @@ function getJSONSync(url, cb) {
     xhr.onload = () => {
         let status = xhr.status;
         if (status !== 200) {
-            if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
+            if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
             let err = xhr.response || {};
             err.htmlError = status;
             err.service = `GET ${url}`;
@@ -422,7 +422,7 @@ function getText(url, cb) {
     xhr.onload = () => {
         let status = xhr.status;
         if (status !== 200) {
-            if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
+            if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
             let err = xhr.response || {};
             err.htmlError = status;
             err.service = `GET ${url}`;
@@ -459,7 +459,7 @@ function postJSONSync(url, data, cb) {
             let status = xhr.status;
             console.log(xhr);
             if (status !== 200) {
-                if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
+                if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
                 let err = xhr.response || {};
                 err.htmlError = status;
                 err.service = `POST ${url}`;
@@ -496,7 +496,7 @@ function putJSON(url, data, cb) {
     xhr.onload = () => {
         let status = xhr.status;
         if (status !== 200) {
-            if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
+            if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
             let err = xhr.response || {};
             err.htmlError = status;
             err.service = `PUT ${url}`;
@@ -533,7 +533,7 @@ function putJSONSync(url, data, cb) {
         xhr.onload = () => {
             let status = xhr.status;
             if (status !== 200) {
-                if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
+                if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
                 let err = xhr.response || {};
                 err.htmlError = status;
                 err.service = `PUT ${url}`;
@@ -5905,7 +5905,7 @@ class Firmware {
                 if (typeof overlay !== 'undefined') overlay.remove();
                 let status = xhr.status;
                 if (status !== 200) {
-                    if (status === 401 && typeof security !== 'undefined') security.promptLoginOn401();
+                    if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
                     let err = xhr.response || {};
                     err.htmlError = status;
                     err.service = `GET /backup`;
