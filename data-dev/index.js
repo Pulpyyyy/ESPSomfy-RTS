@@ -959,9 +959,14 @@ function startShadeCalibration() {
         + '</div><div class="button-container-row" id="calWizBtns"></div>'
         + '</div></div>';
     shOverlay(div, () => calWizStop());
-    _calWiz = { sId: sId, res: {}, plan: [], i: 0, phase: 'idle', t0: 0 };
+    // Snapshot the shade's current timings: repositioning deadlines scale on them and
+    // the ascent solver falls back on the stored curve gain when 50% is not re-measured.
+    _calWiz = { sId: sId, res: {}, plan: [], i: 0, phase: 'idle', t0: 0, cur: {
+        up: parseInt(sh.upTime, 10) || 10000, down: parseInt(sh.downTime, 10) || 10000,
+        lift: parseInt(sh.liftTime, 10) || 0, k: parseFloat(sh.curveGain) || 0
+    } };
     window.calWizardOnCommand = calWizOnCommand;
-    calWizText("Choisis le mode. Rapide/Complète : tu pilotes avec ta télécommande physique, l'assistant chronomètre et remet le volet en position entre chaque mesure. Recopie : copier les valeurs d'un volet déjà calibré vers d'autres, sans aucune mesure.");
+    calWizText("Mesure guidée : tu pilotes avec ta télécommande physique, l'assistant chronomètre et remet le volet en position entre chaque mesure (5 mesures). Recopie : copier les valeurs d'un volet déjà calibré vers d'autres, sans aucune mesure.");
     const needPaired = function (fn) {
         return function () {
             if (sh.paired === false) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
@@ -969,8 +974,7 @@ function startShadeCalibration() {
         };
     };
     calWizButtons([
-        { l: "Rapide (~2 min)", f: needPaired(function () { calWizBegin('quick'); }) },
-        { l: "Complète (~6 min)", f: needPaired(function () { calWizBegin('full'); }) },
+        { l: "Mesure guidée (~3 min)", f: needPaired(function () { calWizBegin(); }) },
         { l: "Recopie (aucune mesure)", f: function () { calWizRecopy(sId); } }
     ]);
 }
@@ -989,11 +993,19 @@ function calWizButtons(list) {
 }
 function calWizStop() { window.calWizardOnCommand = null; _calWiz = null; }
 // closed% convention: 0 = fully open, 100 = fully closed (matches curveForward).
-function calWizBegin(mode) {
-    _calWiz.plan = mode === 'quick'
-        ? [{ dir: 'down', at: 99, key: 'lift' }, { dir: 'down', at: 100, key: 'down' }, { dir: 'down', at: 50, key: 'c50' }, { dir: 'up', at: 0, key: 'up' }]
-        : [{ dir: 'down', at: 25, key: 'c25' }, { dir: 'down', at: 50, key: 'c50' }, { dir: 'down', at: 75, key: 'c75' },
-           { dir: 'down', at: 99, key: 'lift' }, { dir: 'down', at: 100, key: 'down' }, { dir: 'up', at: 0, key: 'up' }];
+// Every value that enters the maths is stopped IN MOTION (sill, mid-height): a press
+// at an end limit can only come after the motor stopped on its own, so those chronos
+// carry the user's reaction time. The two end-limit runs remain in the plan as
+// consistency checks only, and the final full ascent leaves the shade on a hard
+// limit so its tracked position is re-synced whatever the previous timings were.
+function calWizBegin() {
+    _calWiz.plan = [
+        { dir: 'down', at: 99, key: 'lift' },   // open -> sill: pure descent travel
+        { dir: 'down', at: 50, key: 'c50' },    // open -> mid: winding curve fit
+        { dir: 'down', at: 100, key: 'down' },  // open -> closed limit: sizes the stacking
+        { dir: 'up', at: 50, key: 'u50' },      // closed -> mid: the ascent anchor
+        { dir: 'up', at: 0, key: 'up' }         // closed -> top limit: check + resync
+    ];
     _calWiz.i = 0;
     calWizNext();
 }
@@ -1009,7 +1021,9 @@ async function calWizNext() {
     if (!_calWiz) return;
     const atTxt = s.at === 99 ? 'le SEUIL : le bas du tablier touche (lames PAS encore tassées)'
         : s.at === 100 ? 'FERMÉ complet : lames tassées, ajours clos'
-        : s.at === 0 ? 'le HAUT (ouvert)' : (s.at + '% fermé');
+        : s.at === 0 ? 'le HAUT (ouvert)'
+        : s.dir === 'up' ? 'la MI-HAUTEUR — le MÊME repère visuel qu\'à la descente'
+        : 'la MI-HAUTEUR exacte (mémorise le repère visuel, il resservira à la montée)';
     const startCmd = s.dir === 'down' ? 'DESCENTE' : 'MONTÉE';
     w.phase = 'await_start';
     calWizText('Mesure ' + (w.i + 1) + '/' + w.plan.length + ' — appuie sur ' + startCmd
@@ -1030,10 +1044,17 @@ function calWizOnCommand(msg) {
     } else if (w.phase === 'await_stop' && (cmd === 'my' || cmd === 'stop')) {
         const dt = Date.now() - w.t0;
         w.res[s.key] = dt; w.phase = 'done'; w.i++;
-        const labels = { down: 'Temps descente', up: 'Temps montée', c50: 'Point milieu (50%)', c25: 'Point 25%', c75: 'Point 75%', lift: 'Seuil / lames' };
+        const labels = { down: 'Descente complète', up: 'Montée complète', c50: 'Descente → mi-hauteur', u50: 'Montée → mi-hauteur', lift: 'Descente → seuil' };
         w.lastResult = '✔ ' + (labels[s.key] || s.key) + ' : ' + dt + ' ms';
         calWizText(w.lastResult, '');
         setTimeout(calWizNext, 700);
+    } else if (w.phase === 'await_stop' && cmd !== wantStart && (cmd === 'up' || cmd === 'down')) {
+        // An opposite-direction press mid-measure reverses the shade: the chrono no
+        // longer measures a single run, so void it and redo the step (repositioning
+        // included). Same-direction presses are harmless frame repeats and fall through.
+        w.phase = 'invalid';
+        calWizText('Appui ' + cmd.toUpperCase() + ' pendant le chrono — mesure annulée, on la recommence.', '');
+        setTimeout(calWizNext, 1500);
     }
 }
 // Drive to a closed% and wait until it stops (internal command -> ignored by the listener).
@@ -1041,7 +1062,10 @@ function calWizGoto(closedPct) {
     return new Promise(function (resolve) {
         const cmd = closedPct <= 0 ? { command: 'Up' } : closedPct >= 100 ? { command: 'Down' } : { target: closedPct };
         putJSON('/shadeCommand', Object.assign({ shadeId: _calWiz.sId }, cmd), function () { });
-        const deadline = Date.now() + 32000;
+        // Worst repositioning is a full traverse; size the deadline on the shade's own
+        // timings (liftTime alone may reach 60 s) with the old 32 s as a floor.
+        const c = _calWiz.cur;
+        const deadline = Date.now() + Math.max(32000, c.up + c.down + c.lift + 10000);
         const poll = function () {
             if (!_calWiz) return resolve();
             getJSON('/shades', function (err, shades) {
@@ -1053,24 +1077,62 @@ function calWizGoto(closedPct) {
         setTimeout(poll, 2500);   // let the move start before polling for stop
     });
 }
+// Mirror of the firmware's curveInverse: visible % -> time-linear (drum angle) %.
+function calWizTauOf(P, k) {
+    if (!k) return P;
+    const a = k / 100, b = 1 + k, disc = b * b - 4 * a * P;
+    if (disc <= 0) return P;
+    return (b - Math.sqrt(disc)) / (2 * a);
+}
 function calWizFinish() {
     const w = _calWiz, r = w.res, g = get;
-    // Model: downTime/upTime are pure travel; liftTime (slat stacking at the
-    // closed end) is separate and additive. r.lift = open->sill (pure travel),
-    // r.down = open->fully closed (travel + stacking), r.up = closed->open
-    // (unstacking + travel).
-    const lift = (r.down && r.lift && r.down > r.lift) ? (r.down - r.lift) : null;
-    const down = r.lift ? r.lift : r.down;             // pure descent travel
-    const up = (r.up && lift) ? Math.max(1, r.up - lift) : r.up;  // pure ascent travel
+    // Model: downTime/upTime are pure travel; liftTime (slat stacking at the closed
+    // end) is separate and additive. Only in-motion chronos enter the maths:
+    //   r.lift = open->sill (pure descent), r.c50 = open->mid (curve fit),
+    //   r.u50 = closed->mid, which is exactly what the firmware waits before the My
+    //   of a 50% target (liftTime + curve fraction of upTime), so that target lands
+    //   right by construction.
+    // The ascent split comes from the stacking scaled by the up/down speed ratio:
+    //   lift_up = lift_down * up/down, hence up = r.u50 / (lift_down/down + fc).
+    // End-limit chronos (r.down beyond the sill, r.up) include the reaction time to a
+    // stop the motor decides alone; r.down only sizes the stacking (its bias shifts
+    // the lift/up split, not the anchored 50% wait) and r.up is a check, never a time.
+    // A skipped required measure keeps the shade's current value for every field that
+    // depends on it: no silent fallback that would double-count or absorb the stacking.
+    const notes = [];
+    const down = r.lift || null;
+    if (!down) notes.push("Descente et courbe non calculées (mesure du seuil absente) — valeurs actuelles conservées.");
+    let lift_d = null;                                 // stacking, seen from the descent side
+    if (down && r.down) lift_d = Math.max(0, r.down - down);
     const kOf = function (dt, P) { const tau = dt / down * 100; const den = tau * (100 - tau) / 100; return den > 0 ? (P - tau) / den : 0; };
-    let ks = [];
-    if (down) { if (r.c25) ks.push(kOf(r.c25, 25)); if (r.c50) ks.push(kOf(r.c50, 50)); if (r.c75) ks.push(kOf(r.c75, 75)); }
-    const k = ks.length ? Math.min(0.95, Math.max(0, ks.reduce(function (a, b) { return a + b; }, 0) / ks.length)) : null;
+    const k = (down && r.c50) ? Math.min(0.95, Math.max(0, kOf(r.c50, 50))) : null;
+    if (down && !r.c50) notes.push("Correction d'enroulement non mesurée — valeur actuelle conservée.");
+    const kEff = k !== null ? k : (w.cur.k || 0);
+    const fc = 1 - calWizTauOf(50, kEff) / 100;        // time fraction of a full ascent to reach mid
+    let up = null, lift = null;
+    if (r.u50 && down && lift_d !== null) {
+        up = Math.max(1, Math.round(r.u50 / (lift_d / down + fc)));
+        lift = Math.round(lift_d * up / down);
+    }
+    else if (r.u50) notes.push("Montée non calculée (il faut aussi le seuil et le fermé complet) — valeurs actuelles conservées.");
+    else notes.push("Montée non calculée (mesure mi-hauteur absente) — valeurs actuelles conservées.");
     let out = [];
     if (down) out.push("Temps descente : <b>" + down + " ms</b>");
     if (up) out.push("Temps montée : <b>" + up + " ms</b>");
+    if (lift !== null) out.push("Temps décollage lames : <b>" + lift + " ms</b> (tassement descente : " + lift_d + " ms)");
     if (k !== null) out.push("Correction d'enroulement : <b>" + k.toFixed(2) + "</b>");
-    if (lift !== null) out.push("Temps décollage lames : <b>" + lift + " ms</b>");
+    // Consistency check: predicted full ascent vs the end-limit chrono. A positive gap
+    // is the signature of a late STOP at the top limit (harmless: that chrono is not
+    // used); a negative one means one of the ascent measures is wrong.
+    if (up && r.up) {
+        const delta = r.up - (lift + up);
+        let line = "Contrôle butée haute : chrono " + r.up + " ms, prédit " + (lift + up) + " ms";
+        if (delta > 800) line += " → STOP tardif d'environ " + (delta / 1000).toFixed(1) + " s, chrono écarté du calcul (normal)";
+        else if (delta < -800) line += " → <b>incohérent</b> : une mesure de montée est douteuse, refais la calibration";
+        else line += " ✔";
+        out.push('<span style="opacity:.85">' + line + '</span>');
+    }
+    notes.forEach(function (n) { out.push('<span style="opacity:.75">⚠ ' + n + '</span>'); });
     if (g('calWizResult')) g('calWizResult').innerHTML = '<hr>' + out.map(function (x) { return '<div>' + x + '</div>'; }).join('')
         + '<p style="opacity:.8">« Appliquer » enregistre directement ces valeurs sur le volet.</p>';
     calWizText('Calibration terminée.', '');
@@ -1105,6 +1167,15 @@ function calWizApplyVals(id, vals, cb) {
     if (vals.k !== null && vals.k !== undefined) obj.curveGain = parseFloat(Number(vals.k).toFixed(2));
     putJSON('/saveShade', obj, cb);
 }
+// Copying timings across shades of different sizes is how every mis-calibration of
+// this kind starts: flag targets whose current descent differs clearly from the
+// source's, so twin shades stay a one-click copy but odd ones stand out.
+function calWizCopyWarn(srcDown, tgtDown) {
+    if (!srcDown || !tgtDown) return '';
+    const pct = Math.round((tgtDown - srcDown) * 100 / srcDown);
+    if (Math.abs(pct) <= 15) return '';
+    return ' <span style="opacity:.8">⚠ descente ' + (pct > 0 ? '+' : '') + pct + ' %</span>';
+}
 // Checklist of every other shade; the selected ones receive `vals`. Saves them one
 // at a time (the ESP web server is synchronous and each save() rewrites shades.cfg,
 // so serialising avoids overlapping writes). onDone() runs when finished or skipped.
@@ -1122,7 +1193,7 @@ function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
             + '<div class="calList">';
         others.forEach(function (s) {
             const nm = (s.name || ('#' + s.shadeId)).replace(/</g, '&lt;');
-            html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + nm + '</span></label>';
+            html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + nm + calWizCopyWarn(vals.down, s.downTime) + '</span></label>';
         });
         html += '</div>';
         if (get('calWizResult')) get('calWizResult').innerHTML = html;
@@ -1184,8 +1255,9 @@ function calWizRecopy(sId) {
                 + '</select>'
                 + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>Vers — tout cocher / décocher</span></label>'
                 + '<div class="calList">';
+            const src = list.find(function (s) { return s.shadeId === srcId; });
             list.filter(function (s) { return s.shadeId !== srcId; }).forEach(function (s) {
-                html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + esc(s.name || ('#' + s.shadeId)) + '</span></label>';
+                html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + esc(s.name || ('#' + s.shadeId)) + calWizCopyWarn(src && src.downTime, s.downTime) + '</span></label>';
             });
             html += '</div></div>';
             if (get('calWizResult')) get('calWizResult').innerHTML = html;
