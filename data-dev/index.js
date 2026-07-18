@@ -9,6 +9,17 @@ var baseUrl = window.location.protocol === 'file:' ? `http://${hst}` : '';
 var waitLoad;
 var mouseDown = false;
 const get = id => document.getElementById(id);
+// Escape device-/user-controlled strings for safe use in HTML text and quoted attributes (XSS).
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+// Whitelist URL schemes for generated markdown links: allow http(s), protocol-relative and
+// relative/anchor URLs; block javascript:, data:, vbscript: and any other explicit scheme.
+function safeUrl(u) {
+    const s = String(u == null ? '' : u).trim();
+    if (/^(https?:)?\/\//i.test(s)) return s;   // http(s):// or //host
+    if (/^(\/|\.|#|\?)/.test(s)) return s;       // relative path or anchor/query
+    if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return ''; // any other explicit scheme -> reject
+    return s;                                     // schemeless relative (e.g. "path/x")
+}
 
 const closeOverlay = (div, callback) => {
     if (!div) return;
@@ -1192,7 +1203,7 @@ function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
             + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>Tout cocher / décocher</span></label>'
             + '<div class="calList">';
         others.forEach(function (s) {
-            const nm = (s.name || ('#' + s.shadeId)).replace(/</g, '&lt;');
+            const nm = esc(s.name || ('#' + s.shadeId));
             html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + nm + calWizCopyWarn(vals.down, s.downTime) + '</span></label>';
         });
         html += '</div>';
@@ -1235,7 +1246,6 @@ function calWizRecopy(sId) {
         if (err || !Array.isArray(shades)) { ui.serviceError(err || {}); return; }
         const list = shades.filter(function (s) { return s.shadeId < 255; });
         if (list.length < 2) { calWizText("Il faut au moins deux volets pour une recopie.", ''); calWizButtons([{ l: "Fermer", f: function () { closeOverlay(document.getElementById('divCalWizard')); calWizStop(); } }]); return; }
-        const esc = function (s) { return (s || '').replace(/</g, '&lt;'); };
         const srcOf = function () {
             const sel = document.getElementById('calSrcSel');
             return sel ? parseInt(sel.value, 10) : sId;
@@ -2788,7 +2798,7 @@ class Wifi {
                 ui.toElement(get('divDHCP'), settings);
                 get('divETHSettings').style.display = settings.ethernet.boardType === 0 ? '' : 'none';
                 get('divStaticIP').style.display = settings.ip.dhcp ? 'none' : '';
-                get('spanCurrentIP').innerHTML = settings.ip.ip;
+                get('spanCurrentIP').textContent = settings.ip.ip;
                 this.updateStatusBadge(settings);
                 this.syncRadiosWithCheckbox();
                 this.useEthernetClicked();
@@ -2884,7 +2894,7 @@ class Wifi {
             for (let i = 0; i < nets.length; i++) {
                 let ap = nets[i];
                 div += `
-                <div class="wifiSignal" onclick="wifi.selectSSID(this);" data-channel="${ap.channel}" data-encryption="${ap.encryption}" data-strength="${ap.strength}" data-mac="${ap.macAddress}"><span class="ssid">${ap.name}</span><span class="strength">${this.displaySignal(ap.strength)}</span>
+                <div class="wifiSignal" onclick="wifi.selectSSID(this);" data-channel="${esc(ap.channel)}" data-encryption="${esc(ap.encryption)}" data-strength="${esc(ap.strength)}" data-mac="${esc(ap.macAddress)}"><span class="ssid">${esc(ap.name)}</span><span class="strength">${this.displaySignal(ap.strength)}</span>
                 </div>`;
             }
         } else {
@@ -2907,7 +2917,8 @@ class Wifi {
     }
     selectSSID(el) {
         let obj = {
-            name: el.querySelector('span.ssid').innerHTML,
+            // Read decoded text (not innerHTML) so escaped SSIDs round-trip correctly.
+            name: el.querySelector('span.ssid').textContent,
             encryption: el.getAttribute('data-encryption'),
             strength: parseInt(el.getAttribute('data-strength'), 10),
             channel: parseInt(el.getAttribute('data-channel'), 10)
@@ -3804,16 +3815,16 @@ class Somfy {
 
         rooms.sort((a, b) => a.sortOrder - b.sortOrder);
         rooms.forEach(room => {
-            divPills += `<div class="room-pill animScale" data-roomid="${room.roomId}" onclick="somfy.selectRoom(${room.roomId})">${room.name}</div>`;
+            divPills += `<div class="room-pill animScale" data-roomid="${room.roomId}" onclick="somfy.selectRoom(${room.roomId})">${esc(room.name)}</div>`;
             // ... foreach room ...
             divCfg += `<div class="somfyRoom room-draggable" data-roomid="${room.roomId}">
             <div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div>
-            <div class="room-name"><span class="name-text">${room.name}</span></div><span class="vr"></span>
+            <div class="room-name"><span class="name-text">${esc(room.name)}</span></div><span class="vr"></span>
             <div class="divEditDelete-svg" onclick="somfy.openEditRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div>
             <div class="divEditDelete-svg" onclick="somfy.deleteRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div>
             </div>`;
 
-            divOpts += `<option value="${room.roomId}">${room.name}</option>`;
+            divOpts += `<option value="${room.roomId}">${esc(room.name)}</option>`;
             _rooms.push(room);
         });
 
@@ -3919,21 +3930,21 @@ class Somfy {
             let isSunOn = (shade.flags & 0x01);
             let st = this.shadeTypes.find(x => x.type === shade.shadeType) || { type: shade.shadeType, ico: 'svg-window-shade' };
 
-            divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${room.name}</div><div class="name-text">${shade.name}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
+            divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
             // --- SECTION CONTROLE ---
             divCtl += `<div class="somfyShadeCtl" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"
             data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
             <div class="shadectl-side-handle" onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});"><svg class="handle-icon"><use href="#svg-arrowRight"></use></svg></div>
             <div class="shadectl-right-content">
             <div class="shadectl-main-content">
-            <div class="shadectl-header-row"><span class="shadectl-name">${shade.name}</span></div>
+            <div class="shadectl-header-row"><span class="shadectl-name">${esc(shade.name)}</span></div>
             <div class="shade-icon" data-shadeid="${shade.shadeId}">
             <svg class="somfy-shade-icon" data-shadeid="${shade.shadeId}" style="--shade-position:${shade.flipPosition ? 100 - shade.position : shade.position}; --fpos:${shade.flipPosition ? 100 - shade.position : shade.position}%">
             <use href="#${st.ico}"></use>
             </svg>
             </div>
             <div class="shade-name">
-            <span class="shadectl-room">${room.name}</span>`;
+            <span class="shadectl-room">${esc(room.name)}</span>`;
             divCtl += `<span class="shadectl-mypos"><span class="val-pos">Pos: ${shade.position}%</span>`;
             if (shade.tiltType !== 0) divCtl += `<span class="val-pos"> Tilt: ${shade.tiltPosition}%</span>`;
             divCtl += `</span></div>
@@ -3964,7 +3975,7 @@ class Somfy {
             </div></div></div></div></div></div></div>`;
 
             let opt = document.createElement('option');
-            opt.innerHTML = shade.name;
+            opt.textContent = shade.name;
 
             opt.setAttribute('data-address', shade.remoteAddress);
             opt.setAttribute('data-type', 'shade');
@@ -4211,12 +4222,12 @@ class Somfy {
                 let group = groups[i];
                 let room = _rooms.find(x => x.roomId === group.roomId) || { roomId: 0, name: '' };
                 // --- Section Configuration ---
-                divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${room.name}</div><div class="name-text">${group.name}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" style="color: var(--danger-color, red);"><use href=#svg-close></use></svg></div></div>`;
+                divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" style="color: var(--danger-color, red);"><use href=#svg-close></use></svg></div></div>`;
                 // --- Section Contrôle (divCtl) ---
                 divCtl += `<div class="somfyGroupCtl" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-groupId="${group.groupId}" data-roomid="${group.roomId}" data-remoteaddress="${group.remoteAddress}">
                 <div class="group-name">
-                <span class="groupctl-room">${room.name}</span>
-                <span class="groupctl-name">${group.name}</span>
+                <span class="groupctl-room">${esc(room.name)}</span>
+                <span class="groupctl-name">${esc(group.name)}</span>
                 <div class="groupctl-shades">`;
                 if (typeof group.linkedShades !== 'undefined') {
                     divCtl += `<label>Members:</label><span>${group.linkedShades.length}</span>`;
@@ -4231,7 +4242,7 @@ class Somfy {
                 </div>`;
 
                 let opt = document.createElement('option');
-                opt.innerHTML = group.name;
+                opt.textContent = group.name;
                 opt.setAttribute('data-address', group.remoteAddress);
                 opt.setAttribute('data-type', 'group');
                 opt.setAttribute('data-groupid', group.groupId);
@@ -4444,7 +4455,7 @@ class Somfy {
         html += shades.map((shade, i) => `
         ${i > 0 ? '<hr>' : ''}
         <div class="somfyLinkedRemote" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}">
-        <div class="linkedWrap"><svg class="icon-svg"><use href=#svg-simpleShutter></use></svg></div><div class="linkedContent"><div class="label">${shade.name}</div><div><span class="uniStatus">${tr("ADDR")} ${shade.remoteAddress}</span></div></div><div class="button-outline-svg svgDelete" onclick="somfy.unlinkGroupShade(${group.groupId}, ${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
+        <div class="linkedWrap"><svg class="icon-svg"><use href=#svg-simpleShutter></use></svg></div><div class="linkedContent"><div class="label">${esc(shade.name)}</div><div><span class="uniStatus">${tr("ADDR")} ${shade.remoteAddress}</span></div></div><div class="button-outline-svg svgDelete" onclick="somfy.unlinkGroupShade(${group.groupId}, ${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
         `).join('');
 
         html += `</div>`;
@@ -4515,7 +4526,7 @@ class Somfy {
     }
     procRemoteFrame(frame) {
         const qs = (s) => get(s);
-        qs('spanRssi').innerHTML = frame.rssi;
+        qs('spanRssi').textContent = frame.rssi;
         qs('spanFrameCount').innerHTML = parseInt(qs('spanFrameCount').innerHTML || 0, 10) + 1;
 
         const lnk = qs('divLinking') || qs('divLinkRepeater');
@@ -4544,7 +4555,7 @@ class Somfy {
         row.className = 'frame-row';
         row.dataset.valid = frame.valid;
 
-        row.innerHTML = `<span>${frame.encKey}</span><span>${frame.address}</span><span>${frame.command}<sup>${frame.stepSize || ''}</sup></span><span>${frame.rcode}</span><span>${frame.rssi}dBm</span><span>${frame.bits}${proto}</span><span>${timeStr}</span><div class="frame-pulses">${frame.pulses.join(',')}</div>`;
+        row.innerHTML = `<span>${esc(frame.encKey)}</span><span>${esc(frame.address)}</span><span>${esc(frame.command)}<sup>${esc(frame.stepSize || '')}</sup></span><span>${esc(frame.rcode)}</span><span>${esc(frame.rssi)}dBm</span><span>${esc(frame.bits)}${proto}</span><span>${timeStr}</span><div class="frame-pulses">${esc(frame.pulses.join(','))}</div>`;
 
         qs('divFrames').prepend(row);
         this.frames.push(frame);
@@ -5068,7 +5079,7 @@ class Somfy {
                             prompt.remove;
                         });
                     });
-                    prompt.querySelector('.sub-message').innerHTML = `<p>${tr("PROMPT_DELETE_SHADE_WARNING")}</p><p>${tr("PROMPT_DELETE_SHADE_CONFIRM").replace("{SHADE_NAME}", shade.name)}</p>`;
+                    prompt.querySelector('.sub-message').innerHTML = `<p>${tr("PROMPT_DELETE_SHADE_WARNING")}</p><p>${tr("PROMPT_DELETE_SHADE_CONFIRM").replace("{SHADE_NAME}", esc(shade.name))}</p>`;
                 }
             });
         }
@@ -5094,7 +5105,7 @@ class Somfy {
                                 prompt.remove();
                             });
                         });
-                        prompt.querySelector('.sub-message').innerHTML = `<p>${tr("PROMPT_DELETE_GROUP_CONFIRM").replace("{GROUP_NAME}", group.name)}</p>`;
+                        prompt.querySelector('.sub-message').innerHTML = `<p>${tr("PROMPT_DELETE_GROUP_CONFIRM").replace("{GROUP_NAME}", esc(group.name))}</p>`;
                     }
                 }
             });
@@ -5489,7 +5500,7 @@ class Somfy {
         ${!isUnlink ? `
         <div class="unibloc LinkGroupSelect wizard-step" data-expert data-stepid="2">
         <label class="label" for="selAvailShades">${tr("LINK_GROUP_SELECT_SHADE")}</label>
-        <select id="selAvailShades" class="inputAndSelect" data-bind="shadeId" onchange="document.querySelectorAll('.divWizShadeName').forEach(el => el.innerHTML = this.options[this.selectedIndex].text);"></select>
+        <select id="selAvailShades" class="inputAndSelect" data-bind="shadeId" onchange="document.querySelectorAll('.divWizShadeName').forEach(el => el.textContent = this.options[this.selectedIndex].text);"></select>
         </div>
         <div class="uniblocStep wizard-step" data-stepid="2">
         ${it('a', 2, 1)} ${it('b', 2, 2)}
@@ -5607,18 +5618,18 @@ class Somfy {
             if (isUnlink) {
                 const shade = data.linkedShades.find(x => x.shadeId === shadeId);
                 if (shade) {
-                    if (spanName) spanName.innerHTML = data.name;
-                    div.querySelectorAll('.divWizShadeName').forEach(el => el.innerHTML = shade.name);
+                    if (spanName) spanName.textContent = data.name;
+                    div.querySelectorAll('.divWizShadeName').forEach(el => el.textContent = shade.name);
                     canShow = true;
                 } else {
                     ui.errorMessage(tr('ERR_DEVICE_NOT_FOUND_GROUP'));
                 }
             } else {
                 if (data.availShades && data.availShades.length > 0) {
-                    if (spanName) spanName.innerHTML = data.name;
+                    if (spanName) spanName.textContent = data.name;
                     let selAvail = div.querySelector('#selAvailShades');
                     data.availShades.forEach(s => selAvail.options.add(new Option(s.name, s.shadeId)));
-                    div.querySelectorAll('.divWizShadeName').forEach(el => el.innerHTML = data.availShades[0].name);
+                    div.querySelectorAll('.divWizShadeName').forEach(el => el.textContent = data.availShades[0].name);
                     canShow = true;
                 } else {
                     ui.errorMessage(tr('ERR_NO_DEVICE_AVAILABLE_GROUP'));
@@ -6136,7 +6147,7 @@ class Firmware {
         putJSONSync(`/downloadFirmware?ver=${obj.version}`, {}, (err, ver) => {
             if (err) return ui.serviceError(err);
             general.reloadApp = true;
-            const desc = tr('GIT_RELEASE_DESC').replace('%1', ver.name);
+            const desc = tr('GIT_RELEASE_DESC').replace('%1', esc(ver.name));
 
             div.innerHTML = `
             <div class="instructions-content">
@@ -6181,14 +6192,14 @@ class Firmware {
             const optsHtml = rel.releases.map(r => {
                 const name = r.name.toLowerCase();
                 if (name === 'main' || name === 'master' || (r.hwVersions.length > 0 && r.hwVersions.indexOf(chip) < 0)) return '';
-                return `<option value="${r.version.name}" data-prerelease="${r.preRelease}">${r.name}${r.preRelease ? ' - Pre' : ''}</option>`;
+                return `<option value="${esc(r.version.name)}" data-prerelease="${r.preRelease}">${esc(r.name)}${r.preRelease ? ' - Pre' : ''}</option>`;
             }).join('');
 
             div.innerHTML = `
             <div class="instructions-content">
             <div class="overlay-static-content">
             ${overlayHeader('UPDATE_GIT_TITLE', 'UPDATE_GIT_DESC', 'svg-github')}
-            <div class="uniRow"><span class="label">${tr('FIRMWARE_INSTALLED')}</span><span class="labelgrey">${rel.appVersion.name}</span></div>
+            <div class="uniRow"><span class="label">${tr('FIRMWARE_INSTALLED')}</span><span class="labelgrey">${esc(rel.appVersion.name)}</span></div>
             <div class="uniRow">
             <span class="label">${tr('FIRMWARE_AVAILABLE')}</span>
             <select id="selVersion" class="selectCompac" data-bind="version">${optsHtml}</select>
@@ -6317,8 +6328,11 @@ class Firmware {
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<i>$1</i>')
         .replace(/`([^`]+)`/g, '<code class="md-code-inline">$1</code>')
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="md-link">$1</a>')
-        .replace(/(?<!["=>])(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="md-link-auto">$1</a>');
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, text, url) => {
+            const href = safeUrl(url);
+            return href ? `<a href="${esc(href)}" target="_blank" class="md-link">${text}</a>` : text;
+        })
+        .replace(/(?<!["=>])(https?:\/\/[^\s<]+)/g, (m, url) => `<a href="${esc(url)}" target="_blank" class="md-link-auto">${esc(url)}</a>`);
     }
     parseMarkdown(bodyText) {
         const self = this;
