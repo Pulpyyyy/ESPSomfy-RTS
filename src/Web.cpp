@@ -29,6 +29,10 @@ extern Network net;
 #define WEB_MAX_RESPONSE 4096
 static char g_content[WEB_MAX_RESPONSE];
 
+// Set at UPLOAD_FILE_START by the upload lambdas; the server is single-threaded so one
+// flag is enough to make every later chunk of an unauthenticated upload a no-op.
+static bool g_uploadAuthorized = false;
+
 // General responses
 static const char _response_404[] = "404: Service Not Found";
 
@@ -83,27 +87,29 @@ void Web::handleDeserializationError(WebServer &server, DeserializationError &er
       break;
     }
 }
+// Pure check: never sends a response.  Upload lambdas call this while the request body is
+// still being parsed, so the outer handler (or ensureAuth) owns the 401.
 bool Web::isAuthenticated(WebServer &server, bool cfg) {
-  Serial.println("Checking authentication");
   if(settings.Security.type == security_types::None) return true;
   else if(!cfg && (settings.Security.permissions & static_cast<uint8_t>(security_permissions::ConfigOnly)) == 0x01) return true;
   else if(server.hasHeader("apikey")) {
     // Api key was supplied.
-    Serial.println("Checking API Key...");
     char token[65];
     memset(token, 0x00, sizeof(token));
     this->createAPIToken(server.client().remoteIP(), token);
     // Compare the tokens.
     if(String(token) != server.header("apikey")) return false;
     server.sendHeader("apikey", token);
+    return true;
   }
-  else {
-    // Send a 401
-    Serial.println("Not authenticated...");
-    server.send(401, "Unauthorized API Key");
-    return false;
-  }
-  return true;
+  Serial.println("Not authenticated...");
+  return false;
+}
+// Auth gate for mutating/config endpoints.  Sends the 401 itself so callers can simply return.
+bool Web::ensureAuth(WebServer &server, bool cfg) {
+  if(this->isAuthenticated(server, cfg)) return true;
+  server.send(401, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Not authenticated\"}"));
+  return false;
 }
 void sendJsonError(const char* detail = "") {
   String msg = F("JSON Err: ");
@@ -447,6 +453,7 @@ void Web::handleGetGroups(WebServer &server) {
 void Web::handleShadeCommand(WebServer& server) {
   webServer.sendCORSHeaders(server);
   if (server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   uint8_t shadeId = 255;
   uint8_t target = 255;
@@ -512,6 +519,7 @@ void Web::handleRepeatCommand(WebServer& server) {
   webServer.sendCORSHeaders(server);
   HTTPMethod method = server.method();
   if (method == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->ensureAuth(server, false)) return;
   uint8_t shadeId = 255;
   uint8_t groupId = 255;
   uint8_t stepSize = 0;
@@ -596,6 +604,7 @@ void Web::handleRepeatCommand(WebServer& server) {
 void Web::handleGroupCommand(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   uint8_t groupId = 255;
   uint8_t stepSize = 0;
@@ -655,6 +664,7 @@ void Web::handleGroupCommand(WebServer &server) {
 void Web::handleTiltCommand(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   uint8_t shadeId = 255;
   uint8_t target = 255;
@@ -734,6 +744,7 @@ void Web::handleRoom(WebServer &server) {
   }
   else if (method == HTTP_PUT || method == HTTP_POST) {
     // We are updating an existing room.
+    if(!this->ensureAuth(server, true)) return;
     if (server.hasArg("plain")) {
       Serial.println("Updating a room");
       DynamicJsonDocument doc(512);
@@ -796,6 +807,7 @@ void Web::handleShade(WebServer &server) {
   }
   else if (method == HTTP_PUT || method == HTTP_POST) {
     // We are updating an existing shade.
+    if(!this->ensureAuth(server, true)) return;
     if (server.hasArg("plain")) {
       Serial.println("Updating a shade");
       DynamicJsonDocument doc(512);
@@ -858,6 +870,7 @@ void Web::handleGroup(WebServer &server) {
   }
   else if (method == HTTP_PUT || method == HTTP_POST) {
     // We are updating an existing group.
+    if(!this->ensureAuth(server, true)) return;
     if (server.hasArg("plain")) {
       Serial.println("Updating a group");
       DynamicJsonDocument doc(512);
@@ -936,6 +949,8 @@ void Web::handleDiscovery(WebServer &server) {
 }
 void Web::handleBackup(WebServer &server, bool attach) {
   webServer.sendCORSHeaders(server);
+  // The backup file contains the WiFi passphrase by design (needed for restore).
+  if(!this->ensureAuth(server, true)) return;
   if(server.hasArg("attach")) attach = toBoolean(server.arg("attach").c_str(), attach);
 
   if(attach) {
@@ -964,6 +979,7 @@ void Web::handleBackup(WebServer &server, bool attach) {
 void Web::handleSetPositions(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->ensureAuth(server, false)) return;
   uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
   int8_t pos = (server.hasArg("position")) ? atoi(server.arg("position").c_str()) : -1;
   int8_t tiltPos = (server.hasArg("tiltPosition")) ? atoi(server.arg("tiltPosition").c_str()) : -1;
@@ -1004,6 +1020,7 @@ void Web::handleSetPositions(WebServer &server) {
 void Web::handleSetSensor(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->ensureAuth(server, false)) return;
   uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
   uint8_t groupId = (server.hasArg("groupId")) ? atoi(server.arg("groupId").c_str()) : 255;
   int8_t sunny = (server.hasArg("sunny")) ? toBoolean(server.arg("sunny").c_str(), false) ? 1 : 0 : -1;
@@ -1073,6 +1090,7 @@ void Web::handleSetSensor(WebServer &server) {
 void Web::handleDownloadFirmware(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->ensureAuth(server, true)) return;
   GitRepo repo;
   GitRelease *rel = nullptr;
   int8_t err = repo.getReleases();
@@ -1124,6 +1142,7 @@ void Web::handleNotFound(WebServer &server) {
 void Web::handleReboot(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->ensureAuth(server, true)) return;
   HTTPMethod method = server.method();
   if (method == HTTP_POST || method == HTTP_PUT) {
     Serial.println("Rebooting ESP...");
@@ -1176,8 +1195,9 @@ void Web::begin() {
   server.on("/", []() { webServer.handleStreamFile(server, "/index.html.gz", _encoding_html); });
   server.on("/login", []() { webServer.handleLogin(server); });
   server.on("/loginContext", []() { webServer.handleLoginContext(server); });
-  server.on("/shades.cfg", []() { webServer.handleStreamFile(server, "/shades.cfg", _encoding_text); });
-  server.on("/shades.tmp", []() { webServer.handleStreamFile(server, "/shades.tmp", _encoding_text); });
+  // The raw shade config exposes remote addresses and rolling codes.
+  server.on("/shades.cfg", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.cfg", _encoding_text); });
+  server.on("/shades.tmp", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.tmp", _encoding_text); });
   server.on("/getReleases", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
@@ -1195,6 +1215,7 @@ void Web::begin() {
   server.on("/cancelFirmware", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     // If we are currently downloading the filesystem we cannot cancel.
     if(!git.lockFS) {
       git.status = GIT_UPDATE_CANCELLING;
@@ -1214,6 +1235,7 @@ void Web::begin() {
   server.on("/restore", HTTP_POST, []() {
     webServer.sendCORSHeaders(server);
     server.sendHeader("Connection", "close");
+    if(!webServer.ensureAuth(server, true)) return;
     if(webServer.uploadSuccess) {
       server.send(200, _encoding_json, "{\"status\":\"Success\",\"desc\":\"Restoring Shade settings\"}");
       restore_options_t opts;
@@ -1242,8 +1264,14 @@ void Web::begin() {
     }, []() {
       esp_task_wdt_reset();
       HTTPUpload& upload = server.upload();
+      // Headers are already parsed when the upload starts, so auth can be checked here.
+      // Refuse to touch the filesystem for unauthenticated uploads; the outer handler sends the 401.
       if (upload.status == UPLOAD_FILE_START) {
         webServer.uploadSuccess = false;
+        g_uploadAuthorized = webServer.isAuthenticated(server, true);
+      }
+      if (!g_uploadAuthorized) return;
+      if (upload.status == UPLOAD_FILE_START) {
         Serial.printf("Restore: %s\n", upload.filename.c_str());
         // Begin by opening a new temporary file.
         File fup = LittleFS.open("/shades.tmp", "w");
@@ -1318,6 +1346,7 @@ void Web::begin() {
     });
   server.on("/addRoom", []() {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     SomfyRoom * room = nullptr;
     if (method == HTTP_POST || method == HTTP_PUT) {
@@ -1359,6 +1388,7 @@ void Web::begin() {
     });
   server.on("/addShade", []() {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     SomfyShade* shade = nullptr;
     if (method == HTTP_POST || method == HTTP_PUT) {
@@ -1401,6 +1431,7 @@ void Web::begin() {
     });
   server.on("/addGroup", []() {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     SomfyGroup * group = nullptr;
     if (method == HTTP_POST || method == HTTP_PUT) {
@@ -1486,6 +1517,7 @@ void Web::begin() {
   server.on("/saveRoom", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       // We are updating an existing room.
@@ -1523,6 +1555,7 @@ void Web::begin() {
   server.on("/saveShade", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       // We are updating an existing shade.
@@ -1565,6 +1598,7 @@ void Web::begin() {
   server.on("/saveGroup", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       // We are updating an existing shade.
@@ -1601,6 +1635,7 @@ void Web::begin() {
   server.on("/setMyPosition", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     uint8_t shadeId = 255;
     int8_t pos = -1;
@@ -1651,6 +1686,7 @@ void Web::begin() {
   server.on("/setRollingCode", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       uint8_t shadeId = 255;
@@ -1692,6 +1728,7 @@ void Web::begin() {
   server.on("/setPaired", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     uint8_t shadeId = 255;
     bool paired = false;
     if(server.hasArg("plain")) {
@@ -1730,6 +1767,7 @@ void Web::begin() {
   server.on("/unpairShade", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       uint8_t shadeId = 255;
@@ -1772,6 +1810,7 @@ void Web::begin() {
   server.on("/linkRepeater", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       // We are adding a linked repeater.
@@ -1808,6 +1847,7 @@ void Web::begin() {
   server.on("/unlinkRepeater", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       // We are adding a linked repeater.
@@ -1844,6 +1884,7 @@ void Web::begin() {
   server.on("/unlinkRemote", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       // We are updating an existing shade by adding a linked remote.
@@ -1883,6 +1924,7 @@ void Web::begin() {
   server.on("/linkRemote", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       // We are updating an existing shade by adding a linked remote.
@@ -1924,6 +1966,7 @@ void Web::begin() {
   server.on("/linkToGroup", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       if (server.hasArg("plain")) {
@@ -1971,6 +2014,7 @@ void Web::begin() {
   server.on("/unlinkFromGroup", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_PUT || method == HTTP_POST) {
       if (server.hasArg("plain")) {
@@ -2027,6 +2071,7 @@ void Web::begin() {
   server.on("/deleteRoom", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     uint8_t roomId = 0;
     if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
@@ -2059,6 +2104,7 @@ void Web::begin() {
   server.on("/deleteShade", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     uint8_t shadeId = 255;
     if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
@@ -2094,6 +2140,7 @@ void Web::begin() {
   server.on("/deleteGroup", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     uint8_t groupId = 255;
     if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
@@ -2126,6 +2173,8 @@ void Web::begin() {
   server.on("/updateFirmware", HTTP_POST, []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    // An unauthenticated upload wrote nothing to flash; make sure it cannot reboot either.
+    if(!webServer.ensureAuth(server, true)) return;
     if (Update.hasError())
       server.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Error updating firmware: \"}");
     else
@@ -2134,8 +2183,14 @@ void Web::begin() {
     rebootDelay.rebootTime = millis() + 500;
     }, []() {
       HTTPUpload& upload = server.upload();
+      // Headers are already parsed at UPLOAD_FILE_START so auth can be checked before
+      // any flash write; unauthenticated chunks are dropped and the outer handler 401s.
       if (upload.status == UPLOAD_FILE_START) {
         webServer.uploadSuccess = false;
+        g_uploadAuthorized = webServer.isAuthenticated(server, true);
+      }
+      if (!g_uploadAuthorized) { esp_task_wdt_reset(); return; }
+      if (upload.status == UPLOAD_FILE_START) {
         Serial.printf("Update: %s - %d\n", upload.filename.c_str(), upload.totalSize);
         //if(!Update.begin(upload.totalSize, U_SPIFFS)) {
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
@@ -2177,10 +2232,15 @@ void Web::begin() {
     }
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     server.sendHeader("Connection", "close");
     server.send(200, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Updating Shade Config: \"}");
     }, []() {
       HTTPUpload& upload = server.upload();
+      // Check auth before touching the filesystem; the outer handler sends the 401.
+      if (upload.status == UPLOAD_FILE_START)
+        g_uploadAuthorized = webServer.isAuthenticated(server, true);
+      if (!g_uploadAuthorized) return;
       if (upload.status == UPLOAD_FILE_START) {
         Serial.printf("Update: shades.cfg\n");
         File fup = LittleFS.open("/shades.tmp", "w");
@@ -2201,6 +2261,8 @@ void Web::begin() {
   server.on("/updateApplication", HTTP_POST, []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    // An unauthenticated upload wrote nothing to flash; make sure it cannot reboot either.
+    if(!webServer.ensureAuth(server, true)) return;
     server.sendHeader("Connection", "close");
     if (Update.hasError())
       server.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Error updating application: \"}");
@@ -2210,8 +2272,13 @@ void Web::begin() {
     rebootDelay.rebootTime = millis() + 500;
     }, []() {
       HTTPUpload& upload = server.upload();
+      // Check auth before any flash write; unauthenticated chunks are dropped.
       if (upload.status == UPLOAD_FILE_START) {
         webServer.uploadSuccess = false;
+        g_uploadAuthorized = webServer.isAuthenticated(server, true);
+      }
+      if (!g_uploadAuthorized) { esp_task_wdt_reset(); return; }
+      if (upload.status == UPLOAD_FILE_START) {
         Serial.printf("Update: %s %d\n", upload.filename.c_str(), upload.totalSize);
         //if(!Update.begin(upload.totalSize, U_SPIFFS)) {
         if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS)) { //start with max available size and tell it we are updating the file system.
@@ -2253,6 +2320,8 @@ void Web::begin() {
     esp_task_wdt_reset();
     
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    // The response echoes the current WiFi passphrase.
+    if(!webServer.ensureAuth(server, true)) return;
     esp_task_wdt_delete(NULL);
     if(net.softAPOpened) WiFi.disconnect(false);
     int n = WiFi.scanNetworks(false, true);
@@ -2289,6 +2358,7 @@ void Web::begin() {
   server.on("/saveSecurity", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) return server.send(200);
+    if(!webServer.ensureAuth(server, true)) return;
 
     StaticJsonDocument<768> doc; // Un seul doc suffit pour l'entrée et la sortie
     if (deserializeJson(doc, server.arg("plain"))) return server.send(400, "text/plain", F("J-Err"));
@@ -2314,6 +2384,8 @@ void Web::begin() {
   });
   server.on("/getSecurity", []() {
     webServer.sendCORSHeaders(server);
+    // The response contains the password and pin in clear text.
+    if(!webServer.ensureAuth(server, true)) return;
     DynamicJsonDocument doc(192);
     JsonObject obj = doc.to<JsonObject>();
     settings.Security.toJSON(obj);
@@ -2324,6 +2396,7 @@ void Web::begin() {
   server.on("/saveRadio", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) return server.send(200);
+    if(!webServer.ensureAuth(server, true)) return;
 
     StaticJsonDocument<512> doc; // Réduit de 1024 à 768 si tes réglages radio sont simples
     if (deserializeJson(doc, server.arg("plain"))) return server.send(400, "text/plain", F("J-Err"));
@@ -2355,6 +2428,7 @@ void Web::begin() {
   server.on("/sendRemoteCommand", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
       somfy_frame_t frame;
@@ -2395,6 +2469,7 @@ void Web::begin() {
   server.on("/setgeneral", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     DynamicJsonDocument doc(512);
     
     Serial.print("Plain: ");
@@ -2431,6 +2506,7 @@ void Web::begin() {
   server.on("/setNetwork", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     DynamicJsonDocument doc(1024);
     DeserializationError err = deserializeJson(doc, server.arg("plain"));
     if (err) {
@@ -2487,6 +2563,7 @@ void Web::begin() {
   server.on("/setIP", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     Serial.println("Setting IP...");
     DynamicJsonDocument doc(1024);
     DeserializationError err = deserializeJson(doc, server.arg("plain"));
@@ -2510,6 +2587,7 @@ void Web::begin() {
   server.on("/connectwifi", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     Serial.println("Settings WIFI connection...");
     DynamicJsonDocument doc(512);
     DeserializationError err = deserializeJson(doc, server.arg("plain"));
@@ -2575,6 +2653,8 @@ void Web::begin() {
     });
   server.on("/networksettings", []() {
     webServer.sendCORSHeaders(server);
+    // The response contains the WiFi passphrase.
+    if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
     resp.beginObject();
@@ -2609,6 +2689,7 @@ void Web::begin() {
     });
   server.on("/connectmqtt", []() {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     DynamicJsonDocument doc(1024);
     DeserializationError err = deserializeJson(doc, server.arg("plain"));
     if (err) {
@@ -2646,6 +2727,8 @@ void Web::begin() {
     });
   server.on("/mqttsettings", []() {
     webServer.sendCORSHeaders(server);
+    // The response contains the MQTT password.
+    if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
     resp.beginObject();
@@ -2663,6 +2746,7 @@ void Web::begin() {
     });
   server.on("/roomSortOrder", []() {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     DynamicJsonDocument doc(512);
     Serial.print("Plain: ");
     Serial.print(server.method());
@@ -2694,6 +2778,7 @@ void Web::begin() {
   });
   server.on("/shadeSortOrder", []() {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     DynamicJsonDocument doc(512);
     Serial.print("Plain: ");
     Serial.print(server.method());
@@ -2725,6 +2810,7 @@ void Web::begin() {
   });
   server.on("/groupSortOrder", []() {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!webServer.ensureAuth(server, true)) return;
     DynamicJsonDocument doc(512);
     Serial.print("Plain: ");
     Serial.print(server.method());
@@ -2756,6 +2842,7 @@ void Web::begin() {
   });  
   server.on("/beginFrequencyScan", []() {
     webServer.sendCORSHeaders(server);
+    if(!webServer.ensureAuth(server, true)) return;
     somfy.transceiver.beginFrequencyScan();
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
@@ -2773,6 +2860,7 @@ void Web::begin() {
   });
   server.on("/endFrequencyScan", []() {
     webServer.sendCORSHeaders(server);
+    if(!webServer.ensureAuth(server, true)) return;
     somfy.transceiver.endFrequencyScan();
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
@@ -2791,6 +2879,7 @@ void Web::begin() {
   server.on("/recoverFilesystem", [] () {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
     webServer.sendCORSHeaders(server);
+    if(!webServer.ensureAuth(server, true)) return;
     if(git.status == GIT_UPDATING)
       server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Filesystem is updating.  Please wait!!!\"}");
     else if(git.status != GIT_STATUS_READY)
