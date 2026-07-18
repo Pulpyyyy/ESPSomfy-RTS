@@ -575,6 +575,7 @@ class SomfyShadeController {
     bool deleteGroup(uint8_t groupId);
     bool begin();
     void loop();
+    bool allIdle();  // true when no shade is travelling (guards blocking work in the loop)
     void end();
     void compressRepeaters();
     uint32_t repeaters[SOMFY_MAX_REPEATERS] = {0};

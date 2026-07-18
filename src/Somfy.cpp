@@ -4340,18 +4340,31 @@ void SomfyShadeController::toJSONRepeaters(JsonResponse &json) {
     if(somfy.repeaters[i] != 0) json.addElem((uint32_t)somfy.repeaters[i]);
   }
 }
-void SomfyShadeController::loop() { 
-  this->transceiver.loop(); 
+void SomfyShadeController::loop() {
+  this->transceiver.loop();
+  bool allIdle = true;
   for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
     if(this->shades[i].getShadeId() != 255) {
       this->shades[i].checkMovement();
       this->shades[i].setGPIOs();
+      if(!this->shades[i].isIdle()) allIdle = false;
     }
   }
-  // Only commit the file once per second.
-  if(this->isDirty && millis() - this->lastCommit > 1000) {
+  // Commit at most once per second, and not while a shade is travelling: the LittleFS
+  // rewrite stalls the loop for tens of ms, which delays the STOP of any moving shade
+  // and makes it overshoot. Defer until every shade is idle, with a 30 s cap so a shade
+  // stuck in a moving state cannot postpone the write indefinitely (lastCommit is not
+  // touched while deferring, so the cap measures the time since the last real commit).
+  if(this->isDirty && millis() - this->lastCommit > 1000 &&
+    (allIdle || millis() - this->lastCommit > 30000)) {
     this->commit();
   }
+}
+bool SomfyShadeController::allIdle() {
+  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
+    if(this->shades[i].getShadeId() != 255 && !this->shades[i].isIdle()) return false;
+  }
+  return true;
 }
 SomfyLinkedRemote::SomfyLinkedRemote() {}
 
