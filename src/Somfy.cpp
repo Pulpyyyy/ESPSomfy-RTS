@@ -984,7 +984,10 @@ void SomfyShade::setGPIOs() {
     }
   }
   else if(this->proto == radio_proto::GP_Remote) {
-    if(millis() > this->gpioRelease) {
+    // gpioRelease == 0 means "already released": the null guard stops the pins being
+    // rewritten every loop, and the subtractive compare keeps the deadline correct
+    // across the millis() rollover (plain millis() > deadline breaks at the wrap).
+    if(this->gpioRelease != 0 && (int32_t)(millis() - this->gpioRelease) >= 0) {
       //uint8_t p_on = (this->gpioFlags & (uint8_t)gpio_flags_t::LowLevelTrigger) == 0x00 ? HIGH : LOW;
       uint8_t p_off = (this->gpioFlags & (uint8_t)gpio_flags_t::LowLevelTrigger) == 0x00 ? LOW : HIGH;
       digitalWrite(this->gpioUp, p_off);
@@ -1135,7 +1138,7 @@ float SomfyShade::stepDownTarget(uint32_t msStep) {
   return this->curveForward(min(100.0f, lin));
 }
 void SomfyShade::checkMovement() {
-  const uint64_t curTime = millis();
+  const uint32_t curTime = millis();
   const bool sunFlag = this->flags & static_cast<uint8_t>(somfy_flags_t::SunFlag);
   const bool isSunny = this->flags & static_cast<uint8_t>(somfy_flags_t::Sunny);
   const bool isWindy = this->flags & static_cast<uint8_t>(somfy_flags_t::Windy);
@@ -2194,7 +2197,8 @@ void SomfyShade::processWaitingFrame() {
     return;
   }
   if(this->lastFrame.processed) return;
-  if(this->lastFrame.await > 0 && (millis() > this->lastFrame.await)) {
+  // Subtractive deadline: correct across the millis() rollover (await = 0 means "unset").
+  if(this->lastFrame.await > 0 && (int32_t)(millis() - this->lastFrame.await) >= 0) {
     somfy_commands cmd = this->transformCommand(this->lastFrame.cmd);
     switch(cmd) {
       case somfy_commands::StepUp:
@@ -2329,7 +2333,7 @@ void SomfyShade::processFrame(somfy_frame_t &frame, bool internal) {
     }
   }
   if(!hasRemote) return;
-  const uint64_t curTime = millis();
+  const uint32_t curTime = millis();
   this->lastFrame.copy(frame);
   int8_t dir = 0;
   this->moveStart = this->tiltStart = curTime;
@@ -2694,7 +2698,7 @@ void SomfyShade::processInternalCommand(somfy_commands cmd, uint8_t repeat) {
   // any linked remotes that may happen to be on the same ESPSomfy RTS
   // device can trigger the appropriate actions.
   if(this->shadeId == 255) return; 
-  const uint64_t curTime = millis();
+  const uint32_t curTime = millis();
   int8_t dir = 0;
   this->moveStart = this->tiltStart = curTime;
   this->startPos = this->currentPos;
@@ -5274,7 +5278,7 @@ void Transceiver::loop() {
   else {
     somfy.processWaitingFrame();
     // Check to see if there is anything in the buffer
-    if(tx_queue.length > 0 && millis() > tx_queue.delay_time && somfy_rx.cpt_synchro_hw == 0) {
+    if(tx_queue.length > 0 && (int32_t)(millis() - tx_queue.delay_time) >= 0 && somfy_rx.cpt_synchro_hw == 0) {
       this->beginTransmit();
       somfy_tx_t tx;
       

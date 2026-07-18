@@ -273,13 +273,16 @@ class SomfyLinkedRemote : public SomfyRemote {
 class SomfyShade : public SomfyRemote {
   protected:
     uint8_t shadeId = 255;
-    uint64_t moveStart = 0;
-    uint64_t tiltStart = 0;
-    uint64_t noSunStart = 0;
-    uint64_t sunStart = 0;
-    uint64_t windStart = 0;
-    uint64_t windLast = 0;
-    uint64_t noWindStart = 0;
+    // millis() timestamps. Kept 32-bit so that (millis() - start) elapsed math wraps
+    // correctly at the 49.7-day rollover; in uint64 the same subtraction produced a
+    // huge value at the wrap and snapped a moving shade straight to its target.
+    uint32_t moveStart = 0;
+    uint32_t tiltStart = 0;
+    uint32_t noSunStart = 0;
+    uint32_t sunStart = 0;
+    uint32_t windStart = 0;
+    uint32_t windLast = 0;
+    uint32_t noWindStart = 0;
     bool noSunDone = true;
     bool sunDone = true;
     bool windDone = true;

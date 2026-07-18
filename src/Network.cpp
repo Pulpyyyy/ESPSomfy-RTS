@@ -486,7 +486,7 @@ bool Network::connect(conn_types_t ctype) {
     // Here we need to call the connect to ethernet.
     this->connectWired();
   }
-  else if(ctype == conn_types_t::ap || (!this->connected() && millis() > this->disconnectTime + CONNECT_TIMEOUT)) {
+  else if(ctype == conn_types_t::ap || (!this->connected() && (uint32_t)(millis() - this->disconnectTime) >= CONNECT_TIMEOUT)) {
     if(!this->softAPOpened && !this->openingSoftAP) {
       this->disconnectTime = millis();
       this->openSoftAP();
