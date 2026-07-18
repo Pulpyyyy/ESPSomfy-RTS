@@ -1137,12 +1137,13 @@ void Web::handleReboot(WebServer &server) {
 }
 void Web::begin() {
   Serial.println("Creating Web MicroServices...");
-  server.enableCORS(true);
+  // No CORS headers: the embedded UI is same-origin and Home Assistant talks
+  // server-to-server. A wildcard here would let any web page visited from the
+  // LAN read and drive this API from the victim's browser.
   const char *keys[1] = {"apikey"};
   server.collectHeaders(keys, 1);
   // API Server Handlers
-  apiServer.collectHeaders(keys, 1);  
-  apiServer.enableCORS(true);
+  apiServer.collectHeaders(keys, 1);
   apiServer.on("/discovery", []() { webServer.handleDiscovery(apiServer); });
   apiServer.on("/rooms", []() {webServer.handleGetRooms(apiServer); });
   apiServer.on("/shades", []() { webServer.handleGetShades(apiServer); });
