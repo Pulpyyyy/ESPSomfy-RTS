@@ -397,6 +397,17 @@ select.inputAndSelect {
 .custom-checkbox:hover {
     box-shadow: 0 0 8px var(--txtwarning-color);
 }
+/* Calibration wizard: MD3-consistent copy list (checkbox rows + source select). */
+#calWizResult .calFromLabel { display:block; font-weight:600; margin-bottom:4px; }
+#calWizResult select.inputAndSelect { width:100%; margin-bottom:14px; }
+#calWizResult .calList { max-height:34vh; overflow:auto; }
+#calWizResult .calRow { display:flex; align-items:center; gap:12px; padding:8px 2px; cursor:pointer; user-select:none; }
+#calWizResult .calRow-all { font-weight:600; border-bottom:1px solid var(--md-outline); margin-bottom:4px; }
+#calWizResult .calRow input[type="checkbox"] { display:none; }
+#calWizResult .calRow .custom-checkbox { width:22px; height:22px; border-color: var(--md-outline); border-radius:4px; }
+#calWizResult .calRow input[type="checkbox"]:checked + .custom-checkbox { background: var(--md-primary); border-color: var(--md-primary); }
+#calWizResult .calRow input[type="checkbox"]:checked + .custom-checkbox::after { transform: rotate(45deg) scale(1); border-color: var(--md-on-primary); }
+#calWizResult .calRow .custom-checkbox:hover { box-shadow: 0 0 8px var(--md-primary); }
 label.uniRow {
     cursor: pointer;
     user-select: none;

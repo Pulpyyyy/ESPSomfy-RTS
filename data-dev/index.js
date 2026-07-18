@@ -951,7 +951,7 @@ function startShadeCalibration() {
     const div = document.createElement('div');
     div.className = 'inst-overlay'; div.id = 'divCalWizard';
     div.innerHTML = '<div class="instructions-content"><div class="overlay-scroll-content">'
-        + overlayHeader('Calibration télécommande', "Pilote avec ta télécommande, l'assistant mesure les temps", 'svg-simpleShutter')
+        + overlayHeader('Calibration du volet', "Mesure guidée à la télécommande, ou recopie d'un volet déjà réglé", 'svg-simpleShutter')
         + '<div class="unibloc">'
         + '<p id="calWizText" style="min-height:3.5em;font-size:1.05em;"></p>'
         + '<div id="calWizLive" style="opacity:.7;font-size:.9em;min-height:1.2em;"></div>'
@@ -1117,15 +1117,13 @@ function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
         const others = shades.filter(function (s) { return s.shadeId !== excludeId && s.shadeId < 255; });
         if (!others.length) { calWizText("Aucun autre volet à mettre à jour.", ''); calWizButtons([{ l: "Terminer", f: onDone }]); return; }
         // Multi-select: tick as many target shades as wanted (with a select-all).
+        // MD3 checkbox markup (hidden input + .custom-checkbox), styled via #calWizResult.
         let html = '<hr>'
-            + '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer;font-weight:600;border-bottom:1px solid var(--md-outline,#8886)">'
-            + '<input type="checkbox" id="calCopyAll" style="width:18px;height:18px"><span>Tout cocher / décocher</span></label>'
-            + '<div style="max-height:38vh;overflow:auto;text-align:left">';
+            + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>Tout cocher / décocher</span></label>'
+            + '<div class="calList">';
         others.forEach(function (s) {
             const nm = (s.name || ('#' + s.shadeId)).replace(/</g, '&lt;');
-            html += '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer">'
-                + '<input type="checkbox" class="calCopyChk" value="' + s.shadeId + '" style="width:18px;height:18px">'
-                + '<span>' + nm + '</span></label>';
+            html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + nm + '</span></label>';
         });
         html += '</div>';
         if (get('calWizResult')) get('calWizResult').innerHTML = html;
@@ -1177,21 +1175,18 @@ function calWizRecopy(sId) {
         const render = function () {
             const srcId = srcOf();
             let html = '<hr><div style="text-align:left">'
-                + '<label style="display:block;font-weight:600;margin-bottom:4px">Copier depuis</label>'
-                + '<select id="calSrcSel" style="width:100%;margin-bottom:12px">'
+                + '<label class="calFromLabel">Copier depuis</label>'
+                + '<select id="calSrcSel" class="inputAndSelect">'
                 + list.map(function (s) {
                     return '<option value="' + s.shadeId + '"' + (s.shadeId === srcId ? ' selected' : '') + '>'
                         + esc(s.name || ('#' + s.shadeId))
                         + '  (↑' + s.upTime + ' ↓' + s.downTime + ' lift' + s.liftTime + ' k' + (s.curveGain || 0) + ')</option>';
                 }).join('')
                 + '</select>'
-                + '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;font-weight:600;cursor:pointer;border-bottom:1px solid var(--md-outline,#8886)">'
-                + '<input type="checkbox" id="calCopyAll" style="width:18px;height:18px"><span>Vers — tout cocher / décocher</span></label>'
-                + '<div style="max-height:32vh;overflow:auto">';
+                + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>Vers — tout cocher / décocher</span></label>'
+                + '<div class="calList">';
             list.filter(function (s) { return s.shadeId !== srcId; }).forEach(function (s) {
-                html += '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer">'
-                    + '<input type="checkbox" class="calCopyChk" value="' + s.shadeId + '" style="width:18px;height:18px">'
-                    + '<span>' + esc(s.name || ('#' + s.shadeId)) + '</span></label>';
+                html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + esc(s.name || ('#' + s.shadeId)) + '</span></label>';
             });
             html += '</div></div>';
             if (get('calWizResult')) get('calWizResult').innerHTML = html;
