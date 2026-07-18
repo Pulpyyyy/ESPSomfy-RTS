@@ -121,7 +121,15 @@ void MQTTClass::receive(const char *topic, byte* payload, uint32_t length) {
 bool MQTTClass::connect() {
   esp_task_wdt_reset();
   if(mqttClient.connected()) return true;
-  if(!settings.MQTT.enabled || this->suspended || (this->lastConnect + 10000 > millis())) return false;
+  if(!settings.MQTT.enabled || this->suspended) return false;
+  // Throttle attempts to once per 10s. Stamping the attempt here (not only on success,
+  // as before) keeps the guard effective when the broker is unreachable — otherwise a
+  // down broker triggers a blocking DNS+TCP connect on every loop iteration. lastConnect
+  // holds a millis() value; the subtractive compare stays correct across the 49.7-day
+  // wrap, where the old `lastConnect + 10000 > millis()` would have blocked forever.
+  // lastConnect == 0 is the "connect now" sentinel used by reset().
+  if(this->lastConnect != 0 && (uint32_t)(millis() - this->lastConnect) < 10000) return false;
+  this->lastConnect = millis();
 
   uint64_t mac = ESP.getEfuseMac();
   snprintf(this->clientId, sizeof(this->clientId), "client-%08x%08x", (uint32_t)((mac >> 32) & 0xFFFFFFFF), (uint32_t)(mac & 0xFFFFFFFF));
@@ -152,7 +160,6 @@ bool MQTTClass::connect() {
     this->subscribe("groups/+/windy/set");
 
     mqttClient.setCallback(MQTTClass::receive);
-    this->lastConnect = millis();
     return true;
   }
   return false;
