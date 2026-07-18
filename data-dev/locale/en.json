@@ -615,8 +615,6 @@
     "ERR_PASSWORD_CONFIRM_MISSING_DESC": "You must re-enter the password in the \"Re-enter password\" field.",
     "ERR_PASSWORD_MISMATCH": "Passwords do not match",
     "ERR_PASSWORD_MISMATCH_DESC": "Please re-enter the password exactly as entered in the confirmation field.",
-    "ERR_PASSWORD_MISSING": "Password missing",
-    "ERR_PASSWORD_MISSING_DESC": "You must provide a password to enable password security.",
     "ERR_NO_WIFI_FOUND": "No networks found",
     "ERR_STATIC_IP_REQUIRED": "You must provide a valid IP address for the static IP.",
     "ERR_STATIC_IP_INVALID": "Invalid static IP address. Expected format is XXX.XXX.XXX.XXX.",
