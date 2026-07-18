@@ -2135,8 +2135,12 @@ void SomfyGroup::emitState(uint8_t num, const char *evt) {
   for(uint8_t i = 0; i < SOMFY_MAX_GROUPED_SHADES; i++) {
     if(this->linkedShades[i] != 255 && this->linkedShades[i] != 0) {
       SomfyShade *shade = somfy.getShadeById(this->linkedShades[i]);
-      if(shade) json->addElem(this->linkedShades[i]);
-      flags |= shade->flags;
+      if(shade) {
+        json->addElem(this->linkedShades[i]);
+        // Must stay inside the guard: a group can hold the id of a shade that was
+        // since deleted, and dereferencing that null crashed emitState (LoadProhibited).
+        flags |= shade->flags;
+      }
     }
   }
   json->endArray();
