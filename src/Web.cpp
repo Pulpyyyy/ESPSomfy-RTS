@@ -33,6 +33,14 @@ static char g_content[WEB_MAX_RESPONSE];
 // flag is enough to make every later chunk of an unauthenticated upload a no-op.
 static bool g_uploadAuthorized = false;
 
+// Cumulative bytes of the current config upload, reset at UPLOAD_FILE_START. Only one
+// upload runs at a time (single-threaded server) so a single counter is sufficient.
+static size_t g_uploadBytes = 0;
+// Generous caps: shades backups are a few KB. Anything larger is treated as an attempt
+// to fill the filesystem and is aborted. Firmware image endpoints are not capped here.
+#define RESTORE_MAX_UPLOAD (128 * 1024)
+#define SHADECFG_MAX_UPLOAD (64 * 1024)
+
 // General responses
 static const char _response_404[] = "404: Service Not Found";
 
@@ -1270,6 +1278,7 @@ void Web::begin() {
       if (upload.status == UPLOAD_FILE_START) {
         webServer.uploadSuccess = false;
         g_uploadAuthorized = webServer.isAuthenticated(server, true);
+        g_uploadBytes = 0;
       }
       if (!g_uploadAuthorized) return;
       if (upload.status == UPLOAD_FILE_START) {
@@ -1279,6 +1288,14 @@ void Web::begin() {
         fup.close();
       }
       else if (upload.status == UPLOAD_FILE_WRITE) {
+        // Cap the cumulative size so a large repeated upload cannot fill the filesystem.
+        g_uploadBytes += upload.currentSize;
+        if (g_uploadBytes > RESTORE_MAX_UPLOAD) {
+          webServer.uploadSuccess = false;
+          g_uploadAuthorized = false; // make every later chunk (and END) a no-op
+          Serial.printf("Restore aborted: upload exceeds %u bytes\n", (unsigned)RESTORE_MAX_UPLOAD);
+          return;
+        }
         File fup = LittleFS.open("/shades.tmp", "a");
         //upload.buf[upload.currentSize] = 0x00;
         //Serial.print((char *)upload.buf);
@@ -2239,8 +2256,10 @@ void Web::begin() {
     }, []() {
       HTTPUpload& upload = server.upload();
       // Check auth before touching the filesystem; the outer handler sends the 401.
-      if (upload.status == UPLOAD_FILE_START)
+      if (upload.status == UPLOAD_FILE_START) {
         g_uploadAuthorized = webServer.isAuthenticated(server, true);
+        g_uploadBytes = 0;
+      }
       if (!g_uploadAuthorized) return;
       if (upload.status == UPLOAD_FILE_START) {
         Serial.printf("Update: shades.cfg\n");
@@ -2248,6 +2267,13 @@ void Web::begin() {
         fup.close();
       }
       else if (upload.status == UPLOAD_FILE_WRITE) {
+        // Cap the cumulative size so a large repeated upload cannot fill the filesystem.
+        g_uploadBytes += upload.currentSize;
+        if (g_uploadBytes > SHADECFG_MAX_UPLOAD) {
+          g_uploadAuthorized = false; // make every later chunk (and END) a no-op
+          Serial.printf("Update aborted: upload exceeds %u bytes\n", (unsigned)SHADECFG_MAX_UPLOAD);
+          return;
+        }
         /* flashing littlefs to ESP*/
         if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
           File fup = LittleFS.open("/shades.tmp", "a");
