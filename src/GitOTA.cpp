@@ -258,9 +258,11 @@ void GitRepo::toJSON(JsonResponse &json) {
 void GitUpdater::loop() {
   if(!net.connected()) return;
   if(this->status == GIT_STATUS_READY) {
+    // Subtractive comparisons so the one-minute grace and the daily cadence stay correct
+    // across the millis() rollover (the old `t + interval < millis()` form broke at wrap).
     if(settings.checkForUpdate &&
-      (millis() > net.connectTime + 60000) && // Wait a minute before checking after connection.
-      (this->lastCheck + 86400000 < millis() || this->lastCheck == 0) && !rebootDelay.reboot) { // 1 day
+      ((uint32_t)(millis() - net.connectTime) >= 60000) && // Wait a minute after connection.
+      (this->lastCheck == 0 || (uint32_t)(millis() - this->lastCheck) >= 86400000) && !rebootDelay.reboot) { // 1 day
         this->checkForUpdate();
       }
   }

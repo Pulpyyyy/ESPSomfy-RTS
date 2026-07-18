@@ -58,7 +58,7 @@ void loop() {
   // One minute of loop without crash or watchdog reset = firmware is valid, cancel rollback.
   static bool fwValidated = false;
   if(!fwValidated && millis() > 60000) { OTARollback::markValid(); fwValidated = true; }
-  if(rebootDelay.reboot && millis() > rebootDelay.rebootTime) {
+  if(rebootDelay.reboot && (int32_t)(millis() - rebootDelay.rebootTime) >= 0) {
     Serial.print("Rebooting after ");
     Serial.print(rebootDelay.rebootTime);
     Serial.println("ms");
@@ -95,7 +95,7 @@ void loop() {
     esp_task_wdt_reset();
     timing = millis();
   }
-  if(rebootDelay.reboot && millis() > rebootDelay.rebootTime) {
+  if(rebootDelay.reboot && (int32_t)(millis() - rebootDelay.rebootTime) >= 0) {
     OTARollback::markValid();
     net.end();
     ESP.restart();
