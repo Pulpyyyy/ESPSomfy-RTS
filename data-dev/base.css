@@ -95,6 +95,78 @@
     --hover-brightness: 1.3;
     --shadow: #090909;
 }
+/* ---- Material Design 3 theme layer (iteration 1) --------------------------
+   MD3 color roles derived from the existing blue seed (#1a5fb4), remapped onto
+   the app's variables so existing components pick up the new palette.
+   Additive and reversible (later definitions win over the blocks above). */
+:root[data-theme="light"] {
+    --md-primary:#1a5fb4; --md-on-primary:#ffffff;
+    --md-primary-container:#d7e3ff; --md-on-primary-container:#001b3f;
+    --md-surface:#faf9fd; --md-surface-container:#eeedf1;
+    --md-surface-container-high:#e8e7ec; --md-surface-container-highest:#e3e1e6;
+    --md-on-surface:#1b1b1f; --md-on-surface-variant:#45464f;
+    --md-outline:#767680; --md-outline-variant:#c6c5d0;
+    --md-elevation-1:0 1px 2px rgba(0,0,0,.20), 0 1px 3px 1px rgba(0,0,0,.10);
+    --md-elevation-2:0 1px 2px rgba(0,0,0,.20), 0 2px 6px 2px rgba(0,0,0,.12);
+    --accent-color:var(--md-primary);
+    --body-color:var(--md-surface);
+    --background-color:var(--md-surface-container);
+    --unibloc-color:var(--md-surface);
+    --fond-color:var(--md-surface-container);
+    --color:var(--md-on-surface);
+    --soustxt-color:var(--md-on-surface-variant);
+    --input:var(--md-surface-container-high);
+    --inputNumber:var(--md-surface-container-high);
+    --border:var(--md-outline-variant);
+    --hr-color:var(--md-outline-variant);
+    --help:var(--md-outline);
+    --border-lbc:var(--md-outline-variant);
+}
+:root[data-theme="dark"] {
+    --md-primary:#adc6ff; --md-on-primary:#002e69;
+    --md-primary-container:#004494; --md-on-primary-container:#d7e3ff;
+    --md-surface:#121316; --md-surface-container:#1e1f23;
+    --md-surface-container-high:#282a2d; --md-surface-container-highest:#333438;
+    --md-on-surface:#e4e1e6; --md-on-surface-variant:#c6c5d0;
+    --md-outline:#90909a; --md-outline-variant:#45464f;
+    --md-elevation-1:0 1px 2px rgba(0,0,0,.50), 0 1px 3px 1px rgba(0,0,0,.30);
+    --md-elevation-2:0 1px 2px rgba(0,0,0,.50), 0 2px 6px 2px rgba(0,0,0,.30);
+    --accent-color:var(--md-primary);
+    --body-color:var(--md-surface);
+    --background-color:var(--md-surface-container);
+    --unibloc-color:var(--md-surface);
+    --fond-color:var(--md-surface-container);
+    --color:var(--md-on-surface);
+    --soustxt-color:var(--md-on-surface-variant);
+    --input:var(--md-surface-container-high);
+    --inputNumber:var(--md-surface-container-high);
+    --border:var(--md-outline-variant);
+    --hr-color:var(--md-outline-variant);
+    --help:var(--md-outline);
+    --border-lbc:var(--md-outline-variant);
+}
+/* Typography: prefer Roboto (MD3), fall back to the platform UI font. */
+body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif; }
+/* Shape + elevation (MD3): rounded, tonally elevated cards; rounded inputs/buttons. */
+.unibloc { border-radius: 12px; box-shadow: var(--md-elevation-1); }
+.inputAndSelect { border-radius: 6px; }
+button, .buttonUpdate { border-radius: 20px; }
+/* ---- Material Design 3 theme layer (iteration 2) --------------------------
+   Filled-tonal medium-emphasis buttons, MD3 switches, and hover/press state
+   layers. The primary filled save buttons are bare <button> and stay untouched. */
+:root[data-theme="light"] { --md-secondary-container:#dae2f9; --md-on-secondary-container:#131c2b; }
+:root[data-theme="dark"]  { --md-secondary-container:#3b4858; --md-on-secondary-container:#dae2f9; }
+.divButton { background: var(--md-secondary-container); border: none; box-shadow: none; }
+.divButton .buttonUpdate { color: var(--md-on-secondary-container); }
+.divButton .uniStatus { opacity: .75; }
+.divButton:hover { background: color-mix(in srgb, var(--md-primary) 8%, var(--md-secondary-container)); border: none; }
+.divButton:active { background: color-mix(in srgb, var(--md-primary) 12%, var(--md-secondary-container)); }
+/* MD3 switch: outlined track when off, primary fill when on. */
+.switch { background: var(--md-surface-container-highest); border-color: var(--md-outline); }
+.switch div { background: var(--md-outline); }
+.switch:has(input:checked) { background: var(--md-primary); border-color: var(--md-primary); }
+.switch input:checked + div { background: var(--md-on-primary); }
+.switch input:checked + div::after { border-color: var(--md-primary); }
 html, body {
     margin: 0;
     padding: 0;
@@ -419,8 +491,9 @@ select:focus,
 input[type=password]:focus,
 input[type=number]:focus,
 input[type=text]:focus {
-    border-color: #4C669F;
-    outline: 0;
+    border-color: var(--accent-color);
+    outline: 2px solid color-mix(in srgb, var(--accent-color) 30%, transparent);
+    outline-offset: 0;
 }
 input[type="checkbox"] {
     width: 45px;
@@ -873,7 +946,7 @@ button:disabled:active {
 }
 .information {
     background: rgba(54, 128, 244, 0.1);
-    border: 1px solid #365df42e;
+    border: 1px solid color-mix(in srgb, var(--accent-color) 18%, transparent);
 }
 .success {
     background: rgba(76, 175, 80, 0.1);
@@ -905,7 +978,7 @@ button:disabled:active {
 .warning b,
 .warning svg {color:#ff9800;}
 .information b,
-.information svg {color: #5089ec;}
+.information svg {color: var(--accent-color);}
 .success b,
 .success svg {color: #4caf50;}
 .error b,
