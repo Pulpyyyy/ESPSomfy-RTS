@@ -27,19 +27,24 @@ void JsonSockEvent::endEvent(uint8_t num) {
   else this->server->sendTXT(num, this->buff);
 }
 void JsonSockEvent::_safecat(const char *val, bool escape) {
-  size_t len = (escape ? this->calcEscapedLength(val) : strlen(val)) + strlen(this->buff);
-  if(escape) len += 2;
-  if(len >= this->buffSize) {
-    // Report the overflow but do not dump the whole buffer: printing up to 2 KB over
-    // the serial line (~180 ms at 115200) for every excess element stalled the loop
-    // whenever the sniffer UI was open and a long frame arrived.
-    Serial.printf("Socket exceeded buffer size %d - %d\n", this->buffSize, len);
+  // Track the buffer length locally and append through the pointer so each element
+  // costs one strlen instead of the four the strcat chain used to run (O(n) instead
+  // of O(n^2) over a long event). The overflow no longer dumps the whole buffer
+  // (that 2 KB serial print stalled the loop with the sniffer UI open).
+  size_t curlen = strlen(this->buff);
+  size_t vlen = (escape ? this->calcEscapedLength(val) : strlen(val)) + (escape ? 2 : 0);
+  if(curlen + vlen >= this->buffSize) {
+    Serial.printf("Socket exceeded buffer size %d - %d\n", this->buffSize, curlen + vlen);
     return;
   }
-  if(escape) strcat(this->buff, "\"");
-  if(escape) this->escapeString(val, &this->buff[strlen(this->buff)]);
-  else strcat(this->buff, val);
-  if(escape) strcat(this->buff, "\"");
+  char *p = this->buff + curlen;
+  if(escape) {
+    *p++ = '"';
+    p += this->escapeString(val, p);
+    *p++ = '"';
+    *p = '\0';
+  }
+  else strcpy(p, val);
 }
 void JsonResponse::beginResponse(WebServer *server, char *buff, size_t buffSize) {
   this->server = server;
@@ -71,10 +76,16 @@ void JsonResponse::_safecat(const char *val, bool escape) {
       return;
     }
   }
-  if(escape) strcat(this->buff, "\"");
-  if(escape) this->escapeString(val, &this->buff[strlen(this->buff)]);
-  else strcat(this->buff, val);
-  if(escape) strcat(this->buff, "\"");
+  // Append through the pointer after any flush: one strlen instead of the strcat
+  // chain's repeated tail rescans.
+  char *p = this->buff + strlen(this->buff);
+  if(escape) {
+    *p++ = '"';
+    p += this->escapeString(val, p);
+    *p++ = '"';
+    *p = '\0';
+  }
+  else strcpy(p, val);
 }
 
 void JsonFormatter::beginObject(const char *name) {
@@ -148,15 +159,20 @@ void JsonFormatter::addElem(const char *name, uint64_t lval) { sprintf(this->_nu
 void JsonFormatter::addElem(const char *name, bool bval) { strcpy(this->_numbuff, bval ? "true" : "false"); this->_appendNumber(name); }
 
 void JsonFormatter::_safecat(const char *val, bool escape) {
-  size_t len = (escape ? this->calcEscapedLength(val) : strlen(val)) + strlen(this->buff);
-  if(escape) len += 2;
-  if(len >= this->buffSize) {
-    return;
+  // One strlen of the buffer, then append through the pointer. The old strcat chain
+  // rescanned the whole buffer up to four times per element, making a long event
+  // (hundreds of elements) O(n^2) in the buffer size.
+  size_t curlen = strlen(this->buff);
+  size_t vlen = (escape ? this->calcEscapedLength(val) : strlen(val)) + (escape ? 2 : 0);
+  if(curlen + vlen >= this->buffSize) return;
+  char *p = this->buff + curlen;
+  if(escape) {
+    *p++ = '"';
+    p += this->escapeString(val, p);
+    *p++ = '"';
+    *p = '\0';
   }
-  if(escape) strcat(this->buff, "\"");
-  if(escape) this->escapeString(val, &this->buff[strlen(this->buff)]);
-  else strcat(this->buff, val);
-  if(escape) strcat(this->buff, "\"");
+  else strcpy(p, val);
 }
 void JsonFormatter::_appendNumber(const char *name) { this->appendElem(name); this->_safecat(this->_numbuff); } 
 uint32_t JsonFormatter::calcEscapedLength(const char *raw) {
@@ -183,10 +199,11 @@ uint32_t JsonFormatter::calcEscapedLength(const char *raw) {
   }
   return len;
 }
-void JsonFormatter::escapeString(const char *raw, char *escaped) {
+size_t JsonFormatter::escapeString(const char *raw, char *escaped) {
   // Direct pointer writes: the previous strcat-per-character version rescanned
   // the whole output on every character, making escaping O(n^2). Bounds are
-  // guaranteed by the callers, which check calcEscapedLength() first.
+  // guaranteed by the callers, which check calcEscapedLength() first. Returns the
+  // number of characters written so _safecat can advance without a fresh strlen.
   char *p = escaped;
   for(const char *s = raw; *s; s++) {
     switch(*s) {
@@ -202,4 +219,5 @@ void JsonFormatter::escapeString(const char *raw, char *escaped) {
     }
   }
   *p = '\0';
+  return (size_t)(p - escaped);
 }
