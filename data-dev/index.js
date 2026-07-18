@@ -2479,9 +2479,11 @@ class General {
             confirmText = `<p>${tr('SAVESECURITY_PASSWORD_WARNING')}</p><p>${tr('SAVESECURITY_PASSWORD_CONFIRM')}</p>`;
         }
         const prompt = ui.promptMessage(tr('PROMPT_SECURITY_CONFIRM'), () => {
-            putJSONSync('/saveSecurity', data, (e) => {
+            putJSONSync('/saveSecurity', data, (e, resp) => {
                 prompt.remove();
                 if (e) ui.serviceError(e);
+                // The token is derived from the credentials; keep the session valid after a change.
+                else if (resp && typeof resp.apiKey !== 'undefined') security.apiKey = resp.apiKey;
             });
         });
         prompt.querySelector('.sub-message').innerHTML = confirmText;
@@ -5871,6 +5873,7 @@ class Firmware {
                 reject({ htmlError: status, service: 'GET /backup' });
             };
             xhr.open('GET', baseUrl.length > 0 ? `${baseUrl}/backup` : '/backup', true);
+            xhr.setRequestHeader('apikey', security.apiKey);
             xhr.send();
         });
     }
@@ -6409,6 +6412,8 @@ class Firmware {
 
         let xhr = new XMLHttpRequest();
         xhr.open('POST', baseUrl ? `${baseUrl}${service}` : service, true);
+        // Upload endpoints check auth before writing to flash.
+        xhr.setRequestHeader('apikey', security.apiKey);
 
         xhr.upload.onprogress = (evt) => {
             let pct = evt.total ? Math.round((evt.loaded / evt.total) * 100) : 0;
