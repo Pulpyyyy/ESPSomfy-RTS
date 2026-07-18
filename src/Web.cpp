@@ -135,7 +135,8 @@ bool Web::createAPIToken(const char *payload, char *token) {
     mbedtls_md_context_t ctx;
     mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
     mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1);
-    mbedtls_md_hmac_starts(&ctx, (const unsigned char *)settings.serverId, strlen(settings.serverId));
+    // Key the HMAC with the private random secret, not the public/weak serverId.
+    mbedtls_md_hmac_starts(&ctx, (const unsigned char *)settings.apiSecret, sizeof(settings.apiSecret));
     mbedtls_md_hmac_update(&ctx, (const unsigned char *)payload, strlen(payload)); 
     mbedtls_md_hmac_finish(&ctx, hmacResult);
     Serial.print("Hash: ");
