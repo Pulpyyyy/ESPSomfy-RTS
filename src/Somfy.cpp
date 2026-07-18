@@ -214,7 +214,11 @@ void somfy_frame_t::decodeFrame(byte* frame) {
             break;
         }
     }
-    if(this->valid && this->encKey == 0) this->valid = false; 
+    if(this->valid && this->encKey == 0) this->valid = false;
+    // RF interference produces a steady stream of invalid frames; dumping ~30 serial
+    // lines for each one stalls the loop. Off by default; define DEBUG_INVALID_FRAMES
+    // to restore the full decode dump when diagnosing reception.
+#ifdef DEBUG_INVALID_FRAMES
     if (!this->valid) {
         Serial.print("INVALID FRAME ");
         Serial.print("KEY:");
@@ -248,6 +252,7 @@ void somfy_frame_t::decodeFrame(byte* frame) {
         }
         Serial.println();
     }
+#endif
 }
 void somfy_frame_t::decodeFrame(somfy_rx_t *rx) {
   this->hwsync = rx->cpt_synchro_hw;

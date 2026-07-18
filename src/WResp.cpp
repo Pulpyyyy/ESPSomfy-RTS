@@ -30,8 +30,10 @@ void JsonSockEvent::_safecat(const char *val, bool escape) {
   size_t len = (escape ? this->calcEscapedLength(val) : strlen(val)) + strlen(this->buff);
   if(escape) len += 2;
   if(len >= this->buffSize) {
+    // Report the overflow but do not dump the whole buffer: printing up to 2 KB over
+    // the serial line (~180 ms at 115200) for every excess element stalled the loop
+    // whenever the sniffer UI was open and a long frame arrived.
     Serial.printf("Socket exceeded buffer size %d - %d\n", this->buffSize, len);
-    Serial.println(this->buff);
     return;
   }
   if(escape) strcat(this->buff, "\"");
