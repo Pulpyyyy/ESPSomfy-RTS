@@ -1079,10 +1079,9 @@ function calWizFinish() {
     const finishClose = function () {
         closeOverlay(document.getElementById('divCalWizard'));
         calWizStop();
-        somfy.openEditShade(sId);   // reload the panel with the persisted values
-        // The values were just persisted: the page is clean. Clear the guard's
-        // dirty flag and swallow the change events fired while the panel reloads.
-        if (typeof navClearDirty === 'function') { navSuppress(); navClearDirty(); }
+        // Reload the panel with the persisted values; openEditShade resets the
+        // guard's unsaved-changes flag, so the wizard does not touch it itself.
+        somfy.openEditShade(sId);
     };
     calWizButtons([{ l: "Appliquer ✓", f: function () {
         // Save straight to the shade: filling the form and relying on a second
@@ -1200,7 +1199,7 @@ function calWizRecopy(sId) {
         const close = function () {
             closeOverlay(document.getElementById('divCalWizard'));
             calWizStop();
-            if (typeof navClearDirty === 'function') { navSuppress(); navClearDirty(); }
+            // openEditShade resets the guard's unsaved-changes flag on reload.
             somfy.openEditShade(sId);
         };
         render();
