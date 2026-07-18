@@ -752,6 +752,8 @@ function bindNavigation() {
     document.querySelectorAll('.nav-item, .sub-nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
+            if (!navConfirmLeave(() => item.click())) return;
+            navClearDirty(); navSuppress();
             clearOverlays();
             const groupId = item.getAttribute('data-grpid');
             const isSub = item.classList.contains('sub-nav-item');
@@ -788,6 +790,8 @@ function bindNavigation() {
     });
     document.querySelectorAll('.tab-container > span, .subtab-container > span').forEach(tab => {
         tab.addEventListener('click', (evt) => {
+            if (!navConfirmLeave(() => tab.click())) return;
+            navClearDirty(); navSuppress();
             const groupId = tab.getAttribute('data-grpid');
             const isSub = tab.parentElement.classList.contains('subtab-container');
             syncNavigationState(groupId, isSub);
@@ -805,6 +809,44 @@ function bindNavigation() {
             }
         });
     });
+    navGuardSetup();
+}
+// --- Unsaved-changes navigation guard --------------------------------------
+// Marks the page dirty on real user input; on navigation, if dirty, prompts to
+// save / discard / cancel. A suppression window swallows the change events that
+// fire while a form loads so they do not count as user edits.
+let _navDirty = false, _navSuppress = false;
+function navSuppress() { _navSuppress = true; setTimeout(() => { _navSuppress = false; }, 900); }
+function navClearDirty() { _navDirty = false; }
+function navMarkDirty() { if (!_navSuppress) _navDirty = true; }
+function navGuardSetup() {
+    const mark = (e) => { if (e.target && e.target.matches && e.target.matches('input,select,textarea')) navMarkDirty(); };
+    document.addEventListener('input', mark, true);
+    document.addEventListener('change', mark, true);
+}
+function navFindSaveButton() {
+    const cands = document.querySelectorAll('[id^="btnSave"], #btnLogin, #btnConnectMQTT');
+    for (let i = 0; i < cands.length; i++) if (cands[i].offsetParent !== null) return cands[i];
+    return null;
+}
+// Returns true if navigation may proceed; false if it opened the prompt (deferred).
+function navConfirmLeave(proceed) {
+    if (!_navDirty) return true;
+    const div = document.createElement('div');
+    div.className = 'prompt-message modal-overlay';
+    div.innerHTML = '<div class="message-content"><div class="prompt-text">Modifications non sauvegardées</div>'
+        + '<div class="sub-message">Des changements sur cette page ne sont pas enregistrés.</div>'
+        + '<div class="button-container-row">'
+        + '<button line type="button" id="navCancel">Annuler</button>'
+        + '<button type="button" id="navDiscard">Quitter sans sauver</button>'
+        + '<button type="button" id="navSave">Sauvegarder</button>'
+        + '</div></div>';
+    get('divContainer').appendChild(div);
+    const done = () => div.remove();
+    div.querySelector('#navCancel').onclick = done;
+    div.querySelector('#navDiscard').onclick = () => { navClearDirty(); done(); proceed(); };
+    div.querySelector('#navSave').onclick = () => { const b = navFindSaveButton(); navClearDirty(); done(); if (b) b.click(); proceed(); };
+    return false;
 }
 function stepDeviceGpio(pinKey, direction, prefix, boardSelectId, isManualCallback, pinMaps) {
     const selBoard = get(boardSelectId);
