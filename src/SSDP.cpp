@@ -265,7 +265,9 @@ void SSDPClass::_parsePacket(ssdp_packet_t *pkt, AsyncUDPPacket &p) {
         break;
       }
       else {
-        if(pos < SSDP_BUFFER_SIZE) {
+        // Leave room for the trailing NUL: at pos == SSDP_BUFFER_SIZE-1 the old
+        // `pos < SSDP_BUFFER_SIZE` bound wrote buffer[SSDP_BUFFER_SIZE] out of bounds.
+        if(pos < SSDP_BUFFER_SIZE - 1) {
           buffer[pos++] = c;
           buffer[pos] = '\0';
         }
