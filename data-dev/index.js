@@ -1047,12 +1047,17 @@ function calWizGoto(closedPct) {
 }
 function calWizFinish() {
     const w = _calWiz, r = w.res, g = get;
-    const down = r.down, up = r.up;
+    // Model: downTime/upTime are pure travel; liftTime (slat stacking at the
+    // closed end) is separate and additive. r.lift = open->sill (pure travel),
+    // r.down = open->fully closed (travel + stacking), r.up = closed->open
+    // (unstacking + travel).
+    const lift = (r.down && r.lift && r.down > r.lift) ? (r.down - r.lift) : null;
+    const down = r.lift ? r.lift : r.down;             // pure descent travel
+    const up = (r.up && lift) ? Math.max(1, r.up - lift) : r.up;  // pure ascent travel
     const kOf = function (dt, P) { const tau = dt / down * 100; const den = tau * (100 - tau) / 100; return den > 0 ? (P - tau) / den : 0; };
     let ks = [];
     if (down) { if (r.c25) ks.push(kOf(r.c25, 25)); if (r.c50) ks.push(kOf(r.c50, 50)); if (r.c75) ks.push(kOf(r.c75, 75)); }
     const k = ks.length ? Math.min(0.95, Math.max(0, ks.reduce(function (a, b) { return a + b; }, 0) / ks.length)) : null;
-    const lift = (down && r.lift && down > r.lift) ? (down - r.lift) : null;
     let out = [];
     if (down) out.push("Temps descente : <b>" + down + " ms</b>");
     if (up) out.push("Temps montée : <b>" + up + " ms</b>");
