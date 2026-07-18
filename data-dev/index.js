@@ -1909,7 +1909,7 @@ class UIBinder {
         somfy.checkEmptyState();
         document.querySelector('#btnConfig use').setAttribute('href', '#svg-tabSettings');
         if (sockIsOpen) socket.send('leave:0');
-        general.setSecurityConfig({ type: 0, username: '', password: '', pin: '', permissions: 0 });
+        general.setSecurityConfig({ type: 0, username: '', permissions: 0 });
     }
     toggleConfig() {
         if (this.isConfigOpen())
@@ -2382,19 +2382,20 @@ class General {
         }
     }
     setSecurityConfig(security) {
+        // The server no longer sends the secrets, only presence booleans.
+        this.hasPassword = makeBool(security.hasPassword);
+        this.hasPin = makeBool(security.hasPin);
         let obj = {
             security: {
-                type: security.type, username: security.username, password: security.password,
+                type: security.type, username: security.username, password: '', repeatpassword: '',
                 permissions: { configOnly: makeBool(security.permissions & 0x01) },
-                pin: {
-                    d0: security.pin[0],
-                    d1: security.pin[1],
-                    d2: security.pin[2],
-                    d3: security.pin[3]
-                }
+                pin: { d0: '', d1: '', d2: '', d3: '' }
             }
         };
         ui.toElement(get('divSecurityOptions'), obj);
+        let fldPassword = get('fldPassword');
+        if (fldPassword) fldPassword.placeholder = this.hasPassword ? tr('SECRET_SET_PLH') : tr('SECURITY_PASSWORD_PLH');
+        get('divPinSecurity').querySelectorAll('.pin-digit').forEach((el) => { el.placeholder = this.hasPin ? '•' : ''; });
         this.onSecurityTypeChanged();
     }
     rebootDevice() {
@@ -2464,17 +2465,23 @@ class General {
         const s = ui.fromElement(get('divSecurityOptions')).security;
         const pin = [0, 1, 2, 3].map(i => s.pin[`d${i}`]).join('');
         const data = {
-            type: s.type, username: s.username, password: s.password, pin,
+            type: s.type, username: s.username,
             perm: s.permissions.configOnly ? 1 : 0,
             permissions: s.permissions.configOnly ? 0x01 : 0x00
         };
+        // Only send the secrets the user actually typed; the firmware keeps
+        // the stored ones when they are omitted or empty.
+        if (s.password) data.password = s.password;
+        if (pin) data.pin = pin;
         let confirmText = '';
         if (s.type === 1) {
-            if (pin.length !== 4) return this.secError('ERR_PIN_INVALID', 'ERR_PIN_INVALID_DESC');
+            // An empty pin is allowed when one is already stored on the device.
+            if (pin.length !== 4 && !(pin.length === 0 && this.hasPin)) return this.secError('ERR_PIN_INVALID', 'ERR_PIN_INVALID_DESC');
             confirmText = `<p>${tr('SAVESECURITY_PIN_WARNING')}</p><p>${tr('SAVESECURITY_PIN_CONFIRM')}</p>`;
         }
         else if (s.type === 2) {
             if (!s.username) return this.secError('ERR_USERNAME_MISSING', 'ERR_USERNAME_MISSING_DESC');
+            if (!s.password && !this.hasPassword) return this.secError('ERR_PASSWORD_MISSING', 'ERR_PASSWORD_MISSING_DESC');
             if (s.password !== s.repeatpassword) return this.secError('ERR_PASSWORD_MISMATCH', 'ERR_PASSWORD_MISMATCH_DESC');
             confirmText = `<p>${tr('SAVESECURITY_PASSWORD_WARNING')}</p><p>${tr('SAVESECURITY_PASSWORD_CONFIRM')}</p>`;
         }
@@ -2482,8 +2489,14 @@ class General {
             putJSONSync('/saveSecurity', data, (e, resp) => {
                 prompt.remove();
                 if (e) ui.serviceError(e);
-                // The token is derived from the credentials; keep the session valid after a change.
-                else if (resp && typeof resp.apiKey !== 'undefined') security.apiKey = resp.apiKey;
+                else {
+                    // The token is derived from the credentials; adopt the new one first so
+                    // the refresh below is sent with a valid session.
+                    if (resp && typeof resp.apiKey !== 'undefined') security.apiKey = resp.apiKey;
+                    // Refresh the panel so typed secrets are cleared from the DOM
+                    // and the presence placeholders reflect the new state.
+                    getJSON('/getSecurity', (err, sec) => { if (!err) this.setSecurityConfig(sec); });
+                }
             });
         });
         prompt.querySelector('.sub-message').innerHTML = confirmText;
@@ -2747,6 +2760,14 @@ class Wifi {
                 get('cbHardwired').checked = settings.connType >= 2;
                 get('cbFallbackWireless').checked = settings.connType === 3;
                 ui.toElement(pnl, settings);
+
+                // The passphrase is never sent by the server; show a presence
+                // placeholder instead of prefilling the field.
+                const fldPassphrase = get('fldPassphrase');
+                if (fldPassphrase) {
+                    fldPassphrase.value = '';
+                    fldPassphrase.placeholder = settings.wifi && settings.wifi.hasPassphrase ? tr('SECRET_SET_PLH') : tr('SECURITY_PASSWORD_PLH');
+                }
 
                 const inputPwr = get('inputETHPWRPin');
                 if (inputPwr && settings.ethernet && settings.ethernet.PWRPin !== undefined) {

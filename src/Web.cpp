@@ -2336,7 +2336,6 @@ void Web::begin() {
     resp.beginObject();
     resp.beginObject("connected");
     resp.addElem("name", settings.WIFI.ssid);
-    resp.addElem("passphrase", settings.WIFI.passphrase);
     resp.addElem("strength", (int32_t)WiFi.RSSI());
     resp.addElem("channel", (int32_t)WiFi.channel());
     resp.endObject();
@@ -2528,16 +2527,18 @@ void Web::begin() {
         }
         if(obj.containsKey("wifi")) {
           JsonObject objWifi = obj["wifi"];
-          if(settings.connType == conn_types_t::wifi) {
-            if(objWifi.containsKey("ssid") && objWifi["ssid"].as<String>().compareTo(settings.WIFI.ssid) != 0) {
-              if(WiFi.softAPgetStationNum() == 0) reboot = true;
-            }
-            if(objWifi.containsKey("passphrase") && objWifi["passphrase"].as<String>().compareTo(settings.WIFI.passphrase) != 0) {
-              if(WiFi.softAPgetStationNum() == 0) reboot = true;
-            }
-          }
+          // Compare against the applied result since fromJSON keeps the stored
+          // passphrase when the client sends it empty for an unchanged SSID.
+          char oldSsid[sizeof(settings.WIFI.ssid)];
+          char oldPass[sizeof(settings.WIFI.passphrase)];
+          strlcpy(oldSsid, settings.WIFI.ssid, sizeof(oldSsid));
+          strlcpy(oldPass, settings.WIFI.passphrase, sizeof(oldPass));
           settings.WIFI.fromJSON(objWifi);
           settings.WIFI.save();
+          if(settings.connType == conn_types_t::wifi &&
+            (strcmp(oldSsid, settings.WIFI.ssid) != 0 || strcmp(oldPass, settings.WIFI.passphrase) != 0)) {
+            if(WiFi.softAPgetStationNum() == 0) reboot = true;
+          }
         }
         if(obj.containsKey("ethernet"))
         {
@@ -2605,9 +2606,11 @@ void Web::begin() {
         String passphrase = "";
         if (obj.containsKey("ssid")) ssid = obj["ssid"].as<String>();
         if (obj.containsKey("passphrase")) passphrase = obj["passphrase"].as<String>();
-        bool reboot;
-        if (ssid.compareTo(settings.WIFI.ssid) != 0) reboot = true;
-        if (passphrase.compareTo(settings.WIFI.passphrase) != 0) reboot = true;
+        // The passphrase is never prefilled client-side; an empty value means
+        // "keep the stored one" unless the target SSID changes.
+        bool ssidChanged = ssid.compareTo(settings.WIFI.ssid) != 0;
+        if (passphrase.length() == 0 && !ssidChanged) passphrase = settings.WIFI.passphrase;
+        bool reboot = ssidChanged || passphrase.compareTo(settings.WIFI.passphrase) != 0;
         if (!settings.WIFI.ssidExists(ssid.c_str()) && ssid.length() > 0) {
           server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"WiFi Network Does not exist\"}");
         }

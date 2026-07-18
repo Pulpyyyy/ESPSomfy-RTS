@@ -59,6 +59,7 @@
     "SECURITY_USERNAME_PLH": "Enter your Username",
     "SECURITY_PASSWORD": "Password",
     "SECURITY_PASSWORD_PLH": "Enter your password",
+    "SECRET_SET_PLH": "••••• (set)",
     "SECURITY_CONFIRM_PASSWORD": "Confirm Password",
     "SECURITY_CONFIRM_PASSWORD_PLH": "You must confirm the password",
 "PAGE": "FIRMWARE",
