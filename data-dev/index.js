@@ -1064,19 +1064,26 @@ function calWizFinish() {
     if (k !== null) out.push("Correction d'enroulement : <b>" + k.toFixed(2) + "</b>");
     if (lift !== null) out.push("Temps décollage lames : <b>" + lift + " ms</b>");
     if (g('calWizResult')) g('calWizResult').innerHTML = '<hr>' + out.map(function (x) { return '<div>' + x + '</div>'; }).join('')
-        + '<p style="opacity:.8">« Appliquer » remplit les champs ; pense à Enregistrer le volet.</p>';
+        + '<p style="opacity:.8">« Appliquer » enregistre directement ces valeurs sur le volet.</p>';
     calWizText('Calibration terminée.', '');
+    const sId = w.sId;
     calWizButtons([{ l: "Appliquer ✓", f: function () {
-        if (down && g('fldShadeDownTime')) g('fldShadeDownTime').value = down;
-        if (up && g('fldShadeUpTime')) g('fldShadeUpTime').value = up;
-        if (k !== null && g('fldShadeCurveGain')) g('fldShadeCurveGain').value = k.toFixed(2);
-        if (lift !== null && g('fldShadeLiftTime')) g('fldShadeLiftTime').value = lift;
-        ['fldShadeDownTime', 'fldShadeUpTime', 'fldShadeCurveGain', 'fldShadeLiftTime'].forEach(function (id) {
-            const e = g(id); if (e) e.dispatchEvent(new Event('change', { bubbles: true }));
+        // Save straight to the shade: filling the form and relying on a second
+        // manual save proved fragile (values silently lost on navigation).
+        const obj = ui.fromElement(g('somfyShade'));
+        obj.shadeId = sId;
+        if (isNaN(obj.liftTime)) obj.liftTime = 0;
+        if (down) obj.downTime = down;
+        if (up) obj.upTime = up;
+        if (k !== null) obj.curveGain = parseFloat(k.toFixed(2));
+        if (lift !== null) obj.liftTime = lift;
+        putJSONSync('/saveShade', obj, function (err, shade) {
+            if (err) return ui.serviceError(err);
+            closeOverlay(document.getElementById('divCalWizard'));
+            calWizStop();
+            somfy.openEditShade(shade.shadeId);   // reload the panel with the persisted values
+            ui.successMessage("Calibration enregistrée sur le volet.");
         });
-        closeOverlay(document.getElementById('divCalWizard'));
-        calWizStop();
-        ui.successMessage("Valeurs appliquées — pense à Enregistrer le volet.");
     } }]);
 }
 function toggleTooltip(el) {
