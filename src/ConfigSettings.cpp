@@ -556,24 +556,34 @@ bool SecuritySettings::begin() {
 bool SecuritySettings::fromJSON(JsonObject &obj) {
   if(obj.containsKey("type")) this->type = static_cast<security_types>(obj["type"].as<uint8_t>());
   this->parseValueString(obj, "username", this->username, sizeof(this->username));
-  this->parseValueString(obj, "password", this->password, sizeof(this->password));
-  this->parseValueString(obj, "pin", this->pin, sizeof(this->pin));
+  // Secrets are no longer echoed back by toJSON so an omitted or empty value
+  // means "keep the stored one".  Disabling security clears both secrets.
+  if(obj.containsKey("password") && strlen(obj["password"] | "") > 0)
+    this->parseValueString(obj, "password", this->password, sizeof(this->password));
+  if(obj.containsKey("pin") && strlen(obj["pin"] | "") > 0)
+    this->parseValueString(obj, "pin", this->pin, sizeof(this->pin));
+  if(this->type == security_types::None) {
+    this->password[0] = '\0';
+    this->pin[0] = '\0';
+  }
   if(obj.containsKey("permissions")) this->permissions = obj["permissions"];
   return true;
 }
 bool SecuritySettings::toJSON(JsonObject &obj) {
   obj["type"] = static_cast<uint8_t>(this->type);
   obj["username"] = this->username;
-  obj["password"] = this->password;
-  obj["pin"] = this->pin;
+  // Never serialize the secrets; only advertise whether they are set.
+  obj["hasPassword"] = strlen(this->password) > 0;
+  obj["hasPin"] = strlen(this->pin) > 0;
   obj["permissions"] = this->permissions;
-  return true;  
+  return true;
 }
 void SecuritySettings::toJSON(JsonResponse &json) {
   json.addElem("type", static_cast<uint8_t>(this->type));
   json.addElem("username", this->username);
-  json.addElem("password", this->password);
-  json.addElem("pin", this->pin);
+  // Never serialize the secrets; only advertise whether they are set.
+  json.addElem("hasPassword", strlen(this->password) > 0);
+  json.addElem("hasPin", strlen(this->pin) > 0);
   json.addElem("permissions", this->permissions);
 }
 
@@ -621,22 +631,30 @@ bool WifiSettings::begin() {
   return true;
 }
 bool WifiSettings::fromJSON(JsonObject &obj) {
+  // The passphrase is no longer echoed back by toJSON so an empty value only
+  // clears the stored secret when the SSID changes (e.g. open network).
+  bool ssidChanged = obj.containsKey("ssid") && strcmp(obj["ssid"] | "", this->ssid) != 0;
   this->parseValueString(obj, "ssid", this->ssid, sizeof(this->ssid));
-  this->parseValueString(obj, "passphrase", this->passphrase, sizeof(this->passphrase));
+  if(obj.containsKey("passphrase") && (ssidChanged || strlen(obj["passphrase"] | "") > 0))
+    this->parseValueString(obj, "passphrase", this->passphrase, sizeof(this->passphrase));
   if(obj.containsKey("roaming")) this->roaming = obj["roaming"];
   if(obj.containsKey("hidden")) this->hidden = obj["hidden"];
   return true;
 }
 bool WifiSettings::toJSON(JsonObject &obj) {
   obj["ssid"] = this->ssid;
-  obj["passphrase"] = this->passphrase;
+  // Never serialize the stored passphrase; only advertise whether it is set.
+  obj["passphrase"] = "";
+  obj["hasPassphrase"] = strlen(this->passphrase) > 0;
   obj["roaming"] = this->roaming;
   obj["hidden"] = this->hidden;
   return true;
 }
 void WifiSettings::toJSON(JsonResponse &json) {
   json.addElem("ssid", this->ssid);
-  json.addElem("passphrase", this->passphrase);
+  // Never serialize the stored passphrase; only advertise whether it is set.
+  json.addElem("passphrase", "");
+  json.addElem("hasPassphrase", strlen(this->passphrase) > 0);
   json.addElem("roaming", this->roaming);
   json.addElem("hidden", this->hidden);
 }
