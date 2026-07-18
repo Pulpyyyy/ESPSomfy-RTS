@@ -3730,11 +3730,13 @@ void SomfyShadeController::publish() {
   }
   strcat(arrIds, "]");
   mqtt.publish("shades", arrIds, true);
-  for(uint8_t i = 1; i <= SOMFY_MAX_SHADES; i++) {
-    SomfyShade *shade = this->getShadeById(i);
-    if(shade) continue;
-    else {
-      SomfyShade::unpublish(i);
+  // Sweep stale retained topics for empty slots only once per boot. Deletions already
+  // unpublish at delete time (deleteShade/deleteGroup), so repeating this on every MQTT
+  // reconnect just spammed the broker with ~21 messages per empty slot (hundreds total).
+  static bool sweptEmptySlots = false;
+  if(!sweptEmptySlots) {
+    for(uint8_t i = 1; i <= SOMFY_MAX_SHADES; i++) {
+      if(!this->getShadeById(i)) SomfyShade::unpublish(i);
     }
   }
   strcpy(arrIds, "[");
@@ -3747,10 +3749,11 @@ void SomfyShadeController::publish() {
   }
   strcat(arrIds, "]");
   mqtt.publish("groups", arrIds, true);
-  for(uint8_t i = 1; i <= SOMFY_MAX_GROUPS; i++) {
-    SomfyGroup *group = this->getGroupById(i);
-    if(group) continue;
-    else SomfyGroup::unpublish(i);
+  if(!sweptEmptySlots) {
+    for(uint8_t i = 1; i <= SOMFY_MAX_GROUPS; i++) {
+      if(!this->getGroupById(i)) SomfyGroup::unpublish(i);
+    }
+    sweptEmptySlots = true;
   }
 }
 uint8_t SomfyShadeController::getNextShadeId() {
