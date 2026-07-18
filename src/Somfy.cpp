@@ -4380,6 +4380,10 @@ static int16_t  bitMin = SYMBOL * TOLERANCE_MIN;
 static somfy_rx_t somfy_rx;
 static somfy_rx_queue_t rx_queue;
 static somfy_tx_queue_t tx_queue;
+// Guards the rx_queue handoff between the IRAM receive ISR (producer) and the
+// main loop (consumer).  Only the small bookkeeping (length + index[]) is held
+// under this spinlock; the ~1.2KB per-frame copy is always done outside it.
+static portMUX_TYPE rxMux = portMUX_INITIALIZER_UNLOCKED;
 bool somfy_tx_queue_t::pop(somfy_tx_t *tx) {
   // Read the oldest index.
   for(int8_t i = MAX_TX_BUFFER - 1; i >= 0; i--) {
@@ -4430,23 +4434,38 @@ void somfy_rx_queue_t::init() {
   Serial.println("Initializing RX Queue");
   for (uint8_t i = 0; i < MAX_RX_BUFFER; i++)
     this->items[i].clear();
-  memset(&this->index[0], 0xFF, MAX_RX_BUFFER);
+  // index[] is volatile now, so assign element-wise instead of memset().
+  for (uint8_t i = 0; i < MAX_RX_BUFFER; i++)
+    this->index[i] = 255;
   this->length = 0;
 }
 bool somfy_rx_queue_t::pop(somfy_rx_t *rx) {
   // Read off the data from the oldest index.
   //Serial.println("Popping RX Queue");
+  // Claim the oldest queued slot under the spinlock.  Only the small bookkeeping
+  // (length + index[]) runs under the lock; we detach the slot from index[] but
+  // leave items[ndx].pulseCount != 0 so the ISR's free-slot scan will not reuse
+  // it while we copy it out below.
+  uint8_t ndx = 255;
+  portENTER_CRITICAL(&rxMux);
   for(int8_t i = MAX_RX_BUFFER - 1; i >= 0; i--) {
     if(this->index[i] < MAX_RX_BUFFER) {
-      uint8_t ndx = this->index[i];
-      memcpy(rx, &this->items[this->index[i]], sizeof(somfy_rx_t));
-      this->items[ndx].clear();
+      ndx = this->index[i];
       if(this->length > 0) this->length--;
       this->index[i] = 255;
-      return true;      
+      break;
     }
   }
-  return false;
+  portEXIT_CRITICAL(&rxMux);
+  if(ndx >= MAX_RX_BUFFER) return false;
+  // Bulk copy happens unlocked: the slot is no longer referenced by index[] and
+  // still marked in use (pulseCount != 0), so neither the ISR nor a concurrent
+  // pop can touch it.  This keeps the ~1.2KB copy out of the critical section.
+  memcpy(rx, &this->items[ndx], sizeof(somfy_rx_t));
+  // Return the slot to the free pool.  clear() writes pulseCount = 0 last, which
+  // is the single point that hands the slot back to the ISR's free-slot scan.
+  this->items[ndx].clear();
+  return true;
 }
 
 void Transceiver::sendFrame(byte *frame, uint8_t sync, uint8_t bitLength) {
@@ -4620,6 +4639,11 @@ void RECEIVE_ATTR Transceiver::handleReceive() {
         // 3 total frames.  Althought it may not matter considering the length of a packet
         // will likely not push over the loop timing.  For now lets assume that there
         // may be some pressure on the loop for features.
+        // Reserve a slot under the spinlock: handle overflow (drop the oldest)
+        // and locate a free slot.  Only the length + index[] bookkeeping runs
+        // under the lock here; the 1.2KB frame copy is done afterwards.
+        uint8_t first = 255;
+        portENTER_CRITICAL_ISR(&rxMux);
         if(rx_queue.length >= MAX_RX_BUFFER) {
           // We have overflowed the buffer simply empty the last item
           // in this instance we will simply throw it away.
@@ -4629,23 +4653,30 @@ void RECEIVE_ATTR Transceiver::handleReceive() {
           rx_queue.index[MAX_RX_BUFFER - 1] = 255;
           rx_queue.length--;
         }
-        uint8_t first = 0;
-        // Place this record in the first empty slot.  There will
-        // be one since we cleared a space above should there
-        // be an overflow.
+        // Find the first empty slot.  There will be one unless the consumer is
+        // mid-copy on the last slot, in which case we simply drop this frame.
         for(uint8_t i = 0; i < MAX_RX_BUFFER; i++) {
           if(rx_queue.items[i].pulseCount == 0) {
             first = i;
-            memcpy(&rx_queue.items[i], &somfy_rx, sizeof(somfy_rx_t));
             break;
           }
         }
-        // Move the index so that it is the at position 0.  The oldest item will fall off.
-        for(uint8_t i = MAX_RX_BUFFER - 1; i > 0; i--) {
-          rx_queue.index[i] = rx_queue.index[i - 1];
+        portEXIT_CRITICAL_ISR(&rxMux);
+        if(first < MAX_RX_BUFFER) {
+          // Copy the captured frame into the reserved slot outside the lock.  The
+          // slot is not yet referenced by index[], so pop() cannot see it, and the
+          // ISR is the only producer, so no concurrent writer exists.
+          memcpy(&rx_queue.items[first], &somfy_rx, sizeof(somfy_rx_t));
+          // Publish the slot under the lock so the consumer can pick it up.
+          portENTER_CRITICAL_ISR(&rxMux);
+          // Move the index so that it is the at position 0.  The oldest item will fall off.
+          for(uint8_t i = MAX_RX_BUFFER - 1; i > 0; i--) {
+            rx_queue.index[i] = rx_queue.index[i - 1];
+          }
+          rx_queue.length++;
+          rx_queue.index[0] = first;
+          portEXIT_CRITICAL_ISR(&rxMux);
         }
-        rx_queue.length++;
-        rx_queue.index[0] = first;
         memset(&somfy_rx.payload, 0x00, sizeof(somfy_rx.payload));
         somfy_rx.cpt_synchro_hw = 0;
         somfy_rx.previous_bit = 0x00;

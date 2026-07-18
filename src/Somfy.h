@@ -104,23 +104,30 @@ struct somfy_rx_t {
       memset(this->pulses, 0, sizeof(this->pulses));
       this->pulseCount = 0;
     }
-    t_status status;
+    // status / cpt_synchro_hw are written by the IRAM receive ISR and polled by
+    // the main loop, and pulseCount doubles as the slot-ownership flag shared
+    // between the ISR (producer) and pop() (consumer), so all three must be
+    // volatile to prevent the compiler from caching them across contexts.
+    volatile t_status status;
     uint8_t bit_length = 56;
-    uint8_t cpt_synchro_hw = 0;
+    volatile uint8_t cpt_synchro_hw = 0;
     uint8_t cpt_bits = 0;
     uint8_t previous_bit = 0;
     bool waiting_half_symbol;
     uint8_t payload[10];
     unsigned int pulses[MAX_TIMINGS];
-    uint16_t pulseCount = 0;
+    volatile uint16_t pulseCount = 0;
 };
 // A simple FIFO queue to hold rx buffers.  We are using
 // a byte index to make it so we don't have to reorganize
 // the storage each time we push or pop.
 struct somfy_rx_queue_t {
   void init();
-  uint8_t length = 0;
-  uint8_t index[MAX_RX_BUFFER];
+  // length and index[] are the shared bookkeeping mutated by the receive ISR
+  // and the consumer loop; they are guarded by rxMux and marked volatile so the
+  // unlocked pre-check in Transceiver::receive() always sees the current value.
+  volatile uint8_t length = 0;
+  volatile uint8_t index[MAX_RX_BUFFER];
   somfy_rx_t items[MAX_RX_BUFFER];
   void push(somfy_rx_t *rx);
   bool pop(somfy_rx_t *rx);
