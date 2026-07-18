@@ -5782,7 +5782,12 @@ class MQTT {
                 console.log(err);
             else {
                 console.log(settings);
+                this.hasPassword = makeBool(settings.hasPassword);
                 ui.toElement(get('divMQTT'), { mqtt: settings });
+                // The server never sends the stored broker password: clear the field and
+                // show a presence placeholder instead of prefilling it.
+                const fldPwd = get('fldMqttPassword');
+                if (fldPwd) { fldPwd.value = ''; fldPwd.placeholder = this.hasPassword ? tr('SECRET_SET_PLH') : ''; }
                 get('divDiscoveryTopic').style.display = settings.pubDisco ? '' : 'none';
                 get('hrIdDiscoveryTopic').style.display = settings.pubDisco ? '' : 'none';
             }
@@ -5817,6 +5822,9 @@ class MQTT {
                 return;
             }
         }
+        // Only send the password when the user actually typed one; an empty field
+        // means "keep the stored password" (mirrors the firmware fromJSON rule).
+        if (!obj.mqtt.password) delete obj.mqtt.password;
         putJSONSync('/connectmqtt', obj.mqtt, (err, response) => {
             if (err) {
                 ui.serviceError(err);
