@@ -946,7 +946,8 @@ function startShadeCalibration() {
     const g = get, sh = ui.fromElement(g('somfyShade'));
     const sId = parseInt(g('spanShadeId').innerText, 10);
     if (isNaN(sId) || sId >= 255) { ui.errorMessage(tr('ERR_CAL_SAVE_FIRST')); return; }
-    if (sh.paired === false) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
+    // The measurement modes need a paired remote; "Recopie" only copies values, so
+    // the pairing is checked when a measurement mode is picked, not up front.
     const div = document.createElement('div');
     div.className = 'inst-overlay'; div.id = 'divCalWizard';
     div.innerHTML = '<div class="instructions-content"><div class="overlay-scroll-content">'
@@ -960,10 +961,17 @@ function startShadeCalibration() {
     shOverlay(div, () => calWizStop());
     _calWiz = { sId: sId, res: {}, plan: [], i: 0, phase: 'idle', t0: 0 };
     window.calWizardOnCommand = calWizOnCommand;
-    calWizText("Choisis le mode. Tu piloteras avec ta télécommande physique ; l'assistant chronomètre et remet le volet en position entre chaque mesure.");
+    calWizText("Choisis le mode. Rapide/Complète : tu pilotes avec ta télécommande physique, l'assistant chronomètre et remet le volet en position entre chaque mesure. Recopie : copier les valeurs d'un volet déjà calibré vers d'autres, sans aucune mesure.");
+    const needPaired = function (fn) {
+        return function () {
+            if (sh.paired === false) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
+            fn();
+        };
+    };
     calWizButtons([
-        { l: "Rapide (~2 min)", f: function () { calWizBegin('quick'); } },
-        { l: "Complète (~6 min)", f: function () { calWizBegin('full'); } }
+        { l: "Rapide (~2 min)", f: needPaired(function () { calWizBegin('quick'); }) },
+        { l: "Complète (~6 min)", f: needPaired(function () { calWizBegin('full'); }) },
+        { l: "Recopie (aucune mesure)", f: function () { calWizRecopy(sId); } }
     ]);
 }
 function calWizText(t, live) {
@@ -1067,24 +1075,110 @@ function calWizFinish() {
         + '<p style="opacity:.8">« Appliquer » enregistre directement ces valeurs sur le volet.</p>';
     calWizText('Calibration terminée.', '');
     const sId = w.sId;
+    const vals = { up: up, down: down, lift: lift, k: k };
+    const finishClose = function () {
+        closeOverlay(document.getElementById('divCalWizard'));
+        calWizStop();
+        somfy.openEditShade(sId);   // reload the panel with the persisted values
+        // The values were just persisted: the page is clean. Clear the guard's
+        // dirty flag and swallow the change events fired while the panel reloads.
+        if (typeof navClearDirty === 'function') { navSuppress(); navClearDirty(); }
+    };
     calWizButtons([{ l: "Appliquer ✓", f: function () {
         // Save straight to the shade: filling the form and relying on a second
         // manual save proved fragile (values silently lost on navigation).
-        const obj = ui.fromElement(g('somfyShade'));
-        obj.shadeId = sId;
-        if (isNaN(obj.liftTime)) obj.liftTime = 0;
-        if (down) obj.downTime = down;
-        if (up) obj.upTime = up;
-        if (k !== null) obj.curveGain = parseFloat(k.toFixed(2));
-        if (lift !== null) obj.liftTime = lift;
-        putJSONSync('/saveShade', obj, function (err, shade) {
+        calWizApplyVals(sId, vals, function (err) {
             if (err) return ui.serviceError(err);
-            closeOverlay(document.getElementById('divCalWizard'));
-            calWizStop();
-            somfy.openEditShade(shade.shadeId);   // reload the panel with the persisted values
             ui.successMessage("Calibration enregistrée sur le volet.");
+            // Then offer to copy the same values onto other shades.
+            calWizCopyScreen(vals, sId, null, finishClose);
         });
     } }]);
+}
+// Partial /saveShade: writes only the measured fields (up/down/lift/k); a partial
+// object leaves rolling codes, name, remote address, etc. untouched. Any field
+// that is null/undefined is omitted, so it keeps its current value on the shade.
+function calWizApplyVals(id, vals, cb) {
+    const obj = { shadeId: id };
+    if (vals.down) obj.downTime = vals.down;
+    if (vals.up) obj.upTime = vals.up;
+    if (vals.lift !== null && vals.lift !== undefined) obj.liftTime = vals.lift;
+    if (vals.k !== null && vals.k !== undefined) obj.curveGain = parseFloat(Number(vals.k).toFixed(2));
+    putJSON('/saveShade', obj, cb);
+}
+// Checklist of every other shade; the selected ones receive `vals`. Saves them one
+// at a time (the ESP web server is synchronous and each save() rewrites shades.cfg,
+// so serialising avoids overlapping writes). onDone() runs when finished or skipped.
+function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
+    calWizText("Copier ces valeurs" + (srcLabel ? " de « " + srcLabel + " »" : "")
+        + " (montée, descente, décollage, enroulement) vers quels volets ? Coche-les puis « Copier », ou « Terminer ».", '');
+    getJSON('/shades', function (err, shades) {
+        if (err || !Array.isArray(shades)) { onDone(); return; }
+        const others = shades.filter(function (s) { return s.shadeId !== excludeId && s.shadeId < 255; });
+        if (!others.length) { calWizText("Aucun autre volet à mettre à jour.", ''); calWizButtons([{ l: "Terminer", f: onDone }]); return; }
+        let html = '<hr><div style="max-height:38vh;overflow:auto;text-align:left">';
+        others.forEach(function (s) {
+            const nm = (s.name || ('#' + s.shadeId)).replace(/</g, '&lt;');
+            html += '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer">'
+                + '<input type="checkbox" class="calCopyChk" value="' + s.shadeId + '" style="width:18px;height:18px">'
+                + '<span>' + nm + '</span></label>';
+        });
+        html += '</div>';
+        if (get('calWizResult')) get('calWizResult').innerHTML = html;
+        calWizButtons([
+            { l: "Copier vers la sélection", f: function () {
+                const ids = Array.prototype.map.call(document.querySelectorAll('.calCopyChk:checked'),
+                    function (c) { return parseInt(c.value, 10); });
+                if (!ids.length) { calWizText("Sélectionne au moins un volet (ou « Terminer »).", ''); return; }
+                calWizButtons([]);
+                let idx = 0, failed = 0;
+                const step = function () {
+                    if (idx >= ids.length) {
+                        if (failed) ui.errorMessage(failed + " volet(s) en échec sur " + ids.length + ".");
+                        else ui.successMessage("Copié vers " + ids.length + " volet(s).");
+                        onDone();
+                        return;
+                    }
+                    const id = ids[idx++];
+                    calWizText("Copie… " + idx + "/" + ids.length, '');
+                    calWizApplyVals(id, vals, function (e) { if (e) failed++; step(); });
+                };
+                step();
+            } },
+            { l: "Terminer", f: onDone }
+        ]);
+    });
+}
+// Third mode: copy an already-calibrated shade's values onto others, no measurement.
+function calWizRecopy(sId) {
+    calWizText("Recopie — choisis le volet SOURCE (déjà calibré) dont copier les valeurs.", '');
+    calWizButtons([]);
+    getJSON('/shades', function (err, shades) {
+        if (err || !Array.isArray(shades)) { ui.serviceError(err || {}); return; }
+        const list = shades.filter(function (s) { return s.shadeId < 255; });
+        let html = '<hr><div style="max-height:38vh;overflow:auto;text-align:left">';
+        list.forEach(function (s) {
+            const nm = (s.name || ('#' + s.shadeId)).replace(/</g, '&lt;');
+            html += '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer">'
+                + '<input type="radio" name="calSrc" value="' + s.shadeId + '" style="width:18px;height:18px">'
+                + '<span>' + nm + ' <span style="opacity:.55">↑' + s.upTime + ' ↓' + s.downTime + ' lift' + s.liftTime + ' k' + (s.curveGain || 0) + '</span></span></label>';
+        });
+        html += '</div>';
+        if (get('calWizResult')) get('calWizResult').innerHTML = html;
+        calWizButtons([{ l: "Suivant →", f: function () {
+            const sel = document.querySelector('input[name=calSrc]:checked');
+            if (!sel) { calWizText("Choisis un volet source.", ''); return; }
+            const src = list.find(function (x) { return x.shadeId === parseInt(sel.value, 10); });
+            if (!src) return;
+            const vals = { up: src.upTime, down: src.downTime, lift: src.liftTime, k: src.curveGain };
+            calWizCopyScreen(vals, src.shadeId, src.name, function () {
+                closeOverlay(document.getElementById('divCalWizard'));
+                calWizStop();
+                if (typeof navClearDirty === 'function') { navSuppress(); navClearDirty(); }
+                somfy.openEditShade(sId);
+            });
+        } }]);
+    });
 }
 function toggleTooltip(el) {
     const tooltip = el.querySelector('.tooltip-text');
