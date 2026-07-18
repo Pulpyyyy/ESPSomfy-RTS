@@ -1116,7 +1116,11 @@ function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
         if (err || !Array.isArray(shades)) { onDone(); return; }
         const others = shades.filter(function (s) { return s.shadeId !== excludeId && s.shadeId < 255; });
         if (!others.length) { calWizText("Aucun autre volet à mettre à jour.", ''); calWizButtons([{ l: "Terminer", f: onDone }]); return; }
-        let html = '<hr><div style="max-height:38vh;overflow:auto;text-align:left">';
+        // Multi-select: tick as many target shades as wanted (with a select-all).
+        let html = '<hr>'
+            + '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer;font-weight:600;border-bottom:1px solid var(--md-outline,#8886)">'
+            + '<input type="checkbox" id="calCopyAll" style="width:18px;height:18px"><span>Tout cocher / décocher</span></label>'
+            + '<div style="max-height:38vh;overflow:auto;text-align:left">';
         others.forEach(function (s) {
             const nm = (s.name || ('#' + s.shadeId)).replace(/</g, '&lt;');
             html += '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer">'
@@ -1125,6 +1129,10 @@ function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
         });
         html += '</div>';
         if (get('calWizResult')) get('calWizResult').innerHTML = html;
+        const chkAll = document.getElementById('calCopyAll');
+        if (chkAll) chkAll.onchange = function () {
+            Array.prototype.forEach.call(document.querySelectorAll('.calCopyChk'), function (c) { c.checked = chkAll.checked; });
+        };
         calWizButtons([
             { l: "Copier vers la sélection", f: function () {
                 const ids = Array.prototype.map.call(document.querySelectorAll('.calCopyChk:checked'),
@@ -1150,34 +1158,81 @@ function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
     });
 }
 // Third mode: copy an already-calibrated shade's values onto others, no measurement.
+// One screen: a single-choice "from" dropdown + a multi-choice "to" checklist, so
+// the single vs. multiple distinction is unambiguous.
 function calWizRecopy(sId) {
-    calWizText("Recopie — choisis le volet SOURCE (déjà calibré) dont copier les valeurs.", '');
+    calWizText("Recopie — choisis le volet source (« Copier depuis ») et coche les volets cibles (« Vers »). Aucune mesure.", '');
     calWizButtons([]);
     getJSON('/shades', function (err, shades) {
         if (err || !Array.isArray(shades)) { ui.serviceError(err || {}); return; }
         const list = shades.filter(function (s) { return s.shadeId < 255; });
-        let html = '<hr><div style="max-height:38vh;overflow:auto;text-align:left">';
-        list.forEach(function (s) {
-            const nm = (s.name || ('#' + s.shadeId)).replace(/</g, '&lt;');
-            html += '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer">'
-                + '<input type="radio" name="calSrc" value="' + s.shadeId + '" style="width:18px;height:18px">'
-                + '<span>' + nm + ' <span style="opacity:.55">↑' + s.upTime + ' ↓' + s.downTime + ' lift' + s.liftTime + ' k' + (s.curveGain || 0) + '</span></span></label>';
-        });
-        html += '</div>';
-        if (get('calWizResult')) get('calWizResult').innerHTML = html;
-        calWizButtons([{ l: "Suivant →", f: function () {
-            const sel = document.querySelector('input[name=calSrc]:checked');
-            if (!sel) { calWizText("Choisis un volet source.", ''); return; }
-            const src = list.find(function (x) { return x.shadeId === parseInt(sel.value, 10); });
-            if (!src) return;
-            const vals = { up: src.upTime, down: src.downTime, lift: src.liftTime, k: src.curveGain };
-            calWizCopyScreen(vals, src.shadeId, src.name, function () {
-                closeOverlay(document.getElementById('divCalWizard'));
-                calWizStop();
-                if (typeof navClearDirty === 'function') { navSuppress(); navClearDirty(); }
-                somfy.openEditShade(sId);
+        if (list.length < 2) { calWizText("Il faut au moins deux volets pour une recopie.", ''); calWizButtons([{ l: "Fermer", f: function () { closeOverlay(document.getElementById('divCalWizard')); calWizStop(); } }]); return; }
+        const esc = function (s) { return (s || '').replace(/</g, '&lt;'); };
+        const srcOf = function () {
+            const sel = document.getElementById('calSrcSel');
+            return sel ? parseInt(sel.value, 10) : sId;
+        };
+        // Re-render source + targets; called on load and whenever the source changes
+        // (so the chosen source is excluded from the target list).
+        const render = function () {
+            const srcId = srcOf();
+            let html = '<hr><div style="text-align:left">'
+                + '<label style="display:block;font-weight:600;margin-bottom:4px">Copier depuis</label>'
+                + '<select id="calSrcSel" style="width:100%;margin-bottom:12px">'
+                + list.map(function (s) {
+                    return '<option value="' + s.shadeId + '"' + (s.shadeId === srcId ? ' selected' : '') + '>'
+                        + esc(s.name || ('#' + s.shadeId))
+                        + '  (↑' + s.upTime + ' ↓' + s.downTime + ' lift' + s.liftTime + ' k' + (s.curveGain || 0) + ')</option>';
+                }).join('')
+                + '</select>'
+                + '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;font-weight:600;cursor:pointer;border-bottom:1px solid var(--md-outline,#8886)">'
+                + '<input type="checkbox" id="calCopyAll" style="width:18px;height:18px"><span>Vers — tout cocher / décocher</span></label>'
+                + '<div style="max-height:32vh;overflow:auto">';
+            list.filter(function (s) { return s.shadeId !== srcId; }).forEach(function (s) {
+                html += '<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer">'
+                    + '<input type="checkbox" class="calCopyChk" value="' + s.shadeId + '" style="width:18px;height:18px">'
+                    + '<span>' + esc(s.name || ('#' + s.shadeId)) + '</span></label>';
             });
-        } }]);
+            html += '</div></div>';
+            if (get('calWizResult')) get('calWizResult').innerHTML = html;
+            const sel = document.getElementById('calSrcSel');
+            if (sel) sel.onchange = render;
+            const chkAll = document.getElementById('calCopyAll');
+            if (chkAll) chkAll.onchange = function () {
+                Array.prototype.forEach.call(document.querySelectorAll('.calCopyChk'), function (c) { c.checked = chkAll.checked; });
+            };
+        };
+        const close = function () {
+            closeOverlay(document.getElementById('divCalWizard'));
+            calWizStop();
+            if (typeof navClearDirty === 'function') { navSuppress(); navClearDirty(); }
+            somfy.openEditShade(sId);
+        };
+        render();
+        calWizButtons([
+            { l: "Copier", f: function () {
+                const src = list.find(function (x) { return x.shadeId === srcOf(); });
+                const ids = Array.prototype.map.call(document.querySelectorAll('.calCopyChk:checked'),
+                    function (c) { return parseInt(c.value, 10); });
+                if (!src || !ids.length) { calWizText("Choisis une source et coche au moins un volet cible.", ''); return; }
+                const vals = { up: src.upTime, down: src.downTime, lift: src.liftTime, k: src.curveGain };
+                calWizButtons([]);
+                let idx = 0, failed = 0;
+                const step = function () {
+                    if (idx >= ids.length) {
+                        if (failed) ui.errorMessage(failed + " volet(s) en échec sur " + ids.length + ".");
+                        else ui.successMessage("Copié « " + esc(src.name || ('#' + src.shadeId)) + " » vers " + ids.length + " volet(s).");
+                        close();
+                        return;
+                    }
+                    const id = ids[idx++];
+                    calWizText("Copie… " + idx + "/" + ids.length, '');
+                    calWizApplyVals(id, vals, function (e) { if (e) failed++; step(); });
+                };
+                step();
+            } },
+            { l: "Annuler", f: close }
+        ]);
     });
 }
 function toggleTooltip(el) {
