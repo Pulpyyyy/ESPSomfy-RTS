@@ -428,7 +428,7 @@
                                 <svg class="btnArrowRight"><use href=#svg-arrowRight></use></svg>
                             </label>
                             <hr>
-                            <label class="uniRow" onclick="window.open('https://github.com/xkain/ESPSomfy-RTS/issues/new?template=BUG-REPORT.yaml', '_blank')">
+                            <label class="uniRow" onclick="window.open('https://github.com/Pulpyyyy/ESPSomfy-RTS/issues/new', '_blank')">
                                 <div class="uniText">
                                     <div class="uniLabel" style="display: flex; align-items: center;">
                                         <span tr="FW_CREDITS_BUG"></span>
@@ -1072,6 +1072,11 @@
                                         <div>
                                             <label class="label" for="fldShadeLiftTime" tr="SHADE_LIFT_TIME"></label>
                                             <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" data-bind="liftTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
+                                        </div>
+                                        <hr>
+                                        <div>
+                                            <label class="label" for="fldShadeCurveGain" tr="SHADE_CURVE_GAIN"></label>
+                                            <input id="fldShadeCurveGain" class="inputAndSelect" name="shadeCurveGain" type="number" data-bind="curveGain" data-datatype="float" min="0" max="0.95" step="0.01" placeholder="0.00 - 0.95"/>
                                         </div>
                                     </div>
                                 </div>

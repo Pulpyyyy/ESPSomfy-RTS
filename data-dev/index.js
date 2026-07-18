@@ -2093,7 +2093,7 @@ class General {
         <div class="overlay-scroll-content">
         ${overlayHeader('Configuration Boîtier', 'Assistant de configuration automatique pour votre boitier', 'svg-leboncoin')}
         <div>
-        <div class="warning"><svg><use href=#svg-warning></use></svg><div><span>Cet assistant est uniquement réservé aux personnes ayant acheté l'un de <a href="https://github.com/xkain/ESPSomfy-RTS/releases" target="_blank" class="link">mes boîtiers</a> sur Leboncoin, si ce n'est pas votre cas fermez cette page</span></div></div>
+        <div class="warning"><svg><use href=#svg-warning></use></svg><div><span>Cet assistant est uniquement réservé aux personnes ayant acheté l'un de mes boîtiers sur Leboncoin, si ce n'est pas votre cas fermez cette page</span></div></div>
         <div class="divInfoLine"><div class="InfoLine"><p>Par défaut, le firmware adopte des réglages universels et sécurisés. Cet assistant applique les paramètres régionaux et injecte la configuration matérielle de votre modèle.</p></div>
         <p class="uppercaseText">1. Sélectionnez votre boîtier :</p>
         <div class="button-container-row lbc-cards-container lbc-responsive-container">
@@ -5608,7 +5608,7 @@ class Firmware {
         <div class="vertical-steps-container">
         ${step(1, `
         <div style="font-size:14px;">${tr(service === '/updateFirmware' ? 'FIRMWARE_UPDATE_SYSTEM' : 'FIRMWARE_UPDATE_LITTLEFS')}</div>
-        <a href="https://github.com/xkain/ESPSomfy-RTS/releases" target="_blank" class="link">${tr('FIRMWARE_UPDATE_FROM_GITHUB')}<svg class="svgInTextSmall"><use href="#svg-linkOut"></use></svg></a>
+        <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/releases" target="_blank" class="link">${tr('FIRMWARE_UPDATE_FROM_GITHUB')}<svg class="svgInTextSmall"><use href="#svg-linkOut"></use></svg></a>
         `, isRestore)}
         <div class="v-step-item ${isRestore ? '' : 'has-extra-content'}" style="${isRestore ? 'height:auto;margin:15px 0 0' : ''}">
         <div class="v-step-left" style="${isRestore ? 'display:none' : ''}">
@@ -5958,7 +5958,7 @@ class Firmware {
         if (!silent) overlay = ui.waitMessage(document.getElementById('divContainer'));
         try {
             let ret = { resp: { ok: false }, info: null };
-            ret.resp = await fetch(`https://api.github.com/repos/xkain/ESPSomfy-RTS/releases/tags/${tag}`);
+            ret.resp = await fetch(`https://api.github.com/repos/Pulpyyyy/ESPSomfy-RTS/releases/tags/${tag}`);
             if (ret.resp.ok) {
                 ret.info = await ret.resp.json();
             }

@@ -707,6 +707,7 @@ void SomfyShade::clear() {
   this->upTime = 10000;
   this->downTime = 10000;
   this->liftTime = 0;
+  this->curveGain = 0.0f;
   this->tiltTime = 7000;
   this->stepSize = 100;
   this->repeats = 1;
@@ -1067,6 +1068,31 @@ uint32_t SomfyShade::effectiveLiftTime() {
   if(this->shadeType == shade_types::drycontact || this->shadeType == shade_types::drycontact2) return 0;
   return this->liftTime;
 }
+// Map the time-linear internal position to the visible position (both in currentPos
+// units: 0 = open, 100 = closed):
+//   phi(p) = p + k*p*(100-p)/100 = (1+k)p - (k/100)p^2
+// The roller is fast near open (large diameter), so the shade is MORE closed than the
+// linear estimate at mid-travel -> the curve pushes toward closed (the +k term).
+// Direction-independent: the same map applies going up and down. k clamped to [0, 0.95]
+// to stay monotonic; 0 = linear. Endpoints are exact (0->0, 100->100).
+float SomfyShade::curveForward(float pos) {
+  float k = this->curveGain;
+  if(k <= 0.0f) return pos;
+  if(k > 0.95f) k = 0.95f;
+  return pos + k * pos * (100.0f - pos) / 100.0f;
+}
+// Inverse of curveForward: visible position -> time-linear internal position.
+// Solve (k/100)p^2 - (1+k)p + v = 0 for p, taking the root in [0,100].
+float SomfyShade::curveInverse(float pos) {
+  float k = this->curveGain;
+  if(k <= 0.0f) return pos;
+  if(k > 0.95f) k = 0.95f;
+  float a = k / 100.0f;
+  float b = 1.0f + k;
+  float disc = b * b - 4.0f * a * pos;
+  if(disc <= 0.0f) return pos;
+  return (b - sqrtf(disc)) / (2.0f * a);
+}
 float SomfyShade::stepUpTarget(uint32_t msStep) {
   // Compute the position target for an up step jog of msStep ms. When the slats are
   // stacked the motor spends the jog unstacking them before the curtain can travel so
@@ -1083,16 +1109,20 @@ float SomfyShade::stepUpTarget(uint32_t msStep) {
     msStep = (uint32_t)floor(-lp * (float)liftTime);
     this->liftPos = this->startLiftPos = 0.0f;
   }
-  return max(0.0f, this->currentPos - (100.0f * (float)msStep / (float)this->upTime));
+  // The msStep travel is time-linear; convert the current visible position to the
+  // time-linear domain, apply the step, and map the result back through the curve.
+  return this->curveForward(max(0.0f, this->curveInverse(this->currentPos) - (100.0f * (float)msStep / (float)this->upTime)));
 }
 float SomfyShade::stepDownTarget(uint32_t msStep) {
   // Compute the position target for a down step jog of msStep ms. The part of the jog
   // left after the curtain reaches the sill stacks the slats; a single step only closes
   // the vents completely if it also covers the remaining lift time.
-  float target = this->currentPos + (100.0f * (float)msStep / (float)this->downTime);
+  // Work in the time-linear domain (curveInverse is a no-op when curveGain is 0), where
+  // the stacking check below and the downTime ratio are defined.
+  float lin = this->curveInverse(this->currentPos) + (100.0f * (float)msStep / (float)this->downTime);
   uint32_t liftTime = this->effectiveLiftTime();
-  if(target > 100.0f && liftTime > 0) {
-    float msStack = (target - 100.0f) / 100.0f * (float)this->downTime;
+  if(lin > 100.0f && liftTime > 0) {
+    float msStack = (lin - 100.0f) / 100.0f * (float)this->downTime;
     float lp = this->liftPos + msStack / (float)liftTime;
     if(lp < 1.0f) {
       // The curtain is at the sill but the slats are not fully stacked yet.
@@ -1102,7 +1132,7 @@ float SomfyShade::stepDownTarget(uint32_t msStep) {
     // The jog also finishes the stacking; let checkMovement close it out from the
     // snapshot taken when the command was received.
   }
-  return min(100.0f, target);
+  return this->curveForward(min(100.0f, lin));
 }
 void SomfyShade::checkMovement() {
   const uint64_t curTime = millis();
@@ -1207,15 +1237,18 @@ void SomfyShade::checkMovement() {
       // The starting posion is a float value from 0-1 that indicates how much the shade is open. So
       // if we take the starting position * the total down time then this will tell us how many ms it
       // has moved in the down position.
-      int32_t msFrom0 = (int32_t)floor((this->startPos/100) * downTime);
+      // startPos is stored in visible units; convert it back to the time-linear domain
+      // before turning it into elapsed time (curveInverse is a no-op when curveGain is 0).
+      int32_t msFrom0 = (int32_t)floor((this->curveInverse(this->startPos)/100) * downTime);
 
       // So if the start position is .1 it is 10% closed so we have a 1000ms (1sec) of time to account for
       // before we add any more time.
       msFrom0 += (curTime - this->moveStart);
       if(msFrom0 < downTime) {
         // The curtain is still travelling toward the sill. The current position is the
-        // ratio of the time travelled over the total time to go 100%.
-        this->p_currentPos(max((float)0.0, (float)msFrom0 / (float)downTime) * 100);
+        // ratio of the time travelled over the total time to go 100%, mapped back to the
+        // visible position through the winding curve.
+        this->p_currentPos(this->curveForward(max((float)0.0, (float)msFrom0 / (float)downTime) * 100));
       }
       else if(this->target >= 100.0f && liftTime > 0) {
         // The curtain is at the sill but the slats still need liftTime ms to stack and close
@@ -1275,7 +1308,8 @@ void SomfyShade::checkMovement() {
         msElapsed = max((int32_t)0, msElapsed - unstackTime);
       }
       else this->liftPos = 0.0f;
-      int32_t msFrom100 = upTime - (int32_t)floor((this->startPos/100) * upTime);
+      // startPos is stored in visible units; convert back to time-linear before deriving time.
+      int32_t msFrom100 = upTime - (int32_t)floor((this->curveInverse(this->startPos)/100) * upTime);
       msFrom100 += msElapsed;
       msFrom100 = min(upTime, msFrom100);
       if(msFrom100 >= upTime) {
@@ -1283,14 +1317,15 @@ void SomfyShade::checkMovement() {
         //this->p_direction(0);
       }
       else {
-        float fpos = ((float)1.0 - min(max((float)0.0, (float)msFrom100 / (float)upTime), (float)1.0)) * 100;
+        // Time-linear position, then mapped back to the visible position through the curve.
+        float fpos = this->curveForward(((float)1.0 - min(max((float)0.0, (float)msFrom100 / (float)upTime), (float)1.0)) * 100);
         // We should now have the number of ms it will take to reach the shade fully open.
         // If we are at the top of the shade then set the movement to 0.
         if(fpos <= 0.0) {
           this->p_currentPos(0.0f);
           //this->p_direction(0);
         }
-        else 
+        else
           this->p_currentPos(fpos);
       }
     }
@@ -1478,6 +1513,7 @@ void SomfyShade::load() {
       this->tiltTime = pref.getUInt("tiltTime", this->tiltTime);
     }
     this->liftTime = pref.getUInt("liftTime", this->liftTime);
+    this->curveGain = pref.getFloat("curveGain", this->curveGain);
     this->setRemoteAddress(pref.getUInt("remoteAddress", 0));
     this->currentPos = pref.getFloat("currentPos", 0);
     this->target = floor(this->currentPos);
@@ -3181,6 +3217,7 @@ bool SomfyShade::save() {
     pref.putUInt("upTime", this->upTime);
     pref.putUInt("downTime", this->downTime);
     pref.putUInt("liftTime", this->liftTime);
+    pref.putFloat("curveGain", this->curveGain);
     pref.putUInt("tiltTime", this->tiltTime);
     pref.putFloat("currentPos", this->currentPos);
     pref.putFloat("currentTiltPos", this->currentTiltPos);
@@ -3315,6 +3352,7 @@ int8_t SomfyShade::fromJSON(JsonObject &obj) {
     // Clamp to the same range as the UI; an out of range value cast to int32 in
     // checkMovement would otherwise wrap negative and break the position math.
     if(obj.containsKey("liftTime")) this->liftTime = min(obj["liftTime"].as<uint32_t>(), (uint32_t)60000);
+    if(obj.containsKey("curveGain")) this->curveGain = constrain(obj["curveGain"].as<float>(), 0.0f, 0.95f);
     if(obj.containsKey("remoteAddress")) this->setRemoteAddress(obj["remoteAddress"]);
     if(obj.containsKey("tiltTime")) this->tiltTime = obj["tiltTime"];
     if(obj.containsKey("stepSize")) this->stepSize = obj["stepSize"];
@@ -3431,6 +3469,7 @@ void SomfyShade::toJSON(JsonResponse &json) {
   json.addElem("upTime", (uint32_t)this->upTime);
   json.addElem("downTime", (uint32_t)this->downTime);
   json.addElem("liftTime", (uint32_t)this->liftTime);
+  json.addElem("curveGain", this->curveGain);
   json.addElem("paired", this->paired);
   json.addElem("lastRollingCode", (uint32_t)this->lastRollingCode);
   json.addElem("position", this->transformPosition(this->currentPos));

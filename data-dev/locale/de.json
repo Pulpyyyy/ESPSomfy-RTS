@@ -210,6 +210,7 @@
     "SHADE_UP_TIME": "Aufwärtszeit (ms)",
     "SHADE_DOWN_TIME": "Abwärtszeit (ms)",
     "SHADE_LIFT_TIME": "Lamellen-Anhebezeit (ms)",
+    "SHADE_CURVE_GAIN": "Wickelkorrektur",
     "SHADE_TILT_TYPE": "Neigungstyp",
     "SHADE_OPT_TILT_MOTOR": "Neigungsmotor",
     "SHADE_OPT_INTEGRATED": "Integriert",
