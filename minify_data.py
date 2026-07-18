@@ -33,10 +33,23 @@ def _dst_dir():
 # ──────────────────────────────────────────────
 
 def minify_html(text: str) -> str:
-    text = re.sub(r"", "", text, flags=re.DOTALL)
+    # Stash inline <script>/<pre>/<textarea> blocks: their whitespace is significant
+    # (a string literal with 2+ spaces would be corrupted by the collapse below).
+    protected = []
+    def stash(m):
+        protected.append(m.group(0))
+        return f"\x00{len(protected) - 1}\x00"
+    text = re.sub(r"<(script|pre|textarea)\b[^>]*>.*?</\1>", stash, text,
+                  flags=re.DOTALL | re.IGNORECASE)
+    # Strip HTML comments (the previous empty pattern was a no-op), but keep IE
+    # conditional comments intact.
+    text = re.sub(r"<!--(?!\[if).*?-->", "", text, flags=re.DOTALL)
     text = re.sub(r">\s+<", "> <", text)
     text = re.sub(r"\s{2,}", " ", text)
-    return text.strip()
+    text = text.strip()
+    for i, block in enumerate(protected):
+        text = text.replace(f"\x00{i}\x00", block, 1)
+    return text
 
 def minify_css(text: str) -> str:
     # 1. Supprimer les commentaires
@@ -65,7 +78,8 @@ def minify_json(text: str) -> str:
         return text
 
 def minify_svg(text: str) -> str:
-    text = re.sub(r"", "", text, flags=re.DOTALL)
+    # Strip XML/SVG comments (the previous empty pattern removed nothing).
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
     return re.sub(r">\s+<", "><", text).strip()
 
 MINIFIERS = {
