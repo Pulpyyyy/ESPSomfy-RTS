@@ -84,7 +84,7 @@ void GitRelease::setAssetProperty(const char *key, const char *val) {
 }
 void GitRelease::toJSON(JsonResponse &json) {
   Timestamp ts;
-  char buff[20];
+  char buff[21];  // uint64_t is up to 20 digits + NUL
   sprintf(buff, "%llu", this->id);
   json.addElem("id", buff);
   json.addElem("name", this->name);
