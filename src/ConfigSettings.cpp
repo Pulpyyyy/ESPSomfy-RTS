@@ -363,7 +363,9 @@ void MQTTSettings::toJSON(JsonResponse &json) {
   json.addElem("hostname", this->hostname);
   json.addElem("port", (uint32_t)this->port);
   json.addElem("username", this->username);
-  json.addElem("password", this->password);
+  // Never serialize the broker password; only advertise whether one is set.
+  json.addElem("password", "");
+  json.addElem("hasPassword", strlen(this->password) > 0);
   json.addElem("rootTopic", this->rootTopic);
   json.addElem("discoTopic", this->discoTopic);
 }
@@ -375,7 +377,9 @@ bool MQTTSettings::toJSON(JsonObject &obj) {
   obj["hostname"] = this->hostname;
   obj["port"] = this->port;
   obj["username"] = this->username;
-  obj["password"] = this->password;
+  // Never serialize the broker password; only advertise whether one is set.
+  obj["password"] = "";
+  obj["hasPassword"] = strlen(this->password) > 0;
   obj["rootTopic"] = this->rootTopic;
   obj["discoTopic"] = this->discoTopic;
   return true;
@@ -386,7 +390,12 @@ bool MQTTSettings::fromJSON(JsonObject &obj) {
   this->parseValueString(obj, "protocol", this->protocol, sizeof(this->protocol));
   this->parseValueString(obj, "hostname", this->hostname, sizeof(this->hostname));
   this->parseValueString(obj, "username", this->username, sizeof(this->username));
-  this->parseValueString(obj, "password", this->password, sizeof(this->password));
+  // The password is no longer echoed back by toJSON, so an omitted or empty value
+  // means "keep the stored one"; it is cleared when the username is cleared.
+  if(obj.containsKey("password") && strlen(obj["password"] | "") > 0)
+    this->parseValueString(obj, "password", this->password, sizeof(this->password));
+  if(obj.containsKey("username") && strlen(this->username) == 0)
+    this->password[0] = '\0';
   this->parseValueString(obj, "rootTopic", this->rootTopic, sizeof(this->rootTopic));
   this->parseValueString(obj, "discoTopic", this->discoTopic, sizeof(this->discoTopic));
   if(obj.containsKey("port")) this->port = obj["port"];
