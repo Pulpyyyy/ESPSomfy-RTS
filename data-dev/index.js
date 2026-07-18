@@ -946,11 +946,12 @@ function startShadeCalibration() {
     const g = get, sh = ui.fromElement(g('somfyShade'));
     const sId = parseInt(g('spanShadeId').innerText, 10);
     if (isNaN(sId) || sId >= 255) { ui.errorMessage(tr('ERR_CAL_SAVE_FIRST')); return; }
-    if (sh.paired === false) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
+    // The measurement modes need a paired remote; "Recopie" only copies values, so
+    // the pairing is checked when a measurement mode is picked, not up front.
     const div = document.createElement('div');
     div.className = 'inst-overlay'; div.id = 'divCalWizard';
     div.innerHTML = '<div class="instructions-content"><div class="overlay-scroll-content">'
-        + overlayHeader('Calibration télécommande', "Pilote avec ta télécommande, l'assistant mesure les temps", 'svg-simpleShutter')
+        + overlayHeader('Calibration du volet', "Mesure guidée à la télécommande, ou recopie d'un volet déjà réglé", 'svg-simpleShutter')
         + '<div class="unibloc">'
         + '<p id="calWizText" style="min-height:3.5em;font-size:1.05em;"></p>'
         + '<div id="calWizLive" style="opacity:.7;font-size:.9em;min-height:1.2em;"></div>'
@@ -960,10 +961,17 @@ function startShadeCalibration() {
     shOverlay(div, () => calWizStop());
     _calWiz = { sId: sId, res: {}, plan: [], i: 0, phase: 'idle', t0: 0 };
     window.calWizardOnCommand = calWizOnCommand;
-    calWizText("Choisis le mode. Tu piloteras avec ta télécommande physique ; l'assistant chronomètre et remet le volet en position entre chaque mesure.");
+    calWizText("Choisis le mode. Rapide/Complète : tu pilotes avec ta télécommande physique, l'assistant chronomètre et remet le volet en position entre chaque mesure. Recopie : copier les valeurs d'un volet déjà calibré vers d'autres, sans aucune mesure.");
+    const needPaired = function (fn) {
+        return function () {
+            if (sh.paired === false) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
+            fn();
+        };
+    };
     calWizButtons([
-        { l: "Rapide (~2 min)", f: function () { calWizBegin('quick'); } },
-        { l: "Complète (~6 min)", f: function () { calWizBegin('full'); } }
+        { l: "Rapide (~2 min)", f: needPaired(function () { calWizBegin('quick'); }) },
+        { l: "Complète (~6 min)", f: needPaired(function () { calWizBegin('full'); }) },
+        { l: "Recopie (aucune mesure)", f: function () { calWizRecopy(sId); } }
     ]);
 }
 function calWizText(t, live) {
@@ -1067,24 +1075,159 @@ function calWizFinish() {
         + '<p style="opacity:.8">« Appliquer » enregistre directement ces valeurs sur le volet.</p>';
     calWizText('Calibration terminée.', '');
     const sId = w.sId;
+    const vals = { up: up, down: down, lift: lift, k: k };
+    const finishClose = function () {
+        closeOverlay(document.getElementById('divCalWizard'));
+        calWizStop();
+        // Reload the panel with the persisted values; openEditShade resets the
+        // guard's unsaved-changes flag, so the wizard does not touch it itself.
+        somfy.openEditShade(sId);
+    };
     calWizButtons([{ l: "Appliquer ✓", f: function () {
         // Save straight to the shade: filling the form and relying on a second
         // manual save proved fragile (values silently lost on navigation).
-        const obj = ui.fromElement(g('somfyShade'));
-        obj.shadeId = sId;
-        if (isNaN(obj.liftTime)) obj.liftTime = 0;
-        if (down) obj.downTime = down;
-        if (up) obj.upTime = up;
-        if (k !== null) obj.curveGain = parseFloat(k.toFixed(2));
-        if (lift !== null) obj.liftTime = lift;
-        putJSONSync('/saveShade', obj, function (err, shade) {
+        calWizApplyVals(sId, vals, function (err) {
             if (err) return ui.serviceError(err);
-            closeOverlay(document.getElementById('divCalWizard'));
-            calWizStop();
-            somfy.openEditShade(shade.shadeId);   // reload the panel with the persisted values
             ui.successMessage("Calibration enregistrée sur le volet.");
+            // Then offer to copy the same values onto other shades.
+            calWizCopyScreen(vals, sId, null, finishClose);
         });
     } }]);
+}
+// Partial /saveShade: writes only the measured fields (up/down/lift/k); a partial
+// object leaves rolling codes, name, remote address, etc. untouched. Any field
+// that is null/undefined is omitted, so it keeps its current value on the shade.
+function calWizApplyVals(id, vals, cb) {
+    const obj = { shadeId: id };
+    if (vals.down) obj.downTime = vals.down;
+    if (vals.up) obj.upTime = vals.up;
+    if (vals.lift !== null && vals.lift !== undefined) obj.liftTime = vals.lift;
+    if (vals.k !== null && vals.k !== undefined) obj.curveGain = parseFloat(Number(vals.k).toFixed(2));
+    putJSON('/saveShade', obj, cb);
+}
+// Checklist of every other shade; the selected ones receive `vals`. Saves them one
+// at a time (the ESP web server is synchronous and each save() rewrites shades.cfg,
+// so serialising avoids overlapping writes). onDone() runs when finished or skipped.
+function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
+    calWizText("Copier ces valeurs" + (srcLabel ? " de « " + srcLabel + " »" : "")
+        + " (montée, descente, décollage, enroulement) vers quels volets ? Coche-les puis « Copier », ou « Terminer ».", '');
+    getJSON('/shades', function (err, shades) {
+        if (err || !Array.isArray(shades)) { onDone(); return; }
+        const others = shades.filter(function (s) { return s.shadeId !== excludeId && s.shadeId < 255; });
+        if (!others.length) { calWizText("Aucun autre volet à mettre à jour.", ''); calWizButtons([{ l: "Terminer", f: onDone }]); return; }
+        // Multi-select: tick as many target shades as wanted (with a select-all).
+        // MD3 checkbox markup (hidden input + .custom-checkbox), styled via #calWizResult.
+        let html = '<hr>'
+            + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>Tout cocher / décocher</span></label>'
+            + '<div class="calList">';
+        others.forEach(function (s) {
+            const nm = (s.name || ('#' + s.shadeId)).replace(/</g, '&lt;');
+            html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + nm + '</span></label>';
+        });
+        html += '</div>';
+        if (get('calWizResult')) get('calWizResult').innerHTML = html;
+        const chkAll = document.getElementById('calCopyAll');
+        if (chkAll) chkAll.onchange = function () {
+            Array.prototype.forEach.call(document.querySelectorAll('.calCopyChk'), function (c) { c.checked = chkAll.checked; });
+        };
+        calWizButtons([
+            { l: "Copier vers la sélection", f: function () {
+                const ids = Array.prototype.map.call(document.querySelectorAll('.calCopyChk:checked'),
+                    function (c) { return parseInt(c.value, 10); });
+                if (!ids.length) { calWizText("Sélectionne au moins un volet (ou « Terminer »).", ''); return; }
+                calWizButtons([]);
+                let idx = 0, failed = 0;
+                const step = function () {
+                    if (idx >= ids.length) {
+                        if (failed) ui.errorMessage(failed + " volet(s) en échec sur " + ids.length + ".");
+                        else ui.successMessage("Copié vers " + ids.length + " volet(s).");
+                        onDone();
+                        return;
+                    }
+                    const id = ids[idx++];
+                    calWizText("Copie… " + idx + "/" + ids.length, '');
+                    calWizApplyVals(id, vals, function (e) { if (e) failed++; step(); });
+                };
+                step();
+            } },
+            { l: "Terminer", f: onDone }
+        ]);
+    });
+}
+// Third mode: copy an already-calibrated shade's values onto others, no measurement.
+// One screen: a single-choice "from" dropdown + a multi-choice "to" checklist, so
+// the single vs. multiple distinction is unambiguous.
+function calWizRecopy(sId) {
+    calWizText("Recopie — choisis le volet source (« Copier depuis ») et coche les volets cibles (« Vers »). Aucune mesure.", '');
+    calWizButtons([]);
+    getJSON('/shades', function (err, shades) {
+        if (err || !Array.isArray(shades)) { ui.serviceError(err || {}); return; }
+        const list = shades.filter(function (s) { return s.shadeId < 255; });
+        if (list.length < 2) { calWizText("Il faut au moins deux volets pour une recopie.", ''); calWizButtons([{ l: "Fermer", f: function () { closeOverlay(document.getElementById('divCalWizard')); calWizStop(); } }]); return; }
+        const esc = function (s) { return (s || '').replace(/</g, '&lt;'); };
+        const srcOf = function () {
+            const sel = document.getElementById('calSrcSel');
+            return sel ? parseInt(sel.value, 10) : sId;
+        };
+        // Re-render source + targets; called on load and whenever the source changes
+        // (so the chosen source is excluded from the target list).
+        const render = function () {
+            const srcId = srcOf();
+            let html = '<hr><div style="text-align:left">'
+                + '<label class="calFromLabel">Copier depuis</label>'
+                + '<select id="calSrcSel" class="inputAndSelect">'
+                + list.map(function (s) {
+                    return '<option value="' + s.shadeId + '"' + (s.shadeId === srcId ? ' selected' : '') + '>'
+                        + esc(s.name || ('#' + s.shadeId))
+                        + '  (↑' + s.upTime + ' ↓' + s.downTime + ' lift' + s.liftTime + ' k' + (s.curveGain || 0) + ')</option>';
+                }).join('')
+                + '</select>'
+                + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>Vers — tout cocher / décocher</span></label>'
+                + '<div class="calList">';
+            list.filter(function (s) { return s.shadeId !== srcId; }).forEach(function (s) {
+                html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + esc(s.name || ('#' + s.shadeId)) + '</span></label>';
+            });
+            html += '</div></div>';
+            if (get('calWizResult')) get('calWizResult').innerHTML = html;
+            const sel = document.getElementById('calSrcSel');
+            if (sel) sel.onchange = render;
+            const chkAll = document.getElementById('calCopyAll');
+            if (chkAll) chkAll.onchange = function () {
+                Array.prototype.forEach.call(document.querySelectorAll('.calCopyChk'), function (c) { c.checked = chkAll.checked; });
+            };
+        };
+        const close = function () {
+            closeOverlay(document.getElementById('divCalWizard'));
+            calWizStop();
+            // openEditShade resets the guard's unsaved-changes flag on reload.
+            somfy.openEditShade(sId);
+        };
+        render();
+        calWizButtons([
+            { l: "Copier", f: function () {
+                const src = list.find(function (x) { return x.shadeId === srcOf(); });
+                const ids = Array.prototype.map.call(document.querySelectorAll('.calCopyChk:checked'),
+                    function (c) { return parseInt(c.value, 10); });
+                if (!src || !ids.length) { calWizText("Choisis une source et coche au moins un volet cible.", ''); return; }
+                const vals = { up: src.upTime, down: src.downTime, lift: src.liftTime, k: src.curveGain };
+                calWizButtons([]);
+                let idx = 0, failed = 0;
+                const step = function () {
+                    if (idx >= ids.length) {
+                        if (failed) ui.errorMessage(failed + " volet(s) en échec sur " + ids.length + ".");
+                        else ui.successMessage("Copié « " + esc(src.name || ('#' + src.shadeId)) + " » vers " + ids.length + " volet(s).");
+                        close();
+                        return;
+                    }
+                    const id = ids[idx++];
+                    calWizText("Copie… " + idx + "/" + ids.length, '');
+                    calWizApplyVals(id, vals, function (e) { if (e) failed++; step(); });
+                };
+                step();
+            } },
+            { l: "Annuler", f: close }
+        ]);
+    });
 }
 function toggleTooltip(el) {
     const tooltip = el.querySelector('.tooltip-text');
