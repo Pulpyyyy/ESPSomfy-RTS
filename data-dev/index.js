@@ -604,7 +604,7 @@ async function initSockets() {
                             somfy.procShadeState(msg);
                             break;
                         case 'shadeCommand':
-                            console.log(msg);
+                            if (window.calWizardOnCommand) window.calWizardOnCommand(msg);
                             break;
                         case 'roomRemoved':
                             somfy.procRoomRemoved(msg);
@@ -931,6 +931,160 @@ function shOverlay(div, onClose) {
     if (btn) btn.onclick = () => closeOverlay(div, onClose);
     get('divContainer').appendChild(div);
     window.scrollTo(0, 0);
+}
+// --- Calibration wizard (v1) -------------------------------------------------
+// 100% UI: drives the shade via /shadeCommand, times the user's taps locally,
+// computes downTime/upTime/curveGain and writes them into the shade form fields.
+// Guided single-button flow: each tap records a timestamp and advances.
+// --- Calibration wizard (v2): drive with the physical remote ---------------
+// The user drives the shade with the real remote; the ESP's received-frame
+// socket events (shadeCommand, source="remote") are timestamped to compute the
+// times, and the wizard returns the shade to the start between measurements.
+// The socket handler forwards shadeCommand events to window.calWizardOnCommand.
+let _calWiz = null;
+function startShadeCalibration() {
+    const g = get, sh = ui.fromElement(g('somfyShade'));
+    const sId = parseInt(g('spanShadeId').innerText, 10);
+    if (isNaN(sId) || sId >= 255) { ui.errorMessage(tr('ERR_CAL_SAVE_FIRST')); return; }
+    if (sh.paired === false) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
+    const div = document.createElement('div');
+    div.className = 'inst-overlay'; div.id = 'divCalWizard';
+    div.innerHTML = '<div class="instructions-content"><div class="overlay-scroll-content">'
+        + overlayHeader('Calibration télécommande', "Pilote avec ta télécommande, l'assistant mesure les temps", 'svg-simpleShutter')
+        + '<div class="unibloc">'
+        + '<p id="calWizText" style="min-height:3.5em;font-size:1.05em;"></p>'
+        + '<div id="calWizLive" style="opacity:.7;font-size:.9em;min-height:1.2em;"></div>'
+        + '<div id="calWizResult"></div>'
+        + '</div><div class="button-container-row" id="calWizBtns"></div>'
+        + '</div></div>';
+    shOverlay(div, () => calWizStop());
+    _calWiz = { sId: sId, res: {}, plan: [], i: 0, phase: 'idle', t0: 0 };
+    window.calWizardOnCommand = calWizOnCommand;
+    calWizText("Choisis le mode. Tu piloteras avec ta télécommande physique ; l'assistant chronomètre et remet le volet en position entre chaque mesure.");
+    calWizButtons([
+        { l: "Rapide (~2 min)", f: function () { calWizBegin('quick'); } },
+        { l: "Complète (~6 min)", f: function () { calWizBegin('full'); } }
+    ]);
+}
+function calWizText(t, live) {
+    if (get('calWizText')) get('calWizText').innerText = t;
+    if (live !== undefined && get('calWizLive')) get('calWizLive').innerText = live;
+}
+function calWizButtons(list) {
+    const c = get('calWizBtns'); if (!c) return; c.innerHTML = '';
+    (list || []).forEach(function (b) {
+        const d = document.createElement('div'); d.className = 'divButton';
+        const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'buttonUpdate';
+        btn.innerHTML = '<div class="devButtonUpdate"><div>' + b.l + '</div></div>';
+        btn.onclick = b.f; d.appendChild(btn); c.appendChild(d);
+    });
+}
+function calWizStop() { window.calWizardOnCommand = null; _calWiz = null; }
+// closed% convention: 0 = fully open, 100 = fully closed (matches curveForward).
+function calWizBegin(mode) {
+    _calWiz.plan = mode === 'quick'
+        ? [{ dir: 'down', at: 99, key: 'lift' }, { dir: 'down', at: 100, key: 'down' }, { dir: 'down', at: 50, key: 'c50' }, { dir: 'up', at: 0, key: 'up' }]
+        : [{ dir: 'down', at: 25, key: 'c25' }, { dir: 'down', at: 50, key: 'c50' }, { dir: 'down', at: 75, key: 'c75' },
+           { dir: 'down', at: 99, key: 'lift' }, { dir: 'down', at: 100, key: 'down' }, { dir: 'up', at: 0, key: 'up' }];
+    _calWiz.i = 0;
+    calWizNext();
+}
+async function calWizNext() {
+    const w = _calWiz; if (!w) return;
+    if (w.i >= w.plan.length) return calWizFinish();
+    const s = w.plan[w.i];
+    const startClosed = s.dir === 'down' ? 0 : 100;
+    w.phase = 'returning';
+    calWizText('Remise en position de départ (' + (startClosed === 0 ? 'ouvert' : 'fermé') + ')…', w.lastResult || '');
+    calWizButtons([]);
+    await calWizGoto(startClosed);
+    if (!_calWiz) return;
+    const atTxt = s.at === 99 ? 'le SEUIL : le bas du tablier touche (lames PAS encore tassées)'
+        : s.at === 100 ? 'FERMÉ complet : lames tassées, ajours clos'
+        : s.at === 0 ? 'le HAUT (ouvert)' : (s.at + '% fermé');
+    const startCmd = s.dir === 'down' ? 'DESCENTE' : 'MONTÉE';
+    w.phase = 'await_start';
+    calWizText('Mesure ' + (w.i + 1) + '/' + w.plan.length + ' — appuie sur ' + startCmd
+        + ' de ta télécommande, puis sur STOP (my) quand le volet atteint ' + atTxt + '.',
+        'En attente de l\'appui ' + startCmd + '…');
+    calWizButtons([{ l: "Ignorer cette mesure", f: function () { w.i++; calWizNext(); } }]);
+}
+function calWizOnCommand(msg) {
+    const w = _calWiz; if (!w) return;
+    if (parseInt(msg.shadeId, 10) !== w.sId) return;
+    if (msg.source !== 'remote') return;   // ignore the wizard's own internal commands
+    const cmd = (msg.cmd || '').toLowerCase();
+    const s = w.plan[w.i]; if (!s) return;
+    const wantStart = s.dir === 'down' ? 'down' : 'up';
+    if (w.phase === 'await_start' && cmd === wantStart) {
+        w.t0 = Date.now(); w.phase = 'await_stop';
+        calWizText(get('calWizText').innerText, 'Chrono lancé — appuie STOP à la bonne position.');
+    } else if (w.phase === 'await_stop' && (cmd === 'my' || cmd === 'stop')) {
+        const dt = Date.now() - w.t0;
+        w.res[s.key] = dt; w.phase = 'done'; w.i++;
+        const labels = { down: 'Temps descente', up: 'Temps montée', c50: 'Point milieu (50%)', c25: 'Point 25%', c75: 'Point 75%', lift: 'Seuil / lames' };
+        w.lastResult = '✔ ' + (labels[s.key] || s.key) + ' : ' + dt + ' ms';
+        calWizText(w.lastResult, '');
+        setTimeout(calWizNext, 700);
+    }
+}
+// Drive to a closed% and wait until it stops (internal command -> ignored by the listener).
+function calWizGoto(closedPct) {
+    return new Promise(function (resolve) {
+        const cmd = closedPct <= 0 ? { command: 'Up' } : closedPct >= 100 ? { command: 'Down' } : { target: closedPct };
+        putJSON('/shadeCommand', Object.assign({ shadeId: _calWiz.sId }, cmd), function () { });
+        const deadline = Date.now() + 32000;
+        const poll = function () {
+            if (!_calWiz) return resolve();
+            getJSON('/shades', function (err, shades) {
+                const sh = !err && shades && shades.find(function (x) { return x.shadeId === _calWiz.sId; });
+                if ((sh && sh.direction === 0) || Date.now() > deadline) return setTimeout(resolve, 1200);
+                setTimeout(poll, 900);
+            });
+        };
+        setTimeout(poll, 2500);   // let the move start before polling for stop
+    });
+}
+function calWizFinish() {
+    const w = _calWiz, r = w.res, g = get;
+    // Model: downTime/upTime are pure travel; liftTime (slat stacking at the
+    // closed end) is separate and additive. r.lift = open->sill (pure travel),
+    // r.down = open->fully closed (travel + stacking), r.up = closed->open
+    // (unstacking + travel).
+    const lift = (r.down && r.lift && r.down > r.lift) ? (r.down - r.lift) : null;
+    const down = r.lift ? r.lift : r.down;             // pure descent travel
+    const up = (r.up && lift) ? Math.max(1, r.up - lift) : r.up;  // pure ascent travel
+    const kOf = function (dt, P) { const tau = dt / down * 100; const den = tau * (100 - tau) / 100; return den > 0 ? (P - tau) / den : 0; };
+    let ks = [];
+    if (down) { if (r.c25) ks.push(kOf(r.c25, 25)); if (r.c50) ks.push(kOf(r.c50, 50)); if (r.c75) ks.push(kOf(r.c75, 75)); }
+    const k = ks.length ? Math.min(0.95, Math.max(0, ks.reduce(function (a, b) { return a + b; }, 0) / ks.length)) : null;
+    let out = [];
+    if (down) out.push("Temps descente : <b>" + down + " ms</b>");
+    if (up) out.push("Temps montée : <b>" + up + " ms</b>");
+    if (k !== null) out.push("Correction d'enroulement : <b>" + k.toFixed(2) + "</b>");
+    if (lift !== null) out.push("Temps décollage lames : <b>" + lift + " ms</b>");
+    if (g('calWizResult')) g('calWizResult').innerHTML = '<hr>' + out.map(function (x) { return '<div>' + x + '</div>'; }).join('')
+        + '<p style="opacity:.8">« Appliquer » enregistre directement ces valeurs sur le volet.</p>';
+    calWizText('Calibration terminée.', '');
+    const sId = w.sId;
+    calWizButtons([{ l: "Appliquer ✓", f: function () {
+        // Save straight to the shade: filling the form and relying on a second
+        // manual save proved fragile (values silently lost on navigation).
+        const obj = ui.fromElement(g('somfyShade'));
+        obj.shadeId = sId;
+        if (isNaN(obj.liftTime)) obj.liftTime = 0;
+        if (down) obj.downTime = down;
+        if (up) obj.upTime = up;
+        if (k !== null) obj.curveGain = parseFloat(k.toFixed(2));
+        if (lift !== null) obj.liftTime = lift;
+        putJSONSync('/saveShade', obj, function (err, shade) {
+            if (err) return ui.serviceError(err);
+            closeOverlay(document.getElementById('divCalWizard'));
+            calWizStop();
+            somfy.openEditShade(shade.shadeId);   // reload the panel with the persisted values
+            ui.successMessage("Calibration enregistrée sur le volet.");
+        });
+    } }]);
 }
 function toggleTooltip(el) {
     const tooltip = el.querySelector('.tooltip-text');
