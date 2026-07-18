@@ -4362,6 +4362,11 @@ class Somfy {
             if (g('selShadeBitLength')) g('somfyShade').setAttribute('data-bitlength', g('selShadeBitLength').value);
             this.onShadeTypeChanged(g('selShadeType'));
             this.showEditShade(true);
+            // A freshly-loaded panel matches the server, so it starts clean: clear the
+            // unsaved-changes flag and swallow the change events fired while the fields
+            // are (re)populated. Prevents false "unsaved changes" prompts after a save
+            // or any programmatic reload of the shade (e.g. the calibration wizard).
+            navSuppress(); navClearDirty();
         });
     }
     openEditGroup(groupId) {
