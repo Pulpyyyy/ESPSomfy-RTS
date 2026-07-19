@@ -131,8 +131,14 @@ bool MQTTClass::connect() {
   if(this->lastConnect != 0 && (uint32_t)(millis() - this->lastConnect) < 10000) return false;
   this->lastConnect = millis();
 
-  uint64_t mac = ESP.getEfuseMac();
-  snprintf(this->clientId, sizeof(this->clientId), "client-%08x%08x", (uint32_t)((mac >> 32) & 0xFFFFFFFF), (uint32_t)(mac & 0xFFFFFFFF));
+  // Use the user-configured client id when set; otherwise fall back to a unique
+  // MAC-derived default so two controllers never collide on the broker.
+  if(settings.MQTT.clientId[0] != '\0')
+    strlcpy(this->clientId, settings.MQTT.clientId, sizeof(this->clientId));
+  else {
+    uint64_t mac = ESP.getEfuseMac();
+    snprintf(this->clientId, sizeof(this->clientId), "client-%08x%08x", (uint32_t)((mac >> 32) & 0xFFFFFFFF), (uint32_t)(mac & 0xFFFFFFFF));
+  }
 
   mqttClient.setServer(settings.MQTT.hostname, settings.MQTT.port);
   if(mqttClient.connect(this->clientId, settings.MQTT.username, settings.MQTT.password, makeTopic("status"), 0, true, "offline")) {

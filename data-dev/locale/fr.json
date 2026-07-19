@@ -158,6 +158,8 @@
     "MQTT_PUB_DISCOVERY_DESC": "Envoie les paramètres pour une configuration automatique dans votre système",
     "MQTT_OPT_MQTTS": "MQTTS",
     "MQTT_USERNAME_PLH": "Identifiant de votre compte MQTT",
+    "MQTT_CLIENT_ID": "Identifiant client",
+    "MQTT_CLIENT_ID_PLH": "Identifiant client MQTT (laisser vide pour client-<mac>)",
     "MQTT_ROOT_TOPIC": "Root Topic",
     "MQTT_ROOT_TOPIC_PLH": "Chemin de base pour les messages de ce module",
     "MQTT_DISCOVERY_TOPIC": "Discovery Topic",

@@ -156,6 +156,7 @@ class MQTTSettings: BaseSettings {
     char password[33] = "";
     char rootTopic[65] = "";
     char discoTopic[65] = "homeassistant";
+    char clientId[65] = "";  // empty -> auto "client-<mac>"; stored in NVS only, not in the backup record
     bool begin();
     bool save();
     bool load();

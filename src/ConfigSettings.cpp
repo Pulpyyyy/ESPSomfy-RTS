@@ -368,6 +368,7 @@ void MQTTSettings::toJSON(JsonResponse &json) {
   json.addElem("hasPassword", strlen(this->password) > 0);
   json.addElem("rootTopic", this->rootTopic);
   json.addElem("discoTopic", this->discoTopic);
+  json.addElem("clientId", this->clientId);
 }
 
 bool MQTTSettings::toJSON(JsonObject &obj) {
@@ -382,6 +383,7 @@ bool MQTTSettings::toJSON(JsonObject &obj) {
   obj["hasPassword"] = strlen(this->password) > 0;
   obj["rootTopic"] = this->rootTopic;
   obj["discoTopic"] = this->discoTopic;
+  obj["clientId"] = this->clientId;
   return true;
 }
 bool MQTTSettings::fromJSON(JsonObject &obj) {
@@ -398,6 +400,7 @@ bool MQTTSettings::fromJSON(JsonObject &obj) {
     this->password[0] = '\0';
   this->parseValueString(obj, "rootTopic", this->rootTopic, sizeof(this->rootTopic));
   this->parseValueString(obj, "discoTopic", this->discoTopic, sizeof(this->discoTopic));
+  this->parseValueString(obj, "clientId", this->clientId, sizeof(this->clientId));
   if(obj.containsKey("port")) this->port = obj["port"];
   return true;
 }
@@ -413,6 +416,7 @@ bool MQTTSettings::save() {
   pref.putBool("enabled", this->enabled);
   pref.putBool("pubDisco", this->pubDisco);
   pref.putString("discoTopic", this->discoTopic);
+  pref.putString("clientId", this->clientId);
   pref.end();
   return true;
 }
@@ -427,6 +431,7 @@ bool MQTTSettings::load() {
   this->enabled = pref.getBool("enabled", false);
   this->pubDisco = pref.getBool("pubDisco", false);
   pref.getString("discoTopic", this->discoTopic, sizeof(this->discoTopic));
+  pref.getString("clientId", this->clientId, sizeof(this->clientId));
   pref.end();
   return true;
 }
