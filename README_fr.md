@@ -18,11 +18,9 @@
 </div>
 <br />
 
-
 <p align="center">
   <img src="images/exemple.png" alt="ESPSomfy-RTS Screen Shot" width="100%">
 </p>
-
 
 ## À propos du projet
 
@@ -72,7 +70,6 @@ Si vous migrez depuis **rstrouse/ESPSomfy-RTS** ou si vous mettez à niveau une 
 
 Ce fork reste 100% compatible avec l'intégration officielle ESPSomfy-RTS-HA. Si vous utilisez déjà l'intégration, mettez simplement à jour votre ESP32 avec ce firmware. Vos entités, noms et tableaux de bord dans Home Assistant continueront de fonctionner sans aucune modification.
 
-
 ## Feuille de route du projet ESPSomfy-RTS
 
 Vous voulez savoir ce qui arrive ensuite, suivre l'avancement de la version en cours ou voir les fonctionnalités terminées ? J'utilise GitHub Projects pour maintenir une feuille de route en direct et à jour.
@@ -85,9 +82,7 @@ Vous voulez savoir ce qui arrive ensuite, suivre l'avancement de la version en c
 
 ## 🛠️ Dépannage & Réinitialisation d'usine
 
-
 Si vous perdez l'accès à l'interface web (erreur de configuration réseau ou mot de passe oublié), une procédure de réinitialisation manuelle est disponible via des cycles d'alimentation (**Power Cycles**).
-
 
 > [!IMPORTANT]
 > La procédure dépend de la version de votre firmware. Un système à deux niveaux a été introduit dans la **v2.5.1** pour permettre de réinitialiser le réseau sans perdre toutes vos configurations (ce qui n'est pas le cas si vous utilisez la version **2.5.0**).
@@ -104,7 +99,6 @@ Si vous perdez l'accès à l'interface web (erreur de configuration réseau ou m
 Pour voir les instructions détaillées et les diagrammes de cycles, veuillez consulter la page dédiée :
 
 👉 **[Voir la page de Factory Reset](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Factory-Reset)**
-
 
 > [!TIP]
 > Utilisez toujours ces procédures en dernier recours. Si l'interface est toujours accessible, utilisez plutôt le bouton **Restaurer** dans les paramètres système.
@@ -160,46 +154,7 @@ Puisqu'il s'agit d'un fork, vous pouvez vous appuyer sur la riche documentation 
 * 🔄 **[Comment mettre à jour ESPSomfy RTS](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Updating-ESPSomfy-RTS)**
 * 🔌 **[Intégrations](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Intégrations)**
 
-
 ---
 
 ## 🙏 Crédits
 Un merci tout particulier à [rstrouse](https://github.com/rstrouse) pour son travail incroyable sur le projet original ESPSomfy-RTS, et à [xkain](https://github.com/xkain) dont ce fork est issu.
-
-
----
-
-
-
-## 📦 Boîtiers Prêts à l'Emploi (Plug & Play)
-
-Si vous ne souhaitez pas fabriquer le matériel vous-même, je propose des **unités entièrement assemblées, flashées et testées individuellement** avant envoi. Ces boîtiers sont prêts à être alimentés pour piloter immédiatement vos équipements Somfy RTS 433 MHz.
-
-🛒 **Disponibles à l'achat sur [Leboncoin](https://www.leboncoin.fr/profile/77a39e2a-ddb5-44c8-828a-954652c46ee7)**
-
-
-
-
-
-> [!IMPORTANT]
-> **💡 Note sur la configuration et l'assistant intégré**
-> 
-> **L'assistant de préconfiguration automatique a déjà été exécuté par mes soins sur votre boîtier avant son expédition.** Votre appareil est donc configuré et prêt à l'emploi dès la première mise sous tension :
-> * Interface entièrement en **Français**.
-> * Fuseau horaire local configuré (**Europe/Paris**).
-> * Module radio **activé** et **GPIO spécifiques** à votre modèle déjà assignés.
->
->Pour retrouver toutes les caractéristiques et détails, une page dédiée aux **[boîtiers](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/BO%C3%8ETIERS-LEBONCOIN)** est disponible.
->
-> ⚠️ **En cas de perte de configuration :** Si après une mise à jour majeure ou une réinitialisation d'usine (*Factory Reset*) vos équipements ne répondent plus, pas de panique ! L'assistant reste disponible dans l'interface web.
-
-
-<br><br>
-
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/boncoin02.jpg?raw=true" width="33%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/boncoin00.jpg?raw=true" width="33%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/boncoin01.jpg?raw=true" width="33%" />
-</p>
-
-
