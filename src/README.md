@@ -18,9 +18,7 @@
 </div>
 <br />
 
-
 [![Product Name Screen Shot][product-screenshot]](https://example.com)
-
 
 ## About The Project
 
@@ -66,11 +64,9 @@ If you are migrating from **rstrouse/ESPSomfy-RTS** or upgrading from an older v
 > [!TIP]
 > After a successful update to v2.5.0, we recommend creating a **new backup** immediately. This new file will include the updated GPIO mapping and won't trigger any warnings in the future.
 
-
 ## Home Assistant
 
 This fork remains 100% compatible with the official ESPSomfy-RTS-HA integration. If you are already using the integration, simply update your ESP32 with this firmware. Your entities, names, and dashboards in Home Assistant will continue to work without any modification.
-
 
 ## Project ESPSomfy-RTS Roadmap
 
@@ -84,13 +80,10 @@ Want to know what's coming next, check current release progress, or see complete
 
 ## 🛠️ Troubleshooting & Factory Reset
 
-
 If you lose access to the web interface (network configuration error or forgotten password), a manual reset procedure is available via (**Power Cycles**).
-
 
 > [!IMPORTANT]
 >The procedure depends on your firmware version. A two-tier system was introduced in **v2.5.1** to allow resetting the network without losing all your configurations (which is not the case if you are using version **2.5.0**).
-
 
 ### Summary of procedures
 
@@ -104,7 +97,6 @@ If you lose access to the web interface (network configuration error or forgotte
 To view detailed instructions and cycle diagrams, please visit the dedicated page:
 
 👉 **[View the Factory Reset page](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Factory-Reset)**
-
 
 > [!TIP]
 > Always use these procedures as a last resort. If the interface is still accessible, use the **Restore** button in the system settings instead.
@@ -160,37 +152,10 @@ Since this is a fork, you can rely on the extensive original documentation for t
 * 🔄 **[How to Update ESPSomfy RTS](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Updating-ESPSomfy-RTS)**
 * 🔌 **[Integrations](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Intégrations)**
 
-
-
 ---
 
 ## 🙏 Credits
 Special thanks to [rstrouse](https://github.com/rstrouse) for the incredible work on the original ESPSomfy-RTS project, to [xkain](https://github.com/xkain) whose fork this one builds on, and to [y-streibel-uiris](https://github.com/y-streibel-uiris) for the HTTPS WebSocket implementation.
-
----
-
-## 📦 Boîtiers Prêts à l'Emploi (Plug & Play) 
-
-Si vous ne souhaitez pas fabriquer le matériel vous-même, je propose des **unités entièrement assemblées et testées**. Ces boîtiers sont prêts à être alimentés et configurés pour piloter vos équipements RTS 433 MHz.
-
-🛒 **Disponible sur [Leboncoin](https://www.leboncoin.fr/profile/77a39e2a-ddb5-44c8-828a-954652c46ee7)**
-
-> [!IMPORTANT]
-> **Note sur le Firmware & Configuration**
->
-> Pour vous faciliter l'installation, le firmware a été légèrement pré-configuré : fuseau horaire (Paris), GPIO adaptés au boîtier et radio activée. Chaque exemplaire est testé individuellement avant l'envoi.
->
-> Si par cas suite à une mise à jour vos équipements ne répondent plus, vérifiez que l'assignantion des GPIO dans l'onglet Radio est bien sur **CC1101 - ESP32 - D1**
-
-
-  
-<br><br>
-
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/boncoin02.jpg?raw=true" width="33%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/boncoin00.jpg?raw=true" width="33%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/boncoin01.jpg?raw=true" width="33%" />
-</p>
 
 <!-- MARKDOWN LINKS & IMAGES -->
 [product-screenshot]: images/exemple.png
