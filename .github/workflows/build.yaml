@@ -44,7 +44,11 @@ jobs:
           TAG="${{ github.event.release.tag_name }}"
           echo "${TAG#v}" > data-dev/appversion
           sed -i "s/appVersion = 'v[0-9][^']*'/appVersion = '${TAG}'/" data-dev/index.js
+          # Cache-buster on the CSS/JS refs must track the release so browsers reload
+          # the new UI instead of serving a stale index.js/css from cache.
+          sed -i "s/?v=[0-9][^\"']*/?v=${TAG#v}/g" data-dev/index.html
           grep -n "appVersion = " data-dev/index.js | head -1
+          grep -o "index.js?v=[^\"']*" data-dev/index.html | head -1
           cat data-dev/appversion
 
       - name: Build LittleFS image (générique via esp32dev)
