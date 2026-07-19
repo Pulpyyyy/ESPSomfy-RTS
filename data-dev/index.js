@@ -5901,7 +5901,7 @@ class Firmware {
                     link.setAttribute('href', obj);
                     link.click();
                     link.remove();
-                    setTimeout(() => { window.URL.revokeObjectURL(obj); console.log('Revoked object'); }, 0);
+                    setTimeout(() => { window.URL.revokeObjectURL(obj); }, 0);
                 }
             };
             xhr.onload = (evt) => {
