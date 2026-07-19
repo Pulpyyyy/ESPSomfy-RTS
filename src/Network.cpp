@@ -18,6 +18,13 @@ extern rebootDelay_t rebootDelay;
 extern Network net;
 extern SomfyShadeController somfy;
 
+// setConnected() and its emit helpers can run from the WiFi/ETH event task, which is
+// not subscribed to the task watchdog; esp_task_wdt_reset() then logs "task not found".
+// Only feed the watchdog when the current task is actually subscribed. (from cjkas)
+static inline void safe_wdt_reset() {
+  if(esp_task_wdt_status(NULL) == ESP_OK) esp_task_wdt_reset();
+}
+
 static unsigned long _lastHeapEmit = 0;
 
 static bool _apScanning = false;
@@ -152,7 +159,7 @@ void Network::loop() {
       this->emitSockets();
       this->lastEmit = millis();
     }
-    esp_task_wdt_reset(); // Make sure we do not reboot here.
+    safe_wdt_reset(); // Make sure we do not reboot here.
   }
   
   sockEmit.loop();
@@ -164,7 +171,7 @@ void Network::loop() {
   else if(!settings.ssdpBroadcast && SSDP.isStarted) SSDP.end();
 }
 bool Network::changeAP(const uint8_t *bssid, const int32_t channel) {
-  esp_task_wdt_reset(); // Make sure we do not reboot here.
+  safe_wdt_reset(); // Make sure we do not reboot here.
   this->lastRoam = millis();
   if(SSDP.isStarted) SSDP.end();
   mqtt.disconnect();
@@ -232,7 +239,7 @@ void Network::emitSockets(uint8_t num) {
 }
 
 void Network::setConnected(conn_types_t connType) {
-  esp_task_wdt_reset();
+  safe_wdt_reset();
   this->connType = connType;
   this->connectTime = this->connectedAt = millis();
   connectRetries = 0;
@@ -261,7 +268,7 @@ void Network::setConnected(conn_types_t connType) {
     this->wifiFallback = false;
   }
 
-  esp_task_wdt_reset();
+  safe_wdt_reset();
 
   // Affichage minimaliste de la réussite
   if(this->connectAttempts == 1) {
@@ -312,7 +319,7 @@ void Network::setConnected(conn_types_t connType) {
   SSDP.setURL(0, "/");
   SSDP.setActive(0, true);
 
-  esp_task_wdt_reset();
+  safe_wdt_reset();
 
   if(MDNS.begin(settings.hostname)) {
     MDNS.addService("http", "tcp", 80);
@@ -326,7 +333,7 @@ void Network::setConnected(conn_types_t connType) {
   if(settings.ssdpBroadcast) SSDP.begin();
   else if(SSDP.isStarted) SSDP.end();
 
-  esp_task_wdt_reset();
+  safe_wdt_reset();
   this->emitSockets();
   this->needsBroadcast = true;
 }
@@ -479,7 +486,7 @@ bool Network::connectWiFi(const uint8_t *bssid, const int32_t channel) {
   return true;
 }
 bool Network::connect(conn_types_t ctype) {
-  esp_task_wdt_reset();
+  safe_wdt_reset();
   if(this->connecting()) return true;
   if(this->disconnectTime == 0) this->disconnectTime = millis();
   if(ctype == conn_types_t::ethernet && this->connType != conn_types_t::ethernet) {
@@ -538,7 +545,7 @@ bool Network::openSoftAP() {
   this->openingSoftAP = true;
   Serial.println();
   Serial.println("Turning the HotSpot On");
-  esp_task_wdt_reset(); // Make sure we do not reboot here.
+  safe_wdt_reset(); // Make sure we do not reboot here.
   const char *apSSID = strlen(settings.hostname) > 0 ? settings.hostname : "ESPSomfy RTS";
   // Protect the fallback AP with WPA2 so the config/control surface is not exposed
   // to anyone in radio range. Derive a stable per-device password from the efuse MAC
