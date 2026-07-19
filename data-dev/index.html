@@ -848,6 +848,11 @@
                                 <label class="label" for="fldMqttTopic" tr="MQTT_ROOT_TOPIC"></label>
                                 <input id="fldMqttTopic" class="inputAndSelect" name="mqtt-topic" type="text" length=64 data-bind="mqtt.rootTopic" tr="MQTT_ROOT_TOPIC_PLH" placeholder="Préfixe utilisé pour tous les messages de ce module">
                             </div>
+                            <hr>
+                            <div>
+                                <label class="label" for="fldMqttClientId" tr="MQTT_CLIENT_ID"></label>
+                                <input id="fldMqttClientId" class="inputAndSelect" name="mqtt-clientid" type="text" length=64 data-bind="mqtt.clientId" tr="MQTT_CLIENT_ID_PLH" placeholder="Identifiant client MQTT (vide = client-<mac>)">
+                            </div>
                             <hr id="hrIdDiscoveryTopic">
                             <div id="divDiscoveryTopic" style="display:none;">
                                 <label class="label" for="fldDiscoTopic" tr="MQTT_DISCOVERY_TOPIC"></label>
