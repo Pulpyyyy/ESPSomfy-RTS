@@ -161,5 +161,16 @@ Since this is a fork, you can rely on the extensive original documentation for t
 
 ---
 
+## 📶 Fallback Access Point (Wi‑Fi)
+
+If the device cannot join your Wi‑Fi (first boot, wrong password, network down), it opens a **fallback access point** so you can (re)configure it:
+
+* **SSID**: the device hostname (`ESPSomfyRTS` by default).
+* **Password (WPA2)**: `espsomfy`
+
+Connect to that network and open `http://192.168.4.1` to set up Wi‑Fi. The AP password only guards joining the network; the configuration and control are still protected by your PIN/password if one is set.
+
+---
+
 ## 🙏 Credits
 Special thanks to [rstrouse](https://github.com/rstrouse) for the incredible work on the original ESPSomfy-RTS project, to [xkain](https://github.com/xkain) whose fork this one builds on, and to [y-streibel-uiris](https://github.com/y-streibel-uiris) for the HTTPS WebSocket implementation.
