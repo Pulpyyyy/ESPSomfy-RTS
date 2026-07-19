@@ -1,4 +1,4 @@
-[![GitHub Release](https://img.shields.io/github/release/xkain/ESPSomfy-RTS.svg?style=for-the-badge)](https://github.com/xkain/ESPSomfy-RTS/releases) [![GitHub Activity](https://img.shields.io/github/last-commit/xkain/ESPSomfy-RTS?style=for-the-badge)](https://github.com/xkain/ESPSomfy-RTS/commits/main) [![PlatformIO](https://img.shields.io/badge/PlatformIO-Compatible-orange?style=for-the-badge&logo=platformio&logoColor=white)](https://platformio.org) [![License](https://img.shields.io/github/license/xkain/ESPSomfy-RTS.svg?style=for-the-badge)](LICENSE) [![Project Maintenance](https://img.shields.io/badge/maintainer-xkain-blue.svg?style=for-the-badge)](https://github.com/xkain) [![GitHub stars](https://img.shields.io/github/stars/xkain/ESPSomfy-RTS?style=for-the-badge&logo=github&color=blue)](https://github.com/xkain/ESPSomfy-RTS/stargazers)
+[![GitHub Release](https://img.shields.io/github/release/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases) [![GitHub Activity](https://img.shields.io/github/last-commit/Pulpyyyy/ESPSomfy-RTS?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/commits/main) [![PlatformIO](https://img.shields.io/badge/PlatformIO-Compatible-orange?style=for-the-badge&logo=platformio&logoColor=white)](https://platformio.org) [![License](https://img.shields.io/github/license/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](LICENSE) [![Project Maintenance](https://img.shields.io/badge/maintainer-Pulpyyyy-blue.svg?style=for-the-badge)](https://github.com/Pulpyyyy) [![GitHub stars](https://img.shields.io/github/stars/Pulpyyyy/ESPSomfy-RTS?style=for-the-badge&logo=github&color=blue)](https://github.com/Pulpyyyy/ESPSomfy-RTS/stargazers)
 <div align="center">
 
   <img src="images/banniereSomfyRTS.png" alt="ESPSomfy-RTS Banner" width="100%">
@@ -9,11 +9,11 @@
     Contrôlez et gérez facilement vos volets roulants, portails, portes de garage ou tout autre appareil utilisant le protocole RTS 433 MHz.
     <br />
     <br />
-    <a href="https://github.com/xkain/ESPSomfy-RTS/wiki"><strong>Explorer la documentation »</strong></a>
+    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki"><strong>Explorer la documentation »</strong></a>
     <br />
-    <a href="https://github.com/xkain/ESPSomfy-RTS/issues">Signaler un bug</a>
+    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/issues">Signaler un bug</a>
     &middot;
-    <a href="https://github.com/xkain/ESPSomfy-RTS/pulls">Demander une fonctionnalité</a>
+    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/pulls">Demander une fonctionnalité</a>
   </p>
 </div>
 <br />
@@ -77,7 +77,7 @@ Ce fork reste 100% compatible avec l'intégration officielle ESPSomfy-RTS-HA. Si
 
 Vous voulez savoir ce qui arrive ensuite, suivre l'avancement de la version en cours ou voir les fonctionnalités terminées ? J'utilise GitHub Projects pour maintenir une feuille de route en direct et à jour.
 
-[![ESPSomfy-RTS Roadmap](https://img.shields.io/badge/Voir_en_Direct-Feuille_de_route_🗣️-238636?style=for-the-badge&logo=github)](https://github.com/users/xkain/projects/2)
+[![ESPSomfy-RTS Roadmap](https://img.shields.io/badge/Voir_en_Direct-Feuille_de_route_🗣️-238636?style=for-the-badge&logo=github)](https://github.com/users/Pulpyyyy/projects/2)
 
 > 💡 **Cliquez sur le badge ci-dessus** pour suivre le développement en temps réel, les jalons actifs (`v2.5.3`, `v3.0.0`), et soumettre des fonctionnalités ou des corrections de bugs directement dans les colonnes de notre flux de travail.
 
@@ -103,7 +103,7 @@ Si vous perdez l'accès à l'interface web (erreur de configuration réseau ou m
 ### 📖 Documentation complète
 Pour voir les instructions détaillées et les diagrammes de cycles, veuillez consulter la page dédiée :
 
-👉 **[Voir la page de Factory Reset](https://github.com/xkain/ESPSomfy-RTS/wiki/Factory-Reset)**
+👉 **[Voir la page de Factory Reset](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Factory-Reset)**
 
 
 > [!TIP]
@@ -115,17 +115,17 @@ Pour voir les instructions détaillées et les diagrammes de cycles, veuillez co
 
 ### 📱 Vue Mobile (Mode Sombre)
 <p align="center">
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/dark-mobile00.png?raw=true" width="23%" />
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/dark-mobile01.png?raw=true" width="23%" />
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/dark-mobile02.png?raw=true" width="23%" />
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/dark-mobile03.png?raw=true" width="23%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile00.png?raw=true" width="23%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile01.png?raw=true" width="23%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile02.png?raw=true" width="23%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile03.png?raw=true" width="23%" />
 </p>
 
 ### 💻 Vue Bureau (Mode Sombre)
 <p align="center">
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/dark00.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/dark02.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/dark03.png?raw=true" width="80%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark00.png?raw=true" width="80%" /><br><br>
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark02.png?raw=true" width="80%" /><br><br>
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark03.png?raw=true" width="80%" />
 </p>
 
 <br>
@@ -135,17 +135,17 @@ Pour voir les instructions détaillées et les diagrammes de cycles, veuillez co
   
 ### 📱 Vue Mobile 
 <p align="center">
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/clair-mobile00.png?raw=true" width="23%" />
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/clair-mobile01.png?raw=true" width="23%" />
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/clair-mobile02.png?raw=true" width="23%" />
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/clair-mobile03.png?raw=true" width="23%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile00.png?raw=true" width="23%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile01.png?raw=true" width="23%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile02.png?raw=true" width="23%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile03.png?raw=true" width="23%" />
 </p>
 
 ### 💻 Vue Bureau   
 <p align="center">
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/clair00.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/clair02.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/clair03.png?raw=true" width="80%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair00.png?raw=true" width="80%" /><br><br>
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair02.png?raw=true" width="80%" /><br><br>
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair03.png?raw=true" width="80%" />
 </p>
 </details>
     
@@ -158,13 +158,13 @@ Puisqu'il s'agit d'un fork, vous pouvez vous appuyer sur la riche documentation 
 * 📖 **[Configuration du logiciel](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Configuring-the-Software)**
 * ⚙️ **[Installation du firmware](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Installing-the-Firmware)**
 * 🔄 **[Comment mettre à jour ESPSomfy RTS](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Updating-ESPSomfy-RTS)**
-* 🔌 **[Intégrations](https://github.com/xkain/ESPSomfy-RTS/wiki/Intégrations)**
+* 🔌 **[Intégrations](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Intégrations)**
 
 
 ---
 
 ## 🙏 Crédits
-Un merci tout particulier à [rstrouse](https://github.com/rstrouse) pour son travail incroyable sur le projet original ESPSomfy-RTS
+Un merci tout particulier à [rstrouse](https://github.com/rstrouse) pour son travail incroyable sur le projet original ESPSomfy-RTS, et à [xkain](https://github.com/xkain) dont ce fork est issu.
 
 
 ---
@@ -189,7 +189,7 @@ Si vous ne souhaitez pas fabriquer le matériel vous-même, je propose des **uni
 > * Fuseau horaire local configuré (**Europe/Paris**).
 > * Module radio **activé** et **GPIO spécifiques** à votre modèle déjà assignés.
 >
->Pour retrouver toutes les caractéristiques et détails, une page dédiée aux **[boîtiers](https://github.com/xkain/ESPSomfy-RTS/wiki/BO%C3%8ETIERS-LEBONCOIN)** est disponible.
+>Pour retrouver toutes les caractéristiques et détails, une page dédiée aux **[boîtiers](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/BO%C3%8ETIERS-LEBONCOIN)** est disponible.
 >
 > ⚠️ **En cas de perte de configuration :** Si après une mise à jour majeure ou une réinitialisation d'usine (*Factory Reset*) vos équipements ne répondent plus, pas de panique ! L'assistant reste disponible dans l'interface web.
 
@@ -197,9 +197,9 @@ Si vous ne souhaitez pas fabriquer le matériel vous-même, je propose des **uni
 <br><br>
 
 <p align="center">
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/boncoin02.jpg?raw=true" width="33%" />
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/boncoin00.jpg?raw=true" width="33%" />
-  <img src="https://github.com/xkain/ESPSomfy-RTS/blob/main/images/boncoin01.jpg?raw=true" width="33%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/boncoin02.jpg?raw=true" width="33%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/boncoin00.jpg?raw=true" width="33%" />
+  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/boncoin01.jpg?raw=true" width="33%" />
 </p>
 
 
