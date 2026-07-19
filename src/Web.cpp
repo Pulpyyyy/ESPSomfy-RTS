@@ -395,6 +395,10 @@ void Web::handleLoginContext(WebServer &server) {
     size_t used = LittleFS.usedBytes();
     resp.addElem("fsTotal", (uint32_t)(total / 1024)); // En Ko
     resp.addElem("fsUsed", (uint32_t)(used / 1024));   // En Ko
+    // Size of the inactive OTA app slot: the UI uses it to allow/deny a GitHub
+    // update based on the real partition layout instead of the version number
+    // (an old small-partition table cannot hold the enlarged-layout images).
+    resp.addElem("otaSize", (uint32_t)ESP.getFreeSketchSpace());
     resp.addElem("flashSpeed", (uint32_t)(ESP.getFlashChipSpeed() / 1000000)); // En MHz
     resp.endObject();
     resp.endResponse();

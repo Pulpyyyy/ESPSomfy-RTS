@@ -2021,6 +2021,9 @@ class Security {
                         const elP = get('info-fs-pct');
                         if (elP) elP.innerHTML = `${tr('FW_USED_AT')} <span class="status-detail">${pct}</span>%`;
                     }
+                    // Real OTA slot size, used to gate GitHub updates on the actual
+                    // partition layout rather than the version number.
+                    if (ctx.otaSize) get('divContainer').setAttribute('data-otasize', ctx.otaSize);
                     // MAC Addresses
                     if (ctx.mac) document.querySelectorAll('.spanMacAddress').forEach(el => el.textContent = ctx.mac);
 
@@ -6087,9 +6090,7 @@ class Firmware {
                 divLocal.className = "error";
                 get('useStatusIcon')?.setAttribute('href', '#svg-error');
                 const st = get('statusTitle');
-                const currentMajor = this.getMainVersion(rel.appVersion?.name || get('spanFwVersion')?.innerText);
-                const targetMajor = this.getMainVersion(rel.latest?.name);
-                const isBlocked = (currentMajor < 3 && targetMajor >= 3) || (currentMajor >= 3 && targetMajor < 3);
+                const isBlocked = this.needsUsbFlash();
 
                 if (st) st.innerHTML = tr(isBlocked ? 'FW_UPDATE_REQUIRED_USB' : 'FW_UPDATE_AVAILABLE');
                 statusDesc.innerHTML = isBlocked
@@ -6158,14 +6159,22 @@ class Firmware {
         const match = verStr.match(/[vV]?(\d+)/);
         return match ? parseInt(match[1], 10) : 0;
     }
+    // Real partition check (replaces the old "major version 2 -> 3" heuristic):
+    // the published images require the enlarged OTA layout (app slots of 1.6875 MB
+    // plus a 512 KB LittleFS). A device still on the old, smaller partition table
+    // cannot hold them and needs a one-time USB flash. otaSize is the inactive OTA
+    // slot size reported by the firmware (loginContext). 0/unknown = don't block.
+    needsUsbFlash() {
+        const otaSize = parseInt(get('divContainer')?.getAttribute('data-otasize') || '0', 10);
+        return otaSize > 0 && otaSize < 0x1B0000; // 0x1B0000 = 1.6875 MB (enlarged app slot)
+    }
 
     async installGitRelease(div) {
         let obj = ui.fromElement(div);
-        const currentMajor = this.getMainVersion(document.getElementById('divGitInstall')?.getAttribute('data-currentver'));
-        const targetMajor = this.getMainVersion(obj.version);
 
-        // Sécurité absolue contre le contournement HTML
-        if ((currentMajor < 3 && targetMajor >= 3) || (currentMajor >= 3 && targetMajor < 3)) {
+        // Real partition guard (belt-and-braces against a tampered UI): refuse to
+        // install the enlarged-layout images on a device still on the old table.
+        if (this.needsUsbFlash()) {
             ui.errorMessage(tr('MSG_ALERT')).querySelector('.sub-message').innerHTML = tr('ERR_GIT_PARTITION_BLOCKED');
             return;
         }
@@ -6297,19 +6306,13 @@ class Firmware {
         const divPre = div.querySelector('#divPrereleaseWarning');
         const spanWarning = div.querySelector('#spanUpdateWarning');
         const btnUpdate = div.querySelector('#btnUpdate');
-        const currentMajor = this.getMainVersion(div.getAttribute('data-currentver'));
-        const targetMajor = this.getMainVersion(sel.value);
-
         let isBlocked = false;
         let blockMessage = '';
 
-        if (currentMajor < 3 && targetMajor >= 3) {
+        // Block on the real partition layout, not on the version number.
+        if (this.needsUsbFlash()) {
             isBlocked = true;
             blockMessage = tr('UPDATE_GIT_UPDATE_V3_BLOCKED');
-        }
-        else if (currentMajor >= 3 && targetMajor < 3) {
-            isBlocked = true;
-            blockMessage = tr('UPDATE_GIT_DOWNGRADE_V3_BLOCKED');
         }
 
         if (isBlocked) {
