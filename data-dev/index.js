@@ -1,5 +1,6 @@
 //var hst = '192.168.4.1';
 var hst = '192.168.1.13';
+var DBG = false; // UI debug logging (requests, heap); never logs secrets
 //var hst = '192.168.1.49';
 //var hst = '192.168.2.232';
 
@@ -347,7 +348,7 @@ var httpStatusText = {
 };
 function getJSON(url, cb) {
     let xhr = new XMLHttpRequest();
-    console.log({ get: url });
+    if(DBG) console.log({ get: url });
     xhr.open('GET', baseUrl.length > 0 ? `${baseUrl}${url}` : url, true);
     xhr.setRequestHeader('apikey', security.apiKey);
     xhr.responseType = 'json';
@@ -390,7 +391,7 @@ function getJSONSync(url, cb) {
             cb(xhr.response, null);
         }
         else {
-            console.log({ get: url, obj:xhr.response });
+            if(DBG) console.log({ get: url, obj:xhr.response });
             cb(null, xhr.response);
         }
         if (typeof overlay !== 'undefined') overlay.remove();
@@ -415,7 +416,7 @@ function getJSONSync(url, cb) {
 }
 function getText(url, cb) {
     let xhr = new XMLHttpRequest();
-    console.log({ get: url });
+    if(DBG) console.log({ get: url });
     xhr.open('GET', baseUrl.length > 0 ? `${baseUrl}${url}` : url, true);
     xhr.setRequestHeader('apikey', security.apiKey);
     xhr.responseType = 'text';
@@ -446,7 +447,7 @@ function postJSONSync(url, data, cb) {
     let overlay = ui.waitMessage(get('divContainer'));
     try {
         let xhr = new XMLHttpRequest();
-        console.log({ post: url, data: data });
+        if(DBG) console.log({ post: url, data: data });
         let fd = new FormData();
         for (let name in data) {
             fd.append(name, data[name]);
@@ -487,7 +488,7 @@ function postJSONSync(url, data, cb) {
 }
 function putJSON(url, data, cb) {
     let xhr = new XMLHttpRequest();
-    console.log({ put: url, data: data });
+    if(DBG) console.log({ put: url, data: data });
     xhr.open('PUT', baseUrl.length > 0 ? `${baseUrl}${url}` : url, true);
     xhr.responseType = 'json';
     xhr.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
@@ -523,7 +524,7 @@ function putJSONSync(url, data, cb) {
     let overlay = ui.waitMessage(get('divContainer'));
     try {
         let xhr = new XMLHttpRequest();
-        console.log({ put: url, data: data });
+        if(DBG) console.log({ put: url, data: data });
         //xhr.open('PUT', url, true);
         xhr.open('PUT', baseUrl.length > 0 ? `${baseUrl}${url}` : url, true);
         xhr.responseType = 'json';
@@ -1882,7 +1883,6 @@ class UIBinder {
             }
             const pin = digits.map(d => d.value).join('');
             if (pin.length === 4) {
-                console.log("PIN complet détecté :", pin);
                 if (typeof security !== 'undefined') {
                     security.login();
                 } else if (typeof general !== 'undefined' && typeof general.login === 'function') {
@@ -2081,7 +2081,6 @@ class Security {
         let msg = pnl.querySelector('#spanLoginMessage');
         msg.innerHTML = '';
         let sec = ui.fromElement(pnl).login;
-        console.log(sec);
         let pin = '';
         switch (sec.type) {
             case 1:
@@ -2097,7 +2096,6 @@ class Security {
         putJSONSync('/login', sec, (err, log) => {
             if (err) ui.serviceError(err);
             else {
-                console.log(log);
                 if (log.success) {
                     if (typeof socket === 'undefined' || !socket) (async () => { await initSockets(); })();
 
@@ -6061,7 +6059,7 @@ class Firmware {
         reader.readAsText(file.slice(0, 100));
     }
     procMemoryStatus(mem) {
-        console.log(mem);
+        if(DBG) console.log(mem);
         let sp = get('spanFreeMemory');
         if (sp) sp.innerHTML = mem.free.fmt("#,##0 ");
         sp = get('spanMaxMemory');
