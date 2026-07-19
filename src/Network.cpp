@@ -547,11 +547,10 @@ bool Network::openSoftAP() {
   Serial.println("Turning the HotSpot On");
   safe_wdt_reset(); // Make sure we do not reboot here.
   const char *apSSID = strlen(settings.hostname) > 0 ? settings.hostname : "ESPSomfy RTS";
-  // Protect the fallback AP with WPA2 so the config/control surface is not exposed
-  // to anyone in radio range. Derive a stable per-device password from the efuse MAC
-  // (deterministic, >=8 chars) so it can be shown to and reused by the user.
-  char apPass[16];
-  snprintf(apPass, sizeof(apPass), "somfy%08X", (uint32_t)(ESP.getEfuseMac() & 0xFFFFFFFF));
+  // Fixed, documented WPA2 key for the fallback AP. It only guards joining the AP;
+  // the config/control endpoints behind it are protected by the PIN. A per-device
+  // derived key was dropped: it was impossible to recover without the serial log.
+  const char *apPass = "espsomfy";
   WiFi.softAP(apSSID, apPass);
   Serial.printf("Access Point SSID:\"%s\" password:\"%s\"\n", apSSID, apPass);
   delay(200);

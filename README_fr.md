@@ -156,5 +156,16 @@ Puisqu'il s'agit d'un fork, vous pouvez vous appuyer sur la riche documentation 
 
 ---
 
+## 📶 Point d'accès de secours (Wi‑Fi)
+
+Si le boîtier ne parvient pas à se connecter au Wi‑Fi (première mise en route, mauvais mot de passe, réseau indisponible), il ouvre un **point d'accès de secours** pour permettre la (re)configuration :
+
+* **SSID** : le nom d'hôte du boîtier (`ESPSomfyRTS` par défaut).
+* **Mot de passe (WPA2)** : `espsomfy`
+
+Connecte‑toi à ce réseau puis ouvre `http://192.168.4.1` pour configurer le Wi‑Fi. Le mot de passe de l'AP ne fait que protéger l'accès au réseau ; la configuration et le pilotage restent protégés par ton PIN/mot de passe si tu en as défini un.
+
+---
+
 ## 🙏 Crédits
 Un merci tout particulier à [rstrouse](https://github.com/rstrouse) pour son travail incroyable sur le projet original ESPSomfy-RTS, et à [xkain](https://github.com/xkain) dont ce fork est issu.
