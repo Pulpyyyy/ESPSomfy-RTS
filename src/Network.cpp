@@ -308,7 +308,7 @@ void Network::setConnected(conn_types_t connType) {
   SSDP.setHTTPPort(80);
   SSDP.setSchemaURL(0, "upnp.xml");
   SSDP.setChipId(0, this->getChipId());
-  SSDP.setDeviceType(0, "urn:schemas-xkain-org:device:Somfy:1"); // Raccourci
+  SSDP.setDeviceType(0, "urn:schemas-pulpyyyy-org:device:Somfy:1"); // Raccourci
   SSDP.setName(0, settings.hostname);
   SSDP.setModelName(0, "SomfyRTS"); // Raccourci
 
