@@ -45,8 +45,9 @@
     display: flex;
     align-items: center;
     gap: 20px;
-    filter: blur(8px);
-    transition: filter 0.5s ease;
+    /* Loading reveal: opacity fade instead of an animated blur (GPU cost). */
+    opacity: 0.35;
+    transition: opacity 0.5s ease;
 }
 .status-item {
     display: flex;
@@ -117,8 +118,9 @@
     min-width: 250px;
     max-width: 400px;
     position: fixed;
-    filter: blur(8px);
-    transition: filter 0.5s ease;
+    /* Loading reveal: opacity fade instead of an animated blur (GPU cost). */
+    opacity: 0.35;
+    transition: opacity 0.5s ease;
 }
 /* The sidebar (settings tree + reboot button) sits outside divAuthenticated, so it
    must be hidden explicitly while the login screen is up.  The container then drops
@@ -1354,6 +1356,19 @@ div.frame-pulses {
     gap: 20px;
     background: var(--background-color);
     padding: 20px;
+}
+/* ConfigOnly 401 flow: the login is shown as a modal on top of the running app
+   instead of replacing the whole screen, so the user keeps their context. */
+#divUnauthenticated.login-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2000;
+    min-height: 0;
+    background: var(--wait-overlay);
+    backdrop-filter: blur(5px);
 }
 #divUnauthenticated p {
     margin-top: 0;

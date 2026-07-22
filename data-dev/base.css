@@ -1057,6 +1057,16 @@ button:disabled:active {
     width: 72px;
     height: 72px;
 }
+/* Long-press affordance: an accent ring grows while the button is held; it
+   completes exactly when the 2s threshold triggers the secondary action
+   (set My position / tilt). */
+.cmd-button.lp-hold {
+    animation: lpHold 2s linear forwards;
+}
+@keyframes lpHold {
+    from { box-shadow: 0 0 0 0 var(--accent-color); }
+    to { box-shadow: 0 0 0 4px var(--accent-color); }
+}
 /* Command-sent acknowledgment: pure-RTS shades report no position, so the icon
    pulses briefly to confirm the radio order actually left the device. */
 .somfy-shade-icon.cmd-sent {

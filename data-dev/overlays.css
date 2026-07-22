@@ -1,6 +1,6 @@
 .lang-loaded .sidebar,
 .lang-loaded .top-bar-right {
-    filter: blur(0px);
+    opacity: 1;
 }
 /* flip */
 .flip {
@@ -107,17 +107,23 @@ div.wait-overlay {
     cursor: no-drop;
     animation: fadeInBlur 0.4s ease-out forwards;
 }
+/* The blur itself is static: animating backdrop-filter is one of the most
+   GPU-expensive effects on low-end phones (visible jank on every overlay).
+   Only opacity/transform animate; the blur pops in with the overlay. */
 @keyframes fadeInBlur {
     from {
         opacity: 0;
-        backdrop-filter: blur(0px);
         transform: scale(0.95);
     }
     to {
         opacity: 1;
-        backdrop-filter: blur(5px);
         transform: scale(1);
     }
+}
+div.wait-overlay,
+.inst-overlay,
+.modal-overlay {
+    backdrop-filter: blur(5px);
 }
 div.wait-overlay > .lds-roller {
     z-index:1000;
