@@ -1057,6 +1057,16 @@ button:disabled:active {
     width: 72px;
     height: 72px;
 }
+/* Command-sent acknowledgment: pure-RTS shades report no position, so the icon
+   pulses briefly to confirm the radio order actually left the device. */
+.somfy-shade-icon.cmd-sent {
+    animation: cmdSentPulse 0.9s ease-out;
+}
+@keyframes cmdSentPulse {
+    0% { filter: drop-shadow(0 0 0 var(--accent-color)); }
+    30% { filter: drop-shadow(0 0 8px var(--accent-color)); }
+    100% { filter: drop-shadow(0 0 0 transparent); }
+}
 .icon-svg {
     width: 25px;
     height: 25px;

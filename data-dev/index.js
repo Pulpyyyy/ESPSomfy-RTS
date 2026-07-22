@@ -656,6 +656,7 @@ async function initSockets() {
             if (tConnect) clearTimeout(tConnect);
             tConnect = null;
             if(DBG) console.log({ msg: 'open', evt: evt });
+            document.body.classList.add('socket-on');
             sockIsOpen = true;
             connecting = false;
             connects++;
@@ -684,6 +685,7 @@ async function initSockets() {
             }
         };
         socket.onclose = (evt) => {
+            document.body.classList.remove('socket-on');
             wifi.procWifiStrength({ ssid: '', channel: -1, strength: -100 });
             wifi.procEthernet({ connected: false, speed: 0, fullduplex: false });
             if (document.getElementsByClassName('socket-wait').length === 0)
@@ -707,7 +709,7 @@ async function initSockets() {
                         if(DBG) console.log(`Initial socket did not connect try again (server was busy and timed out ${connectFailed} times)`);
                         tConnect = setTimeout(async () => { await reopenSocket(); }, timeout);
                         if (connectFailed === 5) {
-                            ui.socketError('Too many clients connected.  A maximum of 5 clients may be connected at any one time.  Close some connections to the ESP Somfy RTS device to proceed.');
+                            ui.socketError(tr('ERR_SOCKET_TOO_MANY'));
                         }
                         let spanAttempts = get('spanSocketAttempts');
                         if (spanAttempts) spanAttempts.innerHTML = connectFailed.fmt("#,##0");
@@ -746,6 +748,8 @@ function syncNavigationState(groupId, isSubTab = false) {
         document.querySelectorAll('.submenu').forEach(s => {
             const isTarget = s.previousElementSibling?.getAttribute('data-grpid') === groupId;
             s.style.display = isTarget ? 'flex' : 'none';
+            // Drive the .open class too so the chevron rotates (main.css .nav-group.open .arrow-icon).
+            if (s.closest('.nav-group')) s.closest('.nav-group').classList.toggle('open', isTarget);
 
             if (isTarget) {
                 const firstSub = s.querySelector('.sub-nav-item');
@@ -757,15 +761,26 @@ function syncNavigationState(groupId, isSubTab = false) {
         });
         document.querySelectorAll('.tab-container > span').forEach(t => t.classList.toggle('selected', t.getAttribute('data-grpid') === groupId));
         const targetPanel = get(groupId);
-        if (targetPanel) {
-            const firstSubTab = targetPanel.querySelector('.subtab-container > span');
-            if (firstSubTab) {
-                firstSubTab.click();
-            }
+        const firstSubTab = targetPanel ? targetPanel.querySelector('.subtab-container > span') : null;
+        if (firstSubTab) {
+            firstSubTab.click();          // the sub-tab sync below writes the hash
+        } else {
+            navUpdateHash(groupId);
         }
     } else {
         document.querySelectorAll('.sub-nav-item').forEach(i => i.classList.toggle('active', i.getAttribute('data-grpid') === groupId));
         document.querySelectorAll('.subtab-container > span').forEach(t => t.classList.toggle('selected', t.getAttribute('data-grpid') === groupId));
+        // Visible page title ("Somfy › Volets"): after a scroll on mobile the selected
+        // pill is off-screen, leaving no cue of where the user is.
+        const panel = get(groupId);
+        const subItem = document.querySelector(`.sub-nav-item[data-grpid="${groupId}"]`);
+        if (panel && subItem) {
+            const grp = subItem.closest('.nav-group')?.querySelector('.nav-item > span');
+            let h = panel.querySelector(':scope > .panel-title');
+            if (!h) { h = document.createElement('h2'); h.className = 'panel-title'; panel.prepend(h); }
+            h.textContent = grp ? `${grp.textContent} › ${subItem.textContent}` : subItem.textContent;
+        }
+        navUpdateHash(groupId);
     }
 }
 function bindNavigation() {
@@ -814,6 +829,12 @@ function bindNavigation() {
             navClearDirty(); navSuppress();
             const groupId = tab.getAttribute('data-grpid');
             const isSub = tab.parentElement.classList.contains('subtab-container');
+            // Explicit "Home" entry in the mobile tab bar: leave the config view.
+            if (groupId === 'divHomePnl') {
+                if (typeof ui !== 'undefined') ui.setHomePanel();
+                syncNavigationState(groupId);
+                return;
+            }
             syncNavigationState(groupId, isSub);
             if (!isSub) {
                 if (groupId !== 'divSomfySettings' && typeof somfy !== 'undefined') {
@@ -831,6 +852,28 @@ function bindNavigation() {
     });
     navGuardSetup();
 }
+// --- Deep-linking ----------------------------------------------------------
+// The current panel is reflected in the URL hash (#divSomfyMotors, ...) so that
+// reload keeps the page, panels can be bookmarked, and the browser back button
+// steps through panels instead of leaving the app (essential on mobile).
+let _navFromHash = false;
+function navApplyHash() {
+    const id = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+    const target = id && id !== 'divHomePnl'
+        ? document.querySelector(`.sub-nav-item[data-grpid="${id}"], .subtab-container > span[data-grpid="${id}"], .nav-item[data-grpid="${id}"], .tab-container > span[data-grpid="${id}"]`)
+        : document.querySelector('.nav-item[data-grpid="divHomePnl"]');
+    if (!target) return;
+    _navFromHash = true;
+    try { target.click(); } finally { _navFromHash = false; }
+}
+function navUpdateHash(groupId) {
+    if (_navFromHash || !groupId) return;
+    const h = groupId === 'divHomePnl' ? '' : '#' + groupId;
+    if ((location.hash || '') === h) return;
+    if (h) history.pushState(null, '', h);
+    else history.pushState(null, '', location.pathname + location.search);
+}
+window.addEventListener('popstate', () => navApplyHash());
 // --- Unsaved-changes navigation guard --------------------------------------
 // Marks the page dirty on real user input; on navigation, if dirty, prompts to
 // save / discard / cancel. A suppression window swallows the change events that
@@ -850,6 +893,10 @@ function navGuardSetup() {
     };
     document.addEventListener('input', mark, true);
     document.addEventListener('change', mark, true);
+    // Closing or reloading the tab must warn too, not just in-app navigation.
+    window.addEventListener('beforeunload', (e) => {
+        if (_navDirty) { e.preventDefault(); e.returnValue = ''; }
+    });
 }
 function navFindSaveButton() {
     const cands = document.querySelectorAll('[id^="btnSave"], #btnLogin, #btnConnectMQTT');
@@ -861,18 +908,29 @@ function navConfirmLeave(proceed) {
     if (!_navDirty) return true;
     const div = document.createElement('div');
     div.className = 'prompt-message modal-overlay';
-    div.innerHTML = '<div class="message-content"><div class="prompt-text">Modifications non sauvegardées</div>'
-        + '<div class="sub-message">Des changements sur cette page ne sont pas enregistrés.</div>'
+    div.innerHTML = `<div class="message-content"><div class="prompt-text">${tr('NAV_UNSAVED_TITLE')}</div>`
+        + `<div class="sub-message">${tr('NAV_UNSAVED_DESC')}</div>`
         + '<div class="button-container-row">'
-        + '<button line type="button" id="navCancel">Annuler</button>'
-        + '<button type="button" id="navDiscard">Quitter sans sauver</button>'
-        + '<button type="button" id="navSave">Sauvegarder</button>'
+        + `<button line type="button" id="navCancel">${tr('BT_CANCEL_1')}</button>`
+        + `<button type="button" id="navDiscard">${tr('NAV_DISCARD')}</button>`
+        + `<button type="button" id="navSave">${tr('BT_SAVE')}</button>`
         + '</div></div>';
     get('divContainer').appendChild(div);
     const done = () => div.remove();
     div.querySelector('#navCancel').onclick = done;
     div.querySelector('#navDiscard').onclick = () => { navClearDirty(); done(); proceed(); };
-    div.querySelector('#navSave').onclick = () => { const b = navFindSaveButton(); navClearDirty(); done(); if (b) b.click(); proceed(); };
+    div.querySelector('#navSave').onclick = () => {
+        const b = navFindSaveButton(); done();
+        if (!b) { navClearDirty(); proceed(); return; }
+        b.click();
+        // Validation failures surface synchronously as an .error-message modal; in that
+        // case stay on the page (still dirty) so the user can fix the field instead of
+        // navigating away and silently losing the input.
+        setTimeout(() => {
+            if (document.querySelector('.error-message')) return;
+            navClearDirty(); proceed();
+        }, 60);
+    };
     return false;
 }
 function stepDeviceGpio(pinKey, direction, prefix, boardSelectId, isManualCallback, pinMaps) {
@@ -1358,6 +1416,8 @@ async function init() {
         const hBtn = document.querySelector('.nav-item[data-grpid="divHomePnl"]');
         if (hBtn) syncNavigationState('divHomePnl');
     }
+    // Deep link: restore the panel named in the URL hash (bookmark / reload / back).
+    if (location.hash.length > 1) navApplyHash();
 }
 class UIBinder {
     setValue(el, val) {
@@ -1630,16 +1690,18 @@ class UIBinder {
         }
         return v;
     }
-    waitMessage(el) {
+    waitMessage(el, label) {
         let div = document.createElement('div');
-        div.innerHTML = '<div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>';
+        div.innerHTML = '<div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>'
+            + (label ? `<div class="wait-label">${label}</div>` : '');
         div.classList.add('wait-overlay');
+        if (label) div.classList.add('has-label');
         if (typeof el === 'undefined') el = get('divContainer');
         el.appendChild(div);
         return div;
     }
     serviceError(el, err) {
-        let title = 'Service Error'
+        let title = tr('ERR_SERVICE_TITLE');
         if (arguments.length === 1) {
             err = el;
             el = get('divContainer');
@@ -1651,17 +1713,7 @@ class UIBinder {
             else msg = err;
         }
         else if (typeof err === 'string') msg = err;
-        else if (typeof err === 'number') {
-            switch (err) {
-                case 404:
-                    msg = `404: Service not found`;
-                    break;
-                default:
-                    msg = `${err}: Service Error`;
-                    break;
-            }
-        }
-        else if (typeof err !== 'undefined') {
+        else if (typeof err !== 'undefined' && typeof err === 'object') {
             if (typeof err.desc === 'string') {
                 msg = typeof err.desc !== 'undefined' ? err.desc : err.message;
                 if (typeof err.code === 'number') {
@@ -1672,9 +1724,15 @@ class UIBinder {
             }
         }
         if(DBG) console.log(err);
-        let div = this.errorMessage(`${err.htmlError || 500}:${title}`);
+        let div = this.errorMessage(title);
         let sub = div.querySelector('.sub-message');
-        sub.innerHTML = `<div><label>Service:</label>${err.service}</div><div style="font-size:22px;">${msg}</div>`;
+        // Plain-language message first; the endpoint + HTTP code stays available but demoted
+        // to a "technical details" line so hobbyist users are not greeted with raw jargon.
+        const svc = (err && typeof err === 'object' && err.service)
+            ? `${err.service} (${err.htmlError || 500})`
+            : (typeof err === 'number' ? `HTTP ${err}` : '');
+        sub.innerHTML = `<div style="font-size:22px;">${msg || tr('ERR_SERVICE_DESC')}</div>`
+            + (svc ? `<div class="service-detail"><label>${tr('ERR_SERVICE_DETAILS')} :</label> ${svc}</div>` : '');
         return div;
     }
     socketError(el, msg) {
@@ -1687,7 +1745,7 @@ class UIBinder {
             return existing;
         }
         let div = document.createElement('div');
-        div.innerHTML = `<div id="divSocketAttempts" class="socketAttempts"><span>Attempts:</span><span id="spanSocketAttempts"></span></div><div class="inner-error"><div>Unable to connect to the server</div><hr><div style="font-size:.7em">${msg}</div></div>`;
+        div.innerHTML = `<div id="divSocketAttempts" class="socketAttempts"><span>${tr('ERR_SOCKET_ATTEMPTS')}</span><span id="spanSocketAttempts"></span></div><div class="inner-error"><div>${tr('ERR_SOCKET_CONNECT')}</div><hr><div style="font-size:.7em">${msg}</div></div>`;
         div.classList.add('error-message');
         div.classList.add('socket-error');
         div.classList.add('modal-overlay');
@@ -1701,7 +1759,7 @@ class UIBinder {
             el = get('divContainer');
         }
         let div = document.createElement('div');
-        div.innerHTML = `<div class="error-content"><div class="inner-error">${msg}</div><div class="sub-message"></div><button type="button" onclick="ui.clearErrors();">Close</button></div>`;
+        div.innerHTML = `<div class="error-content"><div class="inner-error">${msg}</div><div class="sub-message"></div><button type="button" onclick="ui.clearErrors();">${tr('BT_CLOSE')}</button></div>`;
         div.classList.add('error-message', 'modal-overlay');
         el.appendChild(div);
         return div;
@@ -1875,7 +1933,8 @@ class UIBinder {
                 if (index < digits.length - 1) digits[index + 1].focus();
                 return;
             case 'Enter':
-                if (typeof security !== 'undefined') security.login();
+                // Only the login screen submits on Enter; the security settings PIN must not.
+                if (typeof security !== 'undefined' && el.closest('#divUnauthenticated')) security.login();
                 return;
         }
         setTimeout(() => {
@@ -1884,17 +1943,26 @@ class UIBinder {
                 digits[index + 1].focus();
             }
             const pin = digits.map(d => d.value).join('');
-            if (pin.length === 4) {
-                if (typeof security !== 'undefined') {
-                    security.login();
-                } else if (typeof general !== 'undefined' && typeof general.login === 'function') {
-                    general.login();
-                }
+            if (pin.length === 4 && typeof security !== 'undefined' && el.closest('#divUnauthenticated')) {
+                security.login();
             }
         }, 20);
     }
     pinDigitFocus(evt) {
         evt.srcElement.select();
+    }
+    // Spread a pasted PIN (e.g. from a password manager) across the digit boxes.
+    pinPasted(evt) {
+        const clip = (evt.clipboardData || window.clipboardData);
+        if (!clip) return;
+        const digitsOnly = clip.getData('text').replace(/\D/g, '');
+        if (!digitsOnly) return;
+        evt.preventDefault();
+        const digits = Array.from(evt.currentTarget.querySelectorAll('.pin-digit'));
+        digits.forEach((d, i) => d.value = digitsOnly[i] || '');
+        const last = Math.min(digitsOnly.length, digits.length) - 1;
+        if (last >= 0) digits[last].focus();
+        if (digitsOnly.length >= digits.length && typeof security !== 'undefined' && digits[0].closest('#divUnauthenticated')) security.login();
     }
     isConfigOpen() { return window.getComputedStyle(get('divConfigPnl')).display !== 'none'; }
     setConfigPanel() {
@@ -1928,6 +1996,7 @@ class UIBinder {
         document.querySelector('#btnConfig use').setAttribute('href', '#svg-tabSettings');
         if (sockIsOpen) socket.send('leave:0');
         general.setSecurityConfig({ type: 0, username: '', permissions: 0 });
+        navUpdateHash('divHomePnl');
     }
     toggleConfig() {
         if (this.isConfigOpen())
@@ -1981,10 +2050,6 @@ class Security {
     apiKey = '';
     permissions = 0;
     async init() {
-        let fld = get('divUnauthenticated').querySelector('.pin-digit[data-bind="security.pin.d0"]');
-        get('divUnauthenticated').querySelector('.pin-digit[data-bind="login.pin.d3"]').addEventListener('digitentered', (evt) => {
-            security.login();
-        });
         await this.loadContext();
         if (this.type === 0 || (this.permissions & 0x01) === 0x01) { // No login required or only the config is protected.
             if (typeof socket === 'undefined' || !socket) (async () => { await initSockets(); })();
@@ -2113,8 +2178,12 @@ class Security {
                     let evt = new CustomEvent('afterlogin', { detail: { authenticated: true } });
                     get('divContainer').dispatchEvent(evt);
                 }
-                else
+                else {
                     msg.innerHTML = tr(log.msg);
+                    // Wrong PIN: clear the digits and refocus the first one for an immediate retry.
+                    const digits = pnl.querySelectorAll('#divLoginPin .pin-digit');
+                    if (digits.length) { digits.forEach(d => d.value = ''); digits[0].focus(); }
+                }
             }
         });
     }
@@ -2346,35 +2415,6 @@ class General {
 
         });
     }
-    loadLogin() {
-        const savedColor = localStorage.getItem('accentColor');
-        if (savedColor) {
-            document.documentElement.style.setProperty('--accent-color', savedColor);
-        }
-        getJSONSync('/loginContext', (err, ctx) => {
-            if (err) ui.serviceError(err);
-            else {
-                if(DBG) console.log(ctx);
-                let pnl = get('divContainer');
-                pnl.setAttribute('data-securitytype', ctx.type);
-                let fld;
-                switch (ctx.type) {
-                    case 1:
-                        get('divPinSecurity').style.display = '';
-                        fld = get('divPinSecurity').querySelector('.pin-digit[data-bind="security.pin.d0"]');
-                        get('divPinSecurity').querySelector('.pin-digit[data-bind="security.pin.d3"]').addEventListener('digitentered', (evt) => {
-                            general.login();
-                        });
-                        break;
-                    case 2:
-                        get('divPasswordSecurity').style.display = '';
-                        fld = get('fldUsername');
-                        break;
-                }
-                if (fld) fld.focus();
-            }
-        });
-    }
     setAppVersion() { get('spanAppVersion').innerText = this.appVersion; }
     setTimeZones() {
         const dd = get('selTimeZone');
@@ -2440,7 +2480,13 @@ class General {
                 get('btnSaveGeneral').classList.remove('disabled');
                 // Only drop the socket once the firmware accepted the reboot; a 401
                 // (login prompt) or any other error must keep the live connection.
-                if (!err && typeof socket !== 'undefined') socket.close(3000, 'reboot');
+                if (!err) {
+                    if (typeof socket !== 'undefined') socket.close(3000, 'reboot');
+                    // Tell the user what is happening instead of a mute spinner, then
+                    // reload once the device has had time to come back up.
+                    ui.waitMessage(get('divContainer'), `${tr('GIT_RELEASE_SUCCES_1')}<br>${tr('GIT_RELEASE_SUCCES_2')}`);
+                    setTimeout(() => window.location.reload(), 20000);
+                }
                 if(DBG) console.log(response);
             });
             ui.clearErrors();
@@ -2855,6 +2901,10 @@ class Wifi {
         options.forEach(opt => {
             opt.classList.toggle('active', opt.getAttribute('data-conn') === activeType);
         });
+        // Mirror the active type into the compact mobile indicator (the top-bar
+        // badges are hidden below 780px).
+        const mc = get('mobileConnStatus');
+        if (mc) mc.querySelector('.conn-type').textContent = activeType.toUpperCase();
     }
     setConnectionType(isEthernet) {
         get('cbHardwired').checked = isEthernet;
@@ -3973,8 +4023,8 @@ class Somfy {
             </div>
             <div class="shade-name">
             <span class="shadectl-room">${esc(room.name)}</span>`;
-            divCtl += `<span class="shadectl-mypos"><span class="val-pos">Pos: ${shade.position}%</span>`;
-            if (shade.tiltType !== 0) divCtl += `<span class="val-pos"> Tilt: ${shade.tiltPosition}%</span>`;
+            divCtl += `<span class="shadectl-mypos"><span class="val-pos">${tr('SHADE_POS')}${shade.position}%</span>`;
+            if (shade.tiltType !== 0) divCtl += `<span class="val-pos"> ${tr('SHADE_TILT')}${shade.tiltPosition}%</span>`;
             divCtl += `</span></div>
             <div class="shadectl-buttons" data-shadeType="${shade.shadeType}">
             <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="up" data-shadeid="${shade.shadeId}"><svg><use href="#svg-up"></use></svg></div>
@@ -3987,7 +4037,7 @@ class Somfy {
             <div class="indicator indicator-wind"><svg><use href="#indic-wind"></use></svg></div>
             <div class="indicator indicator-sun"><svg><use href="#indic-sun"></use></svg></div>
             <div class="val-my myShade-badge">My: ${shade.myPos === -1 ? '---' : shade.myPos + '%'}</div>`;
-            if (shade.tiltType !== 0) divCtl += `<div class="val-tilt myShade-badge">My Tilt: ${shade.myTiltPos === -1 ? '---' : shade.myTiltPos + '%'}</div>`;
+            if (shade.tiltType !== 0) divCtl += `<div class="val-tilt myShade-badge">${tr('SHADE_MY_TILT')}${shade.myTiltPos === -1 ? '---' : shade.myTiltPos + '%'}</div>`;
             divCtl += `</div>
             <div class="status-group-right">
             <div class="button-light cmd-button" data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}">
@@ -4541,15 +4591,15 @@ class Somfy {
             }
 
             const spans = d.querySelectorAll('.val-pos');
-            if (spans[0]) spans[0].innerText = `Pos: ${state.position}%`;
-            if (state.tiltType !== 0 && spans[1]) spans[1].innerText = `Tilt: ${state.tiltPosition}%`;
+            if (spans[0]) spans[0].innerText = `${tr('SHADE_POS')}${state.position}%`;
+            if (state.tiltType !== 0 && spans[1]) spans[1].innerText = `${tr('SHADE_TILT')}${state.tiltPosition}%`;
 
             const upTxt = (sel, pre, val) => {
                 const el = d.querySelector(sel);
-                if (el) el.innerText = `${pre}: ${val !== undefined && val >= 0 ? val + '%' : '---'}`;
+                if (el) el.innerText = `${pre}${val !== undefined && val >= 0 ? val + '%' : '---'}`;
             };
-            upTxt('.val-my', 'My', state.myPos);
-            upTxt('.val-tilt', 'My Tilt', state.myTiltPos);
+            upTxt('.val-my', 'My: ', state.myPos);
+            upTxt('.val-tilt', tr('SHADE_MY_TILT'), state.myTiltPos);
         });
     }
     procRemoteFrame(frame) {
@@ -5103,8 +5153,10 @@ class Somfy {
                     let prompt = ui.promptMessage(tr('PROMPT_DELETE_SHADE'), () => {
                         ui.clearErrors();
                         putJSONSync('/deleteShade', { shadeId: shadeId }, (err, shade) => {
+                            if (err) ui.serviceError(err);
+                            else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
                             this.updateShadeList();
-                            prompt.remove;
+                            prompt.remove();
                         });
                     });
                     prompt.querySelector('.sub-message').innerHTML = `<p>${tr("PROMPT_DELETE_SHADE_WARNING")}</p><p>${tr("PROMPT_DELETE_SHADE_CONFIRM").replace("{SHADE_NAME}", esc(shade.name))}</p>`;
@@ -5129,6 +5181,7 @@ class Somfy {
                         let prompt = ui.promptMessage(tr('PROMPT_DELETE_GROUP'), () => {
                             putJSONSync('/deleteGroup', { groupId: groupId }, (err, g) => {
                                 if (err) ui.serviceError(err);
+                                else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
                                 this.updateGroupList();
                                 prompt.remove();
                             });
@@ -5319,7 +5372,18 @@ class Somfy {
             if (typeof repeat === 'number') obj.repeat = parseInt(repeat);
         }
         putJSON('/shadeCommand', obj, (err, shade) => {
+            if (!err) somfy.flashCommandSent(shadeId);
             if (typeof cb === 'function') cb(err, shade);
+        });
+    }
+    // Brief visual acknowledgment that the radio order left the device; pure-RTS
+    // shades have no position feedback, so without it a tap looks like a failure.
+    flashCommandSent(shadeId) {
+        document.querySelectorAll(`.somfy-shade-icon[data-shadeid="${shadeId}"]`).forEach(el => {
+            el.classList.remove('cmd-sent');
+            void el.offsetWidth;  // restart the CSS animation on rapid re-taps
+            el.classList.add('cmd-sent');
+            setTimeout(() => el.classList.remove('cmd-sent'), 950);
         });
     }
     sendCommandRepeat(shadeId, command, repeat, cb) {
@@ -5408,14 +5472,13 @@ class Somfy {
     }
     sendTiltCommand(shadeId, command, cb) {
         if(DBG) console.log(`Sending Tilt command ${shadeId}-${command}`);
-        if (isNaN(parseInt(command, 10)))
-            putJSON('/tiltCommand', { shadeId: shadeId, command: command }, (err, shade) => {
-                if (typeof cb === 'function') cb(err, shade);
-            });
-                else
-                    putJSON('/tiltCommand', { shadeId: shadeId, target: parseInt(command, 10) }, (err, shade) => {
-                        if (typeof cb === 'function') cb(err, shade);
-                    });
+        const obj = isNaN(parseInt(command, 10))
+            ? { shadeId: shadeId, command: command }
+            : { shadeId: shadeId, target: parseInt(command, 10) };
+        putJSON('/tiltCommand', obj, (err, shade) => {
+            if (!err) somfy.flashCommandSent(shadeId);
+            if (typeof cb === 'function') cb(err, shade);
+        });
     }
     linkRemote(shadeId) {
         let div = document.createElement('div');

@@ -123,6 +123,27 @@ div.wait-overlay > .lds-roller {
     z-index:1000;
     opacity:1;
 }
+/* Optional context label under the spinner (ui.waitMessage(el, label)). */
+div.wait-overlay.has-label {
+    flex-direction: column;
+    gap: 18px;
+}
+div.wait-overlay .wait-label {
+    z-index: 1000;
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    max-width: 90%;
+}
+/* Demoted technical line inside service-error dialogs. */
+.error-content .service-detail {
+    margin-top: 12px;
+    font-size: 0.8em;
+    opacity: 0.7;
+    word-break: break-all;
+}
 .lds-roller {
     display: inline-block;
     position: relative;
@@ -345,8 +366,9 @@ div.wait-overlay > .lds-roller {
     opacity: 0.8;
 }
 [close] {
-    width: 28px;
-    height: 28px;
+    /* 44px touch target; the glyph itself stays 28px. */
+    width: 44px;
+    height: 44px;
     cursor: pointer;
     opacity: 1;
     display: flex;
@@ -412,6 +434,15 @@ div.wait-overlay > .lds-roller {
     display: flex;
     flex-direction: column;
 }
+/* Long content (multi-line errors, notes) must scroll inside the dialog instead of
+   pushing the action buttons off-screen. */
+.message-content,
+.error-content,
+.overlay-content {
+    max-height: 85vh;
+    max-height: 85dvh;
+    overflow-y: auto;
+}
 .release-notes-modal .info-text {
     overflow-y: auto;
     flex-grow: 1;
@@ -459,9 +490,10 @@ div.error-message,
     text-align:center;
 }
 .prompt-message > .button-container > button {
-    width: calc(50% - 22px);
-    margin-left:7px;
-    margin-right:7px;
+    /* Keep a >=24px gap between Yes/No so a destructive confirm is hard to fat-finger. */
+    width: calc(50% - 30px);
+    margin-left:12px;
+    margin-right:12px;
     display:inline-block;
 }
 .instructions-header {
@@ -1979,6 +2011,7 @@ div.eth-setting-line label {
         left: 0;
         width: 100vw;
         height: 100vh;
+        height: 100dvh;
         background-color: var(--background-color);
         z-index: 99999;
         box-sizing: border-box;
@@ -2023,6 +2056,8 @@ div.eth-setting-line label {
         border-radius: 0;
         border: none;
         min-height: 100vh;
+        min-height: 100dvh;
+        max-height: none;
         flex-grow: 1;
         padding-top: 20px;
     }
@@ -2085,6 +2120,7 @@ div.eth-setting-line label {
         display: flex !important;
         flex-direction: column !important;
         height: 100vh !important;
+        height: 100dvh !important;
         overflow: hidden !important;
         padding: 0 !important;
     }
@@ -2094,7 +2130,8 @@ div.eth-setting-line label {
         flex-direction: column !important;
         padding: 20px 20px 0 20px !important;
         overflow: hidden !important;
-    .release-notes-preview {
+    }
+    .overlay-static-content .release-notes-preview {
         flex: 1 !important;
         max-height: none !important;
         overflow-y: auto !important;
