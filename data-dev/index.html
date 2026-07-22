@@ -65,7 +65,7 @@
                     <svg class="arrow-icon"><use href="#svg-arrowDown"></use></svg>
                 </a>
                 <div class="submenu" style="display:none;">
-                    <a class="sub-nav-item selected" data-grpid="divSystemOptions" tr="SUB_OPTION">Options</a>
+                    <a class="sub-nav-item" data-grpid="divSystemOptions" tr="SUB_OPTION">Options</a>
                     <a class="sub-nav-item" data-grpid="divSecurityOptions" tr="SUB_SECURITY">Sécurité</a>
                     <a class="sub-nav-item" data-grpid="divFirmware" tr="FIRMWARE">Firmware</a>
                 </div>
@@ -77,7 +77,7 @@
                     <svg class="arrow-icon"><use href="#svg-arrowDown"></use></svg>
                 </a>
                 <div class="submenu" style="display:none;">
-                    <a class="sub-nav-item selected" data-grpid="divNetAdapter" tr="SUBTAB_CONNECTION">Connexion</a>
+                    <a class="sub-nav-item" data-grpid="divNetAdapter" tr="SUBTAB_CONNECTION">Connexion</a>
                     <a class="sub-nav-item" data-grpid="divDHCP" tr="SUBTAB_DHCP_STATIC">DHCP/IP Fixe</a>
                     <a class="sub-nav-item" data-grpid="divMQTT" tr="MQTT">MQTT</a>
                 </div>
@@ -89,7 +89,7 @@
                     <svg class="arrow-icon"><use href="#svg-arrowDown"></use></svg>
                 </a>
                 <div class="submenu" style="display:none;">
-                    <a class="sub-nav-item selected" data-grpid="divSomfyRooms" tr="SUBTAB_ROOMS">Pièces</a>
+                    <a class="sub-nav-item" data-grpid="divSomfyRooms" tr="SUBTAB_ROOMS">Pièces</a>
                     <a class="sub-nav-item" data-grpid="divSomfyMotors" tr="SUBTAB_DEVICES">Volets</a>
                     <a class="sub-nav-item" data-grpid="divSomfyGroups" tr="SUBTAB_GROUPS">Groupes</a>
                     <a class="sub-nav-item" data-grpid="divRepeater" tr="SUBTAB_REPEATER">Répéteur</a>
@@ -104,7 +104,7 @@
                     <svg class="arrow-icon"><use href="#svg-arrowDown"></use></svg>
                 </a>
                 <div class="submenu" style="display:none;">
-                    <a class="sub-nav-item selected" data-grpid="divTransceiverSettings" tr="TAB_RADIO">Radio</a>
+                    <a class="sub-nav-item" data-grpid="divTransceiverSettings" tr="TAB_RADIO">Radio</a>
                     <a class="sub-nav-item" data-grpid="divFrameLog" tr="SUBTAB_LOGS">Journaux</a>
                 </div>
             </div>
@@ -127,6 +127,9 @@
                     </div>
                 </div>
                 <div class="header-right">
+                    <div id="mobileConnStatus" class="mobile-conn">
+                        <span class="conn-dot"></span><span class="conn-type"></span>
+                    </div>
                     <button id="btnConfig" class="btnGearHome animScale" onclick="ui.toggleConfig();">
                         <svg class="gearHome"><use href=#svg-tabSettings class="icon-gear"></use></svg>
                     </button>
@@ -134,6 +137,9 @@
             </div>
             <div id="divConfigPnl" style="display:none;">
                 <div class="tab-container">
+                    <span class="animScale" data-grpid="divHomePnl" tr="TAB_DASHBOARD" title="">
+                        <svg class="tab-icon"><use href=#svg-tabHome></use></svg>
+                    </span>
                     <span class="selected animScale" data-grpid="divSystemSettings" tr="TAB_SYSTEM" title="">
                         <svg class="tab-icon"><use href=#svg-tabSystem></use></svg>
                     </span>
@@ -268,7 +274,7 @@
                         </div>
                         <div id="divPinSecurity" style="display:none;">
                             <div class="blocPin-digit">
-                                <div id="fldPinEntry" onkeydown="ui.pinKeyPressed(event);">
+                                <div id="fldPinEntry" onkeydown="ui.pinKeyPressed(event);" onpaste="ui.pinPasted(event);">
                                     <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d0" onfocus="ui.pinDigitFocus(event);">
                                     <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d1" onfocus="ui.pinDigitFocus(event);">
                                     <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d2" onfocus="ui.pinDigitFocus(event);">
@@ -281,12 +287,12 @@
                             <div class="unibloc">
                                 <div>
                                     <label class="label" for="fldUsername" tr="SECURITY_USERNAME"></label>
-                                    <input id="fldUsername" class="inputAndSelect" name="username" type="text" data-bind="security.username" length=32 tr="SECURITY_USERNAME_PLH" tr="SECURITY_USERNAME_PLH" placeholder="Entrer un nom d'utilisateur">
+                                    <input id="fldUsername" class="inputAndSelect" name="username" type="text" data-bind="security.username" length=32 tr="SECURITY_USERNAME_PLH" placeholder="Entrer un nom d'utilisateur">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldPassword" tr="SECURITY_PASSWORD"></label>
-                                    <input id="fldPassword" class="inputAndSelect" name="password" type="password" data-bind="security.password" length=32 tr="SECURITY_PASSWORD_PLH" tr="SECURITY_PASSWORD_PLH" placeholder="Entrer un mot de passe">
+                                    <input id="fldPassword" class="inputAndSelect" name="password" type="password" data-bind="security.password" length=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer un mot de passe">
                                     <div class="password-eye" onclick="security.toggleFieldPassword('fldPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                                     </div>
@@ -997,7 +1003,7 @@
                                         <div>
                                             <div id="divShadeAddress">
                                                 <label class="label" for="fldShadeAddress" tr="REMOTE_ID"></label>
-                                                <input id="fldShadeAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" length=5 tr="ADRESS" placeholder="Address">
+                                                <input id="fldShadeAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" length=5 tr="RADIO_ADRESS" placeholder="Address">
                                             </div>
                                         </div>
                                     </div>
@@ -1008,7 +1014,7 @@
                                     <div class="somfy-status-container">
                                         <svg id="icoShade" class="somfy-shade-icon" data-shadeid="0"><use href="#svg-window-shade"></use></svg>
                                         <div class="somfy-infoPosTilt">
-                                        <div id="labelPosContainer" style="display:none;">Pos: <span id="valPos">0</span> %</div>
+                                        <div id="labelPosContainer" style="display:none;"><span tr="SHADE_POS">Pos: </span><span id="valPos">0</span> %</div>
                                             <div id="labelTiltContainer" style="display:none;"><span tr="SHADE_TILT"></span><span id="valTilt">0</span> %</div>
 
                                         </div>
@@ -1059,18 +1065,18 @@
                                 <div id="divLiftSettings">
                                     <div>
                                         <label class="label" for="fldShadeUpTime" tr="SHADE_UP_TIME"></label>
-                                        <input id="fldShadeUpTime" class="inputAndSelect" name="shadeUpTime" data-bind="upTime" data-datatype="int" type="number" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
+                                        <input id="fldShadeUpTime" class="inputAndSelect" name="shadeUpTime" data-bind="upTime" data-datatype="int" type="number" min="1" max="180000" step="1" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
                                     </div>
                                     <hr>
                                     <div>
                                         <label class="label" for="fldShadeDownTime" tr="SHADE_DOWN_TIME"></label>
-                                        <input id="fldShadeDownTime" class="inputAndSelect" name="shadeDownTime" type="number" data-bind="downTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
+                                        <input id="fldShadeDownTime" class="inputAndSelect" name="shadeDownTime" type="number" min="1" max="180000" step="1" data-bind="downTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
                                     </div>
                                     <div id="divLiftTime">
                                         <hr>
                                         <div>
                                             <label class="label" for="fldShadeLiftTime" tr="SHADE_LIFT_TIME"></label>
-                                            <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" data-bind="liftTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
+                                            <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" min="0" max="60000" step="1" data-bind="liftTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
                                         </div>
                                         <hr>
                                         <div>
@@ -1103,7 +1109,7 @@
                                     <hr id="hrDldTiltTime">
                                     <div>
                                         <label class="label" for="fldTiltTime" tr="SHADE_TILT_TIME"></label>
-                                        <input id="fldTiltTime" class="inputAndSelect" name="shadeTiltTime" type="number" data-bind="tiltTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" />
+                                        <input id="fldTiltTime" class="inputAndSelect" name="shadeTiltTime" type="number" min="0" data-bind="tiltTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" />
                                     </div>
                                 </div>
                                 <div id="divStepSettings">
@@ -1304,8 +1310,8 @@
                                 </div>
                                 <hr>
                                 <div>
-                                    <label class="label" for="fldShadeAddress" tr="REMOTE_ID"></label>
-                                    <input id="fldShadeAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" length=5 placeholder="Adresse">
+                                    <label class="label" for="fldGroupAddress" tr="REMOTE_ID"></label>
+                                    <input id="fldGroupAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" length=5 tr="RADIO_ADRESS" placeholder="Adresse">
                                 </div>
                             </div>
                             <div id="blocPairGroup" class="button-container-pair">
@@ -1871,13 +1877,13 @@
             </div>
             <div id="divLoginPin" style="display:none;">
                 <div style="text-align:center;">
-                    <div id="fldPinEntry" style="display:inline-block;" onkeydown="ui.pinKeyPressed(event);">
+                    <div id="fldLoginPinEntry" style="display:inline-block;" onkeydown="ui.pinKeyPressed(event);" onpaste="ui.pinPasted(event);">
                         <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="login.pin.d0" onfocus="ui.pinDigitFocus(event);">
                         <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="login.pin.d1" onfocus="ui.pinDigitFocus(event);">
                         <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="login.pin.d2" onfocus="ui.pinDigitFocus(event);">
                         <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="login.pin.d3" onfocus="ui.pinDigitFocus(event);">
                     </div>
-                    <label for="fldPinEntry" style="display: block;" tr="SECURITY_ENTER_PIN" ></label>
+                    <label for="fldLoginPinEntry" style="display: block;" tr="SECURITY_ENTER_PIN" ></label>
                 </div>
             </div>
             <div id="divLoginPassword" style="display:none;" onkeyup="if (event.code === 'Enter') security.login();">

@@ -1,5 +1,4 @@
 .container {
-    background: #626262;
     margin-top: 100px;
     margin-left: clamp(250px, 20%, 400px);
     width: auto;
@@ -110,6 +109,8 @@
     flex-direction: column;
     padding: 15px;
     height: calc(100vh - 100px);
+    height: calc(100dvh - 100px);
+    overflow-y: auto;
     background: var(--unibloc-color);
     border-right: 1px solid #333;
     width: 20%;
@@ -216,6 +217,13 @@ body[data-auth="false"] .container {
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 .tab-container { display: none; }
+/* Page title injected by syncNavigationState ("Somfy › Volets"). */
+.subtab-content > .panel-title {
+    margin: 8px 0 15px;
+    font-size: 1.15rem;
+    font-weight: bold;
+    color: var(--color);
+}
 /*SubTab*/
 .subtab-container {
     display: inline-flex !important;
@@ -1456,10 +1464,12 @@ div.frame-pulses {
         display: flex;
         flex-direction: column !important;
         min-height: 100vh;
+        min-height: 100dvh;
     }
     .container:has(.inst-overlay) {
         overflow: hidden !important;
         height: 100vh !important;
+        height: 100dvh !important;
     }
     .header {
         display: flex;
@@ -1504,6 +1514,36 @@ div.frame-pulses {
         width: 24px;
         height: 24px;
         color: var(--color);
+    }
+    /* Compact connection indicator: the top-bar badges and uptime are hidden on
+       mobile, so this dot + type is the only persistent system-status cue. */
+    .header-right {
+        display: flex;
+        align-items: center;
+    }
+    .mobile-conn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: 10px;
+        color: var(--soustxt-color);
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    .mobile-conn .conn-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #d9534f;
+    }
+    body.socket-on .mobile-conn .conn-dot {
+        background: #5cb85c;
+    }
+    .subtab-container {
+        flex-wrap: wrap;
+    }
+    .subtab-container > span {
+        padding: 10px 12px;
     }
     #divSystemOptions,
     #divSecurityOptions,
@@ -1599,7 +1639,11 @@ div.frame-pulses {
         display:none;
     }
 
-    #divUnauthenticated { min-height: 800px; }
+    /* Fit short/landscape phones instead of forcing an 800px-tall login screen. */
+    #divUnauthenticated {
+        min-height: calc(100vh - 100px);
+        min-height: calc(100dvh - 100px);
+    }
     #divUnauthenticated .welcomeTop { margin-bottom: 8%;}
     #divUnauthenticated .button-container-row { gap: 12px; }
 }
@@ -1622,8 +1666,8 @@ div.frame-pulses {
         padding-right:14px;
     }
     .subtab-container > span {
-        font-size: 10px;
-        padding: 2px 6px;
+        font-size: 12px;
+        padding: 8px 10px;
     }
     .subtab-NameHide-virtualRemote {
         display: none !important;
