@@ -1396,45 +1396,45 @@
                                 </select>
                             </div>
                             <div class="vr-button vr-bloctoogle">
-                                <div class="vr-toogle vr-stop vr-80bit animScale" data-cmd="stop" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                <div class="vr-toogle vr-stop vr-80bit animScale" data-cmd="stop" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                     <svg><use href=#svg-toggleHand></use></svg>
                                 </div>
-                                <div class="vr-toogle vr-updownmy animScale" data-cmd="toggle" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                <div class="vr-toogle vr-updownmy animScale" data-cmd="toggle" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                     <svg><use href=#svg-toggle></use></svg>
                                 </div>
                             </div>
                             <div class="vr-updownmy vr-wheel-container">
                                 <div class="vr-wheel-outer">
-                                    <div class="vr-wheel-arrow vr-arrow-up animScale" data-cmd="up" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);"><svg><use href=#vr-up></use></svg></div>
-                                    <div class="vr-wheel-arrow vr-arrow-down animScale" data-cmd="down" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);"><svg><use href=#vr-down></use></svg></div>
-                                    <div class="vr-my-center animScale" data-cmd="my" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);"><svg><use href=#svg-my></use></svg></div>
+                                    <div class="vr-wheel-arrow vr-arrow-up animScale" data-cmd="up" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><svg><use href=#vr-up></use></svg></div>
+                                    <div class="vr-wheel-arrow vr-arrow-down animScale" data-cmd="down" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><svg><use href=#vr-down></use></svg></div>
+                                    <div class="vr-my-center animScale" data-cmd="my" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><svg><use href=#svg-my></use></svg></div>
                                 </div>
                             </div>
                             <div class="vr-progFav">
                                 <div class=" btn-top">
-                                    <div class="button-outline btn-prog animScale" tr="VR_PROG" title="" data-cmd="Prog" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);"><span tr="BT_PROG">prog</span></div>
+                                    <div class="button-outline btn-prog animScale" tr="VR_PROG" title="" data-cmd="Prog" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><span tr="BT_PROG">prog</span></div>
                                 </div>
                                 <div class=" vr-favorite vr-80bit">
-                                    <div class="button-outline btn-top btn-fav animScale" tr="VR_FAVORITE" title="" data-cmd="favorite" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);"><svg><use href=#vr-favori></use></svg></div>
+                                    <div class="button-outline btn-top btn-fav animScale" tr="VR_FAVORITE" title="" data-cmd="favorite" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><svg><use href=#vr-favori></use></svg></div>
                                 </div>
                             </div>
                             <div class="vr-block-boutons">
                                 <div class="vr-blockLeft">
-                                    <div class="vr-upMy animScale" data-cmd="MyUp" tr="VR_MY_UP" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                    <div class="vr-upMy animScale" data-cmd="MyUp" tr="VR_MY_UP" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                         <div class="segment" ><svg><use href=#vr-up></use></svg></div>
                                         <div class="segment" tr="MY">my</div>
                                     </div>
-                                    <div class="vr-myDown animScale" data-cmd="MyDown" tr="VR_MY_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                    <div class="vr-myDown animScale" data-cmd="MyDown" tr="VR_MY_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                         <div class="segment" tr="MY">my</div>
                                         <div class="segment"><svg><use href=#vr-down></use></svg></div>
                                     </div>
                                 </div>
                                 <div class="vr-block-center">
                                     <div class="vr-block-centerFlag">
-                                        <div class="vr-button-sunflagL btn-sunflag animScale" data-cmd="SunFlag" tr="VR_SUN_FLAG" title="" data-on="true" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                        <div class="vr-button-sunflagL btn-sunflag animScale" data-cmd="SunFlag" tr="VR_SUN_FLAG" title="" data-on="true" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                         <svg><use href=#vr-sunflag-o></use></svg>
                                         </div>
-                                        <div class="vr-button-sunflagR btn-sunflag animScale" data-cmd="Flag" tr="VR_SUN_FLAG" title="" data-on="false" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                        <div class="vr-button-sunflagR btn-sunflag animScale" data-cmd="Flag" tr="VR_SUN_FLAG" title="" data-on="false" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                         <svg class="button-outline animScale"><use href=#vr-sunflag-c></use></svg>
                                         </div>
                                     </div>
@@ -1449,22 +1449,22 @@
                                                 <label for="cbWindy" class="toggle-item animScale" tr="VR_WIND"></label>
                                             </div>
                                         </div>
-                                        <div class="btn-send btn-sunflag animScale" data-cmd="Sensor" data-on="false" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);" tr="VR_SEND"></div>
+                                        <div class="btn-send btn-sunflag animScale" data-cmd="Sensor" data-on="false" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);" tr="VR_SEND"></div>
                                     </div>
                                 </div>
                                 <div class="vr-blockRight">
-                                    <div class="vr-upDown animScale" data-cmd="UpDown" tr="VR_UP_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                    <div class="vr-upDown animScale" data-cmd="UpDown" tr="VR_UP_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                         <div class="segment"><svg><use href=#vr-up></use></svg></div>
                                         <div class="segment"><svg><use href=#vr-down></use></svg></div>
                                     </div>
-                                    <div class="vr-all animScale" data-cmd="MyUpDown" tr="VR_MY_UP_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                    <div class="vr-all animScale" data-cmd="MyUpDown" tr="VR_MY_UP_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                         <div class="segment">all</div>
                                     </div>
                                 </div>
                             </div>
                             <div class="vr-button vr-80bit vr-step80">
                                 <div>
-                                    <div class="vr-step80-arrow" data-cmd="StepUp" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                    <div class="vr-step80-arrow" data-cmd="StepUp" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                         <svg class="icon-svg"><use href=#vr-up></use></svg>
                                     </div>
                                 </div>
@@ -1475,7 +1475,7 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <div class="vr-step80-arrow" data-cmd="StepDown" onmousedown="somfy.sendVRCommand(this);" ontouchstart="somfy.sendVRCommand(this);">
+                                    <div class="vr-step80-arrow" data-cmd="StepDown" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
                                         <svg class="icon-svg"><use href=#vr-down></use></svg>
                                     </div>
                                 </div>
