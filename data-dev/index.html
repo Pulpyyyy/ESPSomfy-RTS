@@ -22,7 +22,7 @@
 
     <script src="index.js?v=3.0.1"></script>
 </head>
-<body>
+<body data-auth="false">
     <header class="top-bar">
         <div class="top-bar-left">
             <svg width="100" height="100"><use href=#svg-logo></use></svg>
@@ -114,7 +114,7 @@
             <button id="btnReboot" type="button" line onclick="general.rebootDevice();" tr="BT_REBOOT">Redémarrer</button>
         </div>
     </aside>
-    <div id="divContainer" class="container" data-auth="false">
+    <div id="divContainer" class="container">
         <div id="divAuthenticated" style="display:none;">
             <div id="divFirmwareUpdate" class="firmware-message fw-mobile-banner" style="display:none;"></div>
             <div class="header">
