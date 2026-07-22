@@ -1029,7 +1029,7 @@ function startShadeCalibration() {
     const div = document.createElement('div');
     div.className = 'inst-overlay'; div.id = 'divCalWizard';
     div.innerHTML = '<div class="instructions-content"><div class="overlay-scroll-content">'
-        + overlayHeader('Calibration du volet', "Mesure guidée à la télécommande, ou recopie d'un volet déjà réglé", 'svg-simpleShutter')
+        + overlayHeader('CAL_TITLE', 'CAL_TITLE_DESC', 'svg-simpleShutter')
         + '<div class="unibloc">'
         + '<p id="calWizText" style="min-height:3.5em;font-size:1.05em;"></p>'
         + '<div id="calWizLive" style="opacity:.7;font-size:.9em;min-height:1.2em;"></div>'
@@ -1044,7 +1044,7 @@ function startShadeCalibration() {
         lift: parseInt(sh.liftTime, 10) || 0, k: parseFloat(sh.curveGain) || 0
     } };
     window.calWizardOnCommand = calWizOnCommand;
-    calWizText("Mesure guidée : tu pilotes avec ta télécommande physique, l'assistant chronomètre et remet le volet en position entre chaque mesure (5 mesures). Recopie : copier les valeurs d'un volet déjà calibré vers d'autres, sans aucune mesure.");
+    calWizText(tr('CAL_INTRO'));
     const needPaired = function (fn) {
         return function () {
             if (sh.paired === false) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
@@ -1052,8 +1052,8 @@ function startShadeCalibration() {
         };
     };
     calWizButtons([
-        { l: "Mesure guidée (~3 min)", f: needPaired(function () { calWizBegin(); }) },
-        { l: "Recopie (aucune mesure)", f: function () { calWizRecopy(sId); } }
+        { l: tr('CAL_BTN_GUIDED'), f: needPaired(function () { calWizBegin(); }) },
+        { l: tr('CAL_BTN_RECOPY'), f: function () { calWizRecopy(sId); } }
     ]);
 }
 function calWizText(t, live) {
@@ -1093,21 +1093,20 @@ async function calWizNext() {
     const s = w.plan[w.i];
     const startClosed = s.dir === 'down' ? 0 : 100;
     w.phase = 'returning';
-    calWizText('Remise en position de départ (' + (startClosed === 0 ? 'ouvert' : 'fermé') + ')…', w.lastResult || '');
+    calWizText(tr('CAL_RETURNING').replace('%1', startClosed === 0 ? tr('CAL_POS_OPEN') : tr('CAL_POS_CLOSED')), w.lastResult || '');
     calWizButtons([]);
     await calWizGoto(startClosed);
     if (!_calWiz) return;
-    const atTxt = s.at === 99 ? 'le SEUIL : le bas du tablier touche (lames PAS encore tassées)'
-        : s.at === 100 ? 'FERMÉ complet : lames tassées, ajours clos'
-        : s.at === 0 ? 'le HAUT (ouvert)'
-        : s.dir === 'up' ? 'la MI-HAUTEUR — le MÊME repère visuel qu\'à la descente'
-        : 'la MI-HAUTEUR exacte (mémorise le repère visuel, il resservira à la montée)';
-    const startCmd = s.dir === 'down' ? 'DESCENTE' : 'MONTÉE';
+    const atTxt = s.at === 99 ? tr('CAL_AT_SILL')
+        : s.at === 100 ? tr('CAL_AT_CLOSED')
+        : s.at === 0 ? tr('CAL_AT_TOP')
+        : s.dir === 'up' ? tr('CAL_AT_MID_UP')
+        : tr('CAL_AT_MID_DOWN');
+    const startCmd = s.dir === 'down' ? tr('CAL_CMD_DOWN') : tr('CAL_CMD_UP');
     w.phase = 'await_start';
-    calWizText('Mesure ' + (w.i + 1) + '/' + w.plan.length + ' — appuie sur ' + startCmd
-        + ' de ta télécommande, puis sur STOP (my) quand le volet atteint ' + atTxt + '.',
-        'En attente de l\'appui ' + startCmd + '…');
-    calWizButtons([{ l: "Ignorer cette mesure", f: function () { w.i++; calWizNext(); } }]);
+    calWizText(tr('CAL_MEASURE_PROMPT').replace('%1', w.i + 1).replace('%2', w.plan.length).replace('%3', startCmd).replace('%4', atTxt),
+        tr('CAL_AWAIT_START').replace('%1', startCmd));
+    calWizButtons([{ l: tr('CAL_BTN_SKIP'), f: function () { w.i++; calWizNext(); } }]);
 }
 function calWizOnCommand(msg) {
     const w = _calWiz; if (!w) return;
@@ -1118,12 +1117,12 @@ function calWizOnCommand(msg) {
     const wantStart = s.dir === 'down' ? 'down' : 'up';
     if (w.phase === 'await_start' && cmd === wantStart) {
         w.t0 = Date.now(); w.phase = 'await_stop';
-        calWizText(get('calWizText').innerText, 'Chrono lancé — appuie STOP à la bonne position.');
+        calWizText(get('calWizText').innerText, tr('CAL_TIMER_STARTED'));
     } else if (w.phase === 'await_stop' && (cmd === 'my' || cmd === 'stop')) {
         const dt = Date.now() - w.t0;
         w.res[s.key] = dt; w.phase = 'done'; w.i++;
-        const labels = { down: 'Descente complète', up: 'Montée complète', c50: 'Descente → mi-hauteur', u50: 'Montée → mi-hauteur', lift: 'Descente → seuil' };
-        w.lastResult = '✔ ' + (labels[s.key] || s.key) + ' : ' + dt + ' ms';
+        const labels = { down: tr('CAL_LBL_DOWN'), up: tr('CAL_LBL_UP'), c50: tr('CAL_LBL_C50'), u50: tr('CAL_LBL_U50'), lift: tr('CAL_LBL_LIFT') };
+        w.lastResult = tr('CAL_MEASURE_OK').replace('%1', labels[s.key] || s.key).replace('%2', dt);
         calWizText(w.lastResult, '');
         setTimeout(calWizNext, 700);
     } else if (w.phase === 'await_stop' && cmd !== wantStart && (cmd === 'up' || cmd === 'down')) {
@@ -1131,7 +1130,7 @@ function calWizOnCommand(msg) {
         // longer measures a single run, so void it and redo the step (repositioning
         // included). Same-direction presses are harmless frame repeats and fall through.
         w.phase = 'invalid';
-        calWizText('Appui ' + cmd.toUpperCase() + ' pendant le chrono — mesure annulée, on la recommence.', '');
+        calWizText(tr('CAL_MEASURE_VOIDED').replace('%1', cmd === 'up' ? tr('CAL_CMD_UP') : tr('CAL_CMD_DOWN')), '');
         setTimeout(calWizNext, 1500);
     }
 }
@@ -1179,12 +1178,12 @@ function calWizFinish() {
     // depends on it: no silent fallback that would double-count or absorb the stacking.
     const notes = [];
     const down = r.lift || null;
-    if (!down) notes.push("Descente et courbe non calculées (mesure du seuil absente) — valeurs actuelles conservées.");
+    if (!down) notes.push(tr('CAL_NOTE_NO_SILL'));
     let lift_d = null;                                 // stacking, seen from the descent side
     if (down && r.down) lift_d = Math.max(0, r.down - down);
     const kOf = function (dt, P) { const tau = dt / down * 100; const den = tau * (100 - tau) / 100; return den > 0 ? (P - tau) / den : 0; };
     const k = (down && r.c50) ? Math.min(0.95, Math.max(0, kOf(r.c50, 50))) : null;
-    if (down && !r.c50) notes.push("Correction d'enroulement non mesurée — valeur actuelle conservée.");
+    if (down && !r.c50) notes.push(tr('CAL_NOTE_NO_CURVE'));
     const kEff = k !== null ? k : (w.cur.k || 0);
     const fc = 1 - calWizTauOf(50, kEff) / 100;        // time fraction of a full ascent to reach mid
     let up = null, lift = null;
@@ -1192,28 +1191,28 @@ function calWizFinish() {
         up = Math.max(1, Math.round(r.u50 / (lift_d / down + fc)));
         lift = Math.round(lift_d * up / down);
     }
-    else if (r.u50) notes.push("Montée non calculée (il faut aussi le seuil et le fermé complet) — valeurs actuelles conservées.");
-    else notes.push("Montée non calculée (mesure mi-hauteur absente) — valeurs actuelles conservées.");
+    else if (r.u50) notes.push(tr('CAL_NOTE_UP_NEEDS_BOTH'));
+    else notes.push(tr('CAL_NOTE_NO_MID'));
     let out = [];
-    if (down) out.push("Temps descente : <b>" + down + " ms</b>");
-    if (up) out.push("Temps montée : <b>" + up + " ms</b>");
-    if (lift !== null) out.push("Temps décollage lames : <b>" + lift + " ms</b> (tassement descente : " + lift_d + " ms)");
-    if (k !== null) out.push("Correction d'enroulement : <b>" + k.toFixed(2) + "</b>");
+    if (down) out.push(tr('CAL_RES_DOWN').replace('%1', down));
+    if (up) out.push(tr('CAL_RES_UP').replace('%1', up));
+    if (lift !== null) out.push(tr('CAL_RES_LIFT').replace('%1', lift).replace('%2', lift_d));
+    if (k !== null) out.push(tr('CAL_RES_CURVE').replace('%1', k.toFixed(2)));
     // Consistency check: predicted full ascent vs the end-limit chrono. A positive gap
     // is the signature of a late STOP at the top limit (harmless: that chrono is not
     // used); a negative one means one of the ascent measures is wrong.
     if (up && r.up) {
         const delta = r.up - (lift + up);
-        let line = "Contrôle butée haute : chrono " + r.up + " ms, prédit " + (lift + up) + " ms";
-        if (delta > 800) line += " → STOP tardif d'environ " + (delta / 1000).toFixed(1) + " s, chrono écarté du calcul (normal)";
-        else if (delta < -800) line += " → <b>incohérent</b> : une mesure de montée est douteuse, refais la calibration";
+        let line = tr('CAL_CHECK_TOP').replace('%1', r.up).replace('%2', lift + up);
+        if (delta > 800) line += tr('CAL_CHECK_LATE').replace('%1', (delta / 1000).toFixed(1));
+        else if (delta < -800) line += tr('CAL_CHECK_BAD');
         else line += " ✔";
         out.push('<span style="opacity:.85">' + line + '</span>');
     }
     notes.forEach(function (n) { out.push('<span style="opacity:.75">⚠ ' + n + '</span>'); });
     if (g('calWizResult')) g('calWizResult').innerHTML = '<hr>' + out.map(function (x) { return '<div>' + x + '</div>'; }).join('')
-        + '<p style="opacity:.8">« Appliquer » enregistre directement ces valeurs sur le volet.</p>';
-    calWizText('Calibration terminée.', '');
+        + '<p style="opacity:.8">' + tr('CAL_APPLY_HINT') + '</p>';
+    calWizText(tr('CAL_DONE'), '');
     const sId = w.sId;
     const vals = { up: up, down: down, lift: lift, k: k };
     const finishClose = function () {
@@ -1223,12 +1222,12 @@ function calWizFinish() {
         // guard's unsaved-changes flag, so the wizard does not touch it itself.
         somfy.openEditShade(sId);
     };
-    calWizButtons([{ l: "Appliquer ✓", f: function () {
+    calWizButtons([{ l: tr('CAL_BTN_APPLY'), f: function () {
         // Save straight to the shade: filling the form and relying on a second
         // manual save proved fragile (values silently lost on navigation).
         calWizApplyVals(sId, vals, function (err) {
             if (err) return ui.serviceError(err);
-            ui.successMessage("Calibration enregistrée sur le volet.");
+            ui.successMessage(tr('CAL_SAVED_TOAST'));
             // Then offer to copy the same values onto other shades.
             calWizCopyScreen(vals, sId, null, finishClose);
         });
@@ -1258,16 +1257,15 @@ function calWizCopyWarn(srcDown, tgtDown) {
 // at a time (the ESP web server is synchronous and each save() rewrites shades.cfg,
 // so serialising avoids overlapping writes). onDone() runs when finished or skipped.
 function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
-    calWizText("Copier ces valeurs" + (srcLabel ? " de « " + srcLabel + " »" : "")
-        + " (montée, descente, décollage, enroulement) vers quels volets ? Coche-les puis « Copier », ou « Terminer ».", '');
+    calWizText(tr('CAL_COPY_PROMPT').replace('%1', srcLabel ? tr('CAL_COPY_FROM_PART').replace('%1', srcLabel) : ''), '');
     getJSON('/shades', function (err, shades) {
         if (err || !Array.isArray(shades)) { onDone(); return; }
         const others = shades.filter(function (s) { return s.shadeId !== excludeId && s.shadeId < 255; });
-        if (!others.length) { calWizText("Aucun autre volet à mettre à jour.", ''); calWizButtons([{ l: "Terminer", f: onDone }]); return; }
+        if (!others.length) { calWizText(tr('CAL_NO_OTHER_SHADES'), ''); calWizButtons([{ l: tr('CAL_BTN_FINISH'), f: onDone }]); return; }
         // Multi-select: tick as many target shades as wanted (with a select-all).
         // MD3 checkbox markup (hidden input + .custom-checkbox), styled via #calWizResult.
         let html = '<hr>'
-            + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>Tout cocher / décocher</span></label>'
+            + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>' + tr('CAL_CHECK_ALL') + '</span></label>'
             + '<div class="calList">';
         others.forEach(function (s) {
             const nm = esc(s.name || ('#' + s.shadeId));
@@ -1280,26 +1278,26 @@ function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
             Array.prototype.forEach.call(document.querySelectorAll('.calCopyChk'), function (c) { c.checked = chkAll.checked; });
         };
         calWizButtons([
-            { l: "Copier vers la sélection", f: function () {
+            { l: tr('CAL_BTN_COPY_SEL'), f: function () {
                 const ids = Array.prototype.map.call(document.querySelectorAll('.calCopyChk:checked'),
                     function (c) { return parseInt(c.value, 10); });
-                if (!ids.length) { calWizText("Sélectionne au moins un volet (ou « Terminer »).", ''); return; }
+                if (!ids.length) { calWizText(tr('CAL_SELECT_ONE'), ''); return; }
                 calWizButtons([]);
                 let idx = 0, failed = 0;
                 const step = function () {
                     if (idx >= ids.length) {
-                        if (failed) ui.errorMessage(failed + " volet(s) en échec sur " + ids.length + ".");
-                        else ui.successMessage("Copié vers " + ids.length + " volet(s).");
+                        if (failed) ui.errorMessage(tr('CAL_COPY_FAILED').replace('%1', failed).replace('%2', ids.length));
+                        else ui.successMessage(tr('CAL_COPIED_TOAST').replace('%1', ids.length));
                         onDone();
                         return;
                     }
                     const id = ids[idx++];
-                    calWizText("Copie… " + idx + "/" + ids.length, '');
+                    calWizText(tr('CAL_COPYING').replace('%1', idx).replace('%2', ids.length), '');
                     calWizApplyVals(id, vals, function (e) { if (e) failed++; step(); });
                 };
                 step();
             } },
-            { l: "Terminer", f: onDone }
+            { l: tr('CAL_BTN_FINISH'), f: onDone }
         ]);
     });
 }
@@ -1307,12 +1305,12 @@ function calWizCopyScreen(vals, excludeId, srcLabel, onDone) {
 // One screen: a single-choice "from" dropdown + a multi-choice "to" checklist, so
 // the single vs. multiple distinction is unambiguous.
 function calWizRecopy(sId) {
-    calWizText("Recopie — choisis le volet source (« Copier depuis ») et coche les volets cibles (« Vers »). Aucune mesure.", '');
+    calWizText(tr('CAL_RECOPY_PROMPT'), '');
     calWizButtons([]);
     getJSON('/shades', function (err, shades) {
         if (err || !Array.isArray(shades)) { ui.serviceError(err || {}); return; }
         const list = shades.filter(function (s) { return s.shadeId < 255; });
-        if (list.length < 2) { calWizText("Il faut au moins deux volets pour une recopie.", ''); calWizButtons([{ l: "Fermer", f: function () { closeOverlay(document.getElementById('divCalWizard')); calWizStop(); } }]); return; }
+        if (list.length < 2) { calWizText(tr('CAL_RECOPY_NEED_TWO'), ''); calWizButtons([{ l: tr('BT_CLOSE'), f: function () { closeOverlay(document.getElementById('divCalWizard')); calWizStop(); } }]); return; }
         const srcOf = function () {
             const sel = document.getElementById('calSrcSel');
             return sel ? parseInt(sel.value, 10) : sId;
@@ -1322,7 +1320,7 @@ function calWizRecopy(sId) {
         const render = function () {
             const srcId = srcOf();
             let html = '<hr><div style="text-align:left">'
-                + '<label class="calFromLabel">Copier depuis</label>'
+                + '<label class="calFromLabel">' + tr('CAL_COPY_FROM') + '</label>'
                 + '<select id="calSrcSel" class="inputAndSelect">'
                 + list.map(function (s) {
                     return '<option value="' + s.shadeId + '"' + (s.shadeId === srcId ? ' selected' : '') + '>'
@@ -1330,7 +1328,7 @@ function calWizRecopy(sId) {
                         + '  (↑' + s.upTime + ' ↓' + s.downTime + ' lift' + s.liftTime + ' k' + (s.curveGain || 0) + ')</option>';
                 }).join('')
                 + '</select>'
-                + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>Vers — tout cocher / décocher</span></label>'
+                + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>' + tr('CAL_TO_CHECK_ALL') + '</span></label>'
                 + '<div class="calList">';
             const src = list.find(function (s) { return s.shadeId === srcId; });
             list.filter(function (s) { return s.shadeId !== srcId; }).forEach(function (s) {
@@ -1353,28 +1351,28 @@ function calWizRecopy(sId) {
         };
         render();
         calWizButtons([
-            { l: "Copier", f: function () {
+            { l: tr('BT_COPY'), f: function () {
                 const src = list.find(function (x) { return x.shadeId === srcOf(); });
                 const ids = Array.prototype.map.call(document.querySelectorAll('.calCopyChk:checked'),
                     function (c) { return parseInt(c.value, 10); });
-                if (!src || !ids.length) { calWizText("Choisis une source et coche au moins un volet cible.", ''); return; }
+                if (!src || !ids.length) { calWizText(tr('CAL_PICK_SRC_TGT'), ''); return; }
                 const vals = { up: src.upTime, down: src.downTime, lift: src.liftTime, k: src.curveGain };
                 calWizButtons([]);
                 let idx = 0, failed = 0;
                 const step = function () {
                     if (idx >= ids.length) {
-                        if (failed) ui.errorMessage(failed + " volet(s) en échec sur " + ids.length + ".");
-                        else ui.successMessage("Copié « " + esc(src.name || ('#' + src.shadeId)) + " » vers " + ids.length + " volet(s).");
+                        if (failed) ui.errorMessage(tr('CAL_COPY_FAILED').replace('%1', failed).replace('%2', ids.length));
+                        else ui.successMessage(tr('CAL_COPIED_FROM_TOAST').replace('%1', esc(src.name || ('#' + src.shadeId))).replace('%2', ids.length));
                         close();
                         return;
                     }
                     const id = ids[idx++];
-                    calWizText("Copie… " + idx + "/" + ids.length, '');
+                    calWizText(tr('CAL_COPYING').replace('%1', idx).replace('%2', ids.length), '');
                     calWizApplyVals(id, vals, function (e) { if (e) failed++; step(); });
                 };
                 step();
             } },
-            { l: "Annuler", f: close }
+            { l: tr('BT_CANCEL_1'), f: close }
         ]);
     });
 }
@@ -2118,9 +2116,17 @@ class Security {
         });
     }
     authUser() {
-        get('divAuthenticated').style.display = 'none';
-        get('divUnauthenticated').style.display = '';
-        document.body.setAttribute('data-auth', false);
+        const auth = get('divAuthenticated');
+        const pnl = get('divUnauthenticated');
+        if (auth.style.display !== 'none') {
+            // The app is already on screen (ConfigOnly): show the login as a modal
+            // over the current context instead of swapping the whole screen.
+            pnl.classList.add('login-modal');
+        } else {
+            auth.style.display = 'none';
+            document.body.setAttribute('data-auth', false);
+        }
+        pnl.style.display = '';
         this.loadContext();
         get('btnCancelLogin').style.display = 'inline-block';
     }
@@ -2129,6 +2135,7 @@ class Security {
         let evt = new CustomEvent('afterlogin', { detail: { authenticated: this.authenticated } });
         get('divAuthenticated').style.display = '';
         get('divUnauthenticated').style.display = 'none';
+        get('divUnauthenticated').classList.remove('login-modal');
         // Back to the ConfigOnly app view: the sidebar comes back even without a session.
         document.body.setAttribute('data-auth', true);
         get('divContainer').dispatchEvent(evt);
@@ -2170,6 +2177,7 @@ class Security {
                     if (typeof socket === 'undefined' || !socket) (async () => { await initSockets(); })();
 
                     get('divUnauthenticated').style.display = 'none';
+                    get('divUnauthenticated').classList.remove('login-modal');
                     get('divAuthenticated').style.display = '';
                     document.body.setAttribute('data-auth', true);
                     this.apiKey = log.apiKey;
@@ -4025,11 +4033,13 @@ class Somfy {
             <span class="shadectl-room">${esc(room.name)}</span>`;
             divCtl += `<span class="shadectl-mypos"><span class="val-pos">${tr('SHADE_POS')}${shade.position}%</span>`;
             if (shade.tiltType !== 0) divCtl += `<span class="val-pos"> ${tr('SHADE_TILT')}${shade.tiltPosition}%</span>`;
+            // Surface the hidden long-press actions (set My / tilt) as tooltips.
+            const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
             divCtl += `</span></div>
             <div class="shadectl-buttons" data-shadeType="${shade.shadeType}">
-            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="up" data-shadeid="${shade.shadeId}"><svg><use href="#svg-up"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="my" data-shadeid="${shade.shadeId}"><svg><use href="#svg-my"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="down" data-shadeid="${shade.shadeId}"><svg><use href="#svg-down"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="up" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-up"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="my" data-shadeid="${shade.shadeId}" title="${tr('TT_HOLD_MY')}"><svg><use href="#svg-my"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="down" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-down"></use></svg></div>
             <div class="button-outline cmd-button btn-somfy-svg-wide animScale" data-cmd="toggle" data-shadeid="${shade.shadeId}"><svg><use href="#svg-toggle"></use></svg></div>
             </div>
             <div class="shadectl-status-bar">
@@ -4068,93 +4078,72 @@ class Somfy {
         let shadeControls = get('divShadeControls');
         shadeControls.innerHTML = divCtl;
         this.checkEmptyState();
-        // Attach the timer for setting the My Position for the shade.
+        // Long-press handling for the shade command buttons.  Mouse and touch share
+        // the same handlers so the two input methods behave identically: a tap sends
+        // the command, holding 2s triggers the secondary action (set My / tilt).
+        // While armed, an accent ring grows on the button (.lp-hold) so the user can
+        // see that keeping it pressed does something.
         let btns = shadeControls.querySelectorAll('div.cmd-button');
+        const lpClear = (btn) => {
+            if (this.btnTimer) { clearTimeout(this.btnTimer); this.btnTimer = null; }
+            btn.classList.remove('lp-hold');
+        };
+        const lpArm = (btn, fn) => {
+            btn.classList.add('lp-hold');
+            this.btnTimer = setTimeout(() => { btn.classList.remove('lp-hold'); fn(); }, 2000);
+        };
+        const onCmdDown = (event) => {
+            lpClear(event.currentTarget);
+            if(DBG) console.log({ msg: 'cmd-down', evt: event });
+            let elShade = event.currentTarget.closest('div.somfyShadeCtl');
+            let cmd = event.currentTarget.getAttribute('data-cmd');
+            let shadeId = parseInt(event.currentTarget.getAttribute('data-shadeid'), 10);
+            this.btnDown = new Date().getTime();
+            if (cmd === 'light' || cmd === 'sunflag') return;
+            if (cmd === 'my') {
+                if (parseInt(elShade.getAttribute('data-direction'), 10) === 0)
+                    lpArm(event.currentTarget, () => this.openSetMyPosition(shadeId));
+            }
+            else if (makeBool(elShade.getAttribute('data-tilt')))
+                lpArm(event.currentTarget, () => this.sendTiltCommand(shadeId, cmd));
+        };
+        const onCmdUp = (event) => {
+            if(DBG) console.log({ msg: 'cmd-up', evt: event });
+            let cmd = event.currentTarget.getAttribute('data-cmd');
+            let shadeId = parseInt(event.currentTarget.getAttribute('data-shadeid'), 10);
+            if (this.btnTimer) {
+                lpClear(event.currentTarget);
+                // Released before the 2s threshold: plain tap, send the command.
+                // Past 2s the long-press action already fired from the timer.
+                if (new Date().getTime() - this.btnDown <= 2000) this.sendCommand(shadeId, cmd);
+            }
+            else if (cmd === 'light') {
+                event.currentTarget.setAttribute('data-on', !makeBool(event.currentTarget.getAttribute('data-on')));
+            }
+            else if (cmd === 'sunflag') {
+                if (makeBool(event.currentTarget.getAttribute('data-on')))
+                    this.sendCommand(shadeId, 'flag');
+                else
+                    this.sendCommand(shadeId, 'sunflag');
+            }
+            else this.sendCommand(shadeId, cmd);
+        };
         for (let i = 0; i < btns.length; i++) {
-            btns[i].addEventListener('mouseup', (event) => {
-                if(DBG) console.log(this);
-                if(DBG) console.log(event);
-                if(DBG) console.log('mouseup');
-                let cmd = event.currentTarget.getAttribute('data-cmd');
-                let shadeId = parseInt(event.currentTarget.getAttribute('data-shadeid'), 10);
-                if (this.btnTimer) {
-                    if(DBG) console.log({ timer: true, isOn: event.currentTarget.getAttribute('data-on'), cmd: cmd });
-                    clearTimeout(this.btnTimer);
-                    this.btnTimer = null;
-                    if (new Date().getTime() - this.btnDown > 2000) event.preventDefault();
-                    else this.sendCommand(shadeId, cmd);
-                }
-                else if (cmd === 'light') {
-                    event.currentTarget.setAttribute('data-on', !makeBool(event.currentTarget.getAttribute('data-on')));
-                }
-                else if (cmd === 'sunflag') {
-                    if (makeBool(event.currentTarget.getAttribute('data-on')))
-                        this.sendCommand(shadeId, 'flag');
-                    else
-                        this.sendCommand(shadeId, 'sunflag');
-                }
-                else this.sendCommand(shadeId, cmd);
+            btns[i].addEventListener('mousedown', onCmdDown, true);
+            btns[i].addEventListener('mouseup', onCmdUp, true);
+            btns[i].addEventListener('touchstart', (event) => { this._touchMoved = false; onCmdDown(event); }, true);
+            // A scroll that starts on the button must not fire the command.
+            btns[i].addEventListener('touchmove', (event) => { this._touchMoved = true; lpClear(event.currentTarget); }, true);
+            // preventDefault stops the browser from synthesizing a mouseup afterwards,
+            // which would double-send the command.
+            btns[i].addEventListener('touchend', (event) => {
+                event.preventDefault();
+                if (!this._touchMoved) onCmdUp(event); else lpClear(event.currentTarget);
             }, true);
-            btns[i].addEventListener('mousedown', (event) => {
-                if (this.btnTimer) {
-                    clearTimeout(this.btnTimer);
-                    this.btnTimer = null;
-                }
-                if(DBG) console.log(this);
-                if(DBG) console.log(event);
-                if(DBG) console.log('mousedown');
-                let elShade = event.currentTarget.closest('div.somfyShadeCtl');
-                let cmd = event.currentTarget.getAttribute('data-cmd');
-                let shadeId = parseInt(event.currentTarget.getAttribute('data-shadeid'), 10);
-                let el = event.currentTarget.closest('.somfyShadeCtl');
-                this.btnDown = new Date().getTime();
-                if (cmd === 'my') {
-                    if (parseInt(el.getAttribute('data-direction'), 10) === 0) {
-                        this.btnTimer = setTimeout(() => {
-                            // Open up the set My Position dialog.  We will allow the user to change the position to match
-                            // the desired position.
-                            this.openSetMyPosition(shadeId);
-                        }, 2000);
-                    }
-                }
-                else if (cmd === 'light') return;
-                else if (cmd === 'sunflag') return;
-                else if (makeBool(elShade.getAttribute('data-tilt'))) {
-                    this.btnTimer = setTimeout(() => {
-                        this.sendTiltCommand(shadeId, cmd);
-                    }, 2000);
-                }
-            }, true);
-            btns[i].addEventListener('touchstart', (event) => {
-                if (this.btnTimer) {
-                    clearTimeout(this.btnTimer);
-                    this.btnTimer = null;
-                }
-                if(DBG) console.log(this);
-                if(DBG) console.log(event);
-                if(DBG) console.log('touchstart');
-                let elShade = event.currentTarget.closest('div.somfyShadeCtl');
-                let cmd = event.currentTarget.getAttribute('data-cmd');
-                let shadeId = parseInt(event.currentTarget.getAttribute('data-shadeid'), 10);
-                let el = event.currentTarget.closest('.somfyShadeCtl');
-                this.btnDown = new Date().getTime();
-                if (parseInt(el.getAttribute('data-direction'), 10) === 0) {
-                    if (cmd === 'my') {
-                        this.btnTimer = setTimeout(() => {
-                            // Open up the set My Position dialog.  We will allow the user to change the position to match
-                            // the desired position.
-                            this.openSetMyPosition(shadeId);
-                        }, 2000);
-                    }
-                    else {
-                        if (makeBool(elShade.getAttribute('data-tilt'))) {
-                            this.btnTimer = setTimeout(() => {
-                                this.sendTiltCommand(shadeId, cmd);
-                            }, 2000);
-                        }
-                    }
-                }
-            }, true);
+            // Dragging the pointer/finger away cancels a pending long-press instead of
+            // letting it fire under the user's nose.
+            btns[i].addEventListener('mouseleave', (event) => lpClear(event.currentTarget), true);
+            btns[i].addEventListener('touchcancel', (event) => lpClear(event.currentTarget), true);
         }
         this.setListDraggable(get('divShadeList'), '.shade-draggable', (list) => {
             // Get the shade order

@@ -89,8 +89,8 @@
                     <svg class="arrow-icon"><use href="#svg-arrowDown"></use></svg>
                 </a>
                 <div class="submenu" style="display:none;">
+                    <a class="sub-nav-item" data-grpid="divSomfyMotors" tr="SUBTAB_DEVICES">Équipements</a>
                     <a class="sub-nav-item" data-grpid="divSomfyRooms" tr="SUBTAB_ROOMS">Pièces</a>
-                    <a class="sub-nav-item" data-grpid="divSomfyMotors" tr="SUBTAB_DEVICES">Volets</a>
                     <a class="sub-nav-item" data-grpid="divSomfyGroups" tr="SUBTAB_GROUPS">Groupes</a>
                     <a class="sub-nav-item" data-grpid="divRepeater" tr="SUBTAB_REPEATER">Répéteur</a>
                     <a class="sub-nav-item" data-grpid="divVirtualRemote" tr="SUBTAB_VIRTUAL_REMOTE_S">Télécommande</a>
@@ -104,7 +104,7 @@
                     <svg class="arrow-icon"><use href="#svg-arrowDown"></use></svg>
                 </a>
                 <div class="submenu" style="display:none;">
-                    <a class="sub-nav-item" data-grpid="divTransceiverSettings" tr="TAB_RADIO">Radio</a>
+                    <a class="sub-nav-item" data-grpid="divTransceiverSettings" tr="SUBTAB_TRANSCEIVER">Émetteur</a>
                     <a class="sub-nav-item" data-grpid="divFrameLog" tr="SUBTAB_LOGS">Journaux</a>
                 </div>
             </div>
@@ -875,8 +875,8 @@
                     </div>
                 </div>
                 <div id="divSomfySettings" style="display:none;">
-                    <div class="subtab-container"><span class="selected" data-grpid="divSomfyRooms" tr="SUBTAB_ROOMS"></span><span class="" data-grpid="divSomfyMotors" tr="SUBTAB_DEVICES"></span><span data-grpid="divSomfyGroups" tr="SUBTAB_GROUPS"> </span><span data-grpid="divRepeater" tr="SUBTAB_REPEATER"></span><span class="subtab-NameHide-virtualRemote tabname-virtual-remote" data-grpid="divVirtualRemote" tr="SUBTAB_VIRTUAL_REMOTE_L"></span><span class="subtab-NameShow-virtualRemote tabname-virtual-remote" data-grpid="divVirtualRemote" tr="SUBTAB_VIRTUAL_REMOTE_S"></span></div>
-                    <div id="divSomfyRooms" class="subtab-content">
+                    <div class="subtab-container"><span class="selected" data-grpid="divSomfyMotors" tr="SUBTAB_DEVICES"></span><span class="" data-grpid="divSomfyRooms" tr="SUBTAB_ROOMS"></span><span data-grpid="divSomfyGroups" tr="SUBTAB_GROUPS"> </span><span data-grpid="divRepeater" tr="SUBTAB_REPEATER"></span><span class="subtab-NameHide-virtualRemote tabname-virtual-remote" data-grpid="divVirtualRemote" tr="SUBTAB_VIRTUAL_REMOTE_L"></span><span class="subtab-NameShow-virtualRemote tabname-virtual-remote" data-grpid="divVirtualRemote" tr="SUBTAB_VIRTUAL_REMOTE_S"></span></div>
+                    <div id="divSomfyRooms" class="subtab-content" style="display:none;">
                         <div id="divRoomListContainer">
 
                             <div id="divRoomEmptyState" class="empty-state" style="display:none;">
@@ -906,7 +906,7 @@
                             </div>
                         </div>
                     </div>
-                   <div id="divSomfyMotors" class="subtab-content" style="display:none;">
+                   <div id="divSomfyMotors" class="subtab-content">
                         <div id="divShadeListContainer">
                             <div id="divShadeEmptyState" class="empty-state" style="display:none;">
                                 <svg class="empty-icon"><use href="#svg-shutter"></use></svg>
@@ -1485,7 +1485,7 @@
                 </div>
                 <div id="divRadioSettings" style="display:none;">
                     <div class="subtab-container">
-                        <span class="selected" data-grpid="divTransceiverSettings" tr="TAB_RADIO"></span>
+                        <span class="selected" data-grpid="divTransceiverSettings" tr="SUBTAB_TRANSCEIVER"></span>
                         <span data-grpid="divFrameLog" tr="SUBTAB_LOGS"></span>
                     </div>
                     <div id="divTransceiverSettings" class="subtab-content">
