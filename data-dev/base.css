@@ -4,6 +4,15 @@
     --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 34%);
     --accent-colorUniDark: color-mix(in srgb, var(--accent-color) 20%, var(--unibloc-color));
     --accent-sucess: #069800;
+    /* Layout tokens */
+    --topbar-height: 100px;
+    /* Stacking scale: keep every z-index on this ladder. */
+    --z-topbar: 1000;
+    --z-overlay: 1000;
+    --z-modal: 2000;
+    --z-toast: 9999;
+    --z-banner: 10000;
+    --z-inst-mobile: 99999;
 }
 :root[data-theme="light"] {
     --body-color: #fff;
@@ -505,6 +514,18 @@ input[type=text]:focus {
     border-color: var(--accent-color);
     outline: 2px solid color-mix(in srgb, var(--accent-color) 30%, transparent);
     outline-offset: 0;
+}
+/* Immediate validation feedback: once the user has edited a field, an
+   out-of-bounds value (native min/max/step/pattern) is flagged in place
+   instead of waiting for the Save-time modal. */
+input[type=number]:user-invalid,
+input[type=text]:user-invalid {
+    border-color: var(--txtwarning-color);
+}
+input[type=number]:user-invalid:focus,
+input[type=text]:user-invalid:focus {
+    border-color: var(--txtwarning-color);
+    outline: 2px solid color-mix(in srgb, var(--txtwarning-color) 30%, transparent);
 }
 input[type="checkbox"] {
     width: 45px;

@@ -9,6 +9,14 @@ let LANG = {};
 var baseUrl = window.location.protocol === 'file:' ? `http://${hst}` : '';
 var waitLoad;
 var mouseDown = false;
+// Global press tracking: the hold-to-repeat loops (virtual remote, Prog buttons)
+// test `mouseDown`; tracking it at the document level guarantees a release —
+// even off the button or on touch — always stops the radio repeat.
+document.addEventListener('mousedown', () => { mouseDown = true; }, true);
+document.addEventListener('mouseup', () => { mouseDown = false; }, true);
+document.addEventListener('touchstart', () => { mouseDown = true; }, { capture: true, passive: true });
+document.addEventListener('touchend', () => { mouseDown = false; }, true);
+document.addEventListener('touchcancel', () => { mouseDown = false; }, true);
 const get = id => document.getElementById(id);
 // Escape device-/user-controlled strings for safe use in HTML text and quoted attributes (XSS).
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
@@ -787,6 +795,18 @@ function bindNavigation() {
     document.querySelectorAll('.nav-item, .sub-nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
+            // Clicking the chevron just folds/unfolds the group; navigation (and its
+            // data loads) only happens when the label itself is clicked.
+            if (e.target.closest && e.target.closest('.arrow-icon')) {
+                const grp = item.closest('.nav-group');
+                const sub = grp ? grp.querySelector('.submenu') : null;
+                if (sub) {
+                    const open = sub.style.display !== 'none';
+                    sub.style.display = open ? 'none' : 'flex';
+                    grp.classList.toggle('open', !open);
+                }
+                return;
+            }
             if (!navConfirmLeave(() => item.click())) return;
             navClearDirty(); navSuppress();
             clearOverlays();
@@ -3940,8 +3960,13 @@ class Somfy {
         const update = () => {
             const btnL = get('btnScrollLeft'), btnR = get('btnScrollRight');
             if (c && btnL && btnR) {
-                btnL.style.display = c.scrollLeft > 10 ? 'block' : 'none';
-                btnR.style.display = c.scrollWidth > (c.scrollLeft + c.clientWidth + 10) ? 'block' : 'none';
+                const canL = c.scrollLeft > 10;
+                const canR = c.scrollWidth > (c.scrollLeft + c.clientWidth + 10);
+                btnL.style.display = canL ? 'block' : 'none';
+                btnR.style.display = canR ? 'block' : 'none';
+                // Edge fades signaling that more rooms are scrolled off-screen.
+                c.classList.toggle('can-left', canL);
+                c.classList.toggle('can-right', canR);
             }
         };
         let isDown = 0, startX, scrollLeft;
@@ -5327,7 +5352,8 @@ class Somfy {
         if (btnProg) {
             const onP = () => somfy.sendCommand(shadeId, 'prog', null, fnRep);
             btnProg.addEventListener('mousedown', onP, true);
-            btnProg.addEventListener('touchstart', onP, true);
+            // preventDefault stops the synthesized mousedown that would double-send.
+            btnProg.addEventListener('touchstart', (e) => { e.preventDefault(); onP(); }, true);
         }
         div.querySelectorAll(`#${stopId}, #btnWizEnd`).forEach(btn => {
             btn.onclick = () => closeOverlay(div, clearT);
@@ -5668,11 +5694,11 @@ class Somfy {
                 });
             };
         } else {
-            btnAction.onmousedown = () => {
+            const progDown = () => {
                 mouseDown = true;
                 somfy.sendGroupCommand(groupId, 'prog', null, fnRepeat);
             };
-            btnAction.onmouseup = () => {
+            const progUp = () => {
                 mouseDown = false;
                 let obj = ui.fromElement(div);
                 let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
@@ -5685,6 +5711,13 @@ class Somfy {
                 });
                 prompt.querySelector('.sub-message').innerHTML = `<p>${tr("PROMPT_SHADE_GROUP_LINK_CONFIRM")}</p><p>${tr("LINK_GROUP_LINK_DONE")}</p>`;
             };
+            btnAction.onmousedown = progDown;
+            btnAction.onmouseup = progUp;
+            // Touch equivalents: a long hold on phones fires no synthesized mouse
+            // events, which used to leave the repeat running or never open the
+            // confirmation. preventDefault avoids the double-fire on short taps.
+            btnAction.ontouchstart = (e) => { e.preventDefault(); progDown(); };
+            btnAction.ontouchend = (e) => { e.preventDefault(); progUp(); };
         }
         const urlInit = isUnlink ? `/group?groupId=${groupId}` : `/groupOptions?groupId=${groupId}`;
         getJSONSync(urlInit, (err, data) => {

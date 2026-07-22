@@ -1,8 +1,8 @@
 .container {
-    margin-top: 100px;
+    margin-top: var(--topbar-height);
     margin-left: clamp(250px, 20%, 400px);
     width: auto;
-    min-height: calc(100vh - 100px);
+    min-height: calc(100vh - var(--topbar-height));
     background: var(--background-color);
     transition: margin-left 0.3s;
     position: relative;
@@ -17,14 +17,14 @@
     top: 0;
     left: 0;
     width: 100%;
-    height: 100px;
+    height: var(--topbar-height);
     background: #1a1a1a;
     color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 20px;
-    z-index: 1000;
+    z-index: var(--z-topbar);
 }
 .site-title {
     font-weight: bold;
@@ -109,8 +109,8 @@
     display: flex;
     flex-direction: column;
     padding: 15px;
-    height: calc(100vh - 100px);
-    height: calc(100dvh - 100px);
+    height: calc(100vh - var(--topbar-height));
+    height: calc(100dvh - var(--topbar-height));
     overflow-y: auto;
     background: var(--unibloc-color);
     border-right: 1px solid #333;
@@ -269,7 +269,7 @@ body[data-auth="false"] .container {
     text-align: center;
     padding: 0 20px 0 20px;
     animation: slideUpFade 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) ;
-    min-height: calc(100vh - 102px);
+    min-height: calc(100vh - var(--topbar-height));
 }
     @keyframes slideUpFade {
         from {
@@ -599,7 +599,7 @@ div.signal use.active {
 .no-wifi {
     padding: 30px 10px;
     text-align: center;
-    color: #ccc;
+    color: var(--soustxt-color);
     font-size: 13px;
 }
 .aps-hr {
@@ -696,6 +696,20 @@ div.wifiSignal {
 }
 .room-selector:active {
     cursor: grabbing;
+}
+/* Edge fades: the scrollbar is hidden, so these hint that more rooms exist
+   off-screen (classes toggled by somfy.initRoomScroll). */
+.room-selector.can-left {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 40px);
+    mask-image: linear-gradient(to right, transparent, black 40px);
+}
+.room-selector.can-right {
+    -webkit-mask-image: linear-gradient(to left, transparent, black 40px);
+    mask-image: linear-gradient(to left, transparent, black 40px);
+}
+.room-selector.can-left.can-right {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent);
 }
 .somfyMaxId {
     display: flex;
@@ -1211,7 +1225,7 @@ display: none;
     gap: 4px;
 }
 .rssi-left span:last-child {
-    color:#535151;
+    color: var(--soustxt-color);
 }
 .rssi-right {
     font-size: 32px;
@@ -1351,7 +1365,7 @@ div.frame-pulses {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: calc(100vh - 100px);
+    min-height: calc(100vh - var(--topbar-height));
     width: 100%;
     gap: 20px;
     background: var(--background-color);
@@ -1365,7 +1379,7 @@ div.frame-pulses {
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 2000;
+    z-index: var(--z-modal);
     min-height: 0;
     background: var(--wait-overlay);
     backdrop-filter: blur(5px);
@@ -1656,8 +1670,8 @@ div.frame-pulses {
 
     /* Fit short/landscape phones instead of forcing an 800px-tall login screen. */
     #divUnauthenticated {
-        min-height: calc(100vh - 100px);
-        min-height: calc(100dvh - 100px);
+        min-height: calc(100vh - var(--topbar-height));
+        min-height: calc(100dvh - var(--topbar-height));
     }
     #divUnauthenticated .welcomeTop { margin-bottom: 8%;}
     #divUnauthenticated .button-container-row { gap: 12px; }
