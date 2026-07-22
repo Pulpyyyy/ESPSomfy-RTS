@@ -119,6 +119,15 @@
     filter: blur(8px);
     transition: filter 0.5s ease;
 }
+/* The sidebar (settings tree + reboot button) sits outside divAuthenticated, so it
+   must be hidden explicitly while the login screen is up.  The container then drops
+   the left margin reserved for the fixed sidebar so the login screen is centered. */
+body[data-auth="false"] .sidebar {
+    display: none;
+}
+body[data-auth="false"] .container {
+    margin-left: 0;
+}
 .sidebar-nav {
     flex-grow: 1;
     gap: 10px;

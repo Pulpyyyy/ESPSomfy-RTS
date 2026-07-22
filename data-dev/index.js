@@ -1991,7 +1991,7 @@ class Security {
             //ui.setMode(mode);
             get('divUnauthenticated').style.display = 'none';
             get('divAuthenticated').style.display = '';
-            get('divContainer').setAttribute('data-auth', true);
+            document.body.setAttribute('data-auth', true);
         }
     }
     async loadContext() {
@@ -2055,6 +2055,7 @@ class Security {
     authUser() {
         get('divAuthenticated').style.display = 'none';
         get('divUnauthenticated').style.display = '';
+        document.body.setAttribute('data-auth', false);
         this.loadContext();
         get('btnCancelLogin').style.display = 'inline-block';
     }
@@ -2063,6 +2064,8 @@ class Security {
         let evt = new CustomEvent('afterlogin', { detail: { authenticated: this.authenticated } });
         get('divAuthenticated').style.display = '';
         get('divUnauthenticated').style.display = 'none';
+        // Back to the ConfigOnly app view: the sidebar comes back even without a session.
+        document.body.setAttribute('data-auth', true);
         get('divContainer').dispatchEvent(evt);
     }
     // A config-protected call returned 401 while we hold no valid session (e.g. under
@@ -2103,7 +2106,7 @@ class Security {
 
                     get('divUnauthenticated').style.display = 'none';
                     get('divAuthenticated').style.display = '';
-                    get('divContainer').setAttribute('data-auth', true);
+                    document.body.setAttribute('data-auth', true);
                     this.apiKey = log.apiKey;
                     this.authenticated = true;
                     this._loginShown = false;
@@ -2433,9 +2436,11 @@ class General {
     }
     rebootDevice() {
         ui.promptMessage(get('divContainer'), tr('PROMPT_REBOOT_CONFIRM'), () => {
-            if(typeof socket !== 'undefined') socket.close(3000, 'reboot');
             putJSONSync('/reboot', {}, (err, response) => {
                 get('btnSaveGeneral').classList.remove('disabled');
+                // Only drop the socket once the firmware accepted the reboot; a 401
+                // (login prompt) or any other error must keep the live connection.
+                if (!err && typeof socket !== 'undefined') socket.close(3000, 'reboot');
                 if(DBG) console.log(response);
             });
             ui.clearErrors();
