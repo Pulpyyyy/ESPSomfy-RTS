@@ -6,6 +6,15 @@
     --accent-sucess: #069800;
     /* Layout tokens */
     --topbar-height: 100px;
+    /* Type scale (rem, root 16px): every absolute font-size maps to one of
+       these seven steps — do not introduce new px/pt sizes. */
+    --fs-xs: 0.75rem;    /* 12px — hints, badges (legibility floor) */
+    --fs-sm: 0.875rem;   /* 14px — secondary text, labels */
+    --fs-md: 1rem;       /* 16px — primary content */
+    --fs-lg: 1.125rem;   /* 18px — subtitles, emphasis */
+    --fs-xl: 1.375rem;   /* 22px — section titles */
+    --fs-xxl: 1.75rem;   /* 28px — dialog titles */
+    --fs-xxxl: 2rem;     /* 32px — display */
     /* Stacking scale: keep every z-index on this ladder. */
     --z-topbar: 1000;
     --z-overlay: 1000;
@@ -180,7 +189,7 @@ html, body {
     margin: 0;
     padding: 0;
     width: 100%;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
     color: var(--color);
 }
@@ -197,7 +206,7 @@ svg, svg * {pointer-events: none;}
     font-weight: bold;
 }
 .link {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--accent-color);
 }
 .link:hover {filter: brightness(1.3);}
@@ -207,7 +216,7 @@ h1 {
     margin-bottom: 10px;
     margin-top: 0px;
     color: var(--accent-color);
-    font-size: 28px;
+    font-size: var(--fs-xxl);
 }
 .uppercaseText {
     font-weight: bold;
@@ -278,13 +287,13 @@ form {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .label {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: var(--color);
     word-break: break-word;
     margin: 0;
 }
 .unibloc .inputAndSelect {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     color: var(--soustxt-color);
     background: rgb(252, 252, 252);
     background: transparent;
@@ -363,7 +372,7 @@ select.inputAndSelect {
     padding: 5px 0 0;
     position: relative;
     word-wrap: break-word;
-    font-size: 15px;
+    font-size: var(--fs-md);
     font-weight: bold;
 }
 .input-mqtt .select {
@@ -439,14 +448,14 @@ label.uniRow {
     max-width: 100%;
 }
 .uniStatus {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     color: var(--soustxt-color);
     margin-top: 4px;
     margin-bottom: 2px;
     padding: 0px 0;
 }
 .uniLabel {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-weight: 500;
 }
 .uniSwitch .switch {
@@ -474,7 +483,7 @@ label.uniRow {
 input[type=password],
 input[type=number],
 input[type=text] {
-    font-size: 15px;
+    font-size: var(--fs-md);
     margin-bottom: 14px;
     appearance: none;
     color: var(--color);
@@ -486,7 +495,7 @@ input[type=text] {
 }
 input[type="password"].pin-digit {
     margin: 0 0.3rem;
-    font-size: 1.5rem;
+    font-size: var(--fs-xl);
     border: 1px solid #555;
     box-shadow: 0 0 15px rgba(200, 200, 200, 0.5);
     background: transparent;
@@ -641,7 +650,7 @@ input[type="radio"]:hover {
     width: 100%;
     background: transparent !important;
     padding: 0 !important;
-    font-size: 12px !important;
+    font-size: var(--fs-xs) !important;
     font-family: monospace;
     font-weight: bold;
     text-align: center;
@@ -752,7 +761,7 @@ input[type="number"] {
 }
 .safety-text {
     color: var(--soustxt-color);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     transition: color 0.2s ease, opacity 0.2s ease;
     opacity: 0.85;
 }
@@ -869,7 +878,7 @@ button {
     padding: 10px;
     text-align: center;
     text-transform: uppercase;
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: bold;
     cursor: pointer;
     border-radius: 30px;
@@ -992,7 +1001,7 @@ button:disabled:active {
 .information b,
 .success b,
 .error b {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     display: block;
     line-height: 1.2;
     font-weight: bold;
@@ -1002,7 +1011,7 @@ button:disabled:active {
 .success span,
 .error span {
     opacity: 0.9;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     line-height: 1.5;
     display: inline-block;
     margin-top: 4px;
@@ -1029,7 +1038,7 @@ button:disabled:active {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     color: #ff9800;
 
 }
@@ -1069,7 +1078,7 @@ button:disabled:active {
     overflow: hidden;
 }
 .progress-bar label {
-    font-size:10pt;
+    font-size:var(--fs-sm);
     display:block;
     margin-bottom:15px;
 }
@@ -1200,7 +1209,7 @@ button:disabled:active {
     body {
         color: var(--color);
         font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
-        font-size: 14px;
+        font-size: var(--fs-sm);
     }
     .somfy-shade-icon  {
         width: 52px;
@@ -1224,10 +1233,10 @@ button:disabled:active {
         min-width: 260px;
     }
     .input-label {
-        font-size: 11px;
+        font-size: var(--fs-xs);
     }
     .gpio-card .inputAndSelect {
-        font-size: 11px !important;
+        font-size: var(--fs-xs) !important;
     }
     .input-label {
         flex: 0 0 80px;

@@ -370,6 +370,8 @@
     "TT_HOLD_MY": "Maintenir 2 s : régler la position My",
     "TT_HOLD_TILT": "Maintenir 2 s : incliner les lames",
     "SUBTAB_TRANSCEIVER": "Émetteur",
+    "FW_ALREADY_CURRENT": "Vous êtes déjà sur cette version — aucune mise à jour nécessaire.",
+    "BT_REINSTALL": "Réinstaller",
     "CAL_TITLE": "Calibration du volet",
     "CAL_TITLE_DESC": "Mesure guidée à la télécommande, ou recopie d'un volet déjà réglé",
     "CAL_INTRO": "Mesure guidée : vous pilotez avec votre télécommande physique, l'assistant chronomètre et remet le volet en position entre chaque mesure (5 mesures). Recopie : copier les valeurs d'un volet déjà calibré vers d'autres, sans aucune mesure.",

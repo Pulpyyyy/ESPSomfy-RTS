@@ -370,6 +370,8 @@
     "TT_HOLD_MY": "2 s halten: My-Position einstellen",
     "TT_HOLD_TILT": "2 s halten: Lamellen kippen",
     "SUBTAB_TRANSCEIVER": "Transceiver",
+    "FW_ALREADY_CURRENT": "Sie verwenden bereits diese Version — kein Update erforderlich.",
+    "BT_REINSTALL": "Neu installieren",
     "CAL_TITLE": "Rollladen-Kalibrierung",
     "CAL_TITLE_DESC": "Geführte Messung mit der Fernbedienung oder Übernahme von einem bereits eingestellten Rollladen",
     "CAL_INTRO": "Geführte Messung: Sie steuern mit Ihrer physischen Fernbedienung, der Assistent stoppt die Zeit und bringt den Rollladen zwischen den Messungen wieder in Position (5 Messungen). Übernahme: die Werte eines bereits kalibrierten Rollladens auf andere kopieren, ganz ohne Messung.",

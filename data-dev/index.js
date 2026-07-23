@@ -1,5 +1,5 @@
 //var hst = '192.168.4.1';
-var hst = '192.168.1.13';
+var hst = '192.168.1.223';
 var DBG = false; // UI debug logging (requests, heap); never logs secrets
 //var hst = '192.168.1.49';
 //var hst = '192.168.2.232';
@@ -6314,6 +6314,7 @@ class Firmware {
             const chip = (get('divContainer').getAttribute('data-chipmodel') || "").toLowerCase();
             div.id = 'divGitInstall';
             div.className = 'inst-overlay';
+            div.setAttribute('data-installed', rel.appVersion.name);
 
             rel.releases.sort((a, b) => a.preRelease === b.preRelease && b.draft === a.draft ? 0 : a.preRelease ? 1 : -1);
 
@@ -6334,6 +6335,7 @@ class Firmware {
             </div>
             <a id="lnkGithubRelease" href="#" target="_blank" class="link">${tr('FIRMWARE_NOTE_GITHUB')}<svg class="svgInTextSmall"><use href="#svg-linkOut"></use></svg></a>
             <div id="divPrereleaseWarning" class="error" style="display:none;"><svg><use href=#svg-error></use></svg><div><span id="spanUpdateWarning"></span></div></div>
+            <div id="divUpToDate" class="upToDateNote" style="display:none;"><svg><use href="#svg-succes"></use></svg><span>${tr('FW_ALREADY_CURRENT')}</span></div>
             <div class="hrDiv"></div>
             <div class="warningText"><svg><use href="#svg-warning"></use></svg><span>${tr('FIRMWARE_CACHE')}</span></div>
 
@@ -6396,6 +6398,13 @@ class Firmware {
         const divPre = div.querySelector('#divPrereleaseWarning');
         const spanWarning = div.querySelector('#spanUpdateWarning');
         const btnUpdate = div.querySelector('#btnUpdate');
+        // Selected version == installed version: say so plainly and stop urging an
+        // update; the action becomes an explicit "Reinstall" (legitimate repair path).
+        const normVer = (s) => (s || '').toLowerCase().replace(/^v/, '');
+        const isCurrent = normVer(opt.value) === normVer(div.getAttribute('data-installed'));
+        const divUpToDate = div.querySelector('#divUpToDate');
+        if (divUpToDate) divUpToDate.style.display = isCurrent ? 'flex' : 'none';
+        if (btnUpdate) btnUpdate.textContent = tr(isCurrent ? 'BT_REINSTALL' : 'BT_UPDATE');
         let isBlocked = false;
         let blockMessage = '';
 

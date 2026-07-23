@@ -28,7 +28,7 @@
 }
 .site-title {
     font-weight: bold;
-    font-size: 1.5rem;
+    font-size: var(--fs-xl);
 }
 .top-bar-left {
     display: flex;
@@ -61,7 +61,7 @@
     margin-left: 10px;
 }
 .opt-badge {
-    font-size: 0.8rem;
+    font-size: var(--fs-sm);
     color: #ababab;
     padding: 2px 8px;
     border-radius: 8px;
@@ -89,7 +89,7 @@
     flex-direction: column;
     justify-content: center;
     line-height: 1.3;
-    font-size: 0.9rem;
+    font-size: var(--fs-sm);
 }
 .uptime-values > div {
     display: grid;
@@ -142,7 +142,7 @@ body[data-auth="false"] .container {
     align-items: center;
     padding: 12px 15px;
     text-decoration: none;
-    font-size: 19px;
+    font-size: var(--fs-lg);
     color: var(--color);
     border-radius: 25px;
     transition: background 0.2s;
@@ -190,7 +190,7 @@ body[data-auth="false"] .container {
 }
 .sub-nav-item {
     padding: 8px 0;
-    font-size: 0.9rem;
+    font-size: var(--fs-sm);
     color: var(--soustxt-color);
     text-decoration: none;
     transition: color 0.2s;
@@ -212,7 +212,7 @@ body[data-auth="false"] .container {
     color: white !important;
     padding: 2px 8px;
     border-radius: 10px;
-    font-size: 8px;
+    font-size: var(--fs-xs);
     font-weight: bold;
     margin-left: 10px;
     white-space: nowrap;
@@ -222,13 +222,16 @@ body[data-auth="false"] .container {
 /* Page title injected by syncNavigationState ("Somfy › Volets"). */
 .subtab-content > .panel-title {
     margin: 8px 0 15px;
-    font-size: 1.15rem;
+    font-size: var(--fs-lg);
     font-weight: bold;
     color: var(--color);
 }
 /*SubTab*/
 .subtab-container {
     display: inline-flex !important;
+    /* Wrap at every width: on mid-size viewports (sidebar shown, narrow content)
+       the pills used to be clipped by overflow:hidden with no way to reach them. */
+    flex-wrap: wrap;
     width: 100%;
     background: var(--barreRoomBg);
     overflow: hidden;
@@ -239,7 +242,7 @@ body[data-auth="false"] .container {
     display: flex;
     justify-content: center;
     padding: 4px 8px;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     cursor: pointer;
 }
 .subtab-container > span.selected {
@@ -303,7 +306,7 @@ body[data-auth="false"] .container {
 }
 .welcomeTop p {
     margin-top: 0;
-    font-size: large;
+    font-size: var(--fs-lg);
     font-weight: bold;
 }
 .welcomeMiddle H1 {
@@ -376,11 +379,11 @@ body[data-auth="false"] .container {
     display: block;
     text-align: inherit;
     font-weight: bold;
-    font-size:17px;
+    font-size:var(--fs-lg);
     color: var(--color);
 }
 .welcomeCard-content p {
-    font-size: 13px;
+    font-size: var(--fs-sm);
     color: var(--soustxt-color);
 }
 .welcomeBottom-desc {
@@ -427,7 +430,7 @@ body[data-auth="false"] .container {
 .blocPin-digit label {display:block}
 /* Firmware **/
 .status-detail {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--soustxt-color);
 }
 #spanFreeMemory { color: var(--soustxt-color) !important;; }
@@ -549,7 +552,7 @@ opacity: 0.9;
         height: 24px;
     }
 span.ssid {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
@@ -590,7 +593,7 @@ div.signal use.active {
     overflow-x: hidden;
 }
 .aps-title {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     color: var(--bg-switch-ch-color);
     font-weight: bold;
     text-transform: uppercase;
@@ -600,7 +603,7 @@ div.signal use.active {
     padding: 30px 10px;
     text-align: center;
     color: var(--soustxt-color);
-    font-size: 13px;
+    font-size: var(--fs-sm);
 }
 .aps-hr {
     border: 0;
@@ -661,7 +664,8 @@ div.wifiSignal {
     opacity: 0.7;
 }
 .dragtxt {
-    font-size: .8em;
+    font-size: 0.95em;
+    color: var(--soustxt-color);
     margin: 23px 0;
     padding: 5px;
 }
@@ -768,7 +772,7 @@ div.wifiSignal {
     justify-content: center;
     font-family: sans-serif;
     color: var(--soustxt-color);
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: bold;
     line-height: 1.4;
 }
@@ -908,7 +912,7 @@ display: none;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 28px;
+    font-size: var(--fs-xxl);
     cursor: pointer;
     z-index: 2;
     transition: transform 0.1s;
@@ -965,7 +969,7 @@ display: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 23px;
+    font-size: var(--fs-xl);
 }
 .btn-prog, .btn-fav {
     width: 76px;
@@ -1220,7 +1224,7 @@ display: none;
     width: 100%;
 }
 .rssi-left {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     display: flex;
     gap: 4px;
 }
@@ -1228,13 +1232,13 @@ display: none;
     color: var(--soustxt-color);
 }
 .rssi-right {
-    font-size: 32px;
+    font-size: var(--fs-xxxl);
     display: flex;
     gap: 6px;
     align-items: center;
 }
 .rssi-unit {
-    font-size: 16px;
+    font-size: var(--fs-md);
 }
 #stepButtons,
 #stepButtonsRx,
@@ -1255,7 +1259,7 @@ display: none;
     padding: 0;
     height: 25px;
     margin: 0;
-    font-size: 10px;
+    font-size: var(--fs-xs);
     border-radius: 9px;
     background: transparent;
     color: var(--help);
@@ -1387,7 +1391,7 @@ div.frame-pulses {
 #divUnauthenticated p {
     margin-top: 0;
     color: var(--color);
-    font-size: large;
+    font-size: var(--fs-lg);
     font-weight: bold;
 }
 #divLoginPassword {
@@ -1556,7 +1560,7 @@ div.frame-pulses {
         gap: 6px;
         margin-right: 10px;
         color: var(--soustxt-color);
-        font-size: 0.8rem;
+        font-size: var(--fs-sm);
         font-weight: bold;
     }
     .mobile-conn .conn-dot {
@@ -1567,9 +1571,6 @@ div.frame-pulses {
     }
     body.socket-on .mobile-conn .conn-dot {
         background: #5cb85c;
-    }
-    .subtab-container {
-        flex-wrap: wrap;
     }
     .subtab-container > span {
         padding: 10px 12px;
@@ -1595,11 +1596,11 @@ div.frame-pulses {
         font-size: 1em;
     }
     .welcomeCard-content H1 {
-        font-size: .9rem;
+        font-size: var(--fs-sm);
         margin-bottom: 6px;
     }
     .welcomeCard-content p {
-        font-size: 0.75rem;
+        font-size: var(--fs-xs);
         margin: 0;
     }
     .welcomeBottom-desc {
@@ -1695,7 +1696,7 @@ div.frame-pulses {
         padding-right:14px;
     }
     .subtab-container > span {
-        font-size: 12px;
+        font-size: var(--fs-xs);
         padding: 8px 10px;
     }
     .subtab-NameHide-virtualRemote {
@@ -1705,6 +1706,6 @@ div.frame-pulses {
         display: inline-block !important;
     }
     .gpioRadio-container {
-        font-size: 0.7em;
+        font-size: 0.75em;
     }
 }
