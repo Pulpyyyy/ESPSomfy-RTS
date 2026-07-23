@@ -370,6 +370,8 @@
     "TT_HOLD_MY": "Hold 2 s: set the My position",
     "TT_HOLD_TILT": "Hold 2 s: tilt the slats",
     "SUBTAB_TRANSCEIVER": "Transceiver",
+    "FW_ALREADY_CURRENT": "You are already on this version — no update needed.",
+    "BT_REINSTALL": "Reinstall",
     "CAL_TITLE": "Shade calibration",
     "CAL_TITLE_DESC": "Guided measurement with the remote, or copy from an already-tuned shade",
     "CAL_INTRO": "Guided measurement: you drive the shade with your physical remote, the assistant times the runs and returns the shade to position between each measurement (5 measurements). Copy: copy the values of an already-calibrated shade to others, with no measurement.",

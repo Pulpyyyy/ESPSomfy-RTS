@@ -137,11 +137,25 @@ div.wait-overlay.has-label {
 div.wait-overlay .wait-label {
     z-index: 1000;
     color: #fff;
-    font-size: 1.1rem;
+    font-size: var(--fs-lg);
     font-weight: bold;
     text-align: center;
     text-shadow: 0 1px 4px rgba(0,0,0,0.6);
     max-width: 90%;
+}
+/* "Already on this version" note in the GitHub update dialog. */
+.upToDateNote {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-sucess);
+    font-size: var(--fs-sm);
+}
+.upToDateNote svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    flex-shrink: 0;
 }
 /* Demoted technical line inside service-error dialogs. */
 .error-content .service-detail {
@@ -312,7 +326,7 @@ div.wait-overlay .wait-label {
     left:0px;
     padding-right:24px;
     text-align:right;
-    font-size:18px;
+    font-size:var(--fs-lg);
 }
 .inst-overlay {
     display: flex;
@@ -327,7 +341,7 @@ div.wait-overlay .wait-label {
     overflow-y: auto;
     color: var(--color);
     background: var(--wait-overlay);
-    font-size: 13px;
+    font-size: var(--fs-sm);
     animation: fadeInBlur 0.2s ease-out forwards;
 }
 .instructions-content {
@@ -366,7 +380,7 @@ div.wait-overlay .wait-label {
     user-select: none;
 }
 .expert-label {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -401,7 +415,7 @@ div.wait-overlay .wait-label {
 }
 .info-message .info-text {
     text-align:left;
-    font-size:13px;
+    font-size:var(--fs-sm);
     overflow:auto;
 }
 .modal-overlay{
@@ -462,7 +476,7 @@ div.wait-overlay .wait-label {
     background: var(--unibloc-color);
     max-width: 560px;
     color: var(--color);
-    font-size: 19px;
+    font-size: var(--fs-lg);
     min-height: 206px;
     border-radius: 25px;
     align-content: center;
@@ -470,14 +484,14 @@ div.wait-overlay .wait-label {
 }
 .instructions .sub-message,
 .prompt-message .sub-message {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     padding-left: 10px;
     padding-right: 10px;
 }
 .prompt-message .prompt-text {
     text-align:center;
     width: 100%;
-    font-size: 28px;
+    font-size: var(--fs-xxl);
     margin-bottom: 15px;
 }
 .promp-message > .inner-error,
@@ -489,7 +503,7 @@ div.error-message > div {
     padding:20px;
 }
 div.error-message > .sub-message {
-    font-size:14px;
+    font-size:var(--fs-sm);
     margin-bottom: 5%;
 }
 div.error-message,
@@ -520,14 +534,14 @@ div.error-message,
 }
     .instructions-header h2 {
         margin: 0;
-        font-size: 16px;
+        font-size: var(--fs-md);
         font-weight: bold;
     }
     .instructions-header p {
         max-width: 85%;
         margin: 5px 0 0 0;
         opacity: 0.8;
-        font-size: 14px;
+        font-size: var(--fs-sm);
     }
     .instructions-header h2,
     .instructions-header p {
@@ -580,13 +594,13 @@ div.error-message,
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 12px;
+        font-size: var(--fs-xs);
         margin-right: 12px;
         flex-shrink: 0;
         margin-top: 2px;
     }
         .step-text {
-            font-size: 14px;
+            font-size: var(--fs-sm);
             line-height: 1.4;
             color: var(--color);
         }
@@ -595,11 +609,11 @@ div.error-message,
 }
 .uniblocRollingCode input {
     text-align:center;
-    font-size: 35px !important;
+    font-size: var(--fs-xxxl) !important;
     color: var(--accent-color) !important;
 }
 .wizard-step p {
-    font-size:14px;
+    font-size:var(--fs-sm);
     margin:0;
 }
 /* expert mode */
@@ -693,7 +707,7 @@ div.error-message,
     margin-bottom: 3px;
 }
 .step-name {
-    font-size: 10px;
+    font-size: var(--fs-xs);
     color: #888;
     margin-top: 8px;
     text-transform: uppercase;
@@ -714,7 +728,7 @@ div.error-message,
 }
 .step-title {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: var(--fs-lg);
     font-weight: 600;
     color: var(--color);
     animation: fadeInBlur 0.3s ease-in-out;
@@ -745,7 +759,7 @@ div.error-message,
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .blocsteps-row .divWizShadeName {
-    font-size: 16px;
+    font-size: var(--fs-md);
     font-weight: bold;
     color: var(--color);
     text-align:center;
@@ -762,7 +776,7 @@ div.error-message,
 #btnPairToGroup,
 #btnUnpairFromGroup {
     border-radius: 15px;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     min-width: 160px;
     box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4);
     animation: soft-pulse 2s infinite;
@@ -782,7 +796,7 @@ div.error-message,
 }
 .groupNameSpan {
     font-weight:bold;
-    font-size: 17px;
+    font-size: var(--fs-lg);
     vertical-align: middle;
     line-height: 1;
 }
@@ -839,7 +853,7 @@ button[line].fw-sidebar-button:hover,
 }
 .fw-mobile-banner {
     position: relative;
-    font-size: 8pt;
+    font-size: var(--fs-xs);
     font-weight: bold;
     background: #fcfcfc;
     color: var(--txtwarning-color);
@@ -869,7 +883,7 @@ button[line].fw-sidebar-button:hover,
 }
 /*github page*/
 .labelgrey {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     color: #888;
     font-family: monospace;
 }
@@ -978,7 +992,7 @@ margin: 0;
     border-color: var(--accent-color);
 }
 .file-name-display {
-    font-size: 13px;
+    font-size: var(--fs-sm);
     color: var(--color);
     flex: 1;
     overflow: hidden;
@@ -1221,9 +1235,9 @@ cursor: pointer;
     flex-direction: column;
 }
 .cfg-room {
-    font-size:11px;
-    opacity: 0.5;
-    line-height: 1.1;
+    font-size: var(--fs-xs);
+    opacity: 0.6;
+    line-height: 1.2;
 }
 .somfyShade[data-roomid="0"] .cfg-room,
 .somfyGroup[data-roomid="0"] .cfg-room,
@@ -1289,8 +1303,8 @@ cursor: pointer;
     flex: 1;
 }
 .AddrId-label {
-    opacity: 0.5;
-    font-size: 0.7em;
+    opacity: 0.6;
+    font-size: 0.75em;
     font-weight: bold;
     text-transform: uppercase;
     display: inline-block;
@@ -1303,7 +1317,8 @@ cursor: pointer;
     text-overflow: ellipsis;
     font-family: monospace;
     margin: 0;
-    font-size: 13px;
+    /* Primary content of the device list: must read comfortably. */
+    font-size: var(--fs-md);
 }
 .group-address,
 .shade-address,
@@ -1508,7 +1523,7 @@ cursor: pointer;
 .somfyShadeCtl .shadectl-mypos {
     display: flex;
     flex-direction: column;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     color: var(--soustxt-color);
     margin-top: 2px;
     line-height: 1.2;
@@ -1518,7 +1533,7 @@ cursor: pointer;
     color: var(--soustxt-color);
     padding: 2px 8px;
     border-radius: 12px;
-    font-size: 10px;
+    font-size: var(--fs-xs);
     font-weight: bold;
     border: 1px solid var(--button2-color);
     white-space: nowrap;
@@ -1555,7 +1570,7 @@ cursor: pointer;
     width:100%;
 }
 .somfyGroupCtl .groupctl-shades {
-    font-size:12px;
+    font-size:var(--fs-xs);
     margin-top:0px;
 }
 .somfyGroupCtl .groupctl-shades > label {
@@ -1576,7 +1591,7 @@ cursor: pointer;
     color:silver;
 }
 .somfyGroupCtl .groupctl-room {
-    font-size:12px;
+    font-size:var(--fs-xs);
     font-weight: bold;
     margin-bottom:-3px;
     display:block;
@@ -1588,7 +1603,7 @@ cursor: pointer;
 }
 .somfyGroupCtl .groupctl-mypos{
     white-space: nowrap;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     display:block;
     margin-top:-3px;
 }
@@ -1707,7 +1722,7 @@ cursor: pointer;
 }
 .lbc-responsive-card span {
     font-weight: bold;
-    font-size: 11px;
+    font-size: var(--fs-xs);
 }
 .box-image-container{
     width: 100%;
@@ -1773,7 +1788,7 @@ cursor: pointer;
 .ha-badge-text-main {
     color: white;
     font-family: sans-serif;
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     letter-spacing: 0.8px;
     text-transform: uppercase;
@@ -1795,7 +1810,7 @@ cursor: pointer;
 .ha-badge-text-pill {
     color: #03a9f4;
     font-family: sans-serif;
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     letter-spacing: 0.5px;
     margin-right: 6px;
@@ -1840,7 +1855,7 @@ cursor: pointer;
     display: inline-block;
 }
 div.eth-setting-line {
-    font-size:12px;
+    font-size:var(--fs-xs);
     padding-top:0px;
     padding-bottom:0px;
 }
@@ -1878,7 +1893,7 @@ div.eth-setting-line label {
 }
 /* Update*/
 #selVersion.inputAndSelect {
-    font-size: 15px;
+    font-size: var(--fs-md);
 }
 #divGitInstall .unibloc .boutonLine {
     text-align: left;
@@ -1931,18 +1946,18 @@ div.eth-setting-line label {
 
 .scanfreqRssiLeft .uniLabel,
 .scanfreqRssiRight .uniLabel {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     opacity: 0.7;
     margin-bottom: 2px;
 }
 .scanfreqRssiLeft .uniLabel{
-    font-size: 12px;
+    font-size: var(--fs-xs);
     opacity: 0.7;
     margin-bottom: 2px;
 }
 .scanfreqValue,
 .scanfreqValueColor {
-    font-size: 18px;
+    font-size: var(--fs-lg);
 }
 .scanfreqValue span,
 .scanfreqValueColor span {
@@ -1953,7 +1968,7 @@ div.eth-setting-line label {
 
 .scanfreqValue span:last-child,
 .scanfreqValueColor span:last-child {
-    font-size: 14px;
+    font-size: var(--fs-sm);
     font-weight: normal;
 }
 .uniblocrRssiCanvas {
@@ -1980,7 +1995,7 @@ div.eth-setting-line label {
     }
     .scanfreqwhat > span {
         margin-right:8px;
-        font-size:16px;
+        font-size:var(--fs-md);
     }
     .scanfreqwhat > p {
         margin:0 0 8px 0;

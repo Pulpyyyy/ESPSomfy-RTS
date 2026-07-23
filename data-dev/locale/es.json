@@ -370,6 +370,8 @@
     "TT_HOLD_MY": "Mantener 2 s: ajustar la posición My",
     "TT_HOLD_TILT": "Mantener 2 s: inclinar las lamas",
     "SUBTAB_TRANSCEIVER": "Transceptor",
+    "FW_ALREADY_CURRENT": "Ya tienes esta versión instalada — no se necesita actualización.",
+    "BT_REINSTALL": "Reinstalar",
     "CAL_TITLE": "Calibración de la persiana",
     "CAL_TITLE_DESC": "Medición guiada con el mando, o copia de una persiana ya ajustada",
     "CAL_INTRO": "Medición guiada: manejas la persiana con tu mando físico, el asistente cronometra y devuelve la persiana a su posición entre cada medición (5 mediciones). Copia: copiar los valores de una persiana ya calibrada a otras, sin ninguna medición.",
