@@ -64,7 +64,7 @@
     font-size: var(--fs-sm);
     color: #ababab;
     padding: 2px 8px;
-    border-radius: 8px;
+    border-radius: var(--radius-badge);
     border: 1px solid transparent;
     transition: all 0.3s ease;
 }
@@ -144,7 +144,7 @@ body[data-auth="false"] .container {
     text-decoration: none;
     font-size: var(--fs-lg);
     color: var(--color);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     transition: background 0.2s;
     cursor: pointer;
     justify-content: flex-start;
@@ -211,7 +211,7 @@ body[data-auth="false"] .container {
     background: #e74c3c;
     color: white !important;
     padding: 2px 8px;
-    border-radius: 10px;
+    border-radius: var(--radius-badge);
     font-size: var(--fs-xs);
     font-weight: bold;
     margin-left: 10px;
@@ -248,7 +248,7 @@ body[data-auth="false"] .container {
 .subtab-container > span.selected {
     background: var(--accent-color);
     color: white;
-    border-radius: 31px;
+    border-radius: var(--radius-round);
 }
 .subtab-content {
     display: flex;
@@ -347,7 +347,7 @@ body[data-auth="false"] .container {
     justify-content: flex-start;
     flex: 1;
     background: var(--unibloc-color);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     padding: 14px 13px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -411,14 +411,14 @@ body[data-auth="false"] .container {
 }
 .chooseAccentColor::-webkit-color-swatch-wrapper {
     padding: 0;
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
 }
 .chooseAccentColor::-webkit-color-swatch {
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     border: none;
 }
 .chooseAccentColor::-moz-color-swatch {
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     border: none;
 }
 /* Security **/
@@ -474,7 +474,7 @@ opacity: 0.9;
     height: 22px;
 }.svgLbc{
     border: 1px solid var(--border-lbc);
-    border-radius: 4px;
+    border-radius: var(--radius-chip);
 }
 .buttonUpdate span {
     line-height: 1;
@@ -507,7 +507,7 @@ opacity: 0.9;
     color: #fff;
     margin-left: 2px;
     background: var(--accent-color);
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     padding: 2px 8px;
     transition: all 0.2s;
 }
@@ -622,7 +622,7 @@ div.wifiSignal {
 #divAps div.wifiSignal:hover {
     background: var(--hr-color);
     color: var(--color);
-    border-radius: 12px;
+    border-radius: var(--radius-card);
 }
 .msgHotspot span:last-child {
     margin-top:0;
@@ -842,7 +842,7 @@ display: none;
     align-items: center;
     background: var(--unibloc-color);
     padding: 20px;
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     border: 1px solid var(--borderShadeCtl);
     box-shadow: 0 0 6px 0 var(--shadowShadeCtl);
 }
@@ -891,7 +891,7 @@ display: none;
     max-width: 130px;
     height: 52px;
     background: var(--accent-color);
-    border-radius: 30px;
+    border-radius: var(--radius-round);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -977,7 +977,7 @@ display: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 15px;
+    border-radius: var(--radius-panel);
     font-size: 0.75em;
     font-weight: bold;
     cursor: pointer;
@@ -1003,7 +1003,7 @@ display: none;
     transition: all 0.2s;
     background: var(--background-color);
     color: var(--soustxt-color);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     border: 1px solid var(--border);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -1012,7 +1012,7 @@ display: none;
     background: var(--background-color);
     color: var(--soustxt-color);
     height: 44px;
-    border-radius:25px;
+    border-radius:var(--radius-bloc);
     border: 1px solid var(--border);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -1030,7 +1030,7 @@ display: none;
     background: var(--accent-color);
     color: white;
     border: none;
-    border-radius: 20px;
+    border-radius: var(--radius-button);
     padding: 13px;
     font-weight: bold;
     text-align: center;
@@ -1039,7 +1039,7 @@ display: none;
 .vr-step80 {
     position: relative;
     background: var(--background-color);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     padding: 15px;
     display: flex;
     align-items: center;
@@ -1172,7 +1172,7 @@ display: none;
     background: #333;
     color: #fff;
     text-align: left;
-    border-radius: 15px;
+    border-radius: var(--radius-panel);
     padding: 10px;
     font-size: 0.9em;
     box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
@@ -1247,7 +1247,7 @@ display: none;
     gap: 5px;
     align-content: flex-end;
     margin: 0;
-    border-radius: 10px;
+    border-radius: var(--radius-badge);
 }
 #stepButtons > .step-btn,
 #stepButtons > .step-btn.active,
@@ -1260,7 +1260,7 @@ display: none;
     height: 25px;
     margin: 0;
     font-size: var(--fs-xs);
-    border-radius: 9px;
+    border-radius: var(--radius-badge);
     background: transparent;
     color: var(--help);
     border: none;
@@ -1274,7 +1274,7 @@ display: none;
 .radioBtnPrec {
     background: none;
     border: 1px solid rgba(0,0,0,0.1);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     width: 30px;
     height: 30px;
     display: flex;
@@ -1303,7 +1303,7 @@ display: none;
     overflow-x: auto;
     overflow-y: hidden;
     background: var(--unibloc-color);
-    border-radius: 15px;
+    border-radius: var(--radius-panel);
     margin-top: 15px;
 }
 .log-global-container > div.frame-header,
@@ -1437,7 +1437,7 @@ div.frame-pulses {
     width: 100%;
     padding: 12px 12px 12px 40px;
     border: 1px solid #ccc;
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     outline: none;
     transition: border-color 0.3s, box-shadow 0.3s;
     margin: 0;
@@ -1478,7 +1478,10 @@ div.frame-pulses {
         grid-row: 2;
     }
 }
-@media screen and (max-width: 850px) {
+/* Canonical breakpoints (media queries cannot use CSS variables — keep this
+   ladder in sync by hand): 480 (small phone), 550 (phone), 780 (mobile/desktop
+   switch), 900 (dense grids), 1024/1280 (card columns in overlays.css). */
+@media screen and (max-width: 780px) {
     .status-item {
         display: none;
     }
@@ -1620,7 +1623,7 @@ div.frame-pulses {
         transition: color 0.5s ease;
         background: var(--unibloc-color);
         margin: 4px;
-        border-radius: 15px;
+        border-radius: var(--radius-panel);
         padding: 2px;
     }
     .tab-icon {
@@ -1645,7 +1648,7 @@ div.frame-pulses {
         background: var(--txtwarning-color);
         transform: translate(-50%, -50%) rotate(-45deg);
         box-shadow: 0 0 1px 2px var(--unibloc-color);
-        border-radius: 4px;
+        border-radius: var(--radius-chip);
     }
     .tab-container span[data-grpid="divRadioSettings"].radio-error .tab-icon {
         opacity: 0.5;

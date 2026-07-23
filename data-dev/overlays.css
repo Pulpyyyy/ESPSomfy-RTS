@@ -353,7 +353,7 @@ div.wait-overlay .wait-label {
     flex-direction: column;
     color: var(--color);
     background: var(--unibloc-color);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     border: 1px solid var(--border);
 }
 .overlay-scroll-content {
@@ -440,7 +440,7 @@ div.wait-overlay .wait-label {
     flex-direction: column;
     color: var(--color);
     background: var(--unibloc-color);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     border: 1px solid var(--border);
 }
 .message-content,
@@ -478,7 +478,7 @@ div.wait-overlay .wait-label {
     color: var(--color);
     font-size: var(--fs-lg);
     min-height: 206px;
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     align-content: center;
     border: 1px solid var(--border);
 }
@@ -524,7 +524,7 @@ div.error-message,
     min-height: 100px;
     overflow: hidden;
     padding: 25px;
-    border-radius: 20px;
+    border-radius: var(--radius-button);
     margin-bottom: 30px;
     background: linear-gradient(#494949,#333) padding-box, linear-gradient(#000,#434343) border-box;
     border: 1px solid #0000;
@@ -754,7 +754,7 @@ div.error-message,
     width: 100%;
     margin-top: 15px;
     background: var(--unibloc-color);
-    border-radius: 20px;
+    border-radius: var(--radius-button);
     border: 1px solid var(--border);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -775,7 +775,7 @@ div.error-message,
 #btnOpenMemory,
 #btnPairToGroup,
 #btnUnpairFromGroup {
-    border-radius: 15px;
+    border-radius: var(--radius-panel);
     font-size: var(--fs-sm);
     min-width: 160px;
     box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4);
@@ -858,7 +858,7 @@ button[line].fw-sidebar-button:hover,
     background: #fcfcfc;
     color: var(--txtwarning-color);
     padding: 2px 12px;
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     border-top: none;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     width: fit-content;
@@ -879,7 +879,7 @@ button[line].fw-sidebar-button:hover,
     width: 100%;
     margin-bottom: 10px;
     background: var(--unibloc-color);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
 }
 /*github page*/
 .labelgrey {
@@ -978,7 +978,7 @@ margin: 0;
     width:100%;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
@@ -1052,7 +1052,7 @@ cursor: pointer;
  .md-code-inline {
     background: rgba(120, 120, 120, 0.2);
     padding: 2px 4px;
-    border-radius: 4px;
+    border-radius: var(--radius-chip);
     font-family: monospace;
     font-size: 0.9em;
 }
@@ -1115,7 +1115,7 @@ cursor: pointer;
     flex: 0 0 auto !important;
     padding: 8px 18px;
     background: var(--room-pill);
-    border-radius: 20px;
+    border-radius: var(--radius-button);
     color: var(--color);
     font-size: 0.9em;
     font-weight: 500;
@@ -1156,7 +1156,7 @@ cursor: pointer;
     height: 38px;
     padding: 12px 15px;
     background: var(--unibloc-color);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -1223,7 +1223,7 @@ cursor: pointer;
     width: 100%;
     padding: 12px 15px;
     gap: 12px;
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     margin-bottom: 8px;
 }
 .room-name,
@@ -1247,7 +1247,7 @@ cursor: pointer;
 .LinkedRemoteList,
 .LinkedList {
     background: var(--unibloc-color);
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     padding: 15px 20px;
     margin-top: 15px;
 }
@@ -1366,7 +1366,7 @@ cursor: pointer;
     flex-wrap: nowrap;
     background: var(--unibloc-color);
     margin: 25px 0;
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     overflow: hidden;
     width: 46%;
     border: 1px solid var(--borderShadeCtl);
@@ -1532,7 +1532,7 @@ cursor: pointer;
 .myShade-badge {
     color: var(--soustxt-color);
     padding: 2px 8px;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     font-size: var(--fs-xs);
     font-weight: bold;
     border: 1px solid var(--button2-color);
@@ -1551,7 +1551,7 @@ cursor: pointer;
     max-width: 964px;
     padding: 8px;
     margin: 19px auto;
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
     border: 1px solid var(--borderShadeCtl);
     background: var(--unibloc-color);
 }
@@ -1735,7 +1735,7 @@ cursor: pointer;
     max-width: 95%;
     max-height: 100%;
     object-fit: contain;
-    border-radius: 10px;
+    border-radius: var(--radius-badge);
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 .divInfoLine {
@@ -1778,7 +1778,7 @@ cursor: pointer;
     background-color: #03a9f4;
     height: 44px;
     padding: 0 7px 0 20px;
-    border-radius: 22px;
+    border-radius: var(--radius-button);
     text-decoration: none;
     box-shadow: 0 2px 5px rgba(0,0,0,0.15);
     transition: opacity 0.2s;
@@ -1801,7 +1801,7 @@ cursor: pointer;
     background-color: #e8f4fa;
     height: 32px;
     padding: 0 10px;
-    border-radius: 18px;
+    border-radius: var(--radius-button);
 }
 .ha-badge-pill svg {
     width:18px;
@@ -1976,7 +1976,7 @@ div.eth-setting-line label {
     height: 105px;
     background:#333;
     margin-top: 15px;
-    border-radius: 25px;
+    border-radius: var(--radius-bloc);
 }
     .uniblocrRssiCanvas canvas {
         width: 100%;
