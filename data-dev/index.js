@@ -1,8 +1,8 @@
-//var hst = '192.168.4.1';
-var hst = '192.168.1.223';
+// Only used when the page is opened straight from disk (file://) during development;
+// served from the device, baseUrl stays relative. Defaults to the fallback access point
+// so no one's LAN address ships in the published firmware.
+var hst = '192.168.4.1';
 var DBG = false; // UI debug logging (requests, heap); never logs secrets
-//var hst = '192.168.1.49';
-//var hst = '192.168.2.232';
 
 var _rooms = [];
 let LANG = {};
