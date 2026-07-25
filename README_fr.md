@@ -9,7 +9,7 @@
     Contrôlez et gérez facilement vos volets roulants, portails, portes de garage ou tout autre appareil utilisant le protocole RTS 433 MHz.
     <br />
     <br />
-    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki"><strong>Explorer la documentation »</strong></a>
+    <a href="https://github.com/rstrouse/ESPSomfy-RTS/wiki"><strong>Explorer la documentation »</strong></a>
     <br />
     <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/issues">Signaler un bug</a>
     &middot;
@@ -97,11 +97,6 @@ Si vous perdez l'accès à l'interface web (erreur de configuration réseau ou m
 * **Version v2.5.0 :**
     * **4 Cycles :** Réinitialisation d'usine complète (**Full Wipe**).
 
-### 📖 Documentation complète
-Pour voir les instructions détaillées et les diagrammes de cycles, veuillez consulter la page dédiée :
-
-👉 **[Voir la page de Factory Reset](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Factory-Reset)**
-
 > [!TIP]
 > Utilisez toujours ces procédures en dernier recours. Si l'interface est toujours accessible, utilisez plutôt le bouton **Restaurer** dans les paramètres système.
 
@@ -154,7 +149,7 @@ Puisqu'il s'agit d'un fork, vous pouvez vous appuyer sur la riche documentation 
 * 📖 **[Configuration du logiciel](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Configuring-the-Software)**
 * ⚙️ **[Installation du firmware](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Installing-the-Firmware)**
 * 🔄 **[Comment mettre à jour ESPSomfy RTS](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Updating-ESPSomfy-RTS)**
-* 🔌 **[Intégrations](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Intégrations)**
+* 🔌 **[Intégration Home Assistant](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)**
 
 ---
 
@@ -170,4 +165,4 @@ Connecte‑toi à ce réseau puis ouvre `http://192.168.4.1` pour configurer le 
 ---
 
 ## 🙏 Crédits
-Un merci tout particulier à [rstrouse](https://github.com/rstrouse) pour son travail incroyable sur le projet original ESPSomfy-RTS, et à [xkain](https://github.com/xkain) dont ce fork est issu.
+Un merci tout particulier à [rstrouse](https://github.com/rstrouse) pour son travail incroyable sur le projet original ESPSomfy-RTS, à [xkain](https://github.com/xkain) dont ce fork est issu, et à [y-streibel-uiris](https://github.com/y-streibel-uiris) pour l'implémentation du WebSocket HTTPS.

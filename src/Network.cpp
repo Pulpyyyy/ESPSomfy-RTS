@@ -308,9 +308,10 @@ void Network::setConnected(conn_types_t connType) {
   SSDP.setHTTPPort(80);
   SSDP.setSchemaURL(0, "upnp.xml");
   SSDP.setChipId(0, this->getChipId());
-  SSDP.setDeviceType(0, "urn:schemas-pulpyyyy-org:device:Somfy:1"); // Raccourci
+  // Fork-specific URN: only the ESPSomfy-RTS Enhanced HA integration discovers it.
+  SSDP.setDeviceType(0, "urn:schemas-pulpyyyy-org:device:Somfy:1");
   SSDP.setName(0, settings.hostname);
-  SSDP.setModelName(0, "SomfyRTS"); // Raccourci
+  SSDP.setModelName(0, "SomfyRTS");
 
   SSDP.setModelNumber(0, (strlen(settings.chipModel) == 0) ? "ESP32" : settings.chipModel);
 
