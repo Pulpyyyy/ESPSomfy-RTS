@@ -48,6 +48,7 @@
     "HACS_REQ_MID": "-Server sowie den installierten Community-Store",
     "HACS_REQ_END": ".",
     "HACS_OR_VISIT": "Oder besuchen Sie direkt das",
+    "HACS_REPO_LINK": "GitHub-Repository",
 "PAGE": "SECURITY",
     "SECURITY_TYPE": "Sicherheitstyp",
     "SECURITY_SECURE_CONFIG_ONLY": "Nur sichere Konfiguration",

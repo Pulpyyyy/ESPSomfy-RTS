@@ -2793,7 +2793,7 @@ class General {
         <span class="ha-badge-pill"><span class="ha-badge-text-pill">MY</span><svg width="18" height="18"><use href="#svg-homeAssistant"></use></svg></span>
         </a>
         <p class="ha-github-link-container">
-        ${tr('HACS_OR_VISIT')} <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced" target="_blank" class="linkSoft">dépôt GitHub</a>
+        ${tr('HACS_OR_VISIT')} <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced" target="_blank" class="linkSoft">${tr('HACS_REPO_LINK')}</a>
         </p>
         </div>
         </div>

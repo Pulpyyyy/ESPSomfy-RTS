@@ -48,6 +48,7 @@
     "HACS_REQ_MID": "actif ainsi que la boutique communautaire",
     "HACS_REQ_END": "installée.",
     "HACS_OR_VISIT": "Ou visitez directement le",
+    "HACS_REPO_LINK": "dépôt GitHub",
 "PAGE": "SECURITY",
     "SECURITY_TYPE": "Type de sécurité",
     "SECURITY_SECURE_CONFIG_ONLY": "Configuration sécurisée uniquement",
