@@ -1362,6 +1362,15 @@ void Web::begin() {
   server.on("/getReleases", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    // Gate this behind auth: it triggers a blocking TLS call out to GitHub, so
+    // an anonymous client could hang the loop. Passthrough when security is off.
+    if(!webServer.ensureAuth(server, false)) return;
+    // Refuse while a shade is moving; the blocking GitHub fetch would stall the
+    // motion timing loop.
+    if(!somfy.allIdle()) {
+      server.send(503, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Busy: a shade is moving\"}"));
+      return;
+    }
     GitRepo repo;
     repo.getReleases();
     git.setCurrentRelease(repo);
