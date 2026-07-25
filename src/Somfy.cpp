@@ -634,7 +634,13 @@ void SomfyShadeController::commit() {
     return;
   }
   file.save(this);
-  file.end();
+  bool failed = file.hasWriteError();
+  file.end(); // Keeps the previous file untouched when a write failed.
+  if(failed) {
+    // Keep isDirty so a later commit retries instead of dropping the changes.
+    Serial.println("Write error saving shades.cfg: config NOT saved!");
+    return;
+  }
   this->isDirty = false;
   this->lastCommit = millis();
 }

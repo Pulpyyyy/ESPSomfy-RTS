@@ -19,6 +19,7 @@ extern ConfigSettings settings;
 
 bool ConfigFile::begin(const char* filename, bool readOnly) {
   this->readOnly = readOnly;
+  this->_writeError = false;
   this->_finalName[0] = '\0';
   if(readOnly) {
     // If power was lost between remove() and rename() in end(), only the
@@ -57,8 +58,18 @@ void ConfigFile::end() {
       if(this->_finalName[0] != '\0') {
         char tmp[sizeof(this->_finalName) + 4];
         snprintf(tmp, sizeof(tmp), "%s.tmp", this->_finalName);
-        if(LittleFS.exists(this->_finalName)) LittleFS.remove(this->_finalName);
-        LittleFS.rename(tmp, this->_finalName);
+        if(this->_writeError) {
+          // A write failed part way through (full or failing filesystem). Promoting this
+          // .tmp would replace a good config with a truncated one, which validate()
+          // rejects at the next boot -- every shade, group and room lost. Keep the
+          // existing file and drop the partial one instead.
+          Serial.printf("Write error on %s: keeping the previous file\n", this->_finalName);
+          if(LittleFS.exists(tmp)) LittleFS.remove(tmp);
+        }
+        else {
+          if(LittleFS.exists(this->_finalName)) LittleFS.remove(this->_finalName);
+          LittleFS.rename(tmp, this->_finalName);
+        }
         this->_finalName[0] = '\0';
       }
     }
@@ -222,13 +233,13 @@ bool ConfigFile::readVarString(char *buff, size_t len) {
 }
 
 bool ConfigFile::writeString(const char *val, size_t len, const char tok) {
-  if(!this->isOpen()) return false;
+  if(!this->isOpen()) { this->_writeError = true; return false; }
   int slen = strlen(val);
   if(slen > 0)
-    if(this->file.write((uint8_t *)val, slen) != slen) return false;
+    if(this->file.write((uint8_t *)val, slen) != slen) { this->_writeError = true; return false; }
   // Now we need to pad the end of the string so that it is of a fixed length.
   while(slen < len - 1) {
-    this->file.write(' ');
+    if(this->file.write(' ') != 1) { this->_writeError = true; return false; }
     slen++;
   }
   // 255 = len = 4 slen = 3
@@ -237,17 +248,18 @@ bool ConfigFile::writeString(const char *val, size_t len, const char tok) {
   return true;
 }
 bool ConfigFile::writeVarString(const char *val, const char tok) {
-  if(!this->isOpen()) return false;
+  if(!this->isOpen()) { this->_writeError = true; return false; }
   int slen = strlen(val);
   this->writeChar(CFG_TOK_QUOTE);
-  if(slen > 0) if(this->file.write((uint8_t *)val, slen) != slen) return false;
+  if(slen > 0) if(this->file.write((uint8_t *)val, slen) != slen) { this->_writeError = true; return false; }
   this->writeChar(CFG_TOK_QUOTE);
   if(tok != CFG_TOK_NONE) return this->writeChar(tok);
   return true;
 }
 bool ConfigFile::writeChar(const char val) {
-  if(!this->isOpen()) return false;
+  if(!this->isOpen()) { this->_writeError = true; return false; }
   if(this->file.write(static_cast<uint8_t>(val)) == 1) return true;
+  this->_writeError = true;
   return false;
 }
 bool ConfigFile::writeInt8(const int8_t val, const char tok) {
