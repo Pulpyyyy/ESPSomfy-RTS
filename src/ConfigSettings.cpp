@@ -322,13 +322,17 @@ void ConfigSettings::print() {
 void ConfigSettings::emitSockets() {}
 void ConfigSettings::emitSockets(uint8_t num) {}
 uint16_t ConfigSettings::calcSettingsRecSize() {
-  return strlen(this->fwVersion.name) + 3 
+  // Must match writeSettingsRecord() exactly: a var string costs strlen + 2 quotes +
+  // separator, writeBool() a fixed 6 bytes and writeUInt8() a fixed 4.  An undersized
+  // value makes restore seek short and parse the next record from the wrong offset.
+  return strlen(this->fwVersion.name) + 3
     + strlen(this->hostname) + 3
     + strlen(this->NTP.ntpServer) + 3
     + strlen(this->NTP.posixZone) + 3
-    + 6  // ssdpbroadcast
-    + 6; // updateCheck
-    + 3;  // language
+    + strlen(this->accentColor) + 3
+    + 6  // ssdpBroadcast
+    + 6  // checkForUpdate
+    + 4; // language
 }
 uint16_t ConfigSettings::calcNetRecSize() {
   return 4 // connType

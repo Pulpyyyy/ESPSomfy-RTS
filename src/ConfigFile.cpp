@@ -613,10 +613,13 @@ bool ShadeConfigFile::restoreFile(SomfyShadeController *s, const char *filename,
   }
   else {
     Serial.println("Shade data ignored");
-    // FF past the shades and groups.
-    this->file.seek(this->file.position()
-      + (this->header.shadeRecords * this->header.shadeRecordSize)
-      + (this->header.groupRecords * this->header.groupRecordSize), SeekSet);  // Start at the beginning of the file after the header.
+    // FF past the rooms, shades and groups.  The cursor sits at the first room record,
+    // so skipping only shades and groups would leave every following record (repeaters,
+    // settings, network, transceiver) parsed from the middle of the room block.
+    uint32_t skip = (this->header.shadeRecords * this->header.shadeRecordSize)
+      + (this->header.groupRecords * this->header.groupRecordSize);
+    if(this->header.version >= 19) skip += (this->header.roomRecords * this->header.roomRecordSize);
+    this->file.seek(this->file.position() + skip, SeekSet);
   }
   if(opts.repeaters) {
     Serial.println("Restoring Repeaters...");
