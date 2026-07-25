@@ -25,6 +25,19 @@ function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').repla
 // shipped focusable-but-unnamed; the delegated keydown handler below does the activation.
 // The label is escaped because it embeds user-supplied device names.
 function a11yBtn(label) { return `role="button" tabindex="0" aria-label="${esc(label)}"`; }
+// Same idea for elements that only become clickable in certain states: the affordance has
+// to be added and removed alongside the onclick handler, or the keyboard is left with a
+// focus stop that does nothing. No aria-label: these carry their own visible text.
+function setClickable(el, on) {
+    if (!el) return;
+    if (on) {
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+    } else {
+        el.removeAttribute('role');
+        el.removeAttribute('tabindex');
+    }
+}
 // Whitelist URL schemes for generated markdown links: allow http(s), protocol-relative and
 // relative/anchor URLs; block javascript:, data:, vbscript: and any other explicit scheme.
 function safeUrl(u) {
@@ -6336,6 +6349,7 @@ class Firmware {
         divsGlobal.forEach(div => {
             div.classList.remove('procFwStatusshow');
             div.onclick = null;
+            setClickable(div, false);
         });
         if (rel.available && rel.status === 0 && rel.checkForUpdate !== false) {
             divsGlobal.forEach(div => {
@@ -6343,6 +6357,7 @@ class Firmware {
                 div.style.cursor = 'pointer';
                 div.onclick = () => { firmware.updateGithub(); };
                 div.innerHTML = `<span>${tr('FW_UPDATE_AVAILABLE')}</span>`;
+                setClickable(div, true);
             });
             if (divLocal) {
                 divLocal.className = "error";
@@ -6357,6 +6372,7 @@ class Firmware {
 
                 divLocal.style.cursor = 'pointer';
                 divLocal.onclick = () => { firmware.updateGithub(); };
+                setClickable(divLocal, true);
             }
         }
         else if (rel.status === 4 && rel.error !== 0) {
@@ -6375,6 +6391,7 @@ class Firmware {
 
                 divLocal.style.cursor = '';
                 divLocal.onclick = null;
+                setClickable(divLocal, false);
             }
         }
     }
