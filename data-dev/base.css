@@ -1232,3 +1232,21 @@ button:disabled:active {
         padding-right: 80px !important;
     }
 }
+
+/* Keyboard focus was invisible everywhere: buttons only styled :hover/:active, and the
+   nav items are hrefless anchors. :focus-visible keeps the ring off mouse clicks. */
+:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+/* Several animations loop forever (soft-pulse, the loading spinner, the long-press ring).
+   Honour the system setting for users who get motion sick. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
