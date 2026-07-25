@@ -4249,7 +4249,24 @@ class Somfy {
             });
             el.dataset.idx = idx;
         };
+        // The window listeners only make sense while a drag is actually running.
+        // Binding them at setup time leaked four handlers per list refresh (the shade and
+        // group lists are rebuilt on every socket update), so they are now bound on drag
+        // start and released on drag end.
+        const bindWindow = () => {
+            window.addEventListener('touchmove', move, { passive: false });
+            window.addEventListener('touchend', end);
+            window.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+        };
+        const unbindWindow = () => {
+            window.removeEventListener('touchmove', move, { passive: false });
+            window.removeEventListener('touchend', end);
+            window.removeEventListener('mousemove', move);
+            window.removeEventListener('mouseup', end);
+        };
         const end = () => {
+            unbindWindow();
             stop();
             if (gh) { gh.remove(); gh = null; }
             if (el) {
@@ -4294,19 +4311,18 @@ class Somfy {
             document.body.appendChild(gh);
             el.classList.add('drag-orig');
             if (navigator.vibrate) navigator.vibrate(30);
+            bindWindow();
         };
 
-            list.querySelectorAll(cl).forEach(it => {
-                let h = it.querySelector('.drag-handle');
-                if (h) {
-                    h.addEventListener('touchstart', (e) => start(e, it), {passive:true});
-                    h.addEventListener('mousedown', (e) => start(e, it));
-                }
-            });
-            window.addEventListener('touchmove', move, {passive:false});
-            window.addEventListener('touchend', end);
-            window.addEventListener('mousemove', move);
-            window.addEventListener('mouseup', end);
+        // The per-item handlers die with the items, which are replaced wholesale on every
+        // refresh, so they need no explicit teardown.
+        list.querySelectorAll(cl).forEach(it => {
+            let h = it.querySelector('.drag-handle');
+            if (h) {
+                h.addEventListener('touchstart', (e) => start(e, it), { passive: true });
+                h.addEventListener('mousedown', (e) => start(e, it));
+            }
+        });
     }
     setGroupsList(groups) {
         this.groups = groups;
