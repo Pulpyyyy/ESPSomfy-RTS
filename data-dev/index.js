@@ -744,6 +744,15 @@ function clearOverlays() {
     const selectors = ['.inst-overlay', '.info-message', '.prompt-message', '.error-message', '.instructions', '#divGitInstall'];
     selectors.forEach(s => document.querySelectorAll(s).forEach(el => el.remove()));
 }
+// Overlays could only be dismissed with the mouse, which left keyboard users stuck in
+// an edit dialog or a PIN prompt with no way out.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' && e.key !== 'Esc') return;
+    const selectors = ['.inst-overlay', '.info-message', '.prompt-message', '.error-message', '.instructions', '#divGitInstall'];
+    if (!selectors.some(s => document.querySelector(s))) return;
+    e.preventDefault();
+    clearOverlays();
+});
 /**
  * synchronisation Sidebar et Tabs
  * @param {string} groupId - L'ID du groupe à activer
@@ -793,6 +802,17 @@ function syncNavigationState(groupId, isSubTab = false) {
 }
 function bindNavigation() {
     document.querySelectorAll('.nav-item, .sub-nav-item').forEach(item => {
+        // These are anchors without an href, which browsers do not treat as focusable,
+        // so the whole menu was unreachable by keyboard. Expose them as buttons and
+        // activate on Enter/Space like a real one.
+        if (!item.hasAttribute('tabindex')) item.setAttribute('tabindex', '0');
+        if (!item.hasAttribute('role')) item.setAttribute('role', 'button');
+        item.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                e.preventDefault();
+                item.click();
+            }
+        });
         item.addEventListener('click', (e) => {
             e.preventDefault();
             // Clicking the chevron just folds/unfolds the group; navigation (and its
