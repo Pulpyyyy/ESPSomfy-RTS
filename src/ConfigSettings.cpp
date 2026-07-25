@@ -359,6 +359,42 @@ bool MQTTSettings::begin() {
   this->load();
   return true;
 }
+// The root topic is the only thing that scopes this device on a shared broker. An
+// empty one puts the command subscriptions ("shades/+/target/set") at the broker
+// root, where any publisher can drive the motors. Wildcards are refused for the
+// same reason -- a root of "+" matches every prefix -- and so are a leading "/"
+// (which yields an empty first level) and the reserved "$" namespace. Everything
+// else a broker accepts is left alone so existing setups keep working.
+bool MQTTSettings::isValidRootTopic(const char *topic) {
+  if(!topic) return false;
+  size_t len = strlen(topic);
+  if(len == 0 || len >= sizeof(MQTTSettings::rootTopic)) return false;
+  if(topic[0] == '/' || topic[0] == '$') return false;
+  bool hasContent = false;
+  for(size_t i = 0; i < len; i++) {
+    const unsigned char c = (unsigned char)topic[i];
+    if(c == '+' || c == '#') return false;
+    if(c < 0x20 || c == 0x7F) return false; // control characters
+    if(c != ' ') hasContent = true;
+  }
+  // A topic made only of spaces is empty for every practical purpose.
+  return hasContent;
+}
+bool MQTTSettings::ensureRootTopic() {
+  if(this->rootTopic[0] != '\0') return false;
+  // Derive a stable per-device default from the chip id -- the same value that
+  // feeds serverId -- so it survives reboots and never collides with another
+  // controller on the same broker.
+  uint64_t mac = ESP.getEfuseMac();
+  uint32_t chipId = 0;
+  for(int i = 0; i < 17; i = i + 8) chipId |= ((mac >> (40 - i)) & 0xff) << i;
+  snprintf(this->rootTopic, sizeof(this->rootTopic), "espsomfy-%02x%02x%02x",
+    (unsigned int)((chipId >> 16) & 0xff),
+    (unsigned int)((chipId >> 8) & 0xff),
+    (unsigned int)(chipId & 0xff));
+  Serial.printf("MQTT root topic was empty, defaulting to %s\n", this->rootTopic);
+  return true;
+}
 void MQTTSettings::toJSON(JsonResponse &json) {
   json.addElem("enabled", this->enabled);
   json.addElem("pubDisco", this->pubDisco);
@@ -390,6 +426,13 @@ bool MQTTSettings::toJSON(JsonObject &obj) {
   return true;
 }
 bool MQTTSettings::fromJSON(JsonObject &obj) {
+  // Validate the root topic before touching anything else so a rejected payload
+  // leaves the stored settings exactly as they were.
+  if(obj.containsKey("rootTopic")) {
+    char topic[sizeof(MQTTSettings::rootTopic)] = "";
+    strlcpy(topic, obj["rootTopic"] | "", sizeof(topic));
+    if(!MQTTSettings::isValidRootTopic(topic)) return false;
+  }
   if(obj.containsKey("enabled")) this->enabled = obj["enabled"];
   if(obj.containsKey("pubDisco")) this->pubDisco = obj["pubDisco"];
   this->parseValueString(obj, "protocol", this->protocol, sizeof(this->protocol));
@@ -408,6 +451,9 @@ bool MQTTSettings::fromJSON(JsonObject &obj) {
   return true;
 }
 bool MQTTSettings::save() {
+  // Never persist an empty root topic, whatever the caller is (settings page,
+  // configuration file restore, ...).
+  this->ensureRootTopic();
   pref.begin("MQTT");
   pref.clear();
   pref.putString("protocol", this->protocol);
@@ -436,6 +482,11 @@ bool MQTTSettings::load() {
   pref.getString("discoTopic", this->discoTopic, sizeof(this->discoTopic));
   pref.getString("clientId", this->clientId, sizeof(this->clientId));
   pref.end();
+  // A stored empty root topic is unsafe (see ensureRootTopic): derive a stable
+  // default and write it back so the settings page, the Home Assistant discovery
+  // payloads and the broker all agree on it from now on. An already configured
+  // root topic is never touched.
+  if(this->ensureRootTopic()) this->save();
   return true;
 }
 bool ConfigSettings::toJSON(DynamicJsonDocument &doc) {

@@ -2938,8 +2938,13 @@ void Web::begin() {
       Serial.print(F("HTTP Method: "));
       Serial.println(server.method());
       if (method == HTTP_POST || method == HTTP_PUT) {
+        // Reject the payload before dropping the current connection: an empty or
+        // wildcard root topic would scope this device at the broker root.
+        if(!settings.MQTT.fromJSON(obj)) {
+          server.send(400, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"The MQTT root topic is required and cannot contain '+' or '#' nor start with '/' or '$'\"}"));
+          return;
+        }
         mqtt.disconnect();
-        settings.MQTT.fromJSON(obj);
         settings.MQTT.save();
         JsonResponse resp;
         resp.beginResponse(&server, g_content, sizeof(g_content));

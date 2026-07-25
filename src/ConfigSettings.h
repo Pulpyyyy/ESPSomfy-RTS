@@ -157,6 +157,12 @@ class MQTTSettings: BaseSettings {
     char rootTopic[65] = "";
     char discoTopic[65] = "homeassistant";
     char clientId[65] = "";  // empty -> auto "client-<mac>"; stored in NVS only, not in the backup record
+    // Refuses a root topic that would let another publisher on the broker reach
+    // this device's command topics. See the implementation for the exact rules.
+    static bool isValidRootTopic(const char *topic);
+    // Fills an empty root topic with a stable per-device default. Returns true when
+    // it had to change the value, so the caller knows it must be persisted.
+    bool ensureRootTopic();
     bool begin();
     bool save();
     bool load();

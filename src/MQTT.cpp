@@ -21,11 +21,11 @@ extern rebootDelay_t rebootDelay;
 
 const char* MQTTClass::makeTopic(const char* topic) {
   static char top[128];
-  if (settings.MQTT.rootTopic[0] != '\0') {
-    snprintf(top, sizeof(top), "%s/%s", settings.MQTT.rootTopic, topic);
-  } else {
-    strlcpy(top, topic, sizeof(top));
-  }
+  // MQTTSettings guarantees a non-empty root topic; this is defence in depth. The
+  // former fallback published *and subscribed* at the broker root when the root
+  // topic was empty, which let any publisher drive the shades.
+  if(settings.MQTT.rootTopic[0] == '\0') settings.MQTT.ensureRootTopic();
+  snprintf(top, sizeof(top), "%s/%s", settings.MQTT.rootTopic, topic);
   return top;
 }
 
