@@ -45,12 +45,31 @@ jobs:
       - name: Inject release version into UI
         if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: |
+          set -eu
           TAG="${{ github.event.release.tag_name || inputs.release_tag }}"
           echo "${TAG#v}" > data-dev/appversion
+          # sed exits 0 when its pattern matches nothing, so a renamed variable or a
+          # reformatted line would silently ship a release advertising the previous
+          # version. Every substitution below is therefore verified.
           sed -i "s/appVersion = 'v[0-9][^']*'/appVersion = '${TAG}'/" data-dev/index.js
+          if ! grep -qF "appVersion = '${TAG}'" data-dev/index.js; then
+            echo "::error file=data-dev/index.js::appVersion injection failed - the 'appVersion = ...' pattern no longer matches"
+            exit 1
+          fi
           # Cache-buster on the CSS/JS refs must track the release so browsers reload
           # the new UI instead of serving a stale index.js/css from cache.
           sed -i "s/?v=[0-9][^\"']*/?v=${TAG#v}/g" data-dev/index.html
+          if ! grep -qF "index.js?v=${TAG#v}" data-dev/index.html; then
+            echo "::error file=data-dev/index.html::cache-buster injection failed - the '?v=' pattern no longer matches"
+            exit 1
+          fi
+          # Any leftover cache-buster on another version means the sed only covered
+          # part of the references.
+          if grep -oE '\?v=[^"'"'"']*' data-dev/index.html | grep -vqF "?v=${TAG#v}"; then
+            echo "::error file=data-dev/index.html::stale cache-buster left in index.html"
+            grep -oE '\?v=[^"'"'"']*' data-dev/index.html | sort -u
+            exit 1
+          fi
           grep -n "appVersion = " data-dev/index.js | head -1
           grep -o "index.js?v=[^\"']*" data-dev/index.html | head -1
           cat data-dev/appversion
@@ -163,8 +182,15 @@ jobs:
       - name: Inject release version into firmware
         if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: |
+          set -eu
           TAG="${{ github.event.release.tag_name || inputs.release_tag }}"
+          # A silent no-op here would publish a firmware still announcing the
+          # previous FW_VERSION, which breaks the OTA version comparison.
           sed -i "s/#define FW_VERSION \"[^\"]*\"/#define FW_VERSION \"${TAG}\"/" src/ConfigSettings.h
+          if ! grep -qF "#define FW_VERSION \"${TAG}\"" src/ConfigSettings.h; then
+            echo "::error file=src/ConfigSettings.h::FW_VERSION injection failed - the '#define FW_VERSION' pattern no longer matches"
+            exit 1
+          fi
           grep -n "FW_VERSION" src/ConfigSettings.h | head -1
 
       # The onboard image is assembled by hand, so the LittleFS offset above duplicates
