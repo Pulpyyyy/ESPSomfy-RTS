@@ -6,6 +6,15 @@ on:
   pull_request:
   release:
     types: [published]
+  # Rebuild the assets of an already-published release with the current
+  # workflow. The source is checked out at the tag; only the build recipe
+  # (offsets, pinned tools) comes from main.
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag whose assets should be rebuilt (e.g. v3.1.0)"
+        required: true
+        type: string
 
 jobs:
   # =======================================================================
@@ -18,15 +27,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get Release info
-        if: github.event_name == 'release'
-        id: get_release
-        uses: bruceadams/get-release@74c3d60f5a28f358ccf241a00c9021ea16f0569f # v1.3.2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
       - name: Check out code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -39,9 +43,9 @@ jobs:
       # Sur une release, la version de l'UI est prise du tag (ex: v2.6.0)
       # pour rester synchrone avec le firmware et l'OTA GitHub.
       - name: Inject release version into UI
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ github.event.release.tag_name || inputs.release_tag }}"
           echo "${TAG#v}" > data-dev/appversion
           sed -i "s/appVersion = 'v[0-9][^']*'/appVersion = '${TAG}'/" data-dev/index.js
           # Cache-buster on the CSS/JS refs must track the release so browsers reload
@@ -67,14 +71,11 @@ jobs:
 
       # Upload du LittleFS UNIQUE sur la page de la Release
       - name: Upload LittleFS to Release
-        if: github.event_name == 'release'
-        uses: shogo82148/actions-upload-release-asset@8f032eff0255912cc9c8455797fd6d72f25c7ab7 # v1.7.5
-        with:
-          github_token: ${{ github.token }}
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_name: SomfyController.littlefs.bin
-          asset_path: SomfyController.littlefs.bin
-          overwrite: true
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" SomfyController.littlefs.bin --clobber --repo "$GITHUB_REPOSITORY"
 
   # =======================================================================
   # JOB 2 : Compilation de chaque carte, Onboard fusionné et Uploads
@@ -138,15 +139,10 @@ jobs:
             obname: SomfyController.onboard.esp32s3_8mb.bin
 
     steps:
-      - name: Get Release info
-        if: github.event_name == 'release'
-        id: get_release
-        uses: bruceadams/get-release@74c3d60f5a28f358ccf241a00c9021ea16f0569f # v1.3.2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
       - name: Check out code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       # Récupération du LittleFS généré au Job 1
       - name: Get LittleFS
@@ -165,9 +161,9 @@ jobs:
       # Sur une release, FW_VERSION est pris du tag pour que le firmware
       # publié s'identifie correctement (comparaison de versions de l'OTA).
       - name: Inject release version into firmware
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ github.event.release.tag_name || inputs.release_tag }}"
           sed -i "s/#define FW_VERSION \"[^\"]*\"/#define FW_VERSION \"${TAG}\"/" src/ConfigSettings.h
           grep -n "FW_VERSION" src/ConfigSettings.h | head -1
 
@@ -204,7 +200,7 @@ jobs:
 
       # CAS 1 : Si c'est un PUSH de dev
       - name: Upload ${{ matrix.name }} (Dev Artifact)
-        if: github.event_name != 'release'
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.name }}
@@ -215,25 +211,17 @@ jobs:
             .pio/build/${{ matrix.env }}/SomfyController.onboard.bin
           retention-days: 5
 
-      # CAS 2 : Si c'est une RELEASE (Firmware applicatif)
-      - name: Upload firmware to Release
-        if: github.event_name == 'release'
-        uses: shogo82148/actions-upload-release-asset@8f032eff0255912cc9c8455797fd6d72f25c7ab7 # v1.7.5
-        with:
-          github_token: ${{ github.token }}
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_name: ${{ matrix.fwname }}
-          asset_path: .pio/build/${{ matrix.env }}/firmware.bin
-          overwrite: true
-
-      # CAS 2 suite : Si c'est une RELEASE (Image zip d'usine)
-      - name: Upload onboard image to Release
-        if: github.event_name == 'release'
-        uses: shogo82148/actions-upload-release-asset@8f032eff0255912cc9c8455797fd6d72f25c7ab7 # v1.7.5
-        with:
-          github_token: ${{ github.token }}
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_name: ${{ matrix.obname }}.zip
-          asset_path: .pio/build/${{ matrix.env }}/${{ matrix.obname }}.zip
-          overwrite: true
-          asset_content_type: application/zip
+      # CAS 2 : Si c'est une RELEASE (Firmware applicatif + image zip d'usine).
+      # gh upload names the asset after the file, so the firmware is copied
+      # to its per-board asset name first.
+      - name: Upload firmware and onboard image to Release
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+        run: |
+          cp .pio/build/${{ matrix.env }}/firmware.bin "${{ matrix.fwname }}"
+          gh release upload "$RELEASE_TAG" \
+            "${{ matrix.fwname }}" \
+            ".pio/build/${{ matrix.env }}/${{ matrix.obname }}.zip" \
+            --clobber --repo "$GITHUB_REPOSITORY"
