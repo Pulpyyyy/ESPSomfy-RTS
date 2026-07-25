@@ -10,6 +10,7 @@
 #include "MQTT.h"
 #include "ConfigFile.h"
 #include "GitOTA.h"
+#include "SomfyCodec.h"
 
 extern Preferences pref;
 extern SomfyShadeController somfy;
@@ -116,31 +117,14 @@ String translateSomfyCommand(const somfy_commands cmd) {
         return "Unknown(" + String((uint8_t)cmd) + ")";
     }
 }
-byte somfy_frame_t::calc80Checksum(byte b0, byte b1, byte b2) {
-  byte cs80 = 0;
-  cs80 = (((b0 & 0xF0) >> 4) ^ ((b1 & 0xF0) >> 4));
-  cs80 ^= ((b2 & 0xF0) >> 4);
-  cs80 ^= (b0 & 0x0F);
-  cs80 ^= (b1 & 0x0F);
-  return cs80;
-}
+// The bit level primitives live in SomfyCodec.cpp so they can be unit tested on
+// the host (test/test_somfy); the methods below stay as the callers know them.
+byte somfy_frame_t::calc80Checksum(byte b0, byte b1, byte b2) { return somfy_codec::checksum80(b0, b1, b2); }
 void somfy_frame_t::decodeFrame(byte* frame) {
     byte decoded[10];
-    decoded[0] = frame[0];
     // The last 3 bytes are not encoded even on 80-bits. Go figure.
-    decoded[7] = frame[7];
-    decoded[8] = frame[8];
-    decoded[9] = frame[9];
-    for (byte i = 1; i < 7; i++) {
-        decoded[i] = frame[i] ^ frame[i - 1];
-    }
-    byte checksum = 0;
-    // We only want the upper nibble for the command byte.
-    for (byte i = 0; i < 7; i++) {
-        if (i == 1) checksum = checksum ^ (decoded[i] >> 4);
-        else checksum = checksum ^ decoded[i] ^ (decoded[i] >> 4);
-    }
-    checksum &= 0b1111;  // We keep the last 4 bits only
+    somfy_codec::deobfuscate(frame, decoded, somfy_codec::FRAME_LEN_80);
+    byte checksum = somfy_codec::checksumDecoded(decoded);
 
     this->checksum = decoded[1] & 0b1111;
     this->encKey = decoded[0];
@@ -261,10 +245,7 @@ void somfy_frame_t::decodeFrame(somfy_rx_t *rx) {
   this->rssi = ELECHOUSE_cc1101.getRssi();
   this->decodeFrame(rx->payload);
 }
-byte somfy_frame_t::encode80Byte7(byte start, uint8_t repeat) {
-  while((repeat * 4) + start > 255) repeat -= 15;
-  return start + (repeat * 4);
-}
+byte somfy_frame_t::encode80Byte7(byte start, uint8_t repeat) { return somfy_codec::encode80Byte7(start, repeat); }
 void somfy_frame_t::encode80BitFrame(byte *frame, uint8_t repeat) {
   switch(this->cmd) {
     // Step up and down commands encode the step size into the last 3 bytes.
@@ -426,18 +407,10 @@ void somfy_frame_t::encodeFrame(byte *frame) {
   else {
     if(this->bitLength == 80) this->encode80BitFrame(&frame[0], this->repeats);
   }
-  byte checksum = 0;
- 
-  for (byte i = 0; i < 7; i++) {
-      checksum = checksum ^ frame[i] ^ (frame[i] >> 4);
-  }
-  checksum &= 0b1111;  // We keep the last 4 bits only
   // Checksum integration
-  frame[1] |= checksum;
+  frame[1] |= somfy_codec::checksumPlain(frame);
   // Obfuscation: a XOR of all the bytes
-  for (byte i = 1; i < 7; i++) {
-      frame[i] ^= frame[i - 1];
-  }
+  somfy_codec::obfuscate(frame);
 }
 void somfy_frame_t::print() {
     Serial.println("----------- Receiving -------------");
