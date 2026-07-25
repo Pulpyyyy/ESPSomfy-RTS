@@ -723,7 +723,7 @@
     "ERR_DEVICE_IN_GROUP": "Dieses Gerät kann nicht gelöscht werden, da es zu einer Gruppe gehört.",
     "ERR_GROUP_NOT_EMPTY": "Sie können diese Gruppe erst löschen, wenn alle Geräte daraus entfernt wurden.",
     "ERR_INVALID_GROUP_ID": "Es wurde keine gültige Gruppen-ID angegeben.",
-    "ERR_NO_SHADE_AVAILABLE_FOR_GROUP": "Keine Geräte verfügbar, die dieser Gruppe zugeordnet werden können.",
+    "ERR_NO_DEVICE_AVAILABLE_GROUP": "Keine Geräte verfügbar, die dieser Gruppe zugeordnet werden können.",
     "ERR_DEVICE_NOT_FOUND_GROUP": "Das angegebene Gerät wurde in dieser Gruppe nicht gefunden.",
     "ERR_PORT_INVALID": "Ungültige Portnummer",
     "ERR_UNSPECIFIED": "Datei fehlt oder Version für Ihren ESP32 nicht verfügbar",
