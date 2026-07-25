@@ -1278,7 +1278,11 @@ void Web::handleDownloadFirmware(WebServer &server) {
         rel->toJSON(resp);
         resp.endObject();
         resp.endResponse();
-        strcpy(git.targetRelease, rel->name);
+        // The OTA download URL is built from this value as
+        // .../releases/download/<targetRelease>/, which GitHub keys by the git tag,
+        // not the (possibly spaced/decorated) release title. Prefer the tag-derived
+        // version name; fall back to the title only for the tag-less "main" slot.
+        strcpy(git.targetRelease, rel->version.name[0] ? rel->version.name : rel->name);
         git.status = GIT_AWAITING_UPDATE;
       }
       else
