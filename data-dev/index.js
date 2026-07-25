@@ -499,7 +499,9 @@ function getJSON(url, cb) {
     };
     xhr.send();
 }
-function getJSONSync(url, cb) {
+// Same as getJSON, plus a modal wait overlay for the duration of the request.
+// The request itself is asynchronous, like every other one here.
+function getJSONBusy(url, cb) {
     let overlay = ui.waitMessage(get('divContainer'));
     let xhr = new XMLHttpRequest();
     xhr.responseType = 'json';
@@ -566,7 +568,8 @@ function getText(url, cb) {
     };
     xhr.send();
 }
-function postJSONSync(url, data, cb) {
+// Multipart POST with a wait overlay. Currently unused, kept alongside its siblings.
+function postJSONBusy(url, data, cb) {
     let overlay = ui.waitMessage(get('divContainer'));
     try {
         let xhr = new XMLHttpRequest();
@@ -643,7 +646,9 @@ function putJSON(url, data, cb) {
     };
     xhr.send(JSON.stringify(data));
 }
-function putJSONSync(url, data, cb) {
+// Same as putJSON, plus a modal wait overlay and a try/catch that reports failures
+// through ui.serviceError. Asynchronous, despite what the old "Sync" name suggested.
+function putJSONBusy(url, data, cb) {
     let overlay = ui.waitMessage(get('divContainer'));
     try {
         let xhr = new XMLHttpRequest();
@@ -2224,7 +2229,7 @@ class Security {
 
         return new Promise(res => {
             loadLang(() => {
-                getJSONSync('/loginContext', (err, ctx) => {
+                getJSONBusy('/loginContext', (err, ctx) => {
                     if (err) return ui.serviceError(err), res();
 
                     // Uptime & Info CPU
@@ -2326,7 +2331,7 @@ class Security {
                 break;
         }
         sec.pin = pin;
-        putJSONSync('/login', sec, (err, log) => {
+        putJSONBusy('/login', sec, (err, log) => {
             if (err) ui.serviceError(err);
             else {
                 if (log.success) {
@@ -2533,7 +2538,7 @@ class General {
     loadGeneral() {
         const pnl = get('divSystemOptions');
 
-        getJSONSync('/modulesettings', (err, settings) => {
+        getJSONBusy('/modulesettings', (err, settings) => {
             if (err) {
                 console.error(err);
                 return;
@@ -2611,7 +2616,7 @@ class General {
             valid = false;
         }
         if (valid) {
-            putJSONSync('/setgeneral', obj, (err, response) => {
+            putJSONBusy('/setgeneral', obj, (err, response) => {
                 if (err) {
                     ui.serviceError(err);
                 } else {
@@ -2640,7 +2645,7 @@ class General {
     }
     rebootDevice() {
         ui.promptMessage(get('divContainer'), tr('PROMPT_REBOOT_CONFIRM'), () => {
-            putJSONSync('/reboot', {}, (err, response) => {
+            putJSONBusy('/reboot', {}, (err, response) => {
                 get('btnSaveGeneral').classList.remove('disabled');
                 // Only drop the socket once the firmware accepted the reboot; a 401
                 // (login prompt) or any other error must keep the live connection.
@@ -2734,7 +2739,7 @@ class General {
             confirmText = `<p>${tr('SAVESECURITY_PASSWORD_WARNING')}</p><p>${tr('SAVESECURITY_PASSWORD_CONFIRM')}</p>`;
         }
         const prompt = ui.promptMessage(tr('PROMPT_SECURITY_CONFIRM'), () => {
-            putJSONSync('/saveSecurity', data, (e, resp) => {
+            putJSONBusy('/saveSecurity', data, (e, resp) => {
                 prompt.remove();
                 if (e) ui.serviceError(e);
                 else {
@@ -2999,7 +3004,7 @@ class Wifi {
 
     loadNetwork() {
         let pnl = get('divNetAdapter');
-        getJSONSync('/networksettings', (err, settings) => {
+        getJSONBusy('/networksettings', (err, settings) => {
             if(DBG) console.log(settings);
             if (err) {
                 ui.serviceError(err);
@@ -3234,7 +3239,7 @@ class Wifi {
                 return;
             }
         }
-        putJSONSync('/setIP', obj, (err, response) => {
+        putJSONBusy('/setIP', obj, (err, response) => {
             if (err) {
                 ui.serviceError(err);
             } else {
@@ -3315,7 +3320,7 @@ class Wifi {
         }
     }
     sendNetworkSettings(obj) {
-        putJSONSync('/setNetwork', obj, (err, response) => {
+        putJSONBusy('/setNetwork', obj, (err, response) => {
             if (err) {
                 ui.serviceError(err);
             } else {
@@ -3531,7 +3536,7 @@ class Somfy {
     }
     async loadSomfy() {
         //console.trace("loadSomfy called");
-        getJSONSync('/controller', (err, somfy) => {
+        getJSONBusy('/controller', (err, somfy) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -3657,7 +3662,7 @@ class Somfy {
             if (!valid) return;
 
             const proceedSave = () => {
-                putJSONSync('/saveRadio', t, (err, res) => {
+                putJSONBusy('/saveRadio', t, (err, res) => {
                     if (err) return ui.serviceError(err);
 
                     ui.successMessage(tr('MSG_SAVE_SUCCESS'));
@@ -3846,7 +3851,7 @@ class Somfy {
         }
         if (initScan) {
             div.setAttribute('data-initscan', true);
-            putJSONSync('/beginFrequencyScan', {}, (err) => {
+            putJSONBusy('/beginFrequencyScan', {}, (err) => {
                 if (!err) {
                     ['btnStopScanning'].forEach(id => get(id).style.display = '');
                     ['btnRestartScanning', 'btnCopyFrequency', 'btnCloseScanning'].forEach(id => get(id).style.display = 'none');
@@ -3870,7 +3875,7 @@ class Somfy {
             closeOverlay(div);
             return;
         }
-        putJSONSync('/endFrequencyScan', {}, (err, trans) => {
+        putJSONBusy('/endFrequencyScan', {}, (err, trans) => {
             if (err) {
                 ui.serviceError(err);
             } else {
@@ -3894,7 +3899,7 @@ class Somfy {
             this.scanObserver = null;
         }
         if (killScan) {
-            putJSONSync('/endFrequencyScan', {}, (err) => {
+            putJSONBusy('/endFrequencyScan', {}, (err) => {
                 if (err) console.error(err);
             });
         }
@@ -4091,7 +4096,7 @@ class Somfy {
             let order = Array.from(list.querySelectorAll('.room-draggable')).map(item =>
             parseInt(item.getAttribute('data-roomid'), 10)
             );
-            putJSONSync('/roomSortOrder', order, (err) => {
+            putJSONBusy('/roomSortOrder', order, (err) => {
                 if (err) ui.serviceError(err);
                 else this.updateRoomsList();
             });
@@ -4325,7 +4330,7 @@ class Somfy {
                 order.push(parseInt(items[i].getAttribute('data-shadeid'), 10));
                 // Reorder the shades on the main page.
             }
-            putJSONSync('/shadeSortOrder', order, (err) => {
+            putJSONBusy('/shadeSortOrder', order, (err) => {
                 for (let i = order.length - 1; i >= 0; i--) {
                     let el = shadeControls.querySelector(`.somfyShadeCtl[data-shadeid="${order[i]}"`);
                     if (el) {
@@ -4537,7 +4542,7 @@ class Somfy {
                 order.push(parseInt(items[i].getAttribute('data-groupid'), 10));
                 // Reorder the shades on the main page.
             }
-            putJSONSync('/groupSortOrder', order, (err) => {
+            putJSONBusy('/groupSortOrder', order, (err) => {
                 for (let i = order.length - 1; i >= 0; i--) {
                     let el = groupControls.querySelector(`.somfyGroupCtl[data-groupid="${order[i]}"`);
                     if (el) {
@@ -4943,7 +4948,7 @@ class Somfy {
                 return;
             }
             get('btnSaveRoom').innerText = tr('BT_CREATE');
-            getJSONSync('/getNextRoom', (err, room) => {
+            getJSONBusy('/getNextRoom', (err, room) => {
                 get('spanRoomId').innerText = '*';
                 if (err) ui.serviceError(err);
                 else {
@@ -4957,7 +4962,7 @@ class Somfy {
         }
         else {
             get('btnSaveRoom').innerText = tr('BT_SAVE');
-            getJSONSync(`/room?roomId=${roomId}`, (err, room) => {
+            getJSONBusy(`/room?roomId=${roomId}`, (err, room) => {
                 if (err) ui.serviceError(err);
                 else {
                     if(DBG) console.log(room);
@@ -4985,7 +4990,7 @@ class Somfy {
         btns.forEach(id => s(id, 'none'));
         ['blocPairDevice', 'divLinkedRemoteList', 'labelPosContainer'].forEach(id => s(id, 'none'));
 
-        getJSONSync(isNew ? '/getNextShade' : `/shade?shadeId=${shadeId}`, (err, shade) => {
+        getJSONBusy(isNew ? '/getNextShade' : `/shade?shadeId=${shadeId}`, (err, shade) => {
             if (err) return ui.serviceError(err);
 
             if (isNew) {
@@ -5058,7 +5063,7 @@ class Somfy {
         s(blocPairParent, 'none');
         s(divLinkedShades, 'none');
 
-        getJSONSync(isNew ? '/getNextGroup' : `/group?groupId=${groupId}`, (err, group) => {
+        getJSONBusy(isNew ? '/getNextGroup' : `/group?groupId=${groupId}`, (err, group) => {
             if (err) return ui.serviceError(err);
 
             if (isNew) {
@@ -5150,7 +5155,7 @@ class Somfy {
         if (valid) {
             if (isNaN(roomId) || roomId === 0) {
                 // We are adding.
-                putJSONSync('/addRoom', obj, (err, room) => {
+                putJSONBusy('/addRoom', obj, (err, room) => {
                     if (err) {
                         ui.serviceError(err);
                         if(DBG) console.log(err);
@@ -5167,7 +5172,7 @@ class Somfy {
             }
             else {
                 obj.roomId = roomId;
-                putJSONSync('/saveRoom', obj, (err, room) => {
+                putJSONBusy('/saveRoom', obj, (err, room) => {
                     if (err) {
                         ui.serviceError(err);
                     } else {
@@ -5211,7 +5216,7 @@ class Somfy {
         const isNew = isNaN(sId) || sId >= 255;
         if (!isNew) obj.shadeId = sId;
 
-        putJSONSync(isNew ? '/addShade' : '/saveShade', obj, (err, shade) => {
+        putJSONBusy(isNew ? '/addShade' : '/saveShade', obj, (err, shade) => {
             if (err) return ui.serviceError(err);
 
             if(DBG) console.log("Shade saved/added:", shade);
@@ -5236,7 +5241,7 @@ class Somfy {
         if (error) return ui.errorMessage(tr(error[1]));
         if (!isNew) obj.groupId = groupId;
 
-        putJSONSync(isNew ? '/addGroup' : '/saveGroup', obj, (err, group) => {
+        putJSONBusy(isNew ? '/addGroup' : '/saveGroup', obj, (err, group) => {
             if (err) return ui.serviceError(err);
 
             if(DBG) console.log("Group saved:", group);
@@ -5247,7 +5252,7 @@ class Somfy {
         });
     }
     updateRoomsList() {
-        getJSONSync('/rooms', (err, shades) => {
+        getJSONBusy('/rooms', (err, shades) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -5258,7 +5263,7 @@ class Somfy {
         });
     }
     updateShadeList() {
-        getJSONSync('/shades', (err, shades) => {
+        getJSONBusy('/shades', (err, shades) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -5271,7 +5276,7 @@ class Somfy {
         });
     }
     updateGroupList() {
-        getJSONSync('/groups', (err, groups) => {
+        getJSONBusy('/groups', (err, groups) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -5284,7 +5289,7 @@ class Somfy {
         });
     }
     updateRepeatList() {
-        getJSONSync('/repeaters', (err, repeaters) => {
+        getJSONBusy('/repeaters', (err, repeaters) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -5299,12 +5304,12 @@ class Somfy {
             valid = false;
         }
         if (valid) {
-            getJSONSync(`/room?roomId=${roomId}`, (err, room) => {
+            getJSONBusy(`/room?roomId=${roomId}`, (err, room) => {
                 if (err) ui.serviceError(err);
                 else {
                     let prompt = ui.promptMessage(tr('PROMPT_DELETE_ROOM'), () => {
                         ui.clearErrors();
-                        putJSONSync('/deleteRoom', { roomId: roomId }, (err, room) => {
+                        putJSONBusy('/deleteRoom', { roomId: roomId }, (err, room) => {
                             prompt.remove();
                             if (err) ui.serviceError(err);
                             else
@@ -5323,13 +5328,13 @@ class Somfy {
             valid = false;
         }
         if (valid) {
-            getJSONSync(`/shade?shadeId=${shadeId}`, (err, shade) => {
+            getJSONBusy(`/shade?shadeId=${shadeId}`, (err, shade) => {
                 if (err) ui.serviceError(err);
                 else if (shade.inGroup) ui.errorMessage(tr('ERR_DEVICE_IN_GROUP'));
                 else {
                     let prompt = ui.promptMessage(tr('PROMPT_DELETE_SHADE'), () => {
                         ui.clearErrors();
-                        putJSONSync('/deleteShade', { shadeId: shadeId }, (err, shade) => {
+                        putJSONBusy('/deleteShade', { shadeId: shadeId }, (err, shade) => {
                             if (err) ui.serviceError(err);
                             else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
                             this.updateShadeList();
@@ -5348,7 +5353,7 @@ class Somfy {
             valid = false;
         }
         if (valid) {
-            getJSONSync(`/group?groupId=${groupId}`, (err, group) => {
+            getJSONBusy(`/group?groupId=${groupId}`, (err, group) => {
                 if (err) ui.serviceError(err);
                 else {
                     if (group.linkedShades.length > 0) {
@@ -5356,7 +5361,7 @@ class Somfy {
                     }
                     else {
                         let prompt = ui.promptMessage(tr('PROMPT_DELETE_GROUP'), () => {
-                            putJSONSync('/deleteGroup', { groupId: groupId }, (err, g) => {
+                            putJSONBusy('/deleteGroup', { groupId: groupId }, (err, g) => {
                                 if (err) ui.serviceError(err);
                                 else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
                                 this.updateGroupList();
@@ -5370,7 +5375,7 @@ class Somfy {
         }
     }
     setRollingCode(shadeId, rollingCode) {
-        putJSONSync('/setRollingCode', { shadeId: shadeId, rollingCode: rollingCode }, (err, shade) => {
+        putJSONBusy('/setRollingCode', { shadeId: shadeId, rollingCode: rollingCode }, (err, shade) => {
             if (err) ui.serviceError(get('divSomfySettings'), err);
             else {
                 let dlg = get('divRollingCode');
@@ -5418,7 +5423,7 @@ class Somfy {
         let obj = { shadeId: shadeId, paired: paired || false };
         let div = get('divPairing');
         let overlay = typeof div === 'undefined' ? undefined : ui.waitMessage(div);
-        putJSONSync('/setPaired', obj, (err, shade) => {
+        putJSONBusy('/setPaired', obj, (err, shade) => {
             if (overlay) overlay.remove();
             if (err) {
                 if(DBG) console.log(err);
@@ -5817,7 +5822,7 @@ class Somfy {
 
         div.querySelector('#btnOpenMemory').onclick = () => {
             const sId = isUnlink ? shadeId : ui.fromElement(div).shadeId;
-            putJSONSync('/shadeCommand', { shadeId: sId, command: 'prog', repeat: 40 }, (err) => {
+            putJSONBusy('/shadeCommand', { shadeId: sId, command: 'prog', repeat: 40 }, (err) => {
                 if (err) ui.serviceError(err);
                 else {
                     let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
@@ -5841,11 +5846,11 @@ class Somfy {
         };
         if (isUnlink) {
             btnAction.onclick = () => {
-                putJSONSync('/groupCommand', { groupId: groupId, command: 'prog', repeat: 1 }, (err) => {
+                putJSONBusy('/groupCommand', { groupId: groupId, command: 'prog', repeat: 1 }, (err) => {
                     if (err) ui.serviceError(err);
                     else {
                         let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
-                            putJSONSync('/unlinkFromGroup', { groupId: groupId, shadeId: shadeId }, (err, group) => {
+                            putJSONBusy('/unlinkFromGroup', { groupId: groupId, shadeId: shadeId }, (err, group) => {
                                 somfy.setLinkedShadesList(group);
                                 this.updateGroupList();
                             });
@@ -5865,7 +5870,7 @@ class Somfy {
                 mouseDown = false;
                 let obj = ui.fromElement(div);
                 let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
-                    putJSONSync('/linkToGroup', { groupId: groupId, shadeId: obj.shadeId }, (err, group) => {
+                    putJSONBusy('/linkToGroup', { groupId: groupId, shadeId: obj.shadeId }, (err, group) => {
                         somfy.setLinkedShadesList(group);
                         this.updateGroupList();
                     });
@@ -5883,7 +5888,7 @@ class Somfy {
             btnAction.ontouchend = (e) => { e.preventDefault(); progUp(); };
         }
         const urlInit = isUnlink ? `/group?groupId=${groupId}` : `/groupOptions?groupId=${groupId}`;
-        getJSONSync(urlInit, (err, data) => {
+        getJSONBusy(urlInit, (err, data) => {
             if (err) {
                 ui.serviceError(err);
                 return;
@@ -5923,7 +5928,7 @@ class Somfy {
 
     unlinkRepeater(address) {
         let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REPEATER'), () => {
-            putJSONSync('/unlinkRepeater', { address: address }, (err, repeaters) => {
+            putJSONBusy('/unlinkRepeater', { address: address }, (err, repeaters) => {
                 if (err) ui.serviceError(err);
                 else this.setRepeaterList(repeaters);
                 prompt.remove();
@@ -5936,7 +5941,7 @@ class Somfy {
                 shadeId: shadeId,
                 remoteAddress: remoteAddress
             };
-            putJSONSync('/unlinkRemote', obj, (err, shade) => {
+            putJSONBusy('/unlinkRemote', obj, (err, shade) => {
 
                 if(DBG) console.log(shade);
                 prompt.remove();
@@ -6064,7 +6069,7 @@ class MQTT {
     initialized = false;
     init() { this.initialized = true; }
     async loadMQTT() {
-        getJSONSync('/mqttsettings', (err, settings) => {
+        getJSONBusy('/mqttsettings', (err, settings) => {
             if (err)
                 if(DBG) console.log(err);
             else {
@@ -6112,7 +6117,7 @@ class MQTT {
         // Only send the password when the user actually typed one; an empty field
         // means "keep the stored password" (mirrors the firmware fromJSON rule).
         if (!obj.mqtt.password) delete obj.mqtt.password;
-        putJSONSync('/connectmqtt', obj.mqtt, (err, response) => {
+        putJSONBusy('/connectmqtt', obj.mqtt, (err, response) => {
             if (err) {
                 ui.serviceError(err);
             } else {
@@ -6435,7 +6440,7 @@ class Firmware {
             try { await firmware.backup(); }
             catch (err) { return ui.serviceError(div, err); }
         }
-        putJSONSync(`/downloadFirmware?ver=${obj.version}`, {}, (err, ver) => {
+        putJSONBusy(`/downloadFirmware?ver=${obj.version}`, {}, (err, ver) => {
             if (err) return ui.serviceError(err);
             general.reloadApp = true;
             const desc = tr('GIT_RELEASE_DESC').replace('%1', esc(ver.name));
@@ -6465,13 +6470,13 @@ class Firmware {
         });
     }
     cancelInstallGit(div) {
-        putJSONSync(`/cancelFirmware`, {}, (err) => {
+        putJSONBusy(`/cancelFirmware`, {}, (err) => {
             if (err) ui.serviceError(err);
             closeOverlay(div);
         });
     }
     updateGithub() {
-        getJSONSync('/getReleases', (err, rel) => {
+        getJSONBusy('/getReleases', (err, rel) => {
             if (err) return ui.serviceError(err);
             const div = document.createElement('div'), isMob = this.isMobile();
             const chip = (get('divContainer').getAttribute('data-chipmodel') || "").toLowerCase();
