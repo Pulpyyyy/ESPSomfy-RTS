@@ -3239,7 +3239,9 @@ class Wifi {
         const elChan = get('spanNetworkChannel');
         const elStrength = get('spanNetworkStrength');
 
-        if (elSSID) elSSID.innerHTML = !ssid || ssid === '' ? '-------------' : ssid;
+        // The SSID is attacker-controlled (any nearby AP can broadcast one) and lands in
+        // innerHTML, so it must go through the central escaper like every other network string.
+        if (elSSID) elSSID.innerHTML = !ssid || ssid === '' ? '-------------' : esc(ssid);
         if (elChan) elChan.innerHTML = isNaN(strength.channel) || strength.channel < 0 ? '--' : strength.channel;
         if (elStrength) elStrength.innerHTML = isNaN(sVal) || sVal <= -100 ? '----' : sVal;
 
