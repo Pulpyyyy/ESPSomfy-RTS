@@ -708,7 +708,7 @@ div.error-message,
 }
 .step-name {
     font-size: var(--fs-xs);
-    color: #888;
+    color: var(--help);
     margin-top: 8px;
     text-transform: uppercase;
 }
@@ -884,7 +884,7 @@ button[line].fw-sidebar-button:hover,
 /*github page*/
 .labelgrey {
     font-size: var(--fs-sm);
-    color: #888;
+    color: var(--help);
     font-family: monospace;
 }
 .selectCompac {
@@ -1447,7 +1447,7 @@ cursor: pointer;
     .shadectl-status-left {
         display: flex;
         gap: 5px;
-        color: #666;
+        color: var(--soustxt-color);
         align-items: center;
     }
 .indicator {
@@ -1588,7 +1588,7 @@ cursor: pointer;
 }
 .somfyGroupCtl label,
 .somfyShadeCtl label {
-    color:silver;
+    color: var(--soustxt-color);
 }
 .somfyGroupCtl .groupctl-room {
     font-size:var(--fs-xs);
@@ -2092,7 +2092,7 @@ div.eth-setting-line label {
         width: 100%;
         padding: 10px;
         background: var(--unibloc-color);
-        border-top: 1px solid #333;
+        border-top: 1px solid var(--border);
         box-sizing: border-box;
         transform: translateY(100%);
         animation: slideUpFooter 0.6s cubic-bezier(0.25, 1, 0.5, 1) 0.1s forwards;
