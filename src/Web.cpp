@@ -134,19 +134,26 @@ bool Web::createAPIToken(const char *payload, char *token) {
     byte hmacResult[32];
     mbedtls_md_context_t ctx;
     mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
-    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1);
+    // md_setup() with hmac=1 heap-allocates the digest and HMAC contexts; they must be
+    // released or every token computation leaks.  /login computes one before checking any
+    // credential, so an anonymous request loop would otherwise exhaust the heap.
+    mbedtls_md_init(&ctx);
+    if(mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1) != 0) {
+      mbedtls_md_free(&ctx);
+      token[0] = '\0';
+      return false;
+    }
     // Key the HMAC with the private random secret, not the public/weak serverId.
     mbedtls_md_hmac_starts(&ctx, (const unsigned char *)settings.apiSecret, sizeof(settings.apiSecret));
     mbedtls_md_hmac_update(&ctx, (const unsigned char *)payload, strlen(payload)); 
     mbedtls_md_hmac_finish(&ctx, hmacResult);
-    Serial.print("Hash: ");
+    mbedtls_md_free(&ctx);
     token[0] = '\0';
     for(int i = 0; i < sizeof(hmacResult); i++){
         char str[3];
         sprintf(str, "%02x", (int)hmacResult[i]);
         strcat(token, str);
     }
-    Serial.println(token);
     return true;
 }
 bool Web::createAPIToken(const IPAddress ipAddress, char *token) {
