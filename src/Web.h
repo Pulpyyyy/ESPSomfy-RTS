@@ -55,6 +55,9 @@ public:
   bool createAPIPasswordToken(const IPAddress ipAddress, const char *username, const char *password, char *token);
   bool isAuthenticated(WebServer &server, bool cfg = false);
   bool ensureAuth(WebServer &server, bool cfg = false);
+  // CSRF / DNS-rebinding guard for the browser-facing server. Returns false and
+  // sends a 403 when the request is cross-origin or targets a rebinding host.
+  bool sameOriginOK(WebServer &server);
 
   //void chunkRoomsResponse(WebServer &server, const char *elem = nullptr);
   //void chunkShadesResponse(WebServer &server, const char *elem = nullptr);

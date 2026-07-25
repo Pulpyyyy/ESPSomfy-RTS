@@ -3,6 +3,7 @@
 #include <Update.h>
 #include <HTTPClient.h>
 #include <esp_task_wdt.h>
+#include <esp_ota_ops.h>
 #include <time.h>
 #include "ConfigSettings.h"
 #include "GitOTA.h"
@@ -530,6 +531,19 @@ int8_t GitUpdater::downloadFile() {
       Serial.printf("[HTTPS] GET... code: %d - %d\n", httpCode, len);
       if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_FOUND) {
         WiFiClient *stream = https.getStreamPtr();
+        // Reject a firmware image that would not fit the target OTA partition
+        // before writing a single byte. A too-large or spoofed Content-Length
+        // would otherwise be caught only mid-flash, after clobbering the slot.
+        if(this->partition == U_FLASH && len != (size_t)-1) {
+          const esp_partition_t *next = esp_ota_get_next_update_partition(NULL);
+          if(next && len > next->size) {
+            Serial.printf("Firmware image (%u bytes) exceeds OTA partition (%u bytes); aborting.\n",
+                          (unsigned)len, (unsigned)next->size);
+            https.end();
+            sclient.stop();
+            return -45;
+          }
+        }
         if(!Update.begin(len, this->partition)) {
           Serial.println("Update Error detected!!!!!");
           Update.printError(Serial);
