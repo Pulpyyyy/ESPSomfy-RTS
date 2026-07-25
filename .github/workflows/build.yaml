@@ -18,6 +18,31 @@ on:
 
 jobs:
   # =======================================================================
+  # JOB 0 : Tests unitaires natifs (aucune carte requise)
+  # Couvre les modules sans dépendance Arduino : formateur JSON, lecture de
+  # version OTA, codec de trame Somfy.
+  # =======================================================================
+  native-tests:
+    name: Native unit tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PlatformIO
+        run: pip install platformio==6.1.19
+
+      - name: Run unit tests
+        run: pio test -e native
+
+  # =======================================================================
   # JOB 1 : Génération du LittleFS unique (Compiles pour Dev ET Release)
   # =======================================================================
   littlefs:
