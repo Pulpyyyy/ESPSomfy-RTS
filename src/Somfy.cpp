@@ -3466,7 +3466,7 @@ void SomfyShade::toJSONRef(JsonResponse &json, bool includeSecrets) {
   json.addElem("paired", this->paired);
   json.addElem("shadeType", static_cast<uint8_t>(this->shadeType));
   json.addElem("flipCommands", this->flipCommands);
-  json.addElem("flipPosition", this->flipCommands);
+  json.addElem("flipPosition", this->flipPosition);
   json.addElem("bitLength", this->bitLength);
   json.addElem("proto", static_cast<uint8_t>(this->proto));
   json.addElem("flags", this->flags);
