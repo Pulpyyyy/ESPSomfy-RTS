@@ -46,7 +46,11 @@ bool MQTTClass::loop() {
 void MQTTClass::receive(const char *topic, byte* payload, uint32_t length) {
   esp_task_wdt_reset();
 
+  if(!topic || !payload) return;
   uint16_t len = strlen(topic);
+  // An empty topic would underflow the unsigned index below to 65535 and send the
+  // walk-back loop reading far past the end of the buffer.
+  if(len == 0) return;
   uint16_t ndx = len - 1;
   uint8_t slashes = 0;
   while(ndx > 0 && slashes < 4) {
