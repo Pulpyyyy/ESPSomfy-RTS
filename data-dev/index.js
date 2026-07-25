@@ -63,6 +63,12 @@ const translator = {
         document.querySelectorAll('[tr]').forEach(el => this.translate(el));
         if (this.isInitialized) return;
 
+        // Scoped to the container instead of <body>: everything generated at runtime
+        // (panels, overlays, toasts) lands there, while the topbar and the sidebar are
+        // static and already covered by the pass above. Watching the whole body meant
+        // re-scanning every inserted subtree on each socket-driven position update, for
+        // the lifetime of the page.
+        const root = get('divContainer') || document.body;
         this.observer = new MutationObserver((mutations) => {
             mutations.forEach(m => m.addedNodes.forEach(node => {
                 if (node.nodeType === 1) {
@@ -71,7 +77,7 @@ const translator = {
                 }
             }));
         });
-        this.observer.observe(document.body, { childList: true, subtree: true });
+        this.observer.observe(root, { childList: true, subtree: true });
         this.isInitialized = true;
     }
 };
