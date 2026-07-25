@@ -58,6 +58,9 @@ void loop() {
   // One minute of loop without crash or watchdog reset = firmware is valid, cancel rollback.
   static bool fwValidated = false;
   if(!fwValidated && millis() > 60000) { OTARollback::markValid(); fwValidated = true; }
+  // Single evaluation per pass: a reboot armed later in this pass fires at the top of the
+  // next one a few ms later, which is what the 500-1000ms grace the callers arm is for --
+  // it lets the HTTP response that requested the reboot flush first.
   if(rebootDelay.reboot && (int32_t)(millis() - rebootDelay.rebootTime) >= 0) {
     Serial.print("Rebooting after ");
     Serial.print(rebootDelay.rebootTime);
@@ -94,11 +97,6 @@ void loop() {
     if(millis() - timing > 100) Serial.printf("Timing Socket: %ldms\n", millis() - timing);
     esp_task_wdt_reset();
     timing = millis();
-  }
-  if(rebootDelay.reboot && (int32_t)(millis() - rebootDelay.rebootTime) >= 0) {
-    OTARollback::markValid();
-    net.end();
-    ESP.restart();
   }
   esp_task_wdt_reset();
 }
