@@ -469,6 +469,10 @@ void Web::handleStreamFile(WebServer &server, const char *filename, const char *
 void Web::handleController(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  // Shade/room/group names and layout are private; gate the read behind auth.
+  // Passthrough when security is None or ConfigOnly (isAuthenticated(cfg=false));
+  // only full-auth mode now hides the dashboard until login.
+  if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   settings.printAvailHeap();
   if (method == HTTP_POST || method == HTTP_GET) {
@@ -560,6 +564,7 @@ void Web::handleGetRepeaters(WebServer &server) {
 void Web::handleGetRooms(WebServer &server) {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!this->ensureAuth(server, false)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_POST || method == HTTP_GET) {
       JsonResponse resp;
@@ -575,6 +580,7 @@ void Web::handleGetRooms(WebServer &server) {
 void Web::handleGetShades(WebServer &server) {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!this->ensureAuth(server, false)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_POST || method == HTTP_GET) {
       JsonResponse resp;
@@ -590,6 +596,7 @@ void Web::handleGetShades(WebServer &server) {
 void Web::handleGetGroups(WebServer &server) {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+    if(!this->ensureAuth(server, false)) return;
     HTTPMethod method = server.method();
     if (method == HTTP_POST || method == HTTP_GET) {
       JsonResponse resp;
@@ -1082,15 +1089,20 @@ void Web::handleDiscovery(WebServer &server) {
     resp.addElem("min", ESP.getMinFreeHeap());
     resp.addElem("total", ESP.getHeapSize());
     resp.endObject();
-    resp.beginArray("rooms");
-    somfy.toJSONRooms(resp);
-    resp.endArray();
-    resp.beginArray("shades");
-    somfy.toJSONShades(resp, this->isAuthenticated(server, true));
-    resp.endArray();
-    resp.beginArray("groups");
-    somfy.toJSONGroups(resp, this->isAuthenticated(server, true));
-    resp.endArray();
+    // Identity fields above stay open so discovery/config-flow can find the device;
+    // the room/shade/group names below are private and only served once authenticated
+    // (passthrough for None/ConfigOnly, hidden in full-auth mode without a token).
+    if(this->isAuthenticated(server, false)) {
+      resp.beginArray("rooms");
+      somfy.toJSONRooms(resp);
+      resp.endArray();
+      resp.beginArray("shades");
+      somfy.toJSONShades(resp, this->isAuthenticated(server, true));
+      resp.endArray();
+      resp.beginArray("groups");
+      somfy.toJSONGroups(resp, this->isAuthenticated(server, true));
+      resp.endArray();
+    }
     resp.endObject();
     resp.endResponse();
     server.client().stop();
