@@ -736,6 +736,7 @@
     "ERR_USERNAME_MAX_LENGTH_32": "Die maximale Länge des Benutzernamens beträgt 32 Zeichen.",
     "ERR_PASSWORD_MAX_LENGTH_32": "Die maximale Länge des Passworts beträgt 32 Zeichen.",
     "ERR_ROOT_TOPIC_MAX_LENGTH_64": "Die maximale Länge des Root-Topics beträgt 64 Zeichen.",
+    "ERR_ROOT_TOPIC_HINT": "Das Root-Topic ist erforderlich: Es trennt die Befehle dieses Geräts vom übrigen Broker. Es darf weder '+' noch '#' enthalten und nicht mit '/' oder '$' beginnen.",
     "ERR_NO_FILE_LITTLEFS_SELECTED": "Sie müssen eine LittleFS-Binärdatei auswählen, um fortzufahren.",
     "ERR_INVALID_FILE_LITTLEFS": "Diese Datei ist keine gültige LittleFS-Binärdatei.",
     "ERR_NO_FILE_FIRMWARE_SELECTED": "Sie müssen eine gültige Firmware-Binärdatei auswählen, um fortzufahren.",

@@ -1,31 +1,64 @@
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
+#include <time.h>
+#include <strings.h>
+#include <new>
 #include "ConfigSettings.h"
+#include "GitCerts.h"
 #include "MQTT.h"
 #include "Somfy.h"
 #include "Network.h"
 #include "Utils.h"
 
 WiFiClient tcpClient;
+// Only allocated when the user actually selected mqtts://. WiFiClientSecure plus
+// the parsed CA bundle costs roughly 40KB of heap for as long as the session
+// lives, which must not be spent on the plaintext path.
+static WiFiClientSecure *tlsClient = nullptr;
 PubSubClient mqttClient(tcpClient);
 
 #define MQTT_MAX_RESPONSE 2048
 static char g_content[MQTT_MAX_RESPONSE];
+
+// Free heap required before starting a handshake. Below this mbedtls fails
+// halfway through its allocations, which is a much worse failure mode than
+// simply postponing the attempt.
+#define MQTT_TLS_MIN_HEAP 50000
+// Verifying a chain is slow. 8s keeps the worst case (handshake + the CONNACK
+// wait below) under the 15s task watchdog period set in SomfyController.ino.
+#define MQTT_TLS_HANDSHAKE_TIMEOUT 8
 
 extern ConfigSettings settings;
 extern SomfyShadeController somfy;
 extern Network net;
 extern rebootDelay_t rebootDelay;
 
+// Certificate validity is checked against the wall clock, so a device that has
+// not synced NTP yet rejects every chain. Same guard as GitOTA.cpp.
+static bool _clockIsSet() { return time(nullptr) > 1750000000; } // 2025-06-15
+// The settings page stores the scheme as the option label ("MQTT"/"MQTTS") while
+// the factory default is "mqtt://": match the prefix, case-insensitively.
+static bool _useTLS() { return strncasecmp(settings.MQTT.protocol, "mqtts", 5) == 0; }
+static void _releaseTLSClient() {
+  if(!tlsClient) return;
+  // Point PubSubClient back at the plaintext client *before* freeing: it caches the
+  // pointer and its loop() would dereference it on the next pass.
+  mqttClient.setClient(tcpClient);
+  tlsClient->stop();
+  delete tlsClient;
+  tlsClient = nullptr;
+}
+
 const char* MQTTClass::makeTopic(const char* topic) {
   static char top[128];
-  if (settings.MQTT.rootTopic[0] != '\0') {
-    snprintf(top, sizeof(top), "%s/%s", settings.MQTT.rootTopic, topic);
-  } else {
-    strlcpy(top, topic, sizeof(top));
-  }
+  // MQTTSettings guarantees a non-empty root topic; this is defence in depth. The
+  // former fallback published *and subscribed* at the broker root when the root
+  // topic was empty, which let any publisher drive the shades.
+  if(settings.MQTT.rootTopic[0] == '\0') settings.MQTT.ensureRootTopic();
+  snprintf(top, sizeof(top), "%s/%s", settings.MQTT.rootTopic, topic);
   return top;
 }
 
@@ -46,7 +79,11 @@ bool MQTTClass::loop() {
 void MQTTClass::receive(const char *topic, byte* payload, uint32_t length) {
   esp_task_wdt_reset();
 
+  if(!topic || !payload) return;
   uint16_t len = strlen(topic);
+  // An empty topic would underflow the unsigned index below to 65535 and send the
+  // walk-back loop reading far past the end of the buffer.
+  if(len == 0) return;
   uint16_t ndx = len - 1;
   uint8_t slashes = 0;
   while(ndx > 0 && slashes < 4) {
@@ -140,12 +177,43 @@ bool MQTTClass::connect() {
     snprintf(this->clientId, sizeof(this->clientId), "client-%08x%08x", (uint32_t)((mac >> 32) & 0xFFFFFFFF), (uint32_t)(mac & 0xFFFFFFFF));
   }
 
+  // mqtts:// used to be accepted while the transport stayed a bare WiFiClient, so the
+  // traffic (broker credentials included) went out in clear text while the settings page
+  // claimed otherwise. It is now a real TLS session, validated against the same Mozilla
+  // roots as the GitHub OTA. There is deliberately no insecure mode: a broker whose chain
+  // does not validate is refused rather than silently downgraded.
+  const bool useTLS = _useTLS();
+  if(useTLS) {
+    if(!_clockIsSet()) {
+      Serial.println("MQTT connection deferred: the clock is not synced yet (TLS validation needs the time)");
+      return false;
+    }
+    if(!tlsClient) {
+      uint32_t heap = ESP.getFreeHeap();
+      if(heap < MQTT_TLS_MIN_HEAP) {
+        Serial.printf("MQTT TLS connection deferred: only %u bytes of heap free, %u needed for the handshake\n", heap, (uint32_t)MQTT_TLS_MIN_HEAP);
+        return false;
+      }
+      tlsClient = new (std::nothrow) WiFiClientSecure();
+      if(!tlsClient) {
+        Serial.println("MQTT TLS connection failed: could not allocate the secure client");
+        return false;
+      }
+      tlsClient->setCACert(GITHUB_ROOT_CAS);
+      tlsClient->setHandshakeTimeout(MQTT_TLS_HANDSHAKE_TIMEOUT);
+    }
+    mqttClient.setClient(*tlsClient);
+  }
+  else _releaseTLSClient(); // Give the ~40KB back as soon as the user leaves mqtts://.
+
   mqttClient.setServer(settings.MQTT.hostname, settings.MQTT.port);
   // connect() blocks the loop, and with it the radio timing, until the socket answers.
   // PubSubClient defaults to 15s, which is the watchdog period: an unreachable broker on
   // a reachable network could freeze the device long enough to trigger a panic reboot.
-  mqttClient.setSocketTimeout(2);
+  // Over TLS the CONNACK travels behind a record layer, so allow a little more.
+  mqttClient.setSocketTimeout(useTLS ? 4 : 2);
   if(mqttClient.connect(this->clientId, settings.MQTT.username, settings.MQTT.password, makeTopic("status"), 0, true, "offline")) {
+    if(useTLS) Serial.printf("MQTT connected to %s over TLS, certificate validated (%u bytes of heap free)\n", settings.MQTT.hostname, ESP.getFreeHeap());
     this->publish("status", "online", true);
     this->publish("ipAddress", settings.IP.ip.toString().c_str(), true);
     this->publish("host", settings.hostname, true);
@@ -172,6 +240,18 @@ bool MQTTClass::connect() {
     mqttClient.setCallback(MQTTClass::receive);
     return true;
   }
+  if(useTLS && tlsClient) {
+    char err[128] = "";
+    int lastError = tlsClient->lastError(err, sizeof(err));
+    if(lastError != 0)
+      Serial.printf("MQTT TLS handshake with %s failed (-0x%04X): %s -- the broker certificate must chain to a public CA and match the host name\n",
+        settings.MQTT.hostname, (unsigned int)(-lastError), err);
+    else
+      Serial.printf("MQTT broker %s refused the connection over TLS (state %d)\n", settings.MQTT.hostname, mqttClient.state());
+    // Do not keep the session (and its ~40KB) pinned while we wait for the next
+    // attempt; connect() rebuilds it from scratch.
+    _releaseTLSClient();
+  }
   return false;
 }
 
@@ -194,6 +274,8 @@ bool MQTTClass::disconnect() {
     this->unsubscribe("groups/+/windy/set");
     mqttClient.disconnect();
   }
+  // Reclaim the TLS session heap whenever we are not connected; connect() rebuilds it.
+  _releaseTLSClient();
   return true;
 }
 
