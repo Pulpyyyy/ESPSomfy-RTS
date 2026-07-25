@@ -359,10 +359,10 @@ void Web::handleController(WebServer &server) {
     somfy.toJSONRooms(resp);
     resp.endArray();
     resp.beginArray("shades");
-    somfy.toJSONShades(resp);
+    somfy.toJSONShades(resp, this->isAuthenticated(server, true));
     resp.endArray();
     resp.beginArray("groups");
-    somfy.toJSONGroups(resp);
+    somfy.toJSONGroups(resp, this->isAuthenticated(server, true));
     resp.endArray();
     resp.beginArray("repeaters");
     somfy.toJSONRepeaters(resp);
@@ -448,7 +448,7 @@ void Web::handleGetShades(WebServer &server) {
       JsonResponse resp;
       resp.beginResponse(&server, g_content, sizeof(g_content));
       resp.beginArray();
-      somfy.toJSONShades(resp);
+      somfy.toJSONShades(resp, this->isAuthenticated(server, true));
       resp.endArray();
       resp.endResponse();
       server.client().stop();
@@ -463,7 +463,7 @@ void Web::handleGetGroups(WebServer &server) {
       JsonResponse resp;
       resp.beginResponse(&server, g_content, sizeof(g_content));
       resp.beginArray();
-      somfy.toJSONGroups(resp);
+      somfy.toJSONGroups(resp, this->isAuthenticated(server, true));
       resp.endArray();
       resp.endResponse();
       server.client().stop();
@@ -815,7 +815,7 @@ void Web::handleShade(WebServer &server) {
         JsonResponse resp;
         resp.beginResponse(&server, g_content, sizeof(g_content));
         resp.beginObject();
-        shade->toJSON(resp);
+        shade->toJSON(resp, this->isAuthenticated(server, true));
         resp.endObject();
         resp.endResponse();
       }
@@ -878,7 +878,7 @@ void Web::handleGroup(WebServer &server) {
         JsonResponse resp;
         resp.beginResponse(&server, g_content, sizeof(g_content));
         resp.beginObject();
-        group->toJSON(resp);
+        group->toJSON(resp, this->isAuthenticated(server, true));
         resp.endObject();
         resp.endResponse();
       }
@@ -954,10 +954,10 @@ void Web::handleDiscovery(WebServer &server) {
     somfy.toJSONRooms(resp);
     resp.endArray();
     resp.beginArray("shades");
-    somfy.toJSONShades(resp);
+    somfy.toJSONShades(resp, this->isAuthenticated(server, true));
     resp.endArray();
     resp.beginArray("groups");
-    somfy.toJSONGroups(resp);
+    somfy.toJSONGroups(resp, this->isAuthenticated(server, true));
     resp.endArray();
     resp.endObject();
     resp.endResponse();
