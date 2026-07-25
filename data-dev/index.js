@@ -20,6 +20,11 @@ document.addEventListener('touchcancel', () => { mouseDown = false; }, true);
 const get = id => document.getElementById(id);
 // Escape device-/user-controlled strings for safe use in HTML text and quoted attributes (XSS).
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+// Attribute bundle that turns a generated <div> control into a real button for the
+// keyboard and for screen readers. Kept as one helper so no command control can be
+// shipped focusable-but-unnamed; the delegated keydown handler below does the activation.
+// The label is escaped because it embeds user-supplied device names.
+function a11yBtn(label) { return `role="button" tabindex="0" aria-label="${esc(label)}"`; }
 // Whitelist URL schemes for generated markdown links: allow http(s), protocol-relative and
 // relative/anchor URLs; block javascript:, data:, vbscript: and any other explicit scheme.
 function safeUrl(u) {
@@ -117,11 +122,24 @@ if (typeof ui !== 'undefined' && ui.waitMessage) {
 window.tr = function(id) {
     return (LANG && LANG[id]) ? LANG[id] : id;
 };
+// Translate and fill the {0}, {1}… placeholders of a phrase. Accessible names have to
+// embed the device name, and every language wants it in a different spot
+// ("Open Living room" / "Ouvrir Salon" / "Wohnzimmer öffnen"), so the position lives in
+// the translated string rather than in the code.
+window.trf = function(id) {
+    const args = Array.prototype.slice.call(arguments, 1);
+    return tr(id).replace(/\{(\d+)\}/g, (m, i) => (typeof args[i] === 'undefined' ? m : String(args[i])));
+};
+const TR_SEL = '[tr],[tr-aria]';
 const translator = {
     isInitialized: false,
     observer: null,
 
     translate(el) {
+        // tr-aria feeds the accessible name of icon-only controls, which have no text to
+        // translate; it is independent of tr so an element can carry both.
+        const ariaKey = el.getAttribute('tr-aria');
+        if (ariaKey) el.setAttribute('aria-label', tr(ariaKey));
         const key = el.getAttribute('tr');
         if (!key) return;
 
@@ -135,7 +153,7 @@ const translator = {
         }
     },
     init() {
-        document.querySelectorAll('[tr]').forEach(el => this.translate(el));
+        document.querySelectorAll(TR_SEL).forEach(el => this.translate(el));
         if (this.isInitialized) return;
 
         // Scoped to the container instead of <body>: everything generated at runtime
@@ -147,8 +165,8 @@ const translator = {
         this.observer = new MutationObserver((mutations) => {
             mutations.forEach(m => m.addedNodes.forEach(node => {
                 if (node.nodeType === 1) {
-                    if (node.hasAttribute('tr')) this.translate(node);
-                    node.querySelectorAll('[tr]').forEach(el => this.translate(el));
+                    if (node.hasAttribute('tr') || node.hasAttribute('tr-aria')) this.translate(node);
+                    node.querySelectorAll(TR_SEL).forEach(el => this.translate(el));
                 }
             }));
         });
@@ -156,6 +174,22 @@ const translator = {
         this.isInitialized = true;
     }
 };
+// Enter/Space activation for every control that carries role="button" without being a
+// native one. A single delegated listener covers the whole app, including markup that is
+// regenerated on each socket update, so no control can be shipped focusable-but-dead.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const t = e.target;
+    if (!t || typeof t.closest !== 'function') return;
+    // Never swallow a space typed into a field.
+    if (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
+    const btn = t.closest('[role="button"]');
+    if (!btn || btn.hasAttribute('disabled') || btn.classList.contains('disabled')) return;
+    // Natively activatable elements already do this themselves.
+    if (btn.tagName === 'BUTTON' || (btn.tagName === 'A' && btn.hasAttribute('href'))) return;
+    e.preventDefault();
+    btn.click();
+});
 function loadLang(callback) {
     if (Object.keys(LANG).length > 0) {
         if(DBG) console.log("Langue déjà en mémoire, utilisation du cache.");
@@ -884,16 +918,10 @@ function syncNavigationState(groupId, isSubTab = false) {
 function bindNavigation() {
     document.querySelectorAll('.nav-item, .sub-nav-item').forEach(item => {
         // These are anchors without an href, which browsers do not treat as focusable,
-        // so the whole menu was unreachable by keyboard. Expose them as buttons and
-        // activate on Enter/Space like a real one.
+        // so the whole menu was unreachable by keyboard. Expose them as buttons; the
+        // delegated role="button" handler takes care of Enter/Space.
         if (!item.hasAttribute('tabindex')) item.setAttribute('tabindex', '0');
         if (!item.hasAttribute('role')) item.setAttribute('role', 'button');
-        item.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-                e.preventDefault();
-                item.click();
-            }
-        });
         item.addEventListener('click', (e) => {
             e.preventDefault();
             // Clicking the chevron just folds/unfolds the group; navigation (and its
@@ -1097,7 +1125,7 @@ function stepDeviceGpio(pinKey, direction, prefix, boardSelectId, isManualCallba
 function overlayHeader(title, desc, icon = 'svg-simpleShutter', showExpert = false) {
     const expertSwitch = showExpert ? `<div class="expert-mode-container"><span class="expert-label">${tr("BT_EXPERT_MODE")}</span><span class="switch expert-switch"><input id="cbExpertMode" type="checkbox" ${ui.isExpertMode ? 'checked' : ''} onchange="ui.toggleExpertMode(this.closest('.inst-overlay'));" onclick="event.stopPropagation();"><div></div></span></div>` : '';
 
-    return `<div class="overlay-header">${expertSwitch}<div close onclick="closeOverlay(this.closest('.inst-overlay'))"><svg class="closeShow-desktop"><use href=#svg-close></use></svg></div></div><div class="instructions-header"><div><h2>${tr(title)}</h2><p>${tr(desc)}</p></div><svg class="instructions-headerLogo"><use href=#${icon}></use></svg></div>`;
+    return `<div class="overlay-header">${expertSwitch}<div close ${a11yBtn(tr('A11Y_CLOSE'))} onclick="closeOverlay(this.closest('.inst-overlay'))"><svg class="closeShow-desktop"><use href=#svg-close></use></svg></div></div><div class="instructions-header"><div><h2>${tr(title)}</h2><p>${tr(desc)}</p></div><svg class="instructions-headerLogo"><use href=#${icon}></use></svg></div>`;
 }
 function wizardStepper(stepsData, translationPrefix) {
     let stepsHtml = '';
@@ -3108,7 +3136,7 @@ class Wifi {
             for (let i = 0; i < nets.length; i++) {
                 let ap = nets[i];
                 div += `
-                <div class="wifiSignal" onclick="wifi.selectSSID(this);" data-channel="${esc(ap.channel)}" data-encryption="${esc(ap.encryption)}" data-strength="${esc(ap.strength)}" data-mac="${esc(ap.macAddress)}"><span class="ssid">${esc(ap.name)}</span><span class="strength">${this.displaySignal(ap.strength)}</span>
+                <div class="wifiSignal" ${a11yBtn(trf('A11Y_SELECT_NETWORK', ap.name))} onclick="wifi.selectSSID(this);" data-channel="${esc(ap.channel)}" data-encryption="${esc(ap.encryption)}" data-strength="${esc(ap.strength)}" data-mac="${esc(ap.macAddress)}"><span class="ssid">${esc(ap.name)}</span><span class="strength">${this.displaySignal(ap.strength)}</span>
                 </div>`;
             }
         } else {
@@ -3472,7 +3500,7 @@ class Somfy {
 
         if (target) {
             const labels = ['SCLK:', 'CSN:', 'MOSI:', 'MISO:', 'TX:', 'RX:'];
-            let html = `<div class="gpioRadio-container"><div class="help-container" onclick="toggleTooltip(this)"><svg class="help-svg"><use href=#icon-question></use></svg><div class="tooltip-text"><b>${tr('RADIO_TOOLTIP_GPIO_0')}</b><br><br>${tr('RADIO_TOOLTIP_GPIO_1')}<br>${tr('RADIO_TOOLTIP_GPIO_2')}<br><br><i>${tr('RADIO_TOOLTIP_GPIO_3')}</i><br><br></div></div>`;
+            let html = `<div class="gpioRadio-container"><div class="help-container" ${a11yBtn(tr('A11Y_HELP'))} onclick="toggleTooltip(this)"><svg class="help-svg"><use href=#icon-question></use></svg><div class="tooltip-text"><b>${tr('RADIO_TOOLTIP_GPIO_0')}</b><br><br>${tr('RADIO_TOOLTIP_GPIO_1')}<br>${tr('RADIO_TOOLTIP_GPIO_2')}<br><br><i>${tr('RADIO_TOOLTIP_GPIO_3')}</i><br><br></div></div>`;
 
             pk.forEach((k, i) => {
                 const v = target[k], selP = get(`selTrans${k}`), inpP = get(`inputTrans${k}`);
@@ -4012,6 +4040,8 @@ class Somfy {
         document.querySelectorAll('.room-pill').forEach(pill => {
             const pId = parseInt(pill.getAttribute('data-roomid'), 10);
             pill.classList.toggle('active', pId === roomId);
+            // The active pill is only signalled by colour; expose the state to assistive tech too.
+            pill.setAttribute('aria-pressed', pId === roomId ? 'true' : 'false');
         });
 
         const ctls = document.querySelectorAll('.somfyShadeCtl');
@@ -4025,19 +4055,21 @@ class Somfy {
         let divCfg = '';
         const homeName = tr('HOME');
         const slider = get('divRoomSelector');
-        let divPills = `<div class="room-pill active" data-roomid="0" onclick="somfy.selectRoom(0)">${homeName}</div>`;
+        // The pill text is the room name, so it already is the accessible name: no aria-label
+        // here, or voice-control users would have to say something they cannot see.
+        let divPills = `<div class="room-pill active" role="button" tabindex="0" aria-pressed="true" data-roomid="0" onclick="somfy.selectRoom(0)">${homeName}</div>`;
         let divOpts = `<option value="0">${homeName}</option>`;
         _rooms = [{ roomId: 0, name: homeName }];
 
         rooms.sort((a, b) => a.sortOrder - b.sortOrder);
         rooms.forEach(room => {
-            divPills += `<div class="room-pill animScale" data-roomid="${room.roomId}" onclick="somfy.selectRoom(${room.roomId})">${esc(room.name)}</div>`;
+            divPills += `<div class="room-pill animScale" role="button" tabindex="0" aria-pressed="false" data-roomid="${room.roomId}" onclick="somfy.selectRoom(${room.roomId})">${esc(room.name)}</div>`;
             // ... foreach room ...
             divCfg += `<div class="somfyRoom room-draggable" data-roomid="${room.roomId}">
             <div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div>
             <div class="room-name"><span class="name-text">${esc(room.name)}</span></div><span class="vr"></span>
-            <div class="divEditDelete-svg" onclick="somfy.openEditRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div>
-            <div class="divEditDelete-svg" onclick="somfy.deleteRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div>
+            <div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', room.name))} onclick="somfy.openEditRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div>
+            <div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', room.name))} onclick="somfy.deleteRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div>
             </div>`;
 
             divOpts += `<option value="${room.roomId}">${esc(room.name)}</option>`;
@@ -4114,7 +4146,7 @@ class Somfy {
         if (typeof addresses !== 'undefined') {
             for (let i = 0; i < addresses.length; i++) {
 
-                divCfg += `<div class="somfyRepeater" data-address="${addresses[i]}"><div class="idRemoteAddress"><span class="AddrId-label">${tr("ADDR")}</span><span class="repeater-name">${addresses[i]}</span></div><div class="divEditDelete-svg" onclick="somfy.unlinkRepeater('${addresses[i]}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
+                divCfg += `<div class="somfyRepeater" data-address="${addresses[i]}"><div class="idRemoteAddress"><span class="AddrId-label">${tr("ADDR")}</span><span class="repeater-name">${addresses[i]}</span></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_UNLINK_REPEATER', addresses[i]))} onclick="somfy.unlinkRepeater('${addresses[i]}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
             }
         }
         get('divRepeatList').innerHTML = divCfg;
@@ -4151,11 +4183,11 @@ class Somfy {
             let isSunOn = (shade.flags & 0x01);
             let st = this.shadeTypes.find(x => x.type === shade.shadeType) || { type: shade.shadeType, ico: 'svg-window-shade' };
 
-            divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
+            divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', shade.name))} onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', shade.name))} onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
             // --- SECTION CONTROLE ---
             divCtl += `<div class="somfyShadeCtl" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"
             data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
-            <div class="shadectl-side-handle" onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});"><svg class="handle-icon"><use href="#svg-arrowRight"></use></svg></div>
+            <div class="shadectl-side-handle" ${a11yBtn(trf('A11Y_SET_POS', shade.name))} onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});"><svg class="handle-icon"><use href="#svg-arrowRight"></use></svg></div>
             <div class="shadectl-right-content">
             <div class="shadectl-main-content">
             <div class="shadectl-header-row"><span class="shadectl-name">${esc(shade.name)}</span></div>
@@ -4172,10 +4204,10 @@ class Somfy {
             const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
             divCtl += `</span></div>
             <div class="shadectl-buttons" data-shadeType="${shade.shadeType}">
-            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="up" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-up"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="my" data-shadeid="${shade.shadeId}" title="${tr('TT_HOLD_MY')}"><svg><use href="#svg-my"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="down" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-down"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg-wide animScale" data-cmd="toggle" data-shadeid="${shade.shadeId}"><svg><use href="#svg-toggle"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_UP', shade.name))} data-cmd="up" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-up"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_MY', shade.name))} data-cmd="my" data-shadeid="${shade.shadeId}" title="${tr('TT_HOLD_MY')}"><svg><use href="#svg-my"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_DOWN', shade.name))} data-cmd="down" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-down"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg-wide animScale" ${a11yBtn(trf('A11Y_CMD_TOGGLE', shade.name))} data-cmd="toggle" data-shadeid="${shade.shadeId}"><svg><use href="#svg-toggle"></use></svg></div>
             </div>
             <div class="shadectl-status-bar">
             <div class="shadectl-status-left">
@@ -4185,15 +4217,15 @@ class Somfy {
             if (shade.tiltType !== 0) divCtl += `<div class="val-tilt myShade-badge">${tr('SHADE_MY_TILT')}${shade.myTiltPos === -1 ? '---' : shade.myTiltPos + '%'}</div>`;
             divCtl += `</div>
             <div class="status-group-right">
-            <div class="button-light cmd-button" data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}">
+            <div class="button-light cmd-button" ${a11yBtn(trf('A11Y_CMD_LIGHT', shade.name))} data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}">
             <svg><use href="#svg-lightbulb"></use></svg>
             </div>`;
             if (shade.sunSensor) {
-                divCtl += `<div class="button-sunflag cmd-button" data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}">
+                divCtl += `<div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', shade.name))} data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}">
                 <svg><use href="#svg-sun"></use></svg>
                 </div>`;
             }
-            divCtl += `<div class="button-my" onclick="event.stopPropagation(); somfy.openSetMyPosition(${shade.shadeId});">
+            divCtl += `<div class="button-my" ${a11yBtn(trf('A11Y_SET_MY', shade.name))} onclick="event.stopPropagation(); somfy.openSetMyPosition(${shade.shadeId});">
             <svg><use href="#svg-favori"></use></svg>
             </div></div></div></div></div></div></div>`;
 
@@ -4279,6 +4311,11 @@ class Somfy {
             // letting it fire under the user's nose.
             btns[i].addEventListener('mouseleave', (event) => lpClear(event.currentTarget), true);
             btns[i].addEventListener('touchcancel', (event) => lpClear(event.currentTarget), true);
+            // These buttons are driven by mousedown/mouseup, which a keyboard never fires, so
+            // Enter/Space reached them and did nothing. The delegated role="button" handler
+            // dispatches a synthetic click (detail === 0); a real pointer click always has
+            // detail >= 1, so keying off it runs the plain-tap path exactly once.
+            btns[i].addEventListener('click', (event) => { if (event.detail === 0) onCmdUp(event); });
         }
         this.setListDraggable(get('divShadeList'), '.shade-draggable', (list) => {
             // Get the shade order
@@ -4440,7 +4477,7 @@ class Somfy {
                 let group = groups[i];
                 let room = _rooms.find(x => x.roomId === group.roomId) || { roomId: 0, name: '' };
                 // --- Section Configuration ---
-                divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" style="color: var(--danger-color, red);"><use href=#svg-close></use></svg></div></div>`;
+                divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', group.name))} onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', group.name))} onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" style="color: var(--danger-color, red);"><use href=#svg-close></use></svg></div></div>`;
                 // --- Section Contrôle (divCtl) ---
                 divCtl += `<div class="somfyGroupCtl" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-groupId="${group.groupId}" data-roomid="${group.roomId}" data-remoteaddress="${group.remoteAddress}">
                 <div class="group-name">
@@ -4452,10 +4489,10 @@ class Somfy {
                 }
                 divCtl += `</div></div>
                 <div class="groupctl-buttons">
-                <div class="button-sunflag cmd-button" data-cmd="sunflag" data-groupid="${group.groupId}" data-on="${(group.flags & 0x01) ? 'true' : 'false'}" style="${!group.sunSensor ? 'display:none' : ''}"><svg><use href="#svg-sun"></use></svg></div>
-                <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="up" data-groupid="${group.groupId}"><svg><use href="#svg-up"></use></svg></div>
-                <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="my" data-groupid="${group.groupId}"><svg><use href="#svg-my"></use></svg></div>
-                <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="down" data-groupid="${group.groupId}"><svg><use href="#svg-down"></use></svg></div>
+                <div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', group.name))} data-cmd="sunflag" data-groupid="${group.groupId}" data-on="${(group.flags & 0x01) ? 'true' : 'false'}" style="${!group.sunSensor ? 'display:none' : ''}"><svg><use href="#svg-sun"></use></svg></div>
+                <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_UP', group.name))} data-cmd="up" data-groupid="${group.groupId}"><svg><use href="#svg-up"></use></svg></div>
+                <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_MY', group.name))} data-cmd="my" data-groupid="${group.groupId}"><svg><use href="#svg-my"></use></svg></div>
+                <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_DOWN', group.name))} data-cmd="down" data-groupid="${group.groupId}"><svg><use href="#svg-down"></use></svg></div>
                 </div>
                 </div>`;
 
@@ -4636,7 +4673,7 @@ class Somfy {
         html += `<div class="linkedScrollArea">`;
         html += remotes.map((remote, i) => `
         ${i > 0 ? '<hr>' : ''}
-        <div class="somfyLinkedRemote" data-shadeid="${shade.shadeId}" data-remoteaddress="${remote.remoteAddress}"><div class="linkedWrap"><svg class="icon-svg"><use href=#svg-remote></use></svg></div><div class="linkedContent"><div class="label">${tr("LINKED_R_T")} ${i + 1}</div><div><span class="uniStatus">${tr("ADDR")} ${remote.remoteAddress}, </span><span class="uniStatus">${tr("CODE")} ${remote.lastRollingCode}</span></div></div><div class="button-outline-svg svgDelete" onclick="somfy.unlinkRemote(${shade.shadeId}, '${remote.remoteAddress}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
+        <div class="somfyLinkedRemote" data-shadeid="${shade.shadeId}" data-remoteaddress="${remote.remoteAddress}"><div class="linkedWrap"><svg class="icon-svg"><use href=#svg-remote></use></svg></div><div class="linkedContent"><div class="label">${tr("LINKED_R_T")} ${i + 1}</div><div><span class="uniStatus">${tr("ADDR")} ${remote.remoteAddress}, </span><span class="uniStatus">${tr("CODE")} ${remote.lastRollingCode}</span></div></div><div class="button-outline-svg svgDelete" ${a11yBtn(trf('A11Y_UNLINK_REMOTE', remote.remoteAddress))} onclick="somfy.unlinkRemote(${shade.shadeId}, '${remote.remoteAddress}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
         `).join('');
 
         html += `</div>`;
@@ -4673,7 +4710,7 @@ class Somfy {
         html += shades.map((shade, i) => `
         ${i > 0 ? '<hr>' : ''}
         <div class="somfyLinkedRemote" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}">
-        <div class="linkedWrap"><svg class="icon-svg"><use href=#svg-simpleShutter></use></svg></div><div class="linkedContent"><div class="label">${esc(shade.name)}</div><div><span class="uniStatus">${tr("ADDR")} ${shade.remoteAddress}</span></div></div><div class="button-outline-svg svgDelete" onclick="somfy.unlinkGroupShade(${group.groupId}, ${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
+        <div class="linkedWrap"><svg class="icon-svg"><use href=#svg-simpleShutter></use></svg></div><div class="linkedContent"><div class="label">${esc(shade.name)}</div><div><span class="uniStatus">${tr("ADDR")} ${shade.remoteAddress}</span></div></div><div class="button-outline-svg svgDelete" ${a11yBtn(trf('A11Y_UNLINK_SHADE', shade.name))} onclick="somfy.unlinkGroupShade(${group.groupId}, ${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
         `).join('');
 
         html += `</div>`;
@@ -6240,7 +6277,7 @@ class Firmware {
         <span class="uniLabel">${tr('FIRMWARE_SAVE_BACKUP')}</span>
         <span class="uniStatus">${tr(isMob ? 'FIRMWARE_SAVE_BACKUP_DESC_MOB' : 'FIRMWARE_SAVE_BACKUP_DESC')}</span>
         </div>
-        <div id="btnBackupCfg" class="gitBackup" onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
+        <div id="btnBackupCfg" class="gitBackup" ${a11yBtn(tr('A11Y_BACKUP'))} onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
         </div>
         <div class="button-container-row">
         <button id="btnClose" line type="button" onclick="closeOverlay(get('divUploadFile'))">${tr('BT_CANCEL_1')}</button>
@@ -6475,7 +6512,7 @@ class Firmware {
             <div class="footer-sticky-content">
             <div class="uniRow">
             <div class="uniText"><span class="uniLabel">${tr('FIRMWARE_SAVE_BACKUP')}</span><span class="uniStatus">${tr(isMob ? 'FIRMWARE_SAVE_BACKUP_DESC_MOB' : 'FIRMWARE_SAVE_BACKUP_DESC')}</span></div>
-            <div id="btnBackupCfg" class="gitBackup" onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
+            <div id="btnBackupCfg" class="gitBackup" ${a11yBtn(tr('A11Y_BACKUP'))} onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
             </div>
             <div class="button-container-row">
             <button id="btnClose" line type="button" onclick="closeOverlay(get('divGitInstall'))">${tr('BT_CANCEL_1')}</button>
