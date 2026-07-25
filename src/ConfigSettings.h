@@ -1,5 +1,32 @@
 #include <ArduinoJson.h>
 #include <ETH.h>
+// Arduino-ESP32 3.x demoted the default ETH pin macros to commented-out examples
+// in ETH.h and only declares the RMII clock-mode type on chips with an internal
+// EMAC (ESP32/P4). Restore the historical LAN8720 defaults and, on EMAC-less
+// chips (C3/S2/S3, which never had internal Ethernet), provide fallbacks so the
+// shared Ethernet settings still compile. Behavior is unchanged: wired Ethernet
+// keeps its previous defaults on ESP32 and stays unavailable where there is no EMAC.
+#ifndef ETH_PHY_ADDR
+#define ETH_PHY_ADDR 0
+#endif
+#ifndef ETH_PHY_POWER
+#define ETH_PHY_POWER -1
+#endif
+#ifndef ETH_PHY_MDC
+#define ETH_PHY_MDC 23
+#endif
+#ifndef ETH_PHY_MDIO
+#define ETH_PHY_MDIO 18
+#endif
+#if !CONFIG_ETH_USE_ESP32_EMAC
+typedef uint8_t eth_clock_mode_t;
+#ifndef ETH_CLOCK_GPIO0_IN
+#define ETH_CLOCK_GPIO0_IN 0
+#endif
+#ifndef ETH_PHY_LAN8720
+#define ETH_PHY_LAN8720 ((eth_phy_type_t)0)
+#endif
+#endif
 #ifndef configsettings_h
 #define configsettings_h
 #include "WResp.h"

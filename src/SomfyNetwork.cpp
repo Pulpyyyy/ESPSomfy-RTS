@@ -339,6 +339,7 @@ void SomfyNetwork::setConnected(conn_types_t connType) {
   this->needsBroadcast = true;
 }
 bool SomfyNetwork::connectWired() {
+#if CONFIG_ETH_USE_ESP32_EMAC
   if(ETH.linkUp()) {
     // If the ethernet link is re-established then we need to shut down wifi.
     if(WiFi.status() == WL_CONNECTED) {
@@ -398,6 +399,17 @@ bool SomfyNetwork::connectWired() {
   }
   this->connectStart = millis();
   return true;
+#else
+  // Chips without an internal EMAC (ESP32-C3/S2/S3) have no RMII Ethernet.
+  // Behave exactly as a failed wired bring-up would: fall back to WiFi when
+  // Ethernet was only preferred, otherwise report no connection.
+  this->ethStarted = false;
+  if(settings.connType == conn_types_t::ethernetpref && settings.WIFI.ssid[0] != '\0') {
+    this->wifiFallback = true;
+    return connectWiFi();
+  }
+  return false;
+#endif
 }
 void SomfyNetwork::updateHostname() {
   if(settings.hostname[0] != '\0' && this->connected()) {

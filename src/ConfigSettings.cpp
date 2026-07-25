@@ -7,6 +7,7 @@
 #include "Utils.h"
 #include "VersionParse.h"
 #include "esp_chip_info.h"
+#include "esp_flash.h"
 #include "esp_random.h"
 
 
@@ -140,7 +141,10 @@ bool ConfigSettings::begin() {
       break;
     case esp_chip_model_t::CHIP_ESP32S3: {
       // Distinction indispensable pour savoir quelle version de firmware est attendue
-      uint32_t flash_size = spi_flash_get_chip_size();
+      // ESP-IDF 5.x removed spi_flash_get_chip_size(); esp_flash_get_size(NULL, ...)
+      // is the documented replacement and returns the same detected chip size.
+      uint32_t flash_size = 0;
+      esp_flash_get_size(NULL, &flash_size);
       if (flash_size >= 8 * 1024 * 1024) {
         strcpy(this->chipModel, "s3_8mb");
       } else {

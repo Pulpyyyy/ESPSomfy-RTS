@@ -4,6 +4,8 @@
 #include <HTTPClient.h>
 #include <esp_task_wdt.h>
 #include <esp_ota_ops.h>
+#include <esp_chip_info.h>
+#include <esp_flash.h>
 #include <time.h>
 #include "ConfigSettings.h"
 #include "GitOTA.h"
@@ -426,7 +428,10 @@ void GitUpdater::setFirmwareFile() {
 
   switch(ci.model) {
     case esp_chip_model_t::CHIP_ESP32S3: {
-      uint32_t flash_size = spi_flash_get_chip_size();
+      // ESP-IDF 5.x removed spi_flash_get_chip_size(); esp_flash_get_size(NULL, ...)
+      // is the documented replacement and returns the same detected chip size.
+      uint32_t flash_size = 0;
+      esp_flash_get_size(NULL, &flash_size);
 
       if (flash_size >= 8 * 1024 * 1024) {
         strlcpy(this->currentFile, "SomfyController.ino.esp32s3_8mb.bin", sizeof(this->currentFile));
