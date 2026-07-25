@@ -430,27 +430,35 @@ bool ShadeConfigFile::validate() {
     Serial.println(this->header.shadeRecordSize);
     return false;
   }
-  /*
-  if(this->header.shadeRecords != SOMFY_MAX_SHADES) {
+  // Record counts come straight from the file and are used as loop bounds when reading
+  // into the fixed shades/rooms/groups arrays.  A crafted backup declaring more records
+  // than the arrays hold would write past their end, so reject it here.
+  if(this->header.shadeRecords > SOMFY_MAX_SHADES) {
     Serial.print("Invalid Shade Record Count:");
     Serial.println(this->header.shadeRecords);
     return false;
   }
-  */
+  if(this->header.roomRecords > SOMFY_MAX_ROOMS) {
+    Serial.print("Invalid Room Record Count:");
+    Serial.println(this->header.roomRecords);
+    return false;
+  }
+  if(this->header.repeaterRecords > SOMFY_MAX_REPEATERS) {
+    Serial.print("Invalid Repeater Record Count:");
+    Serial.println(this->header.repeaterRecords);
+    return false;
+  }
   if(this->header.version > 10) {
     if(this->header.groupRecordSize < 100) {
       Serial.print("Invalid Group Record Size:");
       Serial.println(this->header.groupRecordSize);
       return false;
     }
-    /*
-    if(this->header.groupRecords != SOMFY_MAX_GROUPS) {
+    if(this->header.groupRecords > SOMFY_MAX_GROUPS) {
       Serial.print("Invalid Group Record Count:");
       Serial.println(this->header.groupRecords);
       return false;
-      
     }
-    */
   }
   if(this->file.position() != this->header.length) {
     Serial.printf("File not positioned at %u end of header: %d\n", this->header.length, this->file.position());
@@ -568,14 +576,14 @@ bool ShadeConfigFile::restoreFile(SomfyShadeController *s, const char *filename,
   }
   if(opts.shades) {
     Serial.println("Restoring Rooms...");
-    for(uint8_t i = 0; i < this->header.roomRecords; i++) {
+    for(uint8_t i = 0; i < this->header.roomRecords && i < SOMFY_MAX_ROOMS; i++) {
       this->readRoomRecord(&s->rooms[i]);
       if(i > 0) Serial.print(",");
       Serial.print(s->rooms[i].roomId);
     }
     Serial.println("Restoring Shades...");
     // We should be valid so start reading.
-    for(uint8_t i = 0; i < this->header.shadeRecords; i++) {
+    for(uint8_t i = 0; i < this->header.shadeRecords && i < SOMFY_MAX_SHADES; i++) {
       this->readShadeRecord(&s->shades[i]);
       if(i > 0) Serial.print(",");
       Serial.print(s->shades[i].getShadeId());
@@ -589,7 +597,7 @@ bool ShadeConfigFile::restoreFile(SomfyShadeController *s, const char *filename,
       }
     }
     Serial.println("Restoring Groups...");
-    for(uint8_t i = 0; i < this->header.groupRecords; i++) {
+    for(uint8_t i = 0; i < this->header.groupRecords && i < SOMFY_MAX_GROUPS; i++) {
       if(i > 0) Serial.print(",");
       Serial.print(s->groups[i].getGroupId());
       this->readGroupRecord(&s->groups[i]);
@@ -946,7 +954,7 @@ bool ShadeConfigFile::loadFile(SomfyShadeController *s, const char *filename) {
     if(opened) this->end();
     return false;
   }
-  for(uint8_t i = 0; i < this->header.roomRecords;i++) {
+  for(uint8_t i = 0; i < this->header.roomRecords && i < SOMFY_MAX_ROOMS; i++) {
     this->readRoomRecord(&s->rooms[i]);
   }
   if(this->header.roomRecords < SOMFY_MAX_ROOMS) {
@@ -958,7 +966,7 @@ bool ShadeConfigFile::loadFile(SomfyShadeController *s, const char *filename) {
   }
   
   // We should be valid so start reading.
-  for(uint8_t i = 0; i < this->header.shadeRecords; i++) {
+  for(uint8_t i = 0; i < this->header.shadeRecords && i < SOMFY_MAX_SHADES; i++) {
     this->readShadeRecord(&s->shades[i]);
   }
   if(this->header.shadeRecords < SOMFY_MAX_SHADES) {
@@ -968,7 +976,7 @@ bool ShadeConfigFile::loadFile(SomfyShadeController *s, const char *filename) {
       ((SomfyShade *)&s->shades[ndx++])->clear();
     }
   }
-  for(uint8_t i = 0; i < this->header.groupRecords; i++) {
+  for(uint8_t i = 0; i < this->header.groupRecords && i < SOMFY_MAX_GROUPS; i++) {
     this->readGroupRecord(&s->groups[i]);
   }
   if(this->header.groupRecords < SOMFY_MAX_GROUPS) {
