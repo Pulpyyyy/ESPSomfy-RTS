@@ -127,6 +127,7 @@ int16_t GitRepo::getReleases(uint8_t num) {
         int arrTok = 0;
         int objTok = 0;
         bool inQuote = false;
+        bool escaped = false;
         bool inElem = false;
         bool inValue = false;
         bool awaitValue = false;
@@ -142,7 +143,12 @@ int16_t GitRepo::getReleases(uint8_t num) {
             for(uint8_t i = 0; i < c; i++) {
               // Read the buffer a byte at a time until we have a key value pair.
               char ch = static_cast<char>(buff[i]);
-              if(ch == '[') {
+              // Brackets and braces are structure only outside a string. A release title
+              // or body containing a markdown link, a brace or a quote would otherwise
+              // desynchronise the counters and silently corrupt every parsed release.
+              bool wasEscaped = escaped;
+              escaped = inQuote && !escaped && ch == '\\';
+              if(!inQuote && ch == '[') {
                 arrTok++;
                 if(arrTok == 2 && strcmp(jsonElem, "assets") == 0) {
                   inElem = inValue = awaitValue = false;
@@ -151,22 +157,22 @@ int16_t GitRepo::getReleases(uint8_t num) {
                 }
                 else if(arrTok < 2) inAss = false;
               }
-              else if(ch == ']') {
+              else if(!inQuote && ch == ']') {
                 arrTok--;
                 if(arrTok < 2) inAss = false;
               }
-              else if(ch == '{') {
+              else if(!inQuote && ch == '{') {
                 objTok++;
                 if(objTok != 1 && !inAss) inElem = inValue = awaitValue = false;
               }
-              else if(ch == '}') {
+              else if(!inQuote && ch == '}') {
                 objTok--;
-                if(objTok == 0) ndx++;
+                if(objTok == 0 && ++ndx >= count) break;
               }
               else if(objTok == 1 || inAss) {
                 // We only want data from the root object.
                 //if(inAss) Serial.print(ch);
-                if(ch == '\"') {
+                if(ch == '\"' && !wasEscaped) {
                   inQuote = !inQuote;
                   if(inElem) {
                     inElem = false;
