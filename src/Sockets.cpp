@@ -7,12 +7,14 @@
 #include "Somfy.h"
 #include "Network.h"
 #include "GitOTA.h"
+#include "Web.h"
 
 extern ConfigSettings settings;
 extern Network net;
 extern SomfyShadeController somfy;
 extern SocketEmitter sockEmit;
 extern GitUpdater git;
+extern Web webServer;
 
 
 WebSocketsServer sockServer = WebSocketsServer(8080);
@@ -167,8 +169,27 @@ void SocketEmitter::wsEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t
               // In this instance the client wants to join a room.  Let's do some
               // work to get the ordinal of the room that the client wants to join.
               uint8_t roomNum = atoi((char *)&payload[5]);
-              Serial.printf("Client %u joining room %u\n", num, roomNum);
-              if(roomNum < SOCK_MAX_ROOMS) sockEmit.rooms[roomNum].join(num);
+              if(roomNum < SOCK_MAX_ROOMS) {
+                // Room 0 streams every received RF frame, including the encryption key,
+                // remote address and rolling code -- of this installation and of any
+                // neighbour in range. That is enough to clone a remote, so require the
+                // same API token the REST endpoints use. The client appends it as
+                // "join:<room>:<token>". Home Assistant never joins a room, so it is
+                // unaffected; the web UI only joins while the config screen is open.
+                bool allowed = true;
+                if(settings.Security.type != security_types::None) {
+                  char expected[65];
+                  memset(expected, 0x00, sizeof(expected));
+                  webServer.createAPIToken(sockServer.remoteIP(num), expected);
+                  const char *sep = strchr((const char *)&payload[5], ':');
+                  allowed = sep != nullptr && Web::secureEquals(expected, sep + 1);
+                }
+                if(allowed) {
+                  Serial.printf("Client %u joining room %u\n", num, roomNum);
+                  sockEmit.rooms[roomNum].join(num);
+                }
+                else Serial.printf("Client %u refused room %u: not authenticated\n", num, roomNum);
+              }
             }
             else if(strncmp((char *)payload, "leave:", 6) == 0) {
               uint8_t roomNum = atoi((char *)&payload[6]);
