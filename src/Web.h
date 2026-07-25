@@ -3,8 +3,18 @@
 #ifndef webserver_h
 #define webserver_h
 class Web {
+private:
+  // Failed /login attempts, and the millis() deadline until which logins are refused.
+  // A 4-digit PIN is only 10000 combinations, so an unthrottled endpoint is walkable
+  // in seconds over a LAN.
+  uint8_t _failedLogins = 0;
+  uint32_t _lockoutUntil = 0;
+  bool _loginLocked();
+  void _loginFailed();
 public:
   bool uploadSuccess = false;
+  // Length-independent comparison, so a wrong secret cannot be narrowed down by timing.
+  static bool secureEquals(const char *a, const char *b);
   void handleLang(WebServer &server);
   void handleSetLang(WebServer &server);
 
