@@ -63,6 +63,10 @@ Si vous migrez depuis **rstrouse/ESPSomfy-RTS** ou si vous mettez à niveau une 
 * **⚠️ Note sur la sauvegarde automatique :** Le fichier de sauvegarde créé par le système *juste avant* la mise à jour est toujours à l'ancien format. 
 * **Restauration après mise à jour :** Si jamais vous devez restaurer cette sauvegarde spécifique pré-mise à jour sur la v2.5.0+, vous déclencherez l'alerte "Compatibilité incomplète" et devrez réassigner vos GPIO Radio manuellement.
 
+#### Mise à niveau vers la v3.x (nouvelle table de partitions)
+* **Mise à jour OTA :** La mise à jour depuis la v2.5.x via l'interface web ou l'updater GitHub continue de fonctionner. Le firmware v3.x remplit environ 97 % de l'ancien slot applicatif de 1,31 Mo ; si une future version ne tenait plus, le garde-fou intégré refuse la mise à jour au lieu de corrompre le boîtier.
+* **Recommandé — un flash USB :** La v3.0.0 introduit une nouvelle table de partitions avec des slots applicatifs de 1,69 Mo et de la marge pour la suite. Une table de partitions ne peut pas être changée par OTA : sauvegardez votre configuration, flashez une fois l'image **onboard** v3.x par USB, puis restaurez votre sauvegarde. Toutes les mises à jour suivantes redeviennent des OTA classiques.
+
 > [!TIP]
 > Après une mise à jour réussie vers la v2.5.0, nous vous recommandons de créer immédiatement une **nouvelle sauvegarde**. Ce nouveau fichier inclura la cartographie GPIO mise à jour et ne déclenchera plus aucun avertissement à l'avenir.
 
