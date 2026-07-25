@@ -20,6 +20,24 @@ document.addEventListener('touchcancel', () => { mouseDown = false; }, true);
 const get = id => document.getElementById(id);
 // Escape device-/user-controlled strings for safe use in HTML text and quoted attributes (XSS).
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+// Attribute bundle that turns a generated <div> control into a real button for the
+// keyboard and for screen readers. Kept as one helper so no command control can be
+// shipped focusable-but-unnamed; the delegated keydown handler below does the activation.
+// The label is escaped because it embeds user-supplied device names.
+function a11yBtn(label) { return `role="button" tabindex="0" aria-label="${esc(label)}"`; }
+// Same idea for elements that only become clickable in certain states: the affordance has
+// to be added and removed alongside the onclick handler, or the keyboard is left with a
+// focus stop that does nothing. No aria-label: these carry their own visible text.
+function setClickable(el, on) {
+    if (!el) return;
+    if (on) {
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+    } else {
+        el.removeAttribute('role');
+        el.removeAttribute('tabindex');
+    }
+}
 // Whitelist URL schemes for generated markdown links: allow http(s), protocol-relative and
 // relative/anchor URLs; block javascript:, data:, vbscript: and any other explicit scheme.
 function safeUrl(u) {
@@ -30,9 +48,84 @@ function safeUrl(u) {
     return s;                                     // schemeless relative (e.g. "path/x")
 }
 
+// --- Modal dialogs -----------------------------------------------------------
+// Overlays were plain <div>s: screen readers never announced them, Tab wandered off into
+// the page behind, and closing one dropped focus back on <body>, so keyboard users
+// restarted from the top of the document every time. openDialog/closeDialog wrap every
+// overlay creation path so the semantics, the focus trap and the focus restore are
+// defined in exactly one place.
+const DLG_FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[role="button"]:not([disabled]),[tabindex]:not([tabindex="-1"])';
+let _dlgStack = [];
+let _dlgSeq = 0;
+// True when the element is actually rendered. getClientRects is used rather than
+// offsetParent, which is null for position:fixed controls even while they are visible.
+function dlgVisible(n) { return !!n && n.getClientRects().length > 0; }
+function dlgFocusables(el) {
+    // Skips the display:none branches these overlays are full of (wizard steps,
+    // expert-only rows) so Tab never lands on an invisible control.
+    return Array.prototype.filter.call(el.querySelectorAll(DLG_FOCUSABLE), dlgVisible);
+}
+function openDialog(el) {
+    if (!el || el.hasAttribute('data-dialog')) return;
+    el.setAttribute('data-dialog', '');
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    // Name the dialog from whatever heading it already shows, rather than inventing a label
+    // that would not match what is on screen.
+    const title = el.querySelector('h1,h2,h3,.prompt-text,.info-text,.inner-error,.wait-label');
+    if (title) {
+        if (!title.id) title.id = `dlgTitle${++_dlgSeq}`;
+        el.setAttribute('aria-labelledby', title.id);
+    }
+    const opener = document.activeElement;
+    _dlgStack.push({ el: el, opener: (opener && opener !== document.body) ? opener : null });
+    const first = dlgFocusables(el)[0];
+    if (first) first.focus();
+    else {
+        if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+        el.focus();
+    }
+}
+function closeDialog(el) {
+    if (!el) return;
+    const i = _dlgStack.findIndex((d) => d.el === el);
+    if (i < 0) return;
+    const entry = _dlgStack[i];
+    _dlgStack.splice(i, 1);
+    el.removeAttribute('data-dialog');
+    // Only give focus back if the trigger is still on the page and still reachable.
+    if (entry.opener && document.body.contains(entry.opener) && dlgVisible(entry.opener)) {
+        entry.opener.focus();
+    }
+}
+// Tab cycling for the topmost dialog. One document-level listener keeps working even when
+// focus has escaped the overlay (a background click), which a listener bound to the
+// overlay itself would not.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || _dlgStack.length === 0) return;
+    const top = _dlgStack[_dlgStack.length - 1];
+    if (!document.body.contains(top.el)) { closeDialog(top.el); return; }
+    const f = dlgFocusables(top.el);
+    if (f.length === 0) {
+        e.preventDefault();
+        if (!top.el.hasAttribute('tabindex')) top.el.setAttribute('tabindex', '-1');
+        top.el.focus();
+        return;
+    }
+    const first = f[0], last = f[f.length - 1];
+    if (!top.el.contains(document.activeElement)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+    } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+    }
+});
 const closeOverlay = (div, callback) => {
     if (!div) return;
     if (typeof callback === 'function') callback();
+    closeDialog(div);
     div.classList.add('overlay-exit');
     setTimeout(() => div.remove(), 300);
 };
@@ -42,11 +135,24 @@ if (typeof ui !== 'undefined' && ui.waitMessage) {
 window.tr = function(id) {
     return (LANG && LANG[id]) ? LANG[id] : id;
 };
+// Translate and fill the {0}, {1}… placeholders of a phrase. Accessible names have to
+// embed the device name, and every language wants it in a different spot
+// ("Open Living room" / "Ouvrir Salon" / "Wohnzimmer öffnen"), so the position lives in
+// the translated string rather than in the code.
+window.trf = function(id) {
+    const args = Array.prototype.slice.call(arguments, 1);
+    return tr(id).replace(/\{(\d+)\}/g, (m, i) => (typeof args[i] === 'undefined' ? m : String(args[i])));
+};
+const TR_SEL = '[tr],[tr-aria]';
 const translator = {
     isInitialized: false,
     observer: null,
 
     translate(el) {
+        // tr-aria feeds the accessible name of icon-only controls, which have no text to
+        // translate; it is independent of tr so an element can carry both.
+        const ariaKey = el.getAttribute('tr-aria');
+        if (ariaKey) el.setAttribute('aria-label', tr(ariaKey));
         const key = el.getAttribute('tr');
         if (!key) return;
 
@@ -60,24 +166,46 @@ const translator = {
         }
     },
     init() {
-        document.querySelectorAll('[tr]').forEach(el => this.translate(el));
+        document.querySelectorAll(TR_SEL).forEach(el => this.translate(el));
         if (this.isInitialized) return;
 
+        // Scoped to the container instead of <body>: everything generated at runtime
+        // (panels, overlays, toasts) lands there, while the topbar and the sidebar are
+        // static and already covered by the pass above. Watching the whole body meant
+        // re-scanning every inserted subtree on each socket-driven position update, for
+        // the lifetime of the page.
+        const root = get('divContainer') || document.body;
         this.observer = new MutationObserver((mutations) => {
             mutations.forEach(m => m.addedNodes.forEach(node => {
                 if (node.nodeType === 1) {
-                    if (node.hasAttribute('tr')) this.translate(node);
-                    node.querySelectorAll('[tr]').forEach(el => this.translate(el));
+                    if (node.hasAttribute('tr') || node.hasAttribute('tr-aria')) this.translate(node);
+                    node.querySelectorAll(TR_SEL).forEach(el => this.translate(el));
                 }
             }));
         });
-        this.observer.observe(document.body, { childList: true, subtree: true });
+        this.observer.observe(root, { childList: true, subtree: true });
         this.isInitialized = true;
     }
 };
+// Enter/Space activation for every control that carries role="button" without being a
+// native one. A single delegated listener covers the whole app, including markup that is
+// regenerated on each socket update, so no control can be shipped focusable-but-dead.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const t = e.target;
+    if (!t || typeof t.closest !== 'function') return;
+    // Never swallow a space typed into a field.
+    if (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
+    const btn = t.closest('[role="button"]');
+    if (!btn || btn.hasAttribute('disabled') || btn.classList.contains('disabled')) return;
+    // Natively activatable elements already do this themselves.
+    if (btn.tagName === 'BUTTON' || (btn.tagName === 'A' && btn.hasAttribute('href'))) return;
+    e.preventDefault();
+    btn.click();
+});
 function loadLang(callback) {
     if (Object.keys(LANG).length > 0) {
-        if(DBG) console.log("Langue déjà en mémoire, utilisation du cache.");
+        if(DBG) console.log("Language already in memory, using the cache.");
         if (callback) callback();
         return;
     }
@@ -89,7 +217,7 @@ function loadLang(callback) {
         finishLoad(callback);
     })
     .catch(err => {
-        console.error("Erreur langue, mode secours activé", err);
+        console.error("Language load failed, falling back to the built-in dictionary", err);
         LANG = { "BT_LOGIN": "Login", "HOME": "Maison" };
         translator.init();
         finishLoad(callback);
@@ -384,7 +512,9 @@ function getJSON(url, cb) {
     };
     xhr.send();
 }
-function getJSONSync(url, cb) {
+// Same as getJSON, plus a modal wait overlay for the duration of the request.
+// The request itself is asynchronous, like every other one here.
+function getJSONBusy(url, cb) {
     let overlay = ui.waitMessage(get('divContainer'));
     let xhr = new XMLHttpRequest();
     xhr.responseType = 'json';
@@ -451,7 +581,8 @@ function getText(url, cb) {
     };
     xhr.send();
 }
-function postJSONSync(url, data, cb) {
+// Multipart POST with a wait overlay. Currently unused, kept alongside its siblings.
+function postJSONBusy(url, data, cb) {
     let overlay = ui.waitMessage(get('divContainer'));
     try {
         let xhr = new XMLHttpRequest();
@@ -528,7 +659,9 @@ function putJSON(url, data, cb) {
     };
     xhr.send(JSON.stringify(data));
 }
-function putJSONSync(url, data, cb) {
+// Same as putJSON, plus a modal wait overlay and a try/catch that reports failures
+// through ui.serviceError. Asynchronous, despite what the old "Sync" name suggested.
+function putJSONBusy(url, data, cb) {
     let overlay = ui.waitMessage(get('divContainer'));
     try {
         let xhr = new XMLHttpRequest();
@@ -742,7 +875,7 @@ async function initSockets() {
 }
 function clearOverlays() {
     const selectors = ['.inst-overlay', '.info-message', '.prompt-message', '.error-message', '.instructions', '#divGitInstall'];
-    selectors.forEach(s => document.querySelectorAll(s).forEach(el => el.remove()));
+    selectors.forEach(s => document.querySelectorAll(s).forEach(el => { closeDialog(el); el.remove(); }));
 }
 // Overlays could only be dismissed with the mouse, which left keyboard users stuck in
 // an edit dialog or a PIN prompt with no way out.
@@ -754,9 +887,9 @@ document.addEventListener('keydown', (e) => {
     clearOverlays();
 });
 /**
- * synchronisation Sidebar et Tabs
- * @param {string} groupId - L'ID du groupe à activer
- * @param {boolean} isSubTab - Si c'est un sous-onglet
+ * Keeps the sidebar and the tab strip on the same selection.
+ * @param {string} groupId - id of the group to activate
+ * @param {boolean} isSubTab - true when the target is a sub-tab
  */
 function syncNavigationState(groupId, isSubTab = false) {
     if (!groupId) return;
@@ -803,16 +936,10 @@ function syncNavigationState(groupId, isSubTab = false) {
 function bindNavigation() {
     document.querySelectorAll('.nav-item, .sub-nav-item').forEach(item => {
         // These are anchors without an href, which browsers do not treat as focusable,
-        // so the whole menu was unreachable by keyboard. Expose them as buttons and
-        // activate on Enter/Space like a real one.
+        // so the whole menu was unreachable by keyboard. Expose them as buttons; the
+        // delegated role="button" handler takes care of Enter/Space.
         if (!item.hasAttribute('tabindex')) item.setAttribute('tabindex', '0');
         if (!item.hasAttribute('role')) item.setAttribute('role', 'button');
-        item.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-                e.preventDefault();
-                item.click();
-            }
-        });
         item.addEventListener('click', (e) => {
             e.preventDefault();
             // Clicking the chevron just folds/unfolds the group; navigation (and its
@@ -956,7 +1083,8 @@ function navConfirmLeave(proceed) {
         + `<button type="button" id="navSave">${tr('BT_SAVE')}</button>`
         + '</div></div>';
     get('divContainer').appendChild(div);
-    const done = () => div.remove();
+    openDialog(div);
+    const done = () => { closeDialog(div); div.remove(); };
     div.querySelector('#navCancel').onclick = done;
     div.querySelector('#navDiscard').onclick = () => { navClearDirty(); done(); proceed(); };
     div.querySelector('#navSave').onclick = () => {
@@ -1015,7 +1143,7 @@ function stepDeviceGpio(pinKey, direction, prefix, boardSelectId, isManualCallba
 function overlayHeader(title, desc, icon = 'svg-simpleShutter', showExpert = false) {
     const expertSwitch = showExpert ? `<div class="expert-mode-container"><span class="expert-label">${tr("BT_EXPERT_MODE")}</span><span class="switch expert-switch"><input id="cbExpertMode" type="checkbox" ${ui.isExpertMode ? 'checked' : ''} onchange="ui.toggleExpertMode(this.closest('.inst-overlay'));" onclick="event.stopPropagation();"><div></div></span></div>` : '';
 
-    return `<div class="overlay-header">${expertSwitch}<div close onclick="closeOverlay(this.closest('.inst-overlay'))"><svg class="closeShow-desktop"><use href=#svg-close></use></svg></div></div><div class="instructions-header"><div><h2>${tr(title)}</h2><p>${tr(desc)}</p></div><svg class="instructions-headerLogo"><use href=#${icon}></use></svg></div>`;
+    return `<div class="overlay-header">${expertSwitch}<div close ${a11yBtn(tr('A11Y_CLOSE'))} onclick="closeOverlay(this.closest('.inst-overlay'))"><svg class="closeShow-desktop"><use href=#svg-close></use></svg></div></div><div class="instructions-header"><div><h2>${tr(title)}</h2><p>${tr(desc)}</p></div><svg class="instructions-headerLogo"><use href=#${icon}></use></svg></div>`;
 }
 function wizardStepper(stepsData, translationPrefix) {
     let stepsHtml = '';
@@ -1049,6 +1177,7 @@ function shOverlay(div, onClose) {
     if (btn) btn.onclick = () => closeOverlay(div, onClose);
     get('divContainer').appendChild(div);
     window.scrollTo(0, 0);
+    openDialog(div);
 }
 // --- Calibration wizard (v1) -------------------------------------------------
 // 100% UI: drives the shade via /shadeCommand, times the user's taps locally,
@@ -1788,6 +1917,7 @@ class UIBinder {
         div.classList.add('socket-error');
         div.classList.add('modal-overlay');
         el.appendChild(div);
+        openDialog(div);
         return div;
     }
     errorMessage(el, msg) {
@@ -1800,6 +1930,7 @@ class UIBinder {
         div.innerHTML = `<div class="error-content"><div class="inner-error">${msg}</div><div class="sub-message"></div><button type="button" onclick="ui.clearErrors();">${tr('BT_CLOSE')}</button></div>`;
         div.classList.add('error-message', 'modal-overlay');
         el.appendChild(div);
+        openDialog(div);
         return div;
     }
     promptMessage(el, msg, onYes) {
@@ -1814,6 +1945,7 @@ class UIBinder {
         <div class="button-container-row"><button line type="button" onclick="ui.clearErrors();">${tr('BT_NO')}</button><button id="btnYes" type="button">${tr('BT_YES')}</button></div></div>`;
         el.appendChild(div);
 
+        openDialog(div);
         div.querySelector('#btnYes').onclick = () => {
             if (typeof onYes === 'function') onYes();
             ui.clearErrors();
@@ -1830,6 +1962,7 @@ class UIBinder {
         div.innerHTML = `<div class="message-content"><div class="info-text">${msg}</div><div class="sub-message"></div><div class="button-container-row"><button id="btnOk" type="button">${tr('BT_OK')}</button></div></div>`;
         div.classList.add('info-message', 'modal-overlay');
         el.appendChild(div);
+        openDialog(div);
 
         const btnOk = div.querySelector('#btnOk');
         if (typeof onOk === 'function') {
@@ -1842,6 +1975,7 @@ class UIBinder {
     clearErrors() {
         let errors = document.querySelectorAll('div.modal-overlay');
         errors.forEach((el) => {
+            closeDialog(el);
             el.classList.add('overlay-exit');
         });
         if (errors.length > 0) {
@@ -1880,10 +2014,10 @@ class UIBinder {
             }
         }
     }
-    /**Dirige l'attention de l'utilisateur sur un élément spécifique
-     * @param {string|HTMLElement} target - ID de l'élément ou l'élément lui-même
-     * @param {boolean} activate - Activer ou désactiver l'animation
-     * @param {string} color - Couleur spécifique (ex: 'red', '#FFA500')
+    /**Draws the user's attention to one particular element
+     * @param {string|HTMLElement} target - element id, or the element itself
+     * @param {boolean} activate - turn the animation on or off
+     * @param {string} color - explicit colour (e.g. 'red', '#FFA500')
      */
     setFocus(target, activate = true, color = null) {
         let el = (typeof target === 'string') ? document.getElementById(target) : target;
@@ -2101,21 +2235,21 @@ class Security {
         const pnl = get('divUnauthenticated');
         if (!pnl) return;
 
-        // Cache groupé des éléments de login
+        // Cached lookup of the login elements
         const qs = (s) => pnl.querySelector(s);
         const btn = qs('#loginButtons'), pwd = qs('#divLoginPassword'), pin = qs('#divLoginPin');
         pnl.style.display = btn.style.display = pwd.style.display = pin.style.display = 'none';
 
         return new Promise(res => {
             loadLang(() => {
-                getJSONSync('/loginContext', (err, ctx) => {
+                getJSONBusy('/loginContext', (err, ctx) => {
                     if (err) return ui.serviceError(err), res();
 
                     // Uptime & Info CPU
                     if (ctx.uptime) displayUptime(ctx.uptime, 'uptime-display');
                     if (ctx.netUptime) displayUptime(ctx.netUptime, 'net-display');
                     if (ctx.cpuFreq) get('info-cpu').textContent = `${ctx.cores > 1 ? 'Dual' : 'Single'}-Core @ ${ctx.cpuFreq} ${tr('MHZ')}`;
-                    // Flash & FileSystem (Regroupé)
+                    // Flash & FileSystem (grouped)
                     if (ctx.flashSize) {
                         get('info-flash').innerHTML = `<span>${tr('FW_TOTAL')}: </span><span class="status-detail">${ctx.flashSize}</span> Mo (<span class="hide550">${tr('FW_SPEED')}: </span><span class="status-detail">${ctx.flashSpeed}</span> ${tr('MHZ')})`;
                     }
@@ -2137,7 +2271,7 @@ class Security {
 
                     const cont = get('divContainer');
                     if (cont) cont.setAttribute('data-securitytype', ctx.type);
-                    // Gestion du Login
+                    // Login handling
                     if (ctx.type !== 0) {
                         btn.style.display = '';
                         const fld = ctx.type === 1 ? qs('.pin-digit[data-bind="login.pin.d0"]') : qs('#fldLoginUsername');
@@ -2210,7 +2344,7 @@ class Security {
                 break;
         }
         sec.pin = pin;
-        putJSONSync('/login', sec, (err, log) => {
+        putJSONBusy('/login', sec, (err, log) => {
             if (err) ui.serviceError(err);
             else {
                 if (log.success) {
@@ -2417,12 +2551,12 @@ class General {
     loadGeneral() {
         const pnl = get('divSystemOptions');
 
-        getJSONSync('/modulesettings', (err, settings) => {
+        getJSONBusy('/modulesettings', (err, settings) => {
             if (err) {
                 console.error(err);
                 return;
             }
-            if(DBG) console.log("Settings reçus:", settings);
+            if(DBG) console.log("Settings received:", settings);
             if (typeof somfy !== 'undefined') somfy.initPins();
 
             get('spanFwVersion').innerText = settings.fwVersion;
@@ -2495,7 +2629,7 @@ class General {
             valid = false;
         }
         if (valid) {
-            putJSONSync('/setgeneral', obj, (err, response) => {
+            putJSONBusy('/setgeneral', obj, (err, response) => {
                 if (err) {
                     ui.serviceError(err);
                 } else {
@@ -2524,7 +2658,7 @@ class General {
     }
     rebootDevice() {
         ui.promptMessage(get('divContainer'), tr('PROMPT_REBOOT_CONFIRM'), () => {
-            putJSONSync('/reboot', {}, (err, response) => {
+            putJSONBusy('/reboot', {}, (err, response) => {
                 get('btnSaveGeneral').classList.remove('disabled');
                 // Only drop the socket once the firmware accepted the reboot; a 401
                 // (login prompt) or any other error must keep the live connection.
@@ -2560,7 +2694,7 @@ class General {
             }
         })
         .catch(err => {
-            console.error("Erreur lors du changement de langue:", err);
+            console.error("Language switch failed:", err);
             if (sel) sel.disabled = false;
         });
     }
@@ -2618,7 +2752,7 @@ class General {
             confirmText = `<p>${tr('SAVESECURITY_PASSWORD_WARNING')}</p><p>${tr('SAVESECURITY_PASSWORD_CONFIRM')}</p>`;
         }
         const prompt = ui.promptMessage(tr('PROMPT_SECURITY_CONFIRM'), () => {
-            putJSONSync('/saveSecurity', data, (e, resp) => {
+            putJSONBusy('/saveSecurity', data, (e, resp) => {
                 prompt.remove();
                 if (e) ui.serviceError(e);
                 else {
@@ -2672,7 +2806,7 @@ class General {
         <span class="ha-badge-pill"><span class="ha-badge-text-pill">MY</span><svg width="18" height="18"><use href="#svg-homeAssistant"></use></svg></span>
         </a>
         <p class="ha-github-link-container">
-        ${tr('HACS_OR_VISIT')} <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced" target="_blank" class="linkSoft">dépôt GitHub</a>
+        ${tr('HACS_OR_VISIT')} <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced" target="_blank" class="linkSoft">${tr('HACS_REPO_LINK')}</a>
         </p>
         </div>
         </div>
@@ -2839,7 +2973,7 @@ class Wifi {
             inputEl.value = 0;
             inputEl.dispatchEvent(new Event('change', { bubbles: true }));
             this.updateEthernetSummary('PWRPin', 0);
-            this.togglePowerIcon(false); // Mode numérique -> Icône ON
+            this.togglePowerIcon(false); // Numeric mode -> icon ON
             return;
         }
 
@@ -2877,13 +3011,13 @@ class Wifi {
         inputPwr.value = 'None';
 
         this.updateEthernetSummary('PWRPin', -1);
-        this.togglePowerIcon(true); // Mode None -> Icône OFF
+        this.togglePowerIcon(true); // None mode -> icon OFF
     }
     onDHCPClicked(cb) { get('divStaticIP').style.display = cb.checked ? 'none' : ''; }
 
     loadNetwork() {
         let pnl = get('divNetAdapter');
-        getJSONSync('/networksettings', (err, settings) => {
+        getJSONBusy('/networksettings', (err, settings) => {
             if(DBG) console.log(settings);
             if (err) {
                 ui.serviceError(err);
@@ -3020,7 +3154,7 @@ class Wifi {
             for (let i = 0; i < nets.length; i++) {
                 let ap = nets[i];
                 div += `
-                <div class="wifiSignal" onclick="wifi.selectSSID(this);" data-channel="${esc(ap.channel)}" data-encryption="${esc(ap.encryption)}" data-strength="${esc(ap.strength)}" data-mac="${esc(ap.macAddress)}"><span class="ssid">${esc(ap.name)}</span><span class="strength">${this.displaySignal(ap.strength)}</span>
+                <div class="wifiSignal" ${a11yBtn(trf('A11Y_SELECT_NETWORK', ap.name))} onclick="wifi.selectSSID(this);" data-channel="${esc(ap.channel)}" data-encryption="${esc(ap.encryption)}" data-strength="${esc(ap.strength)}" data-mac="${esc(ap.macAddress)}"><span class="ssid">${esc(ap.name)}</span><span class="strength">${this.displaySignal(ap.strength)}</span>
                 </div>`;
             }
         } else {
@@ -3118,7 +3252,7 @@ class Wifi {
                 return;
             }
         }
-        putJSONSync('/setIP', obj, (err, response) => {
+        putJSONBusy('/setIP', obj, (err, response) => {
             if (err) {
                 ui.serviceError(err);
             } else {
@@ -3130,7 +3264,7 @@ class Wifi {
     saveNetwork() {
         let pnl = get('divNetAdapter'), obj = ui.fromElement(pnl);
         const eth = obj.ethernet;
-        // Si la valeur extraite est NaN, vide ou "None", on la remet proprement à -1
+        // Reset to -1 when the extracted value is NaN, empty or "None"
         if (isNaN(eth.PWRPin) || eth.PWRPin === 'None' || eth.PWRPin === '') {
             eth.PWRPin = -1;
         }
@@ -3199,7 +3333,7 @@ class Wifi {
         }
     }
     sendNetworkSettings(obj) {
-        putJSONSync('/setNetwork', obj, (err, response) => {
+        putJSONBusy('/setNetwork', obj, (err, response) => {
             if (err) {
                 ui.serviceError(err);
             } else {
@@ -3239,7 +3373,9 @@ class Wifi {
         const elChan = get('spanNetworkChannel');
         const elStrength = get('spanNetworkStrength');
 
-        if (elSSID) elSSID.innerHTML = !ssid || ssid === '' ? '-------------' : ssid;
+        // The SSID is attacker-controlled (any nearby AP can broadcast one) and lands in
+        // innerHTML, so it must go through the central escaper like every other network string.
+        if (elSSID) elSSID.innerHTML = !ssid || ssid === '' ? '-------------' : esc(ssid);
         if (elChan) elChan.innerHTML = isNaN(strength.channel) || strength.channel < 0 ? '--' : strength.channel;
         if (elStrength) elStrength.innerHTML = isNaN(sVal) || sVal <= -100 ? '----' : sVal;
 
@@ -3382,7 +3518,7 @@ class Somfy {
 
         if (target) {
             const labels = ['SCLK:', 'CSN:', 'MOSI:', 'MISO:', 'TX:', 'RX:'];
-            let html = `<div class="gpioRadio-container"><div class="help-container" onclick="toggleTooltip(this)"><svg class="help-svg"><use href=#icon-question></use></svg><div class="tooltip-text"><b>${tr('RADIO_TOOLTIP_GPIO_0')}</b><br><br>${tr('RADIO_TOOLTIP_GPIO_1')}<br>${tr('RADIO_TOOLTIP_GPIO_2')}<br><br><i>${tr('RADIO_TOOLTIP_GPIO_3')}</i><br><br></div></div>`;
+            let html = `<div class="gpioRadio-container"><div class="help-container" ${a11yBtn(tr('A11Y_HELP'))} onclick="toggleTooltip(this)"><svg class="help-svg"><use href=#icon-question></use></svg><div class="tooltip-text"><b>${tr('RADIO_TOOLTIP_GPIO_0')}</b><br><br>${tr('RADIO_TOOLTIP_GPIO_1')}<br>${tr('RADIO_TOOLTIP_GPIO_2')}<br><br><i>${tr('RADIO_TOOLTIP_GPIO_3')}</i><br><br></div></div>`;
 
             pk.forEach((k, i) => {
                 const v = target[k], selP = get(`selTrans${k}`), inpP = get(`inputTrans${k}`);
@@ -3412,8 +3548,8 @@ class Somfy {
         divG.style.display = target ? 'none' : 'inline-block';
     }
     async loadSomfy() {
-        //console.trace("Appel à loadSomfy");
-        getJSONSync('/controller', (err, somfy) => {
+        //console.trace("loadSomfy called");
+        getJSONBusy('/controller', (err, somfy) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -3539,7 +3675,7 @@ class Somfy {
             if (!valid) return;
 
             const proceedSave = () => {
-                putJSONSync('/saveRadio', t, (err, res) => {
+                putJSONBusy('/saveRadio', t, (err, res) => {
                     if (err) return ui.serviceError(err);
 
                     ui.successMessage(tr('MSG_SAVE_SUCCESS'));
@@ -3728,7 +3864,7 @@ class Somfy {
         }
         if (initScan) {
             div.setAttribute('data-initscan', true);
-            putJSONSync('/beginFrequencyScan', {}, (err) => {
+            putJSONBusy('/beginFrequencyScan', {}, (err) => {
                 if (!err) {
                     ['btnStopScanning'].forEach(id => get(id).style.display = '');
                     ['btnRestartScanning', 'btnCopyFrequency', 'btnCloseScanning'].forEach(id => get(id).style.display = 'none');
@@ -3752,7 +3888,7 @@ class Somfy {
             closeOverlay(div);
             return;
         }
-        putJSONSync('/endFrequencyScan', {}, (err, trans) => {
+        putJSONBusy('/endFrequencyScan', {}, (err, trans) => {
             if (err) {
                 ui.serviceError(err);
             } else {
@@ -3776,7 +3912,7 @@ class Somfy {
             this.scanObserver = null;
         }
         if (killScan) {
-            putJSONSync('/endFrequencyScan', {}, (err) => {
+            putJSONBusy('/endFrequencyScan', {}, (err) => {
                 if (err) console.error(err);
             });
         }
@@ -3922,6 +4058,8 @@ class Somfy {
         document.querySelectorAll('.room-pill').forEach(pill => {
             const pId = parseInt(pill.getAttribute('data-roomid'), 10);
             pill.classList.toggle('active', pId === roomId);
+            // The active pill is only signalled by colour; expose the state to assistive tech too.
+            pill.setAttribute('aria-pressed', pId === roomId ? 'true' : 'false');
         });
 
         const ctls = document.querySelectorAll('.somfyShadeCtl');
@@ -3935,19 +4073,21 @@ class Somfy {
         let divCfg = '';
         const homeName = tr('HOME');
         const slider = get('divRoomSelector');
-        let divPills = `<div class="room-pill active" data-roomid="0" onclick="somfy.selectRoom(0)">${homeName}</div>`;
+        // The pill text is the room name, so it already is the accessible name: no aria-label
+        // here, or voice-control users would have to say something they cannot see.
+        let divPills = `<div class="room-pill active" role="button" tabindex="0" aria-pressed="true" data-roomid="0" onclick="somfy.selectRoom(0)">${homeName}</div>`;
         let divOpts = `<option value="0">${homeName}</option>`;
         _rooms = [{ roomId: 0, name: homeName }];
 
         rooms.sort((a, b) => a.sortOrder - b.sortOrder);
         rooms.forEach(room => {
-            divPills += `<div class="room-pill animScale" data-roomid="${room.roomId}" onclick="somfy.selectRoom(${room.roomId})">${esc(room.name)}</div>`;
+            divPills += `<div class="room-pill animScale" role="button" tabindex="0" aria-pressed="false" data-roomid="${room.roomId}" onclick="somfy.selectRoom(${room.roomId})">${esc(room.name)}</div>`;
             // ... foreach room ...
             divCfg += `<div class="somfyRoom room-draggable" data-roomid="${room.roomId}">
             <div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div>
             <div class="room-name"><span class="name-text">${esc(room.name)}</span></div><span class="vr"></span>
-            <div class="divEditDelete-svg" onclick="somfy.openEditRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div>
-            <div class="divEditDelete-svg" onclick="somfy.deleteRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div>
+            <div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', room.name))} onclick="somfy.openEditRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div>
+            <div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', room.name))} onclick="somfy.deleteRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div>
             </div>`;
 
             divOpts += `<option value="${room.roomId}">${esc(room.name)}</option>`;
@@ -3969,7 +4109,7 @@ class Somfy {
             let order = Array.from(list.querySelectorAll('.room-draggable')).map(item =>
             parseInt(item.getAttribute('data-roomid'), 10)
             );
-            putJSONSync('/roomSortOrder', order, (err) => {
+            putJSONBusy('/roomSortOrder', order, (err) => {
                 if (err) ui.serviceError(err);
                 else this.updateRoomsList();
             });
@@ -4024,7 +4164,7 @@ class Somfy {
         if (typeof addresses !== 'undefined') {
             for (let i = 0; i < addresses.length; i++) {
 
-                divCfg += `<div class="somfyRepeater" data-address="${addresses[i]}"><div class="idRemoteAddress"><span class="AddrId-label">${tr("ADDR")}</span><span class="repeater-name">${addresses[i]}</span></div><div class="divEditDelete-svg" onclick="somfy.unlinkRepeater('${addresses[i]}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
+                divCfg += `<div class="somfyRepeater" data-address="${addresses[i]}"><div class="idRemoteAddress"><span class="AddrId-label">${tr("ADDR")}</span><span class="repeater-name">${addresses[i]}</span></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_UNLINK_REPEATER', addresses[i]))} onclick="somfy.unlinkRepeater('${addresses[i]}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
             }
         }
         get('divRepeatList').innerHTML = divCfg;
@@ -4061,11 +4201,11 @@ class Somfy {
             let isSunOn = (shade.flags & 0x01);
             let st = this.shadeTypes.find(x => x.type === shade.shadeType) || { type: shade.shadeType, ico: 'svg-window-shade' };
 
-            divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
+            divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', shade.name))} onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', shade.name))} onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
             // --- SECTION CONTROLE ---
             divCtl += `<div class="somfyShadeCtl" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"
             data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
-            <div class="shadectl-side-handle" onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});"><svg class="handle-icon"><use href="#svg-arrowRight"></use></svg></div>
+            <div class="shadectl-side-handle" ${a11yBtn(trf('A11Y_SET_POS', shade.name))} onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});"><svg class="handle-icon"><use href="#svg-arrowRight"></use></svg></div>
             <div class="shadectl-right-content">
             <div class="shadectl-main-content">
             <div class="shadectl-header-row"><span class="shadectl-name">${esc(shade.name)}</span></div>
@@ -4082,10 +4222,10 @@ class Somfy {
             const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
             divCtl += `</span></div>
             <div class="shadectl-buttons" data-shadeType="${shade.shadeType}">
-            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="up" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-up"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="my" data-shadeid="${shade.shadeId}" title="${tr('TT_HOLD_MY')}"><svg><use href="#svg-my"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="down" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-down"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg-wide animScale" data-cmd="toggle" data-shadeid="${shade.shadeId}"><svg><use href="#svg-toggle"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_UP', shade.name))} data-cmd="up" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-up"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_MY', shade.name))} data-cmd="my" data-shadeid="${shade.shadeId}" title="${tr('TT_HOLD_MY')}"><svg><use href="#svg-my"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_DOWN', shade.name))} data-cmd="down" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-down"></use></svg></div>
+            <div class="button-outline cmd-button btn-somfy-svg-wide animScale" ${a11yBtn(trf('A11Y_CMD_TOGGLE', shade.name))} data-cmd="toggle" data-shadeid="${shade.shadeId}"><svg><use href="#svg-toggle"></use></svg></div>
             </div>
             <div class="shadectl-status-bar">
             <div class="shadectl-status-left">
@@ -4095,15 +4235,15 @@ class Somfy {
             if (shade.tiltType !== 0) divCtl += `<div class="val-tilt myShade-badge">${tr('SHADE_MY_TILT')}${shade.myTiltPos === -1 ? '---' : shade.myTiltPos + '%'}</div>`;
             divCtl += `</div>
             <div class="status-group-right">
-            <div class="button-light cmd-button" data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}">
+            <div class="button-light cmd-button" ${a11yBtn(trf('A11Y_CMD_LIGHT', shade.name))} data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}">
             <svg><use href="#svg-lightbulb"></use></svg>
             </div>`;
             if (shade.sunSensor) {
-                divCtl += `<div class="button-sunflag cmd-button" data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}">
+                divCtl += `<div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', shade.name))} data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}">
                 <svg><use href="#svg-sun"></use></svg>
                 </div>`;
             }
-            divCtl += `<div class="button-my" onclick="event.stopPropagation(); somfy.openSetMyPosition(${shade.shadeId});">
+            divCtl += `<div class="button-my" ${a11yBtn(trf('A11Y_SET_MY', shade.name))} onclick="event.stopPropagation(); somfy.openSetMyPosition(${shade.shadeId});">
             <svg><use href="#svg-favori"></use></svg>
             </div></div></div></div></div></div></div>`;
 
@@ -4189,6 +4329,11 @@ class Somfy {
             // letting it fire under the user's nose.
             btns[i].addEventListener('mouseleave', (event) => lpClear(event.currentTarget), true);
             btns[i].addEventListener('touchcancel', (event) => lpClear(event.currentTarget), true);
+            // These buttons are driven by mousedown/mouseup, which a keyboard never fires, so
+            // Enter/Space reached them and did nothing. The delegated role="button" handler
+            // dispatches a synthetic click (detail === 0); a real pointer click always has
+            // detail >= 1, so keying off it runs the plain-tap path exactly once.
+            btns[i].addEventListener('click', (event) => { if (event.detail === 0) onCmdUp(event); });
         }
         this.setListDraggable(get('divShadeList'), '.shade-draggable', (list) => {
             // Get the shade order
@@ -4198,7 +4343,7 @@ class Somfy {
                 order.push(parseInt(items[i].getAttribute('data-shadeid'), 10));
                 // Reorder the shades on the main page.
             }
-            putJSONSync('/shadeSortOrder', order, (err) => {
+            putJSONBusy('/shadeSortOrder', order, (err) => {
                 for (let i = order.length - 1; i >= 0; i--) {
                     let el = shadeControls.querySelector(`.somfyShadeCtl[data-shadeid="${order[i]}"`);
                     if (el) {
@@ -4247,7 +4392,24 @@ class Somfy {
             });
             el.dataset.idx = idx;
         };
+        // The window listeners only make sense while a drag is actually running.
+        // Binding them at setup time leaked four handlers per list refresh (the shade and
+        // group lists are rebuilt on every socket update), so they are now bound on drag
+        // start and released on drag end.
+        const bindWindow = () => {
+            window.addEventListener('touchmove', move, { passive: false });
+            window.addEventListener('touchend', end);
+            window.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+        };
+        const unbindWindow = () => {
+            window.removeEventListener('touchmove', move, { passive: false });
+            window.removeEventListener('touchend', end);
+            window.removeEventListener('mousemove', move);
+            window.removeEventListener('mouseup', end);
+        };
         const end = () => {
+            unbindWindow();
             stop();
             if (gh) { gh.remove(); gh = null; }
             if (el) {
@@ -4292,19 +4454,18 @@ class Somfy {
             document.body.appendChild(gh);
             el.classList.add('drag-orig');
             if (navigator.vibrate) navigator.vibrate(30);
+            bindWindow();
         };
 
-            list.querySelectorAll(cl).forEach(it => {
-                let h = it.querySelector('.drag-handle');
-                if (h) {
-                    h.addEventListener('touchstart', (e) => start(e, it), {passive:true});
-                    h.addEventListener('mousedown', (e) => start(e, it));
-                }
-            });
-            window.addEventListener('touchmove', move, {passive:false});
-            window.addEventListener('touchend', end);
-            window.addEventListener('mousemove', move);
-            window.addEventListener('mouseup', end);
+        // The per-item handlers die with the items, which are replaced wholesale on every
+        // refresh, so they need no explicit teardown.
+        list.querySelectorAll(cl).forEach(it => {
+            let h = it.querySelector('.drag-handle');
+            if (h) {
+                h.addEventListener('touchstart', (e) => start(e, it), { passive: true });
+                h.addEventListener('mousedown', (e) => start(e, it));
+            }
+        });
     }
     setGroupsList(groups) {
         this.groups = groups;
@@ -4334,8 +4495,8 @@ class Somfy {
                 let group = groups[i];
                 let room = _rooms.find(x => x.roomId === group.roomId) || { roomId: 0, name: '' };
                 // --- Section Configuration ---
-                divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" style="color: var(--danger-color, red);"><use href=#svg-close></use></svg></div></div>`;
-                // --- Section Contrôle (divCtl) ---
+                divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', group.name))} onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', group.name))} onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" style="color: var(--danger-color, red);"><use href=#svg-close></use></svg></div></div>`;
+                // --- Control section (divCtl) ---
                 divCtl += `<div class="somfyGroupCtl" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-groupId="${group.groupId}" data-roomid="${group.roomId}" data-remoteaddress="${group.remoteAddress}">
                 <div class="group-name">
                 <span class="groupctl-room">${esc(room.name)}</span>
@@ -4346,10 +4507,10 @@ class Somfy {
                 }
                 divCtl += `</div></div>
                 <div class="groupctl-buttons">
-                <div class="button-sunflag cmd-button" data-cmd="sunflag" data-groupid="${group.groupId}" data-on="${(group.flags & 0x01) ? 'true' : 'false'}" style="${!group.sunSensor ? 'display:none' : ''}"><svg><use href="#svg-sun"></use></svg></div>
-                <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="up" data-groupid="${group.groupId}"><svg><use href="#svg-up"></use></svg></div>
-                <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="my" data-groupid="${group.groupId}"><svg><use href="#svg-my"></use></svg></div>
-                <div class="button-outline cmd-button btn-somfy-svg animScale" data-cmd="down" data-groupid="${group.groupId}"><svg><use href="#svg-down"></use></svg></div>
+                <div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', group.name))} data-cmd="sunflag" data-groupid="${group.groupId}" data-on="${(group.flags & 0x01) ? 'true' : 'false'}" style="${!group.sunSensor ? 'display:none' : ''}"><svg><use href="#svg-sun"></use></svg></div>
+                <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_UP', group.name))} data-cmd="up" data-groupid="${group.groupId}"><svg><use href="#svg-up"></use></svg></div>
+                <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_MY', group.name))} data-cmd="my" data-groupid="${group.groupId}"><svg><use href="#svg-my"></use></svg></div>
+                <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_DOWN', group.name))} data-cmd="down" data-groupid="${group.groupId}"><svg><use href="#svg-down"></use></svg></div>
                 </div>
                 </div>`;
 
@@ -4394,7 +4555,7 @@ class Somfy {
                 order.push(parseInt(items[i].getAttribute('data-groupid'), 10));
                 // Reorder the shades on the main page.
             }
-            putJSONSync('/groupSortOrder', order, (err) => {
+            putJSONBusy('/groupSortOrder', order, (err) => {
                 for (let i = order.length - 1; i >= 0; i--) {
                     let el = groupControls.querySelector(`.somfyGroupCtl[data-groupid="${order[i]}"`);
                     if (el) {
@@ -4530,7 +4691,7 @@ class Somfy {
         html += `<div class="linkedScrollArea">`;
         html += remotes.map((remote, i) => `
         ${i > 0 ? '<hr>' : ''}
-        <div class="somfyLinkedRemote" data-shadeid="${shade.shadeId}" data-remoteaddress="${remote.remoteAddress}"><div class="linkedWrap"><svg class="icon-svg"><use href=#svg-remote></use></svg></div><div class="linkedContent"><div class="label">${tr("LINKED_R_T")} ${i + 1}</div><div><span class="uniStatus">${tr("ADDR")} ${remote.remoteAddress}, </span><span class="uniStatus">${tr("CODE")} ${remote.lastRollingCode}</span></div></div><div class="button-outline-svg svgDelete" onclick="somfy.unlinkRemote(${shade.shadeId}, '${remote.remoteAddress}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
+        <div class="somfyLinkedRemote" data-shadeid="${shade.shadeId}" data-remoteaddress="${remote.remoteAddress}"><div class="linkedWrap"><svg class="icon-svg"><use href=#svg-remote></use></svg></div><div class="linkedContent"><div class="label">${tr("LINKED_R_T")} ${i + 1}</div><div><span class="uniStatus">${tr("ADDR")} ${remote.remoteAddress}, </span><span class="uniStatus">${tr("CODE")} ${remote.lastRollingCode}</span></div></div><div class="button-outline-svg svgDelete" ${a11yBtn(trf('A11Y_UNLINK_REMOTE', remote.remoteAddress))} onclick="somfy.unlinkRemote(${shade.shadeId}, '${remote.remoteAddress}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
         `).join('');
 
         html += `</div>`;
@@ -4567,7 +4728,7 @@ class Somfy {
         html += shades.map((shade, i) => `
         ${i > 0 ? '<hr>' : ''}
         <div class="somfyLinkedRemote" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}">
-        <div class="linkedWrap"><svg class="icon-svg"><use href=#svg-simpleShutter></use></svg></div><div class="linkedContent"><div class="label">${esc(shade.name)}</div><div><span class="uniStatus">${tr("ADDR")} ${shade.remoteAddress}</span></div></div><div class="button-outline-svg svgDelete" onclick="somfy.unlinkGroupShade(${group.groupId}, ${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
+        <div class="linkedWrap"><svg class="icon-svg"><use href=#svg-simpleShutter></use></svg></div><div class="linkedContent"><div class="label">${esc(shade.name)}</div><div><span class="uniStatus">${tr("ADDR")} ${shade.remoteAddress}</span></div></div><div class="button-outline-svg svgDelete" ${a11yBtn(trf('A11Y_UNLINK_SHADE', shade.name))} onclick="somfy.unlinkGroupShade(${group.groupId}, ${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
         `).join('');
 
         html += `</div>`;
@@ -4764,8 +4925,8 @@ class Somfy {
             disp('divTiltSettings', st.tilt);
             disp('divShadeTimings', hasLift);
             disp('divLiftSettings', showLiftSettings);
-            // Le temps de décollage des lames ne concerne que les tabliers sans inclinaison
-            // (le firmware l'ignore pour les autres types via effectiveLiftTime).
+            // The slat lift time only applies to shades without tilt; the firmware
+            // ignores it for the other types through effectiveLiftTime.
             disp('divLiftTime', curTilt === 0);
             disp('divSunSensor', st.sun);
             disp('divLightSwitch', st.light);
@@ -4800,7 +4961,7 @@ class Somfy {
                 return;
             }
             get('btnSaveRoom').innerText = tr('BT_CREATE');
-            getJSONSync('/getNextRoom', (err, room) => {
+            getJSONBusy('/getNextRoom', (err, room) => {
                 get('spanRoomId').innerText = '*';
                 if (err) ui.serviceError(err);
                 else {
@@ -4814,7 +4975,7 @@ class Somfy {
         }
         else {
             get('btnSaveRoom').innerText = tr('BT_SAVE');
-            getJSONSync(`/room?roomId=${roomId}`, (err, room) => {
+            getJSONBusy(`/room?roomId=${roomId}`, (err, room) => {
                 if (err) ui.serviceError(err);
                 else {
                     if(DBG) console.log(room);
@@ -4842,7 +5003,7 @@ class Somfy {
         btns.forEach(id => s(id, 'none'));
         ['blocPairDevice', 'divLinkedRemoteList', 'labelPosContainer'].forEach(id => s(id, 'none'));
 
-        getJSONSync(isNew ? '/getNextShade' : `/shade?shadeId=${shadeId}`, (err, shade) => {
+        getJSONBusy(isNew ? '/getNextShade' : `/shade?shadeId=${shadeId}`, (err, shade) => {
             if (err) return ui.serviceError(err);
 
             if (isNew) {
@@ -4915,7 +5076,7 @@ class Somfy {
         s(blocPairParent, 'none');
         s(divLinkedShades, 'none');
 
-        getJSONSync(isNew ? '/getNextGroup' : `/group?groupId=${groupId}`, (err, group) => {
+        getJSONBusy(isNew ? '/getNextGroup' : `/group?groupId=${groupId}`, (err, group) => {
             if (err) return ui.serviceError(err);
 
             if (isNew) {
@@ -5007,7 +5168,7 @@ class Somfy {
         if (valid) {
             if (isNaN(roomId) || roomId === 0) {
                 // We are adding.
-                putJSONSync('/addRoom', obj, (err, room) => {
+                putJSONBusy('/addRoom', obj, (err, room) => {
                     if (err) {
                         ui.serviceError(err);
                         if(DBG) console.log(err);
@@ -5024,7 +5185,7 @@ class Somfy {
             }
             else {
                 obj.roomId = roomId;
-                putJSONSync('/saveRoom', obj, (err, room) => {
+                putJSONBusy('/saveRoom', obj, (err, room) => {
                     if (err) {
                         ui.serviceError(err);
                     } else {
@@ -5042,7 +5203,7 @@ class Somfy {
         obj = ui.fromElement(g('somfyShade')),
         settings = g('divSomfySettings');
 
-        // Champ vide ou firmware plus ancien que l'UI (JSON sans liftTime) : 0 = comportement d'origine.
+        // Empty field, or firmware older than the UI (JSON without liftTime): 0 = original behaviour.
         if (isNaN(obj.liftTime)) obj.liftTime = 0;
 
         const checks = [
@@ -5068,7 +5229,7 @@ class Somfy {
         const isNew = isNaN(sId) || sId >= 255;
         if (!isNew) obj.shadeId = sId;
 
-        putJSONSync(isNew ? '/addShade' : '/saveShade', obj, (err, shade) => {
+        putJSONBusy(isNew ? '/addShade' : '/saveShade', obj, (err, shade) => {
             if (err) return ui.serviceError(err);
 
             if(DBG) console.log("Shade saved/added:", shade);
@@ -5093,7 +5254,7 @@ class Somfy {
         if (error) return ui.errorMessage(tr(error[1]));
         if (!isNew) obj.groupId = groupId;
 
-        putJSONSync(isNew ? '/addGroup' : '/saveGroup', obj, (err, group) => {
+        putJSONBusy(isNew ? '/addGroup' : '/saveGroup', obj, (err, group) => {
             if (err) return ui.serviceError(err);
 
             if(DBG) console.log("Group saved:", group);
@@ -5104,7 +5265,7 @@ class Somfy {
         });
     }
     updateRoomsList() {
-        getJSONSync('/rooms', (err, shades) => {
+        getJSONBusy('/rooms', (err, shades) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -5115,7 +5276,7 @@ class Somfy {
         });
     }
     updateShadeList() {
-        getJSONSync('/shades', (err, shades) => {
+        getJSONBusy('/shades', (err, shades) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -5128,7 +5289,7 @@ class Somfy {
         });
     }
     updateGroupList() {
-        getJSONSync('/groups', (err, groups) => {
+        getJSONBusy('/groups', (err, groups) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -5141,7 +5302,7 @@ class Somfy {
         });
     }
     updateRepeatList() {
-        getJSONSync('/repeaters', (err, repeaters) => {
+        getJSONBusy('/repeaters', (err, repeaters) => {
             if (err) {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
@@ -5156,12 +5317,12 @@ class Somfy {
             valid = false;
         }
         if (valid) {
-            getJSONSync(`/room?roomId=${roomId}`, (err, room) => {
+            getJSONBusy(`/room?roomId=${roomId}`, (err, room) => {
                 if (err) ui.serviceError(err);
                 else {
                     let prompt = ui.promptMessage(tr('PROMPT_DELETE_ROOM'), () => {
                         ui.clearErrors();
-                        putJSONSync('/deleteRoom', { roomId: roomId }, (err, room) => {
+                        putJSONBusy('/deleteRoom', { roomId: roomId }, (err, room) => {
                             prompt.remove();
                             if (err) ui.serviceError(err);
                             else
@@ -5180,13 +5341,13 @@ class Somfy {
             valid = false;
         }
         if (valid) {
-            getJSONSync(`/shade?shadeId=${shadeId}`, (err, shade) => {
+            getJSONBusy(`/shade?shadeId=${shadeId}`, (err, shade) => {
                 if (err) ui.serviceError(err);
                 else if (shade.inGroup) ui.errorMessage(tr('ERR_DEVICE_IN_GROUP'));
                 else {
                     let prompt = ui.promptMessage(tr('PROMPT_DELETE_SHADE'), () => {
                         ui.clearErrors();
-                        putJSONSync('/deleteShade', { shadeId: shadeId }, (err, shade) => {
+                        putJSONBusy('/deleteShade', { shadeId: shadeId }, (err, shade) => {
                             if (err) ui.serviceError(err);
                             else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
                             this.updateShadeList();
@@ -5205,7 +5366,7 @@ class Somfy {
             valid = false;
         }
         if (valid) {
-            getJSONSync(`/group?groupId=${groupId}`, (err, group) => {
+            getJSONBusy(`/group?groupId=${groupId}`, (err, group) => {
                 if (err) ui.serviceError(err);
                 else {
                     if (group.linkedShades.length > 0) {
@@ -5213,7 +5374,7 @@ class Somfy {
                     }
                     else {
                         let prompt = ui.promptMessage(tr('PROMPT_DELETE_GROUP'), () => {
-                            putJSONSync('/deleteGroup', { groupId: groupId }, (err, g) => {
+                            putJSONBusy('/deleteGroup', { groupId: groupId }, (err, g) => {
                                 if (err) ui.serviceError(err);
                                 else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
                                 this.updateGroupList();
@@ -5227,7 +5388,7 @@ class Somfy {
         }
     }
     setRollingCode(shadeId, rollingCode) {
-        putJSONSync('/setRollingCode', { shadeId: shadeId, rollingCode: rollingCode }, (err, shade) => {
+        putJSONBusy('/setRollingCode', { shadeId: shadeId, rollingCode: rollingCode }, (err, shade) => {
             if (err) ui.serviceError(get('divSomfySettings'), err);
             else {
                 let dlg = get('divRollingCode');
@@ -5275,7 +5436,7 @@ class Somfy {
         let obj = { shadeId: shadeId, paired: paired || false };
         let div = get('divPairing');
         let overlay = typeof div === 'undefined' ? undefined : ui.waitMessage(div);
-        putJSONSync('/setPaired', obj, (err, shade) => {
+        putJSONBusy('/setPaired', obj, (err, shade) => {
             if (overlay) overlay.remove();
             if (err) {
                 if(DBG) console.log(err);
@@ -5674,7 +5835,7 @@ class Somfy {
 
         div.querySelector('#btnOpenMemory').onclick = () => {
             const sId = isUnlink ? shadeId : ui.fromElement(div).shadeId;
-            putJSONSync('/shadeCommand', { shadeId: sId, command: 'prog', repeat: 40 }, (err) => {
+            putJSONBusy('/shadeCommand', { shadeId: sId, command: 'prog', repeat: 40 }, (err) => {
                 if (err) ui.serviceError(err);
                 else {
                     let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
@@ -5698,11 +5859,11 @@ class Somfy {
         };
         if (isUnlink) {
             btnAction.onclick = () => {
-                putJSONSync('/groupCommand', { groupId: groupId, command: 'prog', repeat: 1 }, (err) => {
+                putJSONBusy('/groupCommand', { groupId: groupId, command: 'prog', repeat: 1 }, (err) => {
                     if (err) ui.serviceError(err);
                     else {
                         let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
-                            putJSONSync('/unlinkFromGroup', { groupId: groupId, shadeId: shadeId }, (err, group) => {
+                            putJSONBusy('/unlinkFromGroup', { groupId: groupId, shadeId: shadeId }, (err, group) => {
                                 somfy.setLinkedShadesList(group);
                                 this.updateGroupList();
                             });
@@ -5722,7 +5883,7 @@ class Somfy {
                 mouseDown = false;
                 let obj = ui.fromElement(div);
                 let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
-                    putJSONSync('/linkToGroup', { groupId: groupId, shadeId: obj.shadeId }, (err, group) => {
+                    putJSONBusy('/linkToGroup', { groupId: groupId, shadeId: obj.shadeId }, (err, group) => {
                         somfy.setLinkedShadesList(group);
                         this.updateGroupList();
                     });
@@ -5740,7 +5901,7 @@ class Somfy {
             btnAction.ontouchend = (e) => { e.preventDefault(); progUp(); };
         }
         const urlInit = isUnlink ? `/group?groupId=${groupId}` : `/groupOptions?groupId=${groupId}`;
-        getJSONSync(urlInit, (err, data) => {
+        getJSONBusy(urlInit, (err, data) => {
             if (err) {
                 ui.serviceError(err);
                 return;
@@ -5780,7 +5941,7 @@ class Somfy {
 
     unlinkRepeater(address) {
         let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REPEATER'), () => {
-            putJSONSync('/unlinkRepeater', { address: address }, (err, repeaters) => {
+            putJSONBusy('/unlinkRepeater', { address: address }, (err, repeaters) => {
                 if (err) ui.serviceError(err);
                 else this.setRepeaterList(repeaters);
                 prompt.remove();
@@ -5793,7 +5954,7 @@ class Somfy {
                 shadeId: shadeId,
                 remoteAddress: remoteAddress
             };
-            putJSONSync('/unlinkRemote', obj, (err, shade) => {
+            putJSONBusy('/unlinkRemote', obj, (err, shade) => {
 
                 if(DBG) console.log(shade);
                 prompt.remove();
@@ -5921,7 +6082,7 @@ class MQTT {
     initialized = false;
     init() { this.initialized = true; }
     async loadMQTT() {
-        getJSONSync('/mqttsettings', (err, settings) => {
+        getJSONBusy('/mqttsettings', (err, settings) => {
             if (err)
                 if(DBG) console.log(err);
             else {
@@ -5989,7 +6150,7 @@ class MQTT {
         // Only send the password when the user actually typed one; an empty field
         // means "keep the stored password" (mirrors the firmware fromJSON rule).
         if (!obj.mqtt.password) delete obj.mqtt.password;
-        putJSONSync('/connectmqtt', obj.mqtt, (err, response) => {
+        putJSONBusy('/connectmqtt', obj.mqtt, (err, response) => {
             if (err) {
                 ui.serviceError(err);
             } else {
@@ -6074,7 +6235,7 @@ class Firmware {
     restore() {
         let div = this.createFileUploader('/restore');
         let inst = div.querySelector('#divInstText');
-        //[id, bind, texte, checked]
+        //[id, bind, text, checked]
         const opts = [
             ['cbRestoreShades', 'shades', 'RESTORE_SHADES_GROUPS', 1],
             ['cbRestoreRepeaters', 'repeaters', 'RESTORE_REPEATERS', 0],
@@ -6154,7 +6315,7 @@ class Firmware {
         <span class="uniLabel">${tr('FIRMWARE_SAVE_BACKUP')}</span>
         <span class="uniStatus">${tr(isMob ? 'FIRMWARE_SAVE_BACKUP_DESC_MOB' : 'FIRMWARE_SAVE_BACKUP_DESC')}</span>
         </div>
-        <div id="btnBackupCfg" class="gitBackup" onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
+        <div id="btnBackupCfg" class="gitBackup" ${a11yBtn(tr('A11Y_BACKUP'))} onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
         </div>
         <div class="button-container-row">
         <button id="btnClose" line type="button" onclick="closeOverlay(get('divUploadFile'))">${tr('BT_CANCEL_1')}</button>
@@ -6208,6 +6369,7 @@ class Firmware {
         divsGlobal.forEach(div => {
             div.classList.remove('procFwStatusshow');
             div.onclick = null;
+            setClickable(div, false);
         });
         if (rel.available && rel.status === 0 && rel.checkForUpdate !== false) {
             divsGlobal.forEach(div => {
@@ -6215,6 +6377,7 @@ class Firmware {
                 div.style.cursor = 'pointer';
                 div.onclick = () => { firmware.updateGithub(); };
                 div.innerHTML = `<span>${tr('FW_UPDATE_AVAILABLE')}</span>`;
+                setClickable(div, true);
             });
             if (divLocal) {
                 divLocal.className = "error";
@@ -6229,6 +6392,7 @@ class Firmware {
 
                 divLocal.style.cursor = 'pointer';
                 divLocal.onclick = () => { firmware.updateGithub(); };
+                setClickable(divLocal, true);
             }
         }
         else if (rel.status === 4 && rel.error !== 0) {
@@ -6247,6 +6411,7 @@ class Firmware {
 
                 divLocal.style.cursor = '';
                 divLocal.onclick = null;
+                setClickable(divLocal, false);
             }
         }
     }
@@ -6283,7 +6448,7 @@ class Firmware {
             }
         }
     }
-    // Extrait juste le premier nombre après le 'v' (ex: "v2.5.2" -> 2, "v3.0.0" -> 3, "3.1.2" -> 3)
+    // Extract only the first number after the 'v' (e.g. "v2.5.2" -> 2, "v3.0.0" -> 3, "3.1.2" -> 3)
     getMainVersion(verStr) {
         if (!verStr) return 0;
         const match = verStr.match(/[vV]?(\d+)/);
@@ -6312,7 +6477,7 @@ class Firmware {
             try { await firmware.backup(); }
             catch (err) { return ui.serviceError(div, err); }
         }
-        putJSONSync(`/downloadFirmware?ver=${obj.version}`, {}, (err, ver) => {
+        putJSONBusy(`/downloadFirmware?ver=${obj.version}`, {}, (err, ver) => {
             if (err) return ui.serviceError(err);
             general.reloadApp = true;
             const desc = tr('GIT_RELEASE_DESC').replace('%1', esc(ver.name));
@@ -6342,13 +6507,13 @@ class Firmware {
         });
     }
     cancelInstallGit(div) {
-        putJSONSync(`/cancelFirmware`, {}, (err) => {
+        putJSONBusy(`/cancelFirmware`, {}, (err) => {
             if (err) ui.serviceError(err);
             closeOverlay(div);
         });
     }
     updateGithub() {
-        getJSONSync('/getReleases', (err, rel) => {
+        getJSONBusy('/getReleases', (err, rel) => {
             if (err) return ui.serviceError(err);
             const div = document.createElement('div'), isMob = this.isMobile();
             const chip = (get('divContainer').getAttribute('data-chipmodel') || "").toLowerCase();
@@ -6389,7 +6554,7 @@ class Firmware {
             <div class="footer-sticky-content">
             <div class="uniRow">
             <div class="uniText"><span class="uniLabel">${tr('FIRMWARE_SAVE_BACKUP')}</span><span class="uniStatus">${tr(isMob ? 'FIRMWARE_SAVE_BACKUP_DESC_MOB' : 'FIRMWARE_SAVE_BACKUP_DESC')}</span></div>
-            <div id="btnBackupCfg" class="gitBackup" onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
+            <div id="btnBackupCfg" class="gitBackup" ${a11yBtn(tr('A11Y_BACKUP'))} onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
             </div>
             <div class="button-container-row">
             <button id="btnClose" line type="button" onclick="closeOverlay(get('divGitInstall'))">${tr('BT_CANCEL_1')}</button>

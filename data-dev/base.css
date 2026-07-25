@@ -710,13 +710,13 @@ input[type="number"] {
     display: block;
 }
 .btn-none-shortcut:has(use[href="#svg-power"]) {
-    color: var(--accent-sucess, #4caf50);
+    color: var(--accent-sucess, #069800);
 }
 .btn-none-shortcut:has(use[href="#svg-power"]):hover {
-    color: var(--txtwarning-color, #f44336);
+    color: var(--txtwarning-color, #d9534f);
 }
 .btn-none-shortcut:has(use[href="#svg-powerOff"]) {
-    color: var(--txtwarning-color, #f44336);
+    color: var(--txtwarning-color, #d9534f);
     opacity: 0.8;
 }
 .btn-none-shortcut:has(use[href="#svg-powerOff"]):hover {
@@ -757,7 +757,7 @@ input[type="number"] {
 }
 fieldset {
     display: block;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: var(--radius-input);
     padding: 25px;
     margin-top: 20px;

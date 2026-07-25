@@ -113,7 +113,7 @@
     height: calc(100dvh - var(--topbar-height));
     overflow-y: auto;
     background: var(--unibloc-color);
-    border-right: 1px solid #333;
+    border-right: 1px solid var(--border);
     width: 20%;
     min-width: 250px;
     max-width: 400px;
@@ -197,7 +197,7 @@ body[data-auth="false"] .container {
     cursor: pointer;
 }
 .sub-nav-item:hover, .sub-nav-item.active {
-    color: var(--accent-color, #f8a525);
+    color: var(--accent-color, #1a5fb4);
 }
 .sidebar-footer {
     margin-top: auto;
@@ -397,7 +397,7 @@ body[data-auth="false"] .container {
 #divConfigPnl {
     margin: auto;
 }
-/* Page Général*/
+/* General page */
 .chooseAccentColor {
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -558,7 +558,7 @@ span.ssid {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* ICONES ET SIGNAUX SVG*/
+/* SVG ICONS AND SIGNALS */
 div.signal {
     display: flex;
     align-items: center;
@@ -573,11 +573,11 @@ div.signal {
 }
 #divNetworkStrength use.active,
 div.signal use.active {
-    fill: #069800 !important;
+    fill: var(--accent-sucess) !important;
     opacity: 1 !important;
 }
 #svgWifiElement {
-    fill: #069800 !important;
+    fill: var(--accent-sucess) !important;
     display: block !important;
     overflow: visible;
 }
@@ -640,7 +640,7 @@ div.wifiSignal {
     background: color-mix(in srgb, var(--accent-color) 30%, var(--unibloc-color));
     border: 1px solid var(--accent-color);
 }
-/*Page Shade, Groupe and Repeater*/
+/* Shade, group and repeater page */
 .empty-state {
     text-align: center;
     padding: 40px 20px;
@@ -830,7 +830,7 @@ display: none;
 #somfyShade[data-proto="8"][data-shadetype="9"] #divGPIOUp {
 display: none;
 }
-/*télécommande virtuelle*/
+/* Virtual remote */
 .vr-content {
     max-width: 380px;
     width: 100%;
@@ -1078,7 +1078,7 @@ display: none;
 #divVirtualRemote[data-bitlength="none"] .vr-favorite {
     display: none;
  }
-/* ÉTATS ACTIFS ET ÉTATS COCHÉS */
+/* ACTIVE AND CHECKED STATES */
 .vr-arrow-up:active   { transform: translateX(-50%) translateY(-5px); }
 .vr-arrow-down:active { transform: translateX(-50%) translateY(5px); }
 
@@ -1087,7 +1087,7 @@ display: none;
     color: white;
     border: none;
 }
-/* GESTION DES SVG */
+/* SVG HANDLING */
 .vr-toogle svg,
 .btn-fav svg,
 .segment svg,
@@ -1359,7 +1359,7 @@ div.frame-pulses {
     text-overflow:ellipsis;
     display:none;
 }
-/*Sécurity*/
+/* Security */
 #divPinSecurity { justify-content: center; }
 #divPinSecurity label { margin: 20px; }
 #fldPinEntry { margin-top: 20px; }
@@ -1436,7 +1436,7 @@ div.frame-pulses {
 #divLoginPassword  .LoginPassword-input input {
     width: 100%;
     padding: 12px 12px 12px 40px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: var(--radius-bloc);
     outline: none;
     transition: border-color 0.3s, box-shadow 0.3s;
@@ -1570,7 +1570,7 @@ div.frame-pulses {
         width: 10px;
         height: 10px;
         border-radius: 50%;
-        background: #d9534f;
+        background: var(--txtwarning-color);
     }
     body.socket-on .mobile-conn .conn-dot {
         background: #5cb85c;

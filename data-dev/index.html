@@ -293,7 +293,7 @@
                                 <div>
                                     <label class="label" for="fldPassword" tr="SECURITY_PASSWORD"></label>
                                     <input id="fldPassword" class="inputAndSelect" name="password" type="password" data-bind="security.password" length=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer un mot de passe">
-                                    <div class="password-eye" onclick="security.toggleFieldPassword('fldPassword', this)">
+                                    <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                                     </div>
                                 </div>
@@ -301,7 +301,7 @@
                                 <div>
                                     <label class="label" for="fldRenterPassword" tr="SECURITY_CONFIRM_PASSWORD"></label>
                                     <input id="fldRenterPassword" class="inputAndSelect" name="password" type="password" data-bind="security.repeatpassword" length=32 tr="SECURITY_CONFIRM_PASSWORD_PLH" placeholder="Vous devez Confirmer le Mot de Passe">
-                                    <div class="password-eye" onclick="security.toggleFieldPassword('fldRenterPassword', this)">
+                                    <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldRenterPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                                     </div>
                                 </div>
@@ -428,7 +428,7 @@
                                 <div class="uniText">
                                     <div class="uniLabel" style="display: flex; align-items: center;">
                                         <span tr="FW_CREDITS_BUG"></span>
-                                        <div class="help-container" onclick="event.stopPropagation(); toggleTooltip(this);">
+                                        <div class="help-container" role="button" tabindex="0" tr-aria="A11Y_HELP" onclick="event.stopPropagation(); toggleTooltip(this);">
                                             <svg class="help-svg" style="width: 26px; height: 22px; color: var(--accent-color, #007acc);"><use href="#icon-question"></use></svg>
                                             <div class="tooltip-text">
                                                 <span tr="FW_CREDITS_BUG_TOOLTIP_0"></span><br><br>
@@ -481,12 +481,12 @@
                                 <div class="uniText">
                                     <div class="uniLabel" tr="FW_CREDITS_CONTRIBUTORS"></div>
                                     <div class="uniStatus">
-                                        <span class="credit-link" onclick="window.open('https://github.com/xkain', '_blank')"> xkain</span>
-                                        <span class="credit-link" onclick="window.open('https://github.com/glich34', '_blank')"> glich34</span>
-                                        <span class="credit-link" onclick="window.open('https://github.com/dirstel', '_blank')"> dirstel</span>
-                                        <span class="credit-link" onclick="window.open('https://github.com/cjkas', '_blank')"> cjkas</span>
-                                        <span class="credit-link" onclick="window.open('https://github.com/truffshuff', '_blank')"> truffshuff</span>
-                                        <span class="credit-link" onclick="window.open('https://github.com/Marc-Berg', '_blank')"> Marc-Berg</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/xkain', '_blank')"> xkain</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/glich34', '_blank')"> glich34</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/dirstel', '_blank')"> dirstel</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/cjkas', '_blank')"> cjkas</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/truffshuff', '_blank')"> truffshuff</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/Marc-Berg', '_blank')"> Marc-Berg</span>
                                     </div>
                                 </div>
                             </div>
@@ -714,7 +714,7 @@
                                         <label class="label" for="fldPassphrase" tr="SECURITY_PASSWORD"></label>
                                         <div class="LoginPassword-input password-container">
                                             <input id="fldPassphrase" class="inputAndSelect" name="passphrase" type="password" data-bind="wifi.passphrase" autocomplete="new-password" length=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
-                                            <div class="password-eye" onclick="security.toggleFieldPassword('fldPassphrase', this)">
+                                            <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldPassphrase', this)">
                                                 <svg class="pwd-icon pwd-iconeye"><use id="wifiEyeIcon" href="#svg-eyeOff"></use></svg>
                                             </div>
                                         </div>
@@ -848,7 +848,7 @@
                                 <label class="label" for="fldMqttPassword" tr="SECURITY_PASSWORD"></label>
                                 <div class="LoginPassword-input password-container">
                                     <input id="fldMqttPassword" class="inputAndSelect" name="mqtt-password" type="password" data-bind="mqtt.password" length=64 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
-                                    <div class="password-eye" onclick="security.toggleFieldPassword('fldMqttPassword', this)">
+                                    <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldMqttPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use id="mqttEyeIcon" href="#svg-eyeOff"></use></svg>
                                     </div>
                                 </div>
@@ -1020,16 +1020,16 @@
                                         </div>
                                     </div>
                                     <div id="divshowSomfyButtons" class="uniRight">
-                                        <div class="button-outline btn-somfy-svg animScale" data-cmd="up" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'up');">
+                                        <div class="button-outline btn-somfy-svg animScale" role="button" tabindex="0" tr-aria="A11Y_VR_UP" data-cmd="up" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'up');">
                                             <svg><use href="#svg-up"></use></svg>
                                         </div>
-                                        <div class="button-outline btn-somfy-svg animScale" data-cmd="my" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'my');">
+                                        <div class="button-outline btn-somfy-svg animScale" role="button" tabindex="0" tr-aria="A11Y_VR_MY" data-cmd="my" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'my');">
                                             <svg><use href="#svg-my"></use></svg>
                                         </div>
-                                        <div class="button-outline btn-somfy-svg animScale" data-cmd="down" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'down');">
+                                        <div class="button-outline btn-somfy-svg animScale" role="button" tabindex="0" tr-aria="A11Y_VR_DOWN" data-cmd="down" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'down');">
                                             <svg><use href="#svg-down"></use></svg>
                                         </div>
-                                        <div class="button-outline btn-somfy-svg-wide animScale" data-cmd="toggle" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'toggle');">
+                                        <div class="button-outline btn-somfy-svg-wide animScale" role="button" tabindex="0" tr-aria="A11Y_VR_TOGGLE" data-cmd="toggle" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'toggle');">
                                             <svg><use href="#svg-toggle"></use></svg>
                                         </div>
                                     </div>
@@ -1317,13 +1317,13 @@
                             <div id="blocPairGroup" class="button-container-pair">
                                 <div class="unibloc">
                                     <div id="divSomfyGroupButtons" class="uniGroupButton">
-                                        <div class="btn-somfy-svg" data-cmd="up" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'up');">
+                                        <div class="btn-somfy-svg" role="button" tabindex="0" tr-aria="A11Y_VR_UP" data-cmd="up" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'up');">
                                             <svg><use href="#svg-up"></use></svg>
                                         </div>
-                                        <div class="btn-somfy-svg" data-cmd="my" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'my');">
+                                        <div class="btn-somfy-svg" role="button" tabindex="0" tr-aria="A11Y_VR_MY" data-cmd="my" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'my');">
                                             <svg><use href="#svg-my"></use></svg>
                                         </div>
-                                        <div class="btn-somfy-svg" data-cmd="down" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'down');">
+                                        <div class="btn-somfy-svg" role="button" tabindex="0" tr-aria="A11Y_VR_DOWN" data-cmd="down" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'down');">
                                             <svg><use href="#svg-down"></use></svg>
                                         </div>
                                     </div>
@@ -1644,7 +1644,7 @@
                             <div>
                                 <div class="blocRadioHeader">
                                     <div class="blocRadioHeaderTitle">
-                                        <div class="help-container" onclick="toggleTooltip(this)">
+                                        <div class="help-container" role="button" tabindex="0" tr-aria="A11Y_HELP" onclick="toggleTooltip(this)">
                                             <svg class="help-svg">
                                                 <use href=#icon-question></use>
                                             </svg>
@@ -1684,7 +1684,7 @@
                             <div>
                                 <div class="blocRadioHeader">
                                     <div class="blocRadioHeaderTitle">
-                                        <div class="help-container" onclick="toggleTooltip(this)">
+                                        <div class="help-container" role="button" tabindex="0" tr-aria="A11Y_HELP" onclick="toggleTooltip(this)">
                                             <svg class="help-svg">
                                                 <use href=#icon-question></use>
                                             </svg>
@@ -1720,7 +1720,7 @@
                             <div>
                                 <div class="blocRadioHeader">
                                     <div class="blocRadioHeaderTitle">
-                                        <div class="help-container" onclick="toggleTooltip(this)">
+                                        <div class="help-container" role="button" tabindex="0" tr-aria="A11Y_HELP" onclick="toggleTooltip(this)">
                                             <svg class="help-svg">
                                                 <use href=#icon-question></use>
                                             </svg>
@@ -1755,7 +1755,7 @@
                             <div>
                                 <div class="blocRadioHeader">
                                     <div class="blocRadioHeaderTitle">
-                                        <div class="help-container" onclick="toggleTooltip(this)">
+                                        <div class="help-container" role="button" tabindex="0" tr-aria="A11Y_HELP" onclick="toggleTooltip(this)">
                                             <svg class="help-svg"><use href=#icon-question></use></svg>
                                             <div class="tooltip-text" tr="RADIO_TX_POWER_HELP"></div>
                                         </div>
@@ -1803,11 +1803,11 @@
             </div>
             <div id="divHomePnl" style="display: none;">
                 <div class="room-nav-container">
-                    <div id="btnScrollLeft" class="nav-arrow animScale" onclick="somfy.scrollRooms(-1)">
+                    <div id="btnScrollLeft" class="nav-arrow animScale" role="button" tabindex="0" tr-aria="A11Y_ROOMS_PREV" onclick="somfy.scrollRooms(-1)">
                         <svg class="icon-svg"><use href=#svg-arrowLeft></use></svg>
                     </div>
                     <div id="divRoomSelector" class="room-selector" data-roomid="0"></div>
-                    <div id="btnScrollRight" class="nav-arrow animScale" onclick="somfy.scrollRooms(1)">
+                    <div id="btnScrollRight" class="nav-arrow animScale" role="button" tabindex="0" tr-aria="A11Y_ROOMS_NEXT" onclick="somfy.scrollRooms(1)">
                         <svg class="icon-svg"><use href=#svg-arrowRight></use></svg>
                     </div>
                 </div>
@@ -1831,14 +1831,14 @@
                 </div>
                 <div class="welcomeBottom">
                     <div id="divEmptyHome" class="setup-guide">
-                        <div class="welcomeCard" onclick="ui.showNetworkConfig();">
+                        <div class="welcomeCard" role="button" tabindex="0" onclick="ui.showNetworkConfig();">
                             <svg><use href=#svg-tabReseau></use></svg>
                             <div class="welcomeCard-content">
                                 <h1 tr="TAB_NETWORK"></h1>
                                 <p tr="WELCOME_NET_DESC"></p>
                             </div>
                         </div>
-                        <div class="welcomeCard" onclick="ui.showRadioConfig();">
+                        <div class="welcomeCard" role="button" tabindex="0" onclick="ui.showRadioConfig();">
                             <svg><use href=#svg-tabRadio></use></svg>
                             <div class="welcomeCard-content">
                                 <h1 tr="TAB_RADIO"></h1>
@@ -1847,14 +1847,14 @@
                         </div>
                     </div>
                     <div id="divEmptyHome1" class="setup-guide" style="margin-top: 15px;">
-                        <div class="welcomeCard" onclick="ui.showSystemConfig();">
+                        <div class="welcomeCard" role="button" tabindex="0" onclick="ui.showSystemConfig();">
                             <svg><use href=#svg-tabSystem></use></svg>
                             <div class="welcomeCard-content">
                                 <h1 tr="TAB_SYSTEM"></h1>
                                 <p tr="WELCOME_SYS_DESC"></p>
                             </div>
                         </div>
-                        <div class="welcomeCard" onclick="ui.showShadeConfig();">
+                        <div class="welcomeCard" role="button" tabindex="0" onclick="ui.showShadeConfig();">
                             <svg><use href=#svg-simpleShutter></use></svg>
                             <div class="welcomeCard-content">
                                 <h1 tr="WELCOME_ADD_SHADE_TITLE"></h1>
@@ -1897,7 +1897,7 @@
                     <div class="LoginPassword-input password-container">
                         <input id="fldLoginPassword" name="password" type="password" data-bind="login.password" length=32 placeholder="Entrer votre Mot de passe" tr="SECURITY_PASSWORD_PLH"/>
                         <svg class="pwd-icon pwd-iconLeft"><use href="#svg-cadenas"></use></svg>
-                        <div id="togglePassword" class="password-eye" onclick="security.toggleFieldPassword('fldLoginPassword', this)">
+                        <div id="togglePassword" class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldLoginPassword', this)">
                             <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                         </div>
                     </div>
@@ -1933,7 +1933,7 @@
             <path id="path1" d="m0 14 12-9 12 9-6.3 9.69-11.6-3e-3z" fill="#fff"/>
             <path id="path2" d="M22.939 10.627L13.061.749a1.505 1.505 0 0 0-2.121 0l-9.879 9.878C.478 11.21 0 12.363 0 13.187v9c0 .826.675 1.5 1.5 1.5h9.227l-4.063-4.062a2 2 0 0 1-.664.113c-1.13 0-2.05-.92-2.05-2.05s.92-2.05 2.05-2.05s2.05.92 2.05 2.05c0 .233-.041.456-.113.665l3.163 3.163V9.928a2.05 2.05 0 0 1-1.15-1.84c0-1.13.92-2.05 2.05-2.05s2.05.92 2.05 2.05a2.05 2.05 0 0 1-1.15 1.84v8.127l3.146-3.146A2.05 2.05 0 0 1 18 12.239c1.13 0 2.05.92 2.05 2.05s-.92 2.05-2.05 2.05a2 2 0 0 1-.709-.13L12.9 20.602v3.088h9.6c.825 0 1.5-.675 1.5-1.5v-9c0-.825-.477-1.977-1.061-2.561z" fill="#18bcf2"/>
         <symbol>
-  <!--Connexion -->
+  <!-- Login -->
         <symbol id="svg-user" viewBox="0 0 20 20">
             <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
         </symbol>
@@ -1970,7 +1970,7 @@
                 <circle cx="12" cy="12" r="2"/><path d="m16.2 7.8c2 2 2.26 5.11.8 7.47m2.1-10.4c3.9 3.89 3.9 10.2 0 14.1"/>
             </g>
         </symbol>
-<!-- Bouton -->
+<!-- Button -->
         <symbol id="svg-up" viewBox="0 0 48 48">
             <circle cx="24" cy="24" r="22" fill="currentColor"/>
             <path d="M33 28.5l-9-9-9 9" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5"/>
@@ -2016,7 +2016,7 @@
         <symbol id="vr-sunflag-c" viewBox="0 0 24 24">
             <path fill="currentColor" d="M12 2a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 12 2m0 15a5 5 0 1 0 0-10 5 5 0 0 0 0 10m0-1.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7m9.25-2.75a.75.75 0 0 0 0-1.5h-1.5a.75.75 0 0 0 0 1.5zM12 19a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 12 19m-7.75-6.25a.75.75 0 0 0 0-1.5h-1.5a.75.75 0 0 0 0 1.5zm-.03-8.53a.75.75 0 0 1 1.06 0l1.5 1.5a.75.75 0 0 1-1.06 1.06l-1.5-1.5a.75.75 0 0 1 0-1.06m1.06 15.56a.75.75 0 1 1-1.06-1.06l1.5-1.5a.75.75 0 1 1 1.06 1.06zm14.5-15.56a.75.75 0 0 0-1.06 0l-1.5 1.5a.75.75 0 0 0 1.06 1.06l1.5-1.5a.75.75 0 0 0 0-1.06m-1.06 15.56a.75.75 0 1 0 1.06-1.06l-1.5-1.5a.75.75 0 1 0-1.06 1.06z"/>
         </symbol>
-<!-- indicateurs -->
+<!-- Indicators -->
         <symbol id="indic-wind" viewBox="0 0 24 24">
             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M.75 6c3.5-1.75 6.75-2 11.25 0s7.75 1.75 11.25 0l-3.1-1.2M.75 12c3.5-1.75 6.75-2 11.25 0s7.75 1.75 11.25 0l-3.1-1.2M.75 18c3.5-1.75 6.75-2 11.25 0s7.75 1.75 11.25 0l-3.1-1.2"/>
         </symbol>
@@ -2036,7 +2036,7 @@
         <symbol id="svg-favori" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" fill="var(--crlIndicator)" /><path fill="var(--icon-color, --bg-switch-ch-color)" d="M16.23 18L12 15.45L7.77 18l1.12-4.81l-3.73-3.23l4.92-.42L12 5l1.92 4.53l4.92.42l-3.73 3.23z" />
         </symbol>
-<!-- Edit-->
+<!-- Edit -->
         <symbol id="svg-drag" viewBox="0 0 24 24">
             <path fill="currentColor" d="M12 3l-4 4h8l-4-4zM6 10h12v1H6v-1zm0 3h12v1H6v-1zm6 8l4-4H8l4 4z"/>
         </symbol>
@@ -2074,7 +2074,7 @@
             <path d="m12 15c0-3 3-3 3-3h9v9l-3 3h-9z" fill="#ff6e14"/>
             <path d="m24 12v9c0 3-3 3-3 3h-9z" fill="#954109"/>
         </symbol>
-<!-- bulle info- -->
+<!-- Info bubble -->
         <symbol id="svg-succes" viewBox="0 0 24 24">
             <path fill="currentColor" d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10s10-4.5 10-10S17.5 2 12 2m-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8z" />
         </symbol>
