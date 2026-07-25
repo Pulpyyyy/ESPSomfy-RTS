@@ -57,6 +57,7 @@ public:
   bool ensureAuth(WebServer &server, bool cfg = false);
   // CSRF / DNS-rebinding guard for the browser-facing server. Returns false and
   // sends a 403 when the request is cross-origin or targets a rebinding host.
+  bool isSameOrigin(WebServer &server);
   bool sameOriginOK(WebServer &server);
 
   //void chunkRoomsResponse(WebServer &server, const char *elem = nullptr);
