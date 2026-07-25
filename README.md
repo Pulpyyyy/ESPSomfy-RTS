@@ -12,7 +12,7 @@
     <br />
     <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/README_fr.md"><strong>README complet en français 🇫🇷 »</strong></a>
     <br />
-    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki"><strong>Explore documentation »</strong></a>
+    <a href="https://github.com/rstrouse/ESPSomfy-RTS/wiki"><strong>Explore documentation »</strong></a>
     <br />
     <br />
     <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/issues">Report Bug</a>
@@ -102,11 +102,6 @@ If you lose access to the web interface (network configuration error or forgotte
 * **Version v2.5.0 :**
     * **4 Cycles :** Full Factory Reset (**Full Wipe**).
 
-### 📖 Complete documentation
-To view detailed instructions and cycle diagrams, please visit the dedicated page:
-
-👉 **[View the Factory Reset page](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Factory-Reset)**
-
 > [!TIP]
 > Always use these procedures as a last resort. If the interface is still accessible, use the **Restore** button in the system settings instead.
 
@@ -159,7 +154,7 @@ Since this is a fork, you can rely on the extensive original documentation for t
 * 📖 **[Configuring the Software](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Configuring-the-Software)**
 * ⚙️ **[Installing the Firmware](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Installing-the-Firmware)**
 * 🔄 **[How to Update ESPSomfy RTS](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Updating-ESPSomfy-RTS)**
-* 🔌 **[Integrations](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Intégrations)**
+* 🔌 **[Home Assistant integration](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)**
 
 ---
 
