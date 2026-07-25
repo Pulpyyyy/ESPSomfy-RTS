@@ -93,28 +93,28 @@ jobs:
             name: ESP32
             chip: ESP32
             addr_bootloader: "0x1000"
-            addr_littlefs: "0x310000"
+            addr_littlefs: "0x370000"
             fwname: SomfyController.ino.esp32.bin
             obname: SomfyController.onboard.esp32.bin
           - env: esp32wrover
             name: ESP32-Wrover
             chip: ESP32
             addr_bootloader: "0x1000"
-            addr_littlefs: "0x310000"
+            addr_littlefs: "0x370000"
             fwname: SomfyController.ino.esp32wrover.bin
             obname: SomfyController.onboard.esp32wrover.bin
           - env: esp32c3
             name: ESP32C3
             chip: ESP32-C3
             addr_bootloader: "0x0"
-            addr_littlefs: "0x310000"
+            addr_littlefs: "0x370000"
             fwname: SomfyController.ino.esp32c3.bin
             obname: SomfyController.onboard.esp32c3.bin
           - env: esp32s2
             name: ESP32S2
             chip: ESP32-S2
             addr_bootloader: "0x1000"
-            addr_littlefs: "0x310000"
+            addr_littlefs: "0x370000"
             fwname: SomfyController.ino.esp32s2.bin
             obname: SomfyController.onboard.esp32s2.bin
 
@@ -123,7 +123,7 @@ jobs:
             name: ESP32S3_4MB
             chip: ESP32-S3
             addr_bootloader: "0x0"
-            addr_littlefs: "0x310000"
+            addr_littlefs: "0x370000"
             fwname: SomfyController.ino.esp32s3_4mb.bin
             obname: SomfyController.onboard.esp32s3_4mb.bin
 
@@ -132,7 +132,7 @@ jobs:
             name: ESP32S3_8MB
             chip: ESP32-S3
             addr_bootloader: "0x0"
-            addr_littlefs: "0x6F0000"
+            addr_littlefs: "0x770000"
             fwname: SomfyController.ino.esp32s3_8mb.bin
             obname: SomfyController.onboard.esp32s3_8mb.bin
 
@@ -169,6 +169,20 @@ jobs:
           TAG="${{ github.event.release.tag_name }}"
           sed -i "s/#define FW_VERSION \"[^\"]*\"/#define FW_VERSION \"${TAG}\"/" src/ConfigSettings.h
           grep -n "FW_VERSION" src/ConfigSettings.h | head -1
+
+      # The onboard image is assembled by hand, so the LittleFS offset above duplicates
+      # the partition table. Fail loudly when the two drift apart: a wrong offset flashes
+      # the filesystem across the app partition and the device boots with no UI at all.
+      - name: Check LittleFS offset against the partition table
+        run: |
+          CSV=$(sed -n "/^\[env:${{ matrix.env }}\]/,/^\[env:/p" platformio.ini \
+                | grep -m1 'board_build.partitions' | cut -d= -f2 | tr -d ' \r')
+          EXPECTED=$(grep -E '^spiffs' "$CSV" | awk -F, '{gsub(/ /,"",$4); print $4}')
+          echo "env=${{ matrix.env }} table=$CSV expected=$EXPECTED declared=${{ matrix.addr_littlefs }}"
+          if [ "$EXPECTED" != "${{ matrix.addr_littlefs }}" ]; then
+            echo "::error::LittleFS offset ${{ matrix.addr_littlefs }} does not match $CSV ($EXPECTED)"
+            exit 1
+          fi
 
       - name: Build firmware
         run: pio run -e ${{ matrix.env }}
