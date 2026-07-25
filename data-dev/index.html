@@ -829,14 +829,14 @@
                             </label>
                         </div>
                         <div class="input-mqtt">
-                            <select class="mqttSelect" name="mqtt-protocol" data-bind="mqtt.protocol">
+                            <select class="mqttSelect" name="mqtt-protocol" data-bind="mqtt.protocol" onchange="mqtt.protocolChanged(this);">
                                 <option tr="MQTT"></option>
                                 <option tr="MQTT_OPT_MQTTS"></option>
                             </select>
                             <span>://</span>
                             <input class="mqttSelect" name="mqtt-host" type="text" length=64 placeholder="Host" data-bind="mqtt.hostname">
                             <span>:</span>
-                            <input class="mqttSelect" name="mqtt-port" type="text" length=5 placeholder="Port" data-bind="mqtt.port" data-datatype="int">
+                            <input id="fldMqttPort" class="mqttSelect" name="mqtt-port" type="text" length=5 placeholder="Port" data-bind="mqtt.port" data-datatype="int">
                         </div>
                         <div class="unibloc">
                             <div>

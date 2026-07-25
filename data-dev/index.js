@@ -5937,6 +5937,16 @@ class MQTT {
             }
         });
     }
+    // Picking MQTTS while the port is still the plaintext default is the most common
+    // way to get an unexplained handshake failure, so follow the scheme as long as the
+    // user is sitting on one of the two well-known ports.
+    protocolChanged(el) {
+        let port = get('fldMqttPort');
+        if (!port) return;
+        let secure = String(el.value || '').toLowerCase().startsWith('mqtts');
+        if (secure && port.value.trim() === '1883') port.value = '8883';
+        else if (!secure && port.value.trim() === '8883') port.value = '1883';
+    }
     connectMQTT() {
         let obj = ui.fromElement(get('divMQTT'));
         if(DBG) console.log(obj);
