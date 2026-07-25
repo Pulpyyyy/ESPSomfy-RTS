@@ -95,6 +95,30 @@ void Web::handleDeserializationError(WebServer &server, DeserializationError &er
       break;
     }
 }
+bool Web::secureEquals(const char *a, const char *b) {
+  if(a == nullptr || b == nullptr) return false;
+  size_t la = strlen(a), lb = strlen(b);
+  size_t n = la > lb ? la : lb;
+  uint8_t diff = static_cast<uint8_t>(la ^ lb);
+  for(size_t i = 0; i < n; i++)
+    diff |= static_cast<uint8_t>((i < la ? a[i] : 0) ^ (i < lb ? b[i] : 0));
+  return diff == 0;
+}
+bool Web::_loginLocked() {
+  if(this->_lockoutUntil == 0) return false;
+  if((int32_t)(millis() - this->_lockoutUntil) >= 0) { this->_lockoutUntil = 0; return false; }
+  return true;
+}
+void Web::_loginFailed() {
+  if(this->_failedLogins < 255) this->_failedLogins++;
+  // Let a few fat-finger attempts through, then back off: 5s, 10s, ... capped at 60s.
+  if(this->_failedLogins >= 5) {
+    uint32_t backoff = (uint32_t)(this->_failedLogins - 4) * 5000;
+    if(backoff > 60000) backoff = 60000;
+    this->_lockoutUntil = millis() + backoff;
+    if(this->_lockoutUntil == 0) this->_lockoutUntil = 1; // never the "unlocked" sentinel
+  }
+}
 // Pure check: never sends a response.  Upload lambdas call this while the request body is
 // still being parsed, so the outer handler (or ensureAuth) owns the 401.
 bool Web::isAuthenticated(WebServer &server, bool cfg) {
@@ -106,7 +130,7 @@ bool Web::isAuthenticated(WebServer &server, bool cfg) {
     memset(token, 0x00, sizeof(token));
     this->createAPIToken(server.client().remoteIP(), token);
     // Compare the tokens.
-    if(String(token) != server.header("apikey")) return false;
+    if(!Web::secureEquals(token, server.header("apikey").c_str())) return false;
     server.sendHeader("apikey", token);
     return true;
   }
@@ -208,13 +232,22 @@ void Web::handleSetLang(WebServer &server) {
     }
 
     String lang = server.arg("lang");
-
-    if(lang == "en") settings.language = 0;
-    else if(lang == "fr") settings.language = 1;
-    else if(lang == "de") settings.language = 2;
-    else if(lang == "es") settings.language = 3;
-
-    settings.save();
+    uint8_t language;
+    if(lang == "en") language = 0;
+    else if(lang == "fr") language = 1;
+    else if(lang == "de") language = 2;
+    else if(lang == "es") language = 3;
+    else {
+      server.send(400, _encoding_json, "{\"error\":\"unsupported lang\"}");
+      return;
+    }
+    // This endpoint is reachable before login, since the language selector sits on the
+    // login screen. Only touch NVS when the value actually changes, so repeated calls
+    // cannot be used to wear out the flash.
+    if(settings.language != language) {
+      settings.language = language;
+      settings.save();
+    }
     server.send(200, _encoding_json, "{\"status\":\"ok\"}");
 }
 void Web::handleLogout(WebServer &server) {
@@ -268,25 +301,39 @@ void Web::handleLogin(WebServer &server) {
       if(server.hasArg("pin")) strlcpy(pin, server.arg("pin").c_str(), sizeof(pin));
     }
     // At this point we should have all the data we need to login.
+    if(this->_loginLocked()) {
+      obj["success"] = false;
+      obj["msg"] = "Too many attempts, try again shortly";
+      serializeJson(doc, g_content);
+      server.send(429, _encoding_json, g_content);
+      return;
+    }
     if(settings.Security.type == security_types::PinEntry) {
-      Serial.print("Validating pin ");
-      Serial.println(pin);
-      if(strlen(pin) == 0 || strcmp(pin, settings.Security.pin) != 0) {
+      Serial.println("Validating pin");
+      if(strlen(pin) == 0 || !Web::secureEquals(pin, settings.Security.pin)) {
+        this->_loginFailed();
         obj["success"] = false;
         obj["msg"] = "Invalid Pin Entry";
       }
       else {
+        this->_failedLogins = 0;
+        this->_lockoutUntil = 0;
         obj["success"] = true;
         obj["msg"] = "Login successful";
         obj["apiKey"] = token;
       }
     }
     else if(settings.Security.type == security_types::Password) {
-      if(strlen(username) == 0 || strlen(password) == 0 || strcmp(username, settings.Security.username) != 0 || strcmp(password, settings.Security.password) != 0) {
+      if(strlen(username) == 0 || strlen(password) == 0
+        || !Web::secureEquals(username, settings.Security.username)
+        || !Web::secureEquals(password, settings.Security.password)) {
+        this->_loginFailed();
         obj["success"] = false;
         obj["msg"] = "Invalid username or password";
       }
       else {
+        this->_failedLogins = 0;
+        this->_lockoutUntil = 0;
         obj["success"] = true;
         obj["msg"] = "Login successful";
         obj["apiKey"] = token;
