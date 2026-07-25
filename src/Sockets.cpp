@@ -5,12 +5,12 @@
 #include "Sockets.h"
 #include "ConfigSettings.h"
 #include "Somfy.h"
-#include "Network.h"
+#include "SomfyNetwork.h"
 #include "GitOTA.h"
 #include "Web.h"
 
 extern ConfigSettings settings;
-extern Network net;
+extern SomfyNetwork net;
 extern SomfyShadeController somfy;
 extern SocketEmitter sockEmit;
 extern GitUpdater git;

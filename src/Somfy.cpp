@@ -3,6 +3,7 @@
 #include <SPI.h>
 #include <WebServer.h>
 #include <esp_task_wdt.h>
+#include <esp_chip_info.h>
 #include "Utils.h"
 #include "ConfigSettings.h"
 #include "Somfy.h"

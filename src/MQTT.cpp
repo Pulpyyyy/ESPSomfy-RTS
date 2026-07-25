@@ -10,7 +10,7 @@
 #include "GitCerts.h"
 #include "MQTT.h"
 #include "Somfy.h"
-#include "Network.h"
+#include "SomfyNetwork.h"
 #include "Utils.h"
 
 WiFiClient tcpClient;
@@ -33,7 +33,7 @@ static char g_content[MQTT_MAX_RESPONSE];
 
 extern ConfigSettings settings;
 extern SomfyShadeController somfy;
-extern Network net;
+extern SomfyNetwork net;
 extern rebootDelay_t rebootDelay;
 
 // Certificate validity is checked against the wall clock, so a device that has

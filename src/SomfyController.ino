@@ -3,7 +3,7 @@
 #include <LittleFS.h>
 #include <esp_task_wdt.h>
 #include "ConfigSettings.h"
-#include "Network.h"
+#include "SomfyNetwork.h"
 #include "Web.h"
 #include "Sockets.h"
 #include "Utils.h"
@@ -16,7 +16,7 @@
 ConfigSettings settings;
 Web webServer;
 SocketEmitter sockEmit;
-Network net;
+SomfyNetwork net;
 rebootDelay_t rebootDelay;
 SomfyShadeController somfy;
 MQTTClass mqtt;
@@ -47,7 +47,18 @@ void setup() {
   delay(1000);
   net.setup();
   somfy.begin();
-  esp_task_wdt_init(15, true); //enable panic so ESP32 restarts
+  // Arduino-ESP32 3.x (ESP-IDF 5.x) replaced the esp_task_wdt_init(timeout_s, panic)
+  // signature with a config struct (timeout is now in milliseconds). The Arduino core
+  // may already have initialized the TWDT (CONFIG_ESP_TASK_WDT_INIT), in which case
+  // init() returns ESP_ERR_INVALID_STATE, so fall back to reconfigure() to apply our
+  // 15s / panic-on-timeout settings.
+  esp_task_wdt_config_t wdtConfig = {
+    .timeout_ms = 15000,     // enable panic so ESP32 restarts after 15s
+    .idle_core_mask = 0,     // do not subscribe the idle tasks
+    .trigger_panic = true,
+  };
+  if(esp_task_wdt_init(&wdtConfig) == ESP_ERR_INVALID_STATE)
+    esp_task_wdt_reconfigure(&wdtConfig);
   esp_task_wdt_add(NULL); //add current thread to WDT watch
 
 }
