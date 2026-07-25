@@ -694,6 +694,9 @@ void SomfyShade::clear() {
   this->settingMyPos = false;
   this->settingPos = false;
   this->settingTiltPos = false;
+  this->pendingCmd = pending_cmd_t::none;
+  this->pendingCmdStart = 0;
+  this->pendingCmdDelay = 0;
   this->awaitMy = 0;
   this->flipPosition = false;
   this->flipCommands = false;
@@ -1148,8 +1151,41 @@ float SomfyShade::stepDownTarget(uint32_t msStep) {
   }
   return this->curveForward(min(100.0f, lin));
 }
+void SomfyShade::startCmdGap(pending_cmd_t cmd, uint32_t ms) {
+  // millis() is read here rather than reusing the curTime snapshot taken when
+  // checkMovement() started: the gap must be measured from the end of the transmission
+  // that just went out, which is exactly what the delay() call this replaces did.
+  this->pendingCmd = cmd;
+  this->pendingCmdStart = millis();
+  this->pendingCmdDelay = ms;
+}
 void SomfyShade::checkMovement() {
   const uint32_t curTime = millis();
+  // A pending command means an inter-command gap is running.  While it does, this shade
+  // must behave exactly as it did when a delay() held the loop here: no position math, no
+  // state change, only the deadline is evaluated.  The difference is that the rest of the
+  // firmware -- watchdog, web server, sockets, MQTT and the other shades -- keeps running.
+  if(this->pendingCmd != pending_cmd_t::none) {
+    // Subtractive comparison so the 49.7-day millis() rollover cannot strand the gap.
+    if(curTime - this->pendingCmdStart < this->pendingCmdDelay) return;  // still waiting
+    const pending_cmd_t pending = this->pendingCmd;
+    this->pendingCmd = pending_cmd_t::none;
+    if(pending == pending_cmd_t::tiltTarget) {
+      // Second half of the stop-then-tilt sequence.  The guards are the ones that were
+      // true when it was scheduled; they are re-evaluated because the loop now runs during
+      // the gap, so a frame from a physical remote can have cleared settingPos in the
+      // meantime (processFrame aborts positioning for any non-internal frame).
+      if(this->settingPos && !this->isAtTarget()) this->moveToTiltTarget(this->tiltTarget);
+      // Fall through: the rest of this pass is what used to run on the loop pass that
+      // followed the blocking delay.
+    }
+    else if(pending == pending_cmd_t::setMyPos) {
+      if(this->settingMyPos && this->isAtTarget()) {
+        this->finishSetMyPosition();
+        return;  // the blocking version also ended the pass right after this block
+      }
+    }
+  }
   const bool sunFlag = this->flags & static_cast<uint8_t>(somfy_flags_t::SunFlag);
   const bool isSunny = this->flags & static_cast<uint8_t>(somfy_flags_t::Sunny);
   const bool isWindy = this->flags & static_cast<uint8_t>(somfy_flags_t::Windy);
@@ -1288,9 +1324,12 @@ void SomfyShade::checkMovement() {
         if(!isAtTarget()) {
           Serial.printf("We are not at our tilt target: %.2f\n", this->tiltTarget);
           if(this->target != 100.0) SomfyRemote::sendCommand(somfy_commands::My, this->repeats);
-          delay(100);
-          // We now need to move the tilt to the position we requested.
-          this->moveToTiltTarget(this->tiltTarget);
+          // We now need to move the tilt to the position we requested, but the motor needs
+          // a gap on the air between the stop above and that command.  Schedule it instead
+          // of blocking the loop with delay(100): the tilt command still goes out 100ms
+          // after the stop, and tiltStart below is unchanged, so the tilt position math and
+          // the frame sequencing are the same as before.
+          this->startCmdGap(pending_cmd_t::tiltTarget, 100);
         }
         else
           if(this->target != 100.0) SomfyRemote::sendCommand(somfy_commands::My, this->repeats);
@@ -1353,9 +1392,9 @@ void SomfyShade::checkMovement() {
         if(!isAtTarget()) {
           Serial.printf("We are not at our tilt target: %.2f\n", this->tiltTarget);
           if(this->target != 0.0) SomfyRemote::sendCommand(somfy_commands::My, this->repeats);
-          delay(100);
-          // We now need to move the tilt to the position we requested.
-          this->moveToTiltTarget(this->tiltTarget);
+          // Same stop-then-tilt gap as in the down direction: deferred rather than spun on,
+          // so the command still goes out 100ms after the stop without freezing the loop.
+          this->startCmdGap(pending_cmd_t::tiltTarget, 100);
         }
         else
           if(this->target != 0.0) SomfyRemote::sendCommand(somfy_commands::My, this->repeats);
@@ -1469,30 +1508,39 @@ void SomfyShade::checkMovement() {
     }
   }
   if(this->settingMyPos && this->isAtTarget()) {
-    delay(200);
-    // Set this position before sending the command.  If you don't the processFrame function
-    // will send the shade back to its original My position.
-    if(this->tiltType != tilt_types::none) {
-      if(this->myTiltPos == this->currentTiltPos && this->myPos == this->currentPos) this->myPos = this->myTiltPos = -1;
-      else {
-        this->p_myPos(this->currentPos);
-        this->p_myTiltPos(this->currentTiltPos);
-      }
-    }
-    else {
-      this->p_myTiltPos(-1);
-      if(this->myPos == this->currentPos) this->p_myPos(-1);
-      else this->p_myPos(this->currentPos);
-    }
-    SomfyRemote::sendCommand(somfy_commands::My, SETMY_REPEATS);
-    this->settingMyPos = false;
-    this->commitMyPosition();
-    this->emitState();
+    // The motor has to see a gap after the stop that just went out before the long My press
+    // that records the position.  This was delay(200); it is now a deadline so the loop is
+    // not held for 200ms on top of the multi-second SETMY_REPEATS transmission that follows.
+    // finishSetMyPosition() runs from the top of checkMovement() once the gap has elapsed.
+    this->startCmdGap(pending_cmd_t::setMyPos, 200);
   }
   else if(currDir != this->direction || currPos != floor(this->currentPos) || currTiltDir != this->tiltDirection || currTiltPos != floor(this->currentTiltPos)) {
     // We need to emit on the socket that our state has changed.
     this->emitState();
   }
+}
+void SomfyShade::finishSetMyPosition() {
+  // Body of the settingMyPos block that used to sit at the end of checkMovement() behind a
+  // delay(200).  It is unchanged: the caller only guarantees that the gap has elapsed and
+  // that the shade is still settling its My position on the target.
+  // Set this position before sending the command.  If you don't the processFrame function
+  // will send the shade back to its original My position.
+  if(this->tiltType != tilt_types::none) {
+    if(this->myTiltPos == this->currentTiltPos && this->myPos == this->currentPos) this->myPos = this->myTiltPos = -1;
+    else {
+      this->p_myPos(this->currentPos);
+      this->p_myTiltPos(this->currentTiltPos);
+    }
+  }
+  else {
+    this->p_myTiltPos(-1);
+    if(this->myPos == this->currentPos) this->p_myPos(-1);
+    else this->p_myPos(this->currentPos);
+  }
+  SomfyRemote::sendCommand(somfy_commands::My, SETMY_REPEATS);
+  this->settingMyPos = false;
+  this->commitMyPosition();
+  this->emitState();
 }
 #ifdef USE_NVS
 void SomfyShade::load() {
@@ -2199,8 +2247,11 @@ int8_t SomfyShade::transformPosition(float fpos) {
   if(fpos < 0) return -1;
   return static_cast<int8_t>(this->flipPosition && fpos >= 0.00f ? floor(100.0f - fpos) : floor(fpos)); 
 }
-bool SomfyShade::isIdle() { 
-  return this->isAtTarget() && this->direction == 0 && this->tiltDirection == 0; 
+bool SomfyShade::isIdle() {
+  // A pending command means the shade is in the middle of a transmission sequence, waiting
+  // out the gap between two frames.  That used to happen inside a delay() where nothing
+  // could observe the shade at all, so it must not read as idle now that the loop runs.
+  return this->pendingCmd == pending_cmd_t::none && this->isAtTarget() && this->direction == 0 && this->tiltDirection == 0;
 }
 void SomfyShade::processWaitingFrame() {
   if(this->shadeId == 255) {
@@ -2352,7 +2403,12 @@ void SomfyShade::processFrame(somfy_frame_t &frame, bool internal) {
   this->startTiltPos = this->currentTiltPos;
   this->startLiftPos = this->liftPos;
   // If the command is coming from a remote then we are aborting all these positioning operations.
-  if(!internal) this->settingMyPos = this->settingPos = this->settingTiltPos = false;
+  // A command deferred behind an inter-command gap belongs to one of them, so drop it too and
+  // let checkMovement() resume tracking this frame immediately.
+  if(!internal) {
+    this->settingMyPos = this->settingPos = this->settingTiltPos = false;
+    this->pendingCmd = pending_cmd_t::none;
+  }
   somfy_commands cmd = this->transformCommand(frame.cmd);
   // At this point we are not processing the combo buttons
   // will need to see what the shade does when you press both.

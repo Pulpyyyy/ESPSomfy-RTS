@@ -79,6 +79,14 @@ enum class tilt_types : byte {
   tiltonly = 0x03,
   euromode = 0x04
 };
+// Command that checkMovement() deferred because the sequence it belongs to must leave a
+// short gap on the air after the transmission that precedes it.  The gap used to be a
+// delay() inside checkMovement(), which froze the whole loop.
+enum class pending_cmd_t : byte {
+  none = 0x00,
+  tiltTarget = 0x01,  // moveToTiltTarget() after the stop that ends a positioning move
+  setMyPos = 0x02     // record the My position once the shade has settled on its target
+};
 String translateSomfyCommand(const somfy_commands cmd);
 somfy_commands translateSomfyCommand(const String& string);
 
@@ -294,6 +302,18 @@ class SomfyShade : public SomfyRemote {
     bool settingPos = false;
     bool settingTiltPos = false;
     uint32_t awaitMy = 0;
+    // Non-blocking inter-command gap.  Some sequences must leave a pause between two RTS
+    // transmissions; that pause used to be a delay() inside checkMovement() which stalled
+    // the entire loop (watchdog, sockets, MQTT and every other shade) while a shade was
+    // moving.  It is now a deadline: checkMovement() leaves the shade untouched until the
+    // gap has elapsed, then runs the deferred command.
+    pending_cmd_t pendingCmd = pending_cmd_t::none;
+    uint32_t pendingCmdStart = 0;  // millis() when the gap started
+    uint32_t pendingCmdDelay = 0;  // length of the gap in ms
+    void startCmdGap(pending_cmd_t cmd, uint32_t ms);
+    // Second stage of the "record the My position" sequence, split out of checkMovement()
+    // so it can run when the gap that precedes it expires.
+    void finishSetMyPosition();
   public:
     uint8_t roomId = 0;
     int8_t sortOrder = 0;
