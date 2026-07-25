@@ -35,11 +35,13 @@ class ConfigFile {
     bool begin(const char *filename, bool readOnly = false);
     uint32_t startRecPos = 0;
     bool _opened = false;
+    bool _writeError = false; // Set by any failed write; blocks promotion of a partial .tmp
     char _finalName[48] = ""; // Final name of the file being written (atomic write via .tmp)
   public:
     config_header_t header;
     void end();
     bool isOpen();
+    bool hasWriteError() { return this->_writeError; }
     bool seekRecordByIndex(uint16_t ndx);
     bool readHeader();
     bool seekChar(const char val);
