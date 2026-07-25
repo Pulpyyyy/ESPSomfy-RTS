@@ -368,7 +368,7 @@ function getJSON(url, cb) {
             err.htmlError = status;
             err.service = `GET ${url}`;
             if (typeof err.desc === 'undefined') err.desc = xhr.statusText || httpStatusText[xhr.status || 500];
-            cb(xhr.response, null);
+            cb(err, null);
         }
         else {
             cb(null, xhr.response);
@@ -396,7 +396,7 @@ function getJSONSync(url, cb) {
             err.htmlError = status;
             err.service = `GET ${url}`;
             if (typeof err.desc === 'undefined') err.desc = xhr.statusText || httpStatusText[xhr.status || 500];
-            cb(xhr.response, null);
+            cb(err, null);
         }
         else {
             if(DBG) console.log({ get: url, obj:xhr.response });
