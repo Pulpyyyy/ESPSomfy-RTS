@@ -207,12 +207,12 @@ document.addEventListener('keydown', (e) => {
     btn.click();
 });
 // Show a shade's travel as Closed / Open at the extremes and a percentage in between.
-// Mirrors the icon, which already flips the value for a reversed shade (flipPosition).
-function shadePosLabel(position, flip) {
-    const eff = flip ? 100 - position : position;
-    if (eff <= 0) return tr('POS_CLOSED');
-    if (eff >= 100) return tr('POS_OPEN');
-    return eff + '%';
+// Uses the raw position exactly as the numeric "%" display did: position 0 is closed
+// and 100 is open regardless of flipPosition (which only affects the icon drawing).
+function shadePosLabel(position) {
+    if (position <= 0) return tr('POS_CLOSED');
+    if (position >= 100) return tr('POS_OPEN');
+    return position + '%';
 }
 function loadLang(callback) {
     if (Object.keys(LANG).length > 0) {
@@ -4227,7 +4227,7 @@ class Somfy {
             </div>
             <div class="shade-name">
             <span class="shadectl-room">${esc(room.name)}</span>`;
-            divCtl += `<span class="shadectl-mypos"><span class="val-pos">${tr('SHADE_POS')}${shadePosLabel(shade.position, shade.flipPosition)}</span>`;
+            divCtl += `<span class="shadectl-mypos"><span class="val-pos">${tr('SHADE_POS')}${shadePosLabel(shade.position)}</span>`;
             if (shade.tiltType !== 0) divCtl += `<span class="val-pos"> ${tr('SHADE_TILT')}${shade.tiltPosition}%</span>`;
             // Surface the hidden long-press actions (set My / tilt) as tooltips.
             const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
@@ -4797,7 +4797,7 @@ class Somfy {
             }
 
             const spans = d.querySelectorAll('.val-pos');
-            if (spans[0]) spans[0].innerText = `${tr('SHADE_POS')}${shadePosLabel(state.position, state.flipPosition)}`;
+            if (spans[0]) spans[0].innerText = `${tr('SHADE_POS')}${shadePosLabel(state.position)}`;
             if (state.tiltType !== 0 && spans[1]) spans[1].innerText = `${tr('SHADE_TILT')}${state.tiltPosition}%`;
 
             const upTxt = (sel, pre, val) => {
