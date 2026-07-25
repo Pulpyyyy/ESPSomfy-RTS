@@ -611,7 +611,13 @@ int8_t GitUpdater::downloadFile() {
       }
     }
     else {
+      // Falling through to `return 0` reported success: beginUpdate() then recorded the
+      // new version, marked the partition pending and rebooted having flashed nothing,
+      // leaving the device permanently claiming a firmware it is not running.
       Serial.printf("Invalid HTTP Code: %d\n", httpCode);
+      https.end();
+      sclient.stop();
+      return httpCode != 0 ? static_cast<int8_t>(httpCode) : static_cast<int8_t>(-1);
     }
     https.end();
     sclient.stop();
