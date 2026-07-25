@@ -192,6 +192,9 @@ const translator = {
 // regenerated on each socket update, so no control can be shipped focusable-but-dead.
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    // Native buttons fire once per press; a held key must not spam the command
+    // (e.g. repeated shade UP frames), so ignore auto-repeat keydowns.
+    if (e.repeat) return;
     const t = e.target;
     if (!t || typeof t.closest !== 'function') return;
     // Never swallow a space typed into a field.
