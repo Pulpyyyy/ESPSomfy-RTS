@@ -3436,6 +3436,7 @@ int8_t SomfyShade::fromJSON(JsonObject &obj) {
       JsonArray arr = obj["linkedAddresses"];
       uint8_t i = 0;
       for(uint32_t addr : arr) {
+        if(i >= SOMFY_MAX_LINKED_REMOTES) break;
         linkedAddresses[i++] = addr;
       }
       for(uint8_t j = 0; j < SOMFY_MAX_LINKED_REMOTES; j++) {
@@ -3613,6 +3614,7 @@ bool SomfyGroup::fromJSON(JsonObject &obj) {
     JsonArray arr = obj["linkedShades"];
     uint8_t i = 0;
     for(uint8_t shadeId : arr) {
+      if(i >= SOMFY_MAX_GROUPED_SHADES) break;
       linkedShades[i++] = shadeId;
     }
   }
