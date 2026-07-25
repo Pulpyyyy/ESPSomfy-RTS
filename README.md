@@ -83,7 +83,7 @@ Want to know what's coming next, check current release progress, or see complete
 
 [![ESPSomfy-RTS Roadmap](https://img.shields.io/badge/View_Live-Roadmap_🗣️-238636?style=for-the-badge&logo=github)](https://github.com/users/Pulpyyyy/projects/2)
 
-> 💡 **Click the badge above** to track real-time development, active milestones (`v2.5.3`, `v3.0.0`), and submit features or bug fixes directly into our workflow columns.
+> 💡 **Click the badge above** to track real-time development, active milestones, and submit features or bug fixes directly into our workflow columns.
 
 <br />
 

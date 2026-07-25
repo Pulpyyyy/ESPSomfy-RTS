@@ -78,7 +78,7 @@ Vous voulez savoir ce qui arrive ensuite, suivre l'avancement de la version en c
 
 [![ESPSomfy-RTS Roadmap](https://img.shields.io/badge/Voir_en_Direct-Feuille_de_route_🗣️-238636?style=for-the-badge&logo=github)](https://github.com/users/Pulpyyyy/projects/2)
 
-> 💡 **Cliquez sur le badge ci-dessus** pour suivre le développement en temps réel, les jalons actifs (`v2.5.3`, `v3.0.0`), et soumettre des fonctionnalités ou des corrections de bugs directement dans les colonnes de notre flux de travail.
+> 💡 **Cliquez sur le badge ci-dessus** pour suivre le développement en temps réel, les jalons actifs, et soumettre des fonctionnalités ou des corrections de bugs directement dans les colonnes de notre flux de travail.
 
 <br />
 
