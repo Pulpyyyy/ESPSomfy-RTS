@@ -139,6 +139,10 @@ bool Web::isAuthenticated(WebServer &server, bool cfg) {
 }
 // Auth gate for mutating/config endpoints.  Sends the 401 itself so callers can simply return.
 bool Web::ensureAuth(WebServer &server, bool cfg) {
+  // Same-origin is enforced before authentication so it also covers Security::None
+  // devices, where isAuthenticated() always returns true: the anti-rebinding host
+  // check is then the only barrier against a remote site driving these endpoints.
+  if(!this->sameOriginOK(server)) return false;
   if(this->isAuthenticated(server, cfg)) return true;
   server.send(401, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Not authenticated\"}"));
   return false;
@@ -186,18 +190,16 @@ static bool csrfIsConfiguredHost(const String &h) {
   String lh = h; lh.toLowerCase();
   return lh == hn || lh == hn + ".local";
 }
-// Reject cross-site and DNS-rebinding requests on the browser-facing server.
+// Pure predicate for the CSRF / DNS-rebinding check; sends nothing so it can be
+// called during an upload (UPLOAD_FILE_START) where no response may be emitted yet.
 // Home Assistant talks to the dedicated API port (apiServer) with token auth and
-// is not browser-driven, so this check is skipped there to avoid breaking it.
-bool Web::sameOriginOK(WebServer &server) {
+// is not browser-driven, so the check is skipped there to avoid breaking it.
+bool Web::isSameOrigin(WebServer &server) {
   if(&server == &apiServer) return true;
   String host = csrfExtractHost(server.hostHeader());
   // (a) Anti DNS-rebinding: the Host must be an IP literal or our own hostname.
   //     An absent Host cannot carry a rebinding attack, so it is allowed through.
-  if(host.length() != 0 && !csrfIsIpLiteral(host) && !csrfIsConfiguredHost(host)) {
-    server.send(403, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Forbidden host\"}"));
-    return false;
-  }
+  if(host.length() != 0 && !csrfIsIpLiteral(host) && !csrfIsConfiguredHost(host)) return false;
   // (b) If the browser sent an Origin or Referer, its host must equal the Host
   //     header; a cross-site page driving this API would carry a foreign origin.
   String src = server.header("Origin");
@@ -206,12 +208,16 @@ bool Web::sameOriginOK(WebServer &server) {
     String srcHost = csrfExtractHost(src);
     srcHost.toLowerCase();
     String lh = host; lh.toLowerCase();
-    if(srcHost != lh) {
-      server.send(403, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Cross-origin request blocked\"}"));
-      return false;
-    }
+    if(srcHost != lh) return false;
   }
   return true;
+}
+// Reject cross-site and DNS-rebinding requests on the browser-facing server,
+// sending the 403 itself so callers can simply return.
+bool Web::sameOriginOK(WebServer &server) {
+  if(this->isSameOrigin(server)) return true;
+  server.send(403, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Cross-origin or forbidden host\"}"));
+  return false;
 }
 void sendJsonError(const char* detail = "") {
   String msg = F("JSON Err: ");
@@ -599,7 +605,6 @@ void Web::handleGetGroups(WebServer &server) {
 void Web::handleShadeCommand(WebServer& server) {
   webServer.sendCORSHeaders(server);
   if (server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   uint8_t shadeId = 255;
@@ -666,7 +671,6 @@ void Web::handleRepeatCommand(WebServer& server) {
   webServer.sendCORSHeaders(server);
   HTTPMethod method = server.method();
   if (method == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   uint8_t shadeId = 255;
   uint8_t groupId = 255;
@@ -752,7 +756,6 @@ void Web::handleRepeatCommand(WebServer& server) {
 void Web::handleGroupCommand(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   uint8_t groupId = 255;
@@ -813,7 +816,6 @@ void Web::handleGroupCommand(WebServer &server) {
 void Web::handleTiltCommand(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   uint8_t shadeId = 255;
@@ -1135,7 +1137,6 @@ void Web::handleBackup(WebServer &server, bool attach) {
 void Web::handleSetPositions(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
   int8_t pos = (server.hasArg("position")) ? atoi(server.arg("position").c_str()) : -1;
@@ -1177,7 +1178,6 @@ void Web::handleSetPositions(WebServer &server) {
 void Web::handleSetSensor(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
   uint8_t groupId = (server.hasArg("groupId")) ? atoi(server.arg("groupId").c_str()) : 255;
@@ -1444,7 +1444,7 @@ void Web::begin() {
       // Refuse to touch the filesystem for unauthenticated uploads; the outer handler sends the 401.
       if (upload.status == UPLOAD_FILE_START) {
         webServer.uploadSuccess = false;
-        g_uploadAuthorized = webServer.isAuthenticated(server, true);
+        g_uploadAuthorized = webServer.isSameOrigin(server) && webServer.isAuthenticated(server, true);
         g_uploadBytes = 0;
       }
       if (!g_uploadAuthorized) return;
@@ -2372,7 +2372,7 @@ void Web::begin() {
       // any flash write; unauthenticated chunks are dropped and the outer handler 401s.
       if (upload.status == UPLOAD_FILE_START) {
         webServer.uploadSuccess = false;
-        g_uploadAuthorized = webServer.isAuthenticated(server, true);
+        g_uploadAuthorized = webServer.isSameOrigin(server) && webServer.isAuthenticated(server, true);
       }
       if (!g_uploadAuthorized) { esp_task_wdt_reset(); return; }
       if (upload.status == UPLOAD_FILE_START) {
@@ -2424,7 +2424,7 @@ void Web::begin() {
       HTTPUpload& upload = server.upload();
       // Check auth before touching the filesystem; the outer handler sends the 401.
       if (upload.status == UPLOAD_FILE_START) {
-        g_uploadAuthorized = webServer.isAuthenticated(server, true);
+        g_uploadAuthorized = webServer.isSameOrigin(server) && webServer.isAuthenticated(server, true);
         g_uploadBytes = 0;
       }
       if (!g_uploadAuthorized) return;
@@ -2507,7 +2507,7 @@ void Web::begin() {
       // Check auth before any flash write; unauthenticated chunks are dropped.
       if (upload.status == UPLOAD_FILE_START) {
         webServer.uploadSuccess = false;
-        g_uploadAuthorized = webServer.isAuthenticated(server, true);
+        g_uploadAuthorized = webServer.isSameOrigin(server) && webServer.isAuthenticated(server, true);
       }
       if (!g_uploadAuthorized) { esp_task_wdt_reset(); return; }
       if (upload.status == UPLOAD_FILE_START) {
