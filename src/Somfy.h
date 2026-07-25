@@ -310,6 +310,7 @@ class SomfyShade : public SomfyRemote {
     pending_cmd_t pendingCmd = pending_cmd_t::none;
     uint32_t pendingCmdStart = 0;  // millis() when the gap started
     uint32_t pendingCmdDelay = 0;  // length of the gap in ms
+    uint32_t lastMoveEmit = 0;     // millis() of the last position-progress socket emit
     void startCmdGap(pending_cmd_t cmd, uint32_t ms);
     // Second stage of the "record the My position" sequence, split out of checkMovement()
     // so it can run when the gap that precedes it expires.
