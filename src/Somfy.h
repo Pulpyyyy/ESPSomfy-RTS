@@ -216,13 +216,14 @@ struct somfy_frame_t {
     void copy(somfy_frame_t &f);
 };
 
-// Non-blocking transmit job.  A command's first frame is always sent synchronously so the
-// motor has received a complete command by the time sendCommand() returns (position tracking
-// stays anchored on that moment, exactly as before); the remaining repeat frames are handed
-// to this job and emitted one per Transceiver::loop() pass.  This turns the repeat train --
-// several hundred ms for a normal command, up to ~5s for a 35-repeat SETMY -- into real loop
-// time instead of a frozen loop, so a STOP arriving at target or another shade starting is no
-// longer stuck behind another shade's transmission.  One radio means one job at a time.
+// Non-blocking transmit job.  A normal command's first frame is always sent synchronously so
+// the motor has received a complete command by the time sendCommand() returns (position
+// tracking stays anchored on that moment, exactly as before); the remaining repeat frames are
+// handed to one of these slots.  Transceiver::loop() drains the slots round-robin, one frame
+// per pass, so several shades' repeat trains interleave rather than serialise.  This turns the
+// repeat train into real loop time instead of a frozen loop, so a STOP arriving at target or
+// another shade starting is no longer stuck behind another shade's transmission.  Hold/long-
+// press commands (set-My, tilt) bypass the queue and stay contiguous -- see TX_CONTIGUOUS_REPEATS.
 struct somfy_tx_job_t {
   bool active = false;
   somfy_frame_t frame;      // kept so 80-bit repeats can be re-encoded per ordinal
@@ -591,10 +592,11 @@ class Transceiver {
     void sendFrame(byte *frame, uint8_t sync, uint8_t bitLength = 56, bool interFrameGap = true);
     void beginTransmit();
     void endTransmit();
-    // Non-blocking repeat train helpers.  queueRepeats() registers the frames that must follow
-    // a synchronously-sent first frame; txJobActive() reports whether one is still draining.
+    // Non-blocking repeat queue helpers.  queueRepeats() registers the frames that must follow a
+    // synchronously-sent first frame into a per-shade slot drained round-robin by loop();
+    // hasQueueSlot() reports whether that shade's command can be queued (free or reusable slot).
     void queueRepeats(somfy_frame_t &frame, uint8_t repeat);
-    bool txJobActive();
+    bool hasQueueSlot(uint32_t remoteAddress);
     void emitFrame(somfy_frame_t *frame, somfy_rx_t *rx = nullptr);
     void beginFrequencyScan();
     void endFrequencyScan();
