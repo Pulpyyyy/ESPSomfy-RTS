@@ -68,7 +68,9 @@ Si vous migrez depuis **rstrouse/ESPSomfy-RTS** ou si vous mettez à niveau une 
 
 ## Home Assistant
 
-Ce fork reste 100% compatible avec l'intégration officielle ESPSomfy-RTS-HA. Si vous utilisez déjà l'intégration, mettez simplement à jour votre ESP32 avec ce firmware. Vos entités, noms et tableaux de bord dans Home Assistant continueront de fonctionner sans aucune modification.
+Ce firmware est prévu pour fonctionner avec **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)**, l'intégration Home Assistant correspondante.
+
+L'API n'ayant pas changé, l'intégration officielle ESPSomfy-RTS-HA continue de fonctionner : vos entités, noms et tableaux de bord sont conservés. Une différence compte néanmoins : ce fork s'annonce en SSDP sous `urn:schemas-pulpyyyy-org:device:Somfy:1`, que seule l'intégration Enhanced écoute. Avec l'intégration officielle, le boîtier n'est donc plus découvert automatiquement et doit être ajouté par son adresse IP.
 
 ## Feuille de route du projet ESPSomfy-RTS
 
