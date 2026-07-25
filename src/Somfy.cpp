@@ -4180,6 +4180,11 @@ void SomfyRemote::sendCommand(somfy_commands cmd, uint8_t repeat, uint8_t stepSi
     this->triggerGPIOs(this->lastFrame);
   }
   else {
+    // Per-command TX logging allocates a String (translateSomfyCommand returns by value)
+    // and can block on the serial buffer; multiplied by the 35 frames of a set-My and by
+    // many shades starting at once it adds up in the hot path. Off by default; define
+    // DEBUG_TX_FRAMES to restore it when diagnosing transmissions.
+#ifdef DEBUG_TX_FRAMES
     Serial.print("CMD:");
     Serial.print(translateSomfyCommand(this->lastFrame.cmd));
     Serial.print(" ADDR:");
@@ -4188,6 +4193,7 @@ void SomfyRemote::sendCommand(somfy_commands cmd, uint8_t repeat, uint8_t stepSi
     Serial.print(this->lastFrame.rollingCode);
     Serial.print(" REPEAT:");
     Serial.println(repeat);
+#endif
     somfy.sendFrame(this->lastFrame, repeat);
   }
   somfy.processFrame(this->lastFrame, true);
