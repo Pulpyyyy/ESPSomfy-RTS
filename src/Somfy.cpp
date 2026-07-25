@@ -3457,11 +3457,12 @@ int8_t SomfyShade::fromJSON(JsonObject &obj) {
   }
   return err;
 }
-void SomfyShade::toJSONRef(JsonResponse &json) {
+void SomfyShade::toJSONRef(JsonResponse &json) { this->toJSONRef(json, true); }
+void SomfyShade::toJSONRef(JsonResponse &json, bool includeSecrets) {
   json.addElem("shadeId", this->getShadeId());
   json.addElem("roomId", this->roomId);
   json.addElem("name", this->name);
-  json.addElem("remoteAddress", (uint32_t)this->m_remoteAddress);
+  json.addElem("remoteAddress", includeSecrets ? (uint32_t)this->m_remoteAddress : (uint32_t)0);
   json.addElem("paired", this->paired);
   json.addElem("shadeType", static_cast<uint8_t>(this->shadeType));
   json.addElem("flipCommands", this->flipCommands);
@@ -3475,17 +3476,18 @@ void SomfyShade::toJSONRef(JsonResponse &json) {
   //SomfyRemote::toJSON(json);
 }
 
-void SomfyShade::toJSON(JsonResponse &json) {
+void SomfyShade::toJSON(JsonResponse &json) { this->toJSON(json, true); }
+void SomfyShade::toJSON(JsonResponse &json, bool includeSecrets) {
   json.addElem("shadeId", this->getShadeId());
   json.addElem("roomId", this->roomId);
   json.addElem("name", this->name);
-  json.addElem("remoteAddress", (uint32_t)this->m_remoteAddress);
+  json.addElem("remoteAddress", includeSecrets ? (uint32_t)this->m_remoteAddress : (uint32_t)0);
   json.addElem("upTime", (uint32_t)this->upTime);
   json.addElem("downTime", (uint32_t)this->downTime);
   json.addElem("liftTime", (uint32_t)this->liftTime);
   json.addElem("curveGain", this->curveGain);
   json.addElem("paired", this->paired);
-  json.addElem("lastRollingCode", (uint32_t)this->lastRollingCode);
+  json.addElem("lastRollingCode", includeSecrets ? (uint32_t)this->lastRollingCode : (uint32_t)0);
   json.addElem("position", this->transformPosition(this->currentPos));
   json.addElem("tiltType", static_cast<uint8_t>(this->tiltType));
   json.addElem("tiltPosition", this->transformPosition(this->currentTiltPos));
@@ -3514,7 +3516,7 @@ void SomfyShade::toJSON(JsonResponse &json) {
   json.addElem("gpioLLTrigger", ((this->gpioFlags & (uint8_t)gpio_flags_t::LowLevelTrigger) == 0) ? false : true);
   json.addElem("simMy", this->simMy());
   json.beginArray("linkedRemotes");
-  for(uint8_t i = 0; i < SOMFY_MAX_LINKED_REMOTES; i++) {
+  for(uint8_t i = 0; includeSecrets && i < SOMFY_MAX_LINKED_REMOTES; i++) {
     SomfyLinkedRemote &lremote = this->linkedRemotes[i];
     if(lremote.getRemoteAddress() != 0) {
       json.beginObject();
@@ -3620,13 +3622,14 @@ bool SomfyGroup::fromJSON(JsonObject &obj) {
   }
   return true;
 }
-void SomfyGroup::toJSON(JsonResponse &json) {
+void SomfyGroup::toJSON(JsonResponse &json) { this->toJSON(json, true); }
+void SomfyGroup::toJSON(JsonResponse &json, bool includeSecrets) {
   this->updateFlags();
   json.addElem("groupId", this->getGroupId());
   json.addElem("roomId", this->roomId);
   json.addElem("name", this->name);
-  json.addElem("remoteAddress", (uint32_t)this->m_remoteAddress);
-  json.addElem("lastRollingCode", (uint32_t)this->lastRollingCode);
+  json.addElem("remoteAddress", includeSecrets ? (uint32_t)this->m_remoteAddress : (uint32_t)0);
+  json.addElem("lastRollingCode", includeSecrets ? (uint32_t)this->lastRollingCode : (uint32_t)0);
   json.addElem("bitLength", this->bitLength);
   json.addElem("proto", static_cast<uint8_t>(this->proto));
   json.addElem("sunSensor", this->hasSunSensor());
@@ -3641,20 +3644,21 @@ void SomfyGroup::toJSON(JsonResponse &json) {
       SomfyShade *shade = somfy.getShadeById(shadeId);
       if(shade) {
         json.beginObject();
-        shade->toJSONRef(json);
+        shade->toJSONRef(json, includeSecrets);
         json.endObject();
       }
     }
   }
   json.endArray();
 }
-void SomfyGroup::toJSONRef(JsonResponse &json) {
+void SomfyGroup::toJSONRef(JsonResponse &json) { this->toJSONRef(json, true); }
+void SomfyGroup::toJSONRef(JsonResponse &json, bool includeSecrets) {
   this->updateFlags();
   json.addElem("groupId", this->getGroupId());
   json.addElem("roomId", this->roomId);
   json.addElem("name", this->name);
-  json.addElem("remoteAddress", (uint32_t)this->m_remoteAddress);
-  json.addElem("lastRollingCode", (uint32_t)this->lastRollingCode);
+  json.addElem("remoteAddress", includeSecrets ? (uint32_t)this->m_remoteAddress : (uint32_t)0);
+  json.addElem("lastRollingCode", includeSecrets ? (uint32_t)this->lastRollingCode : (uint32_t)0);
   json.addElem("bitLength", this->bitLength);
   json.addElem("proto", static_cast<uint8_t>(this->proto));
   json.addElem("sunSensor", this->hasSunSensor());
@@ -4275,12 +4279,13 @@ void SomfyShadeController::toJSONRooms(JsonResponse &json) {
     }
   }
 }
-void SomfyShadeController::toJSONShades(JsonResponse &json) {
+void SomfyShadeController::toJSONShades(JsonResponse &json) { this->toJSONShades(json, true); }
+void SomfyShadeController::toJSONShades(JsonResponse &json, bool includeSecrets) {
   for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
     SomfyShade &shade = this->shades[i];
     if(shade.getShadeId() != 255) {
       json.beginObject();
-      shade.toJSON(json);
+      shade.toJSON(json, includeSecrets);
       json.endObject();
     }
   }
@@ -4339,12 +4344,13 @@ bool SomfyShadeController::toJSONGroups(JsonArray &arr) {
   return true;
 }
 */
-void SomfyShadeController::toJSONGroups(JsonResponse &json) {
+void SomfyShadeController::toJSONGroups(JsonResponse &json) { this->toJSONGroups(json, true); }
+void SomfyShadeController::toJSONGroups(JsonResponse &json, bool includeSecrets) {
   for(uint8_t i = 0; i < SOMFY_MAX_GROUPS; i++) {
     SomfyGroup &group = this->groups[i];
     if(group.getGroupId() != 255) {
       json.beginObject();
-      group.toJSON(json);
+      group.toJSON(json, includeSecrets);
       json.endObject();
     }
   }

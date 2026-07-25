@@ -320,8 +320,12 @@ class SomfyShade : public SomfyRemote {
     bool paired = false;
     int8_t validateJSON(JsonObject &obj);
     void toJSONRef(JsonResponse &json);
+    // includeSecrets=false blanks the remote address and rolling code, which are the
+    // only secret in the RTS protocol.  Used when serving unauthenticated requests.
+    void toJSONRef(JsonResponse &json, bool includeSecrets);
     int8_t fromJSON(JsonObject &obj);
     void toJSON(JsonResponse &json) override;
+    void toJSON(JsonResponse &json, bool includeSecrets);
     
     char name[21] = "";
     void setShadeId(uint8_t id) { shadeId = id; }
@@ -422,8 +426,10 @@ class SomfyGroup : public SomfyRemote {
     bool fromJSON(JsonObject &obj);
     //bool toJSON(JsonObject &obj);
     void toJSON(JsonResponse &json);
+    void toJSON(JsonResponse &json, bool includeSecrets);
     void toJSONRef(JsonResponse &json);
-    
+    void toJSONRef(JsonResponse &json, bool includeSecrets);
+
     bool linkShade(uint8_t shadeId);
     bool unlinkShade(uint8_t shadeId);
     bool hasShadeId(uint8_t shadeId);
@@ -588,8 +594,10 @@ class SomfyShadeController {
     bool linkRepeater(uint32_t address);
     bool unlinkRepeater(uint32_t address);
     void toJSONShades(JsonResponse &json);
+    void toJSONShades(JsonResponse &json, bool includeSecrets);
     void toJSONRooms(JsonResponse &json);
     void toJSONGroups(JsonResponse &json);
+    void toJSONGroups(JsonResponse &json, bool includeSecrets);
     void toJSONRepeaters(JsonResponse &json);
     uint8_t repeaterCount();
     uint8_t roomCount();
