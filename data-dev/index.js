@@ -688,7 +688,7 @@ async function initSockets() {
                     // so we don't fire 401s the browser logs on every socket reconnect.
                     const _authed = (typeof security === 'undefined') || security.type === 0 || security.authenticated;
                     if (_authed) { await wifi.loadNetwork(); await mqtt.loadMQTT(); }
-                    if (ui.isConfigOpen()) socket.send('join:0');
+                    if (ui.isConfigOpen()) socket.send('join:0' + (security.apiKey ? ':' + security.apiKey : ''));
                 })();
             }
         };
@@ -1992,7 +1992,7 @@ class UIBinder {
         somfy.checkEmptyState();
         document.querySelector('#btnConfig use').setAttribute('href', '#svg-tabHome');
 
-        if (sockIsOpen) socket.send('join:0');
+        if (sockIsOpen) socket.send('join:0' + (security.apiKey ? ':' + security.apiKey : ''));
         let overlay = ui.waitMessage(get('divSecurityOptions'));
         overlay.style.borderRadius = '5px';
         getJSON('/getSecurity', (err, security) => {
@@ -2244,7 +2244,7 @@ class General {
         }
         this.setAppVersion();
         this.setTimeZones();
-        if (sockIsOpen && ui.isConfigOpen()) socket.send('join:0');
+        if (sockIsOpen && ui.isConfigOpen()) socket.send('join:0' + (security.apiKey ? ':' + security.apiKey : ''));
         ui.toElement(get('divSystemSettings'), {
             general: { hostname: 'ESPSomfyRTS', username: '', password: '', posixZone: 'UTC0', ntpServer: 'pool.ntp.org' }
         });
