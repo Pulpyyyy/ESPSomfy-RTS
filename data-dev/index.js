@@ -206,13 +206,20 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     btn.click();
 });
-// Show a shade's travel as Closed / Open at the extremes and a percentage in between.
-// Uses the raw position exactly as the numeric "%" display did: position 0 is closed
-// and 100 is open regardless of flipPosition (which only affects the icon drawing).
-function shadePosLabel(position) {
-    if (position <= 0) return tr('POS_CLOSED');
-    if (position >= 100) return tr('POS_OPEN');
-    return position + '%';
+// Normalise a shade's stored position into "openness": 0 = closed, 100 = open.
+// The firmware stores position as "% open" when flipPosition is set and "% closed"
+// when it is not (see the positioner label that reads "% open" vs "% closed"), so the
+// same physical state is stored as 0 on one shade and 100 on another. This collapses
+// both conventions to a single open-percentage used consistently across the UI.
+function shadeOpenness(position, flip) {
+    return flip ? position : (100 - position);
+}
+// Show a shade's travel as Closed / Open at the extremes and the open-percentage between.
+function shadePosLabel(position, flip) {
+    const open = shadeOpenness(position, flip);
+    if (open <= 0) return tr('POS_CLOSED');
+    if (open >= 100) return tr('POS_OPEN');
+    return open + '%';
 }
 function loadLang(callback) {
     if (Object.keys(LANG).length > 0) {
@@ -4227,7 +4234,7 @@ class Somfy {
             </div>
             <div class="shade-name">
             <span class="shadectl-room">${esc(room.name)}</span>`;
-            divCtl += `<span class="shadectl-mypos"><span class="val-pos">${tr('SHADE_POS')}${shadePosLabel(shade.position)}</span>`;
+            divCtl += `<span class="shadectl-mypos"><span class="val-pos">${tr('SHADE_POS')}${shadePosLabel(shade.position, shade.flipPosition)}</span>`;
             if (shade.tiltType !== 0) divCtl += `<span class="val-pos"> ${tr('SHADE_TILT')}${shade.tiltPosition}%</span>`;
             // Surface the hidden long-press actions (set My / tilt) as tooltips.
             const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
@@ -4760,7 +4767,7 @@ class Somfy {
         document.querySelectorAll(`.somfy-shade-icon[data-shadeid="${sId}"]`).forEach(ico => {
             const p = state.flipPosition ? 100 - state.position : state.position;
             ico.style.setProperty('--shade-position', p);
-            ico.style.setProperty('--fpos', state.position + '%');
+            ico.style.setProperty('--fpos', p + '%');
         });
         if (g('spanShadeId')?.innerText == sId) {
             if (g('valPos')) g('valPos').innerText = state.position;
@@ -4797,7 +4804,7 @@ class Somfy {
             }
 
             const spans = d.querySelectorAll('.val-pos');
-            if (spans[0]) spans[0].innerText = `${tr('SHADE_POS')}${shadePosLabel(state.position)}`;
+            if (spans[0]) spans[0].innerText = `${tr('SHADE_POS')}${shadePosLabel(state.position, state.flipPosition)}`;
             if (state.tiltType !== 0 && spans[1]) spans[1].innerText = `${tr('SHADE_TILT')}${state.tiltPosition}%`;
 
             const upTxt = (sel, pre, val) => {
