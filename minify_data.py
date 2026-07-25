@@ -3,7 +3,6 @@ import gzip
 import os
 import re
 import shutil
-import subprocess
 import json
 from SCons.Script import Import
 
@@ -17,7 +16,6 @@ DST_DIR_NAME = "data"
 
 # Extensions à traiter (Minify + Gzip)
 MINIFY_AND_GZIP = {".html", ".htm", ".css", ".js", ".json", ".svg", ".xml"}
-WEBP_EXTENSIONS = {".webp"}
 
 def _project_dir():
     return env.subst("$PROJECT_DIR")
@@ -51,21 +49,55 @@ def minify_html(text: str) -> str:
         text = text.replace(f"\x00{i}\x00", block, 1)
     return text
 
+# A single scanner for the CSS constructs whose contents are literal data:
+# comments, quoted strings and url() tokens. Ordering matters - a comment is
+# matched before a string so that a quote inside a comment cannot open a bogus
+# string, and url() is matched last so a quoted url is handled by the string
+# branch of the alternation inside it.
+_CSS_LITERALS = re.compile(
+    r"""
+      /\*.*?\*/                                    # comment
+    | "(?:\\.|[^"\\\n])*"                          # double quoted string
+    | '(?:\\.|[^'\\\n])*'                          # single quoted string
+    | url\(\s*(?:"(?:\\.|[^"\\\n])*"
+              |'(?:\\.|[^'\\\n])*'
+              |[^)"'\n]*)\s*\)                     # url(), quoted or bare
+    """,
+    re.DOTALL | re.VERBOSE | re.IGNORECASE,
+)
+
 def minify_css(text: str) -> str:
-    # 1. Supprimer les commentaires
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
-    
+    # 1. Mettre de côté commentaires, chaînes et url() : les règles de
+    # compactage ci-dessous ne doivent JAMAIS s'appliquer à l'intérieur d'une
+    # valeur littérale. Sans cela `content: "a, b"` devenait `content:"a,b"` et
+    # les data-URI SVG de url(...) étaient tronqués sur leurs `:` et `;`.
+    literals = []
+
+    def stash(m):
+        token = m.group(0)
+        if token.startswith("/*"):  # commentaire : supprimé, pas conservé
+            return " "
+        literals.append(token)
+        return f"\x00{len(literals) - 1}\x00"
+
+    text = _CSS_LITERALS.sub(stash, text)
+
     # 2. Remplacer les retours à la ligne et tabulations par des espaces simples
     text = re.sub(r"\s+", " ", text)
-    
+
     # 3. Supprimer les espaces inutiles autour des caractères de structure CSS
     text = re.sub(r"\s*([:{};,])\s*", r"\1", text)
-    
-    # 4. ASTUCE POUR FIREFOX : On isole les règles -webkit- en réinjectant un espace 
+
+    # 4. ASTUCE POUR FIREFOX : On isole les règles -webkit- en réinjectant un espace
     # après chaque fermeture d'accolade qui les concerne pour casser le bloc unique.
     text = re.sub(r"([^{]*?-webkit-[^}]+})", r"\1\n", text)
-    
-    return text.strip()
+
+    text = text.strip()
+
+    # 5. Réinjecter les littéraux intacts.
+    for i, token in enumerate(literals):
+        text = text.replace(f"\x00{i}\x00", token, 1)
+    return text
 
 def minify_js(text: str) -> str:
     return text
@@ -102,22 +134,6 @@ def process_file(src_path: str, dst_path: str):
 
     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
 
-    # Traitement des fichiers WebP (Compression via cwebp)
-    if ext in WEBP_EXTENSIONS:
-        try:
-            # -q 75 : Règle la qualité à 75%
-            subprocess.run(
-                ["cwebp", "-q", "75", src_path, "-o", dst_path],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
-            final_size = os.path.getsize(dst_path)
-            return "webp-compress", original_size, final_size
-        except Exception:
-            shutil.copy2(src_path, dst_path)
-            return "copy (webp fail)", original_size, original_size
-
     # Traitement Textes (Minify + Gzip)
     if ext in MINIFY_AND_GZIP:
         with open(src_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -131,8 +147,14 @@ def process_file(src_path: str, dst_path: str):
             action = "gzip"
 
         gz_path = dst_path + ".gz"
-        with gzip.open(gz_path, "wb", compresslevel=9) as gz:
-            gz.write(content.encode("utf-8"))
+        # Reproducible output: gzip.open() stamps the current time and the
+        # member name into the header, so two builds of an identical source
+        # produced two different .gz files (and therefore a different
+        # littlefs.bin). mtime=0 and an empty filename remove both.
+        with open(gz_path, "wb") as raw:
+            with gzip.GzipFile(filename="", mode="wb", fileobj=raw,
+                               compresslevel=9, mtime=0) as gz:
+                gz.write(content.encode("utf-8"))
 
         final_size = os.path.getsize(gz_path)
         return action, original_size, final_size
