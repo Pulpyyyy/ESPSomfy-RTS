@@ -206,6 +206,14 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     btn.click();
 });
+// Show a shade's travel as Closed / Open at the extremes and a percentage in between.
+// Mirrors the icon, which already flips the value for a reversed shade (flipPosition).
+function shadePosLabel(position, flip) {
+    const eff = flip ? 100 - position : position;
+    if (eff <= 0) return tr('POS_CLOSED');
+    if (eff >= 100) return tr('POS_OPEN');
+    return eff + '%';
+}
 function loadLang(callback) {
     if (Object.keys(LANG).length > 0) {
         if(DBG) console.log("Language already in memory, using the cache.");
@@ -4219,7 +4227,7 @@ class Somfy {
             </div>
             <div class="shade-name">
             <span class="shadectl-room">${esc(room.name)}</span>`;
-            divCtl += `<span class="shadectl-mypos"><span class="val-pos">${tr('SHADE_POS')}${shade.position}%</span>`;
+            divCtl += `<span class="shadectl-mypos"><span class="val-pos">${tr('SHADE_POS')}${shadePosLabel(shade.position, shade.flipPosition)}</span>`;
             if (shade.tiltType !== 0) divCtl += `<span class="val-pos"> ${tr('SHADE_TILT')}${shade.tiltPosition}%</span>`;
             // Surface the hidden long-press actions (set My / tilt) as tooltips.
             const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
@@ -4789,7 +4797,7 @@ class Somfy {
             }
 
             const spans = d.querySelectorAll('.val-pos');
-            if (spans[0]) spans[0].innerText = `${tr('SHADE_POS')}${state.position}%`;
+            if (spans[0]) spans[0].innerText = `${tr('SHADE_POS')}${shadePosLabel(state.position, state.flipPosition)}`;
             if (state.tiltType !== 0 && spans[1]) spans[1].innerText = `${tr('SHADE_TILT')}${state.tiltPosition}%`;
 
             const upTxt = (sel, pre, val) => {

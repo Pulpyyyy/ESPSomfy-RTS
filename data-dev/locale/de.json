@@ -209,6 +209,8 @@
     "SHADE_GPIO_DOWN": "Ab",
     "SHADE_GPIO_MY": "My",
     "SHADE_POS": "Pos: ",
+    "POS_OPEN": "Offen",
+    "POS_CLOSED": "Geschlossen",
     "SHADE_TILT": "Neig: ",
     "SHADE_MY_TILT":"My Neig: ",
     "SHADE_UP_TIME": "Aufwärtszeit (ms)",
