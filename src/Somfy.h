@@ -216,6 +216,25 @@ struct somfy_frame_t {
     void copy(somfy_frame_t &f);
 };
 
+// Non-blocking transmit job.  A normal command's first frame is always sent synchronously so
+// the motor has received a complete command by the time sendCommand() returns (position
+// tracking stays anchored on that moment, exactly as before); the remaining repeat frames are
+// handed to one of these slots.  Transceiver::loop() drains the slots round-robin, one frame
+// per pass, so several shades' repeat trains interleave rather than serialise.  This turns the
+// repeat train into real loop time instead of a frozen loop, so a STOP arriving at target or
+// another shade starting is no longer stuck behind another shade's transmission.  Hold/long-
+// press commands (set-My, tilt) bypass the queue and stay contiguous -- see TX_CONTIGUOUS_REPEATS.
+struct somfy_tx_job_t {
+  bool active = false;
+  somfy_frame_t frame;      // kept so 80-bit repeats can be re-encoded per ordinal
+  byte encoded[10] = {};    // 56-bit repeats reuse this buffer as-is
+  uint8_t bit_length = 56;
+  uint8_t repeatsRemaining = 0;
+  uint8_t ordinal = 0;      // repeat index passed to encode80BitFrame()
+  uint32_t nextSendAt = 0;  // millis() deadline for the next repeat frame
+  void clear() { this->active = false; this->repeatsRemaining = 0; this->ordinal = 0; this->nextSendAt = 0; }
+};
+
 class SomfyRoom {
   public:
     uint8_t roomId = 0;
@@ -567,9 +586,17 @@ class Transceiver {
     void enableReceive();
     void disableReceive();
     somfy_frame_t& lastFrame();
-    void sendFrame(byte *frame, uint8_t sync, uint8_t bitLength = 56);
+    // interFrameGap keeps the ~27ms trailing silence that separates one frame from the next.
+    // The non-blocking repeat path sends it as false because that gap is now scheduled between
+    // loop passes (nextSendAt) instead of being spun on inside the transmit.
+    void sendFrame(byte *frame, uint8_t sync, uint8_t bitLength = 56, bool interFrameGap = true);
     void beginTransmit();
     void endTransmit();
+    // Non-blocking repeat queue helpers.  queueRepeats() registers the frames that must follow a
+    // synchronously-sent first frame into a per-shade slot drained round-robin by loop();
+    // hasQueueSlot() reports whether that shade's command can be queued (free or reusable slot).
+    void queueRepeats(somfy_frame_t &frame, uint8_t repeat);
+    bool hasQueueSlot(uint32_t remoteAddress);
     void emitFrame(somfy_frame_t *frame, somfy_rx_t *rx = nullptr);
     void beginFrequencyScan();
     void endFrequencyScan();

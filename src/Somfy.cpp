@@ -33,6 +33,18 @@ uint8_t rxmode = 0;  // Indicates whether the radio is in receive mode.  Just to
 #define SETMY_REPEATS 35
 #define TILT_REPEATS 15
 #define TX_QUEUE_DELAY 100
+// Air gap left between two repeat frames on the non-blocking path. It replaces the ~27ms
+// trailing silence that Transceiver::sendFrame() used to spin on for 56-bit frames, only now it
+// is real loop time. Motors tolerate a wide inter-frame gap (the repeater path uses
+// TX_QUEUE_DELAY=100ms) and interleaving several shades widens each one's effective spacing, so
+// this only needs to be a floor.
+#define TX_REPEAT_GAP 30
+// A command whose repeat count reaches this is a "hold"/long-press (set-My = SETMY_REPEATS=35,
+// tilt holds and euromode = TILT_REPEATS=15). Those need a CONTIGUOUS frame train for the motor
+// to register them, so they are sent fully synchronously instead of being interleaved into the
+// non-blocking queue. Normal presses (up/down/my/stop/step, a handful of repeats) do not need
+// contiguity -- the repeater path already spaces such frames 100ms apart -- so they are queued.
+#define TX_CONTIGUOUS_REPEATS TILT_REPEATS
 // Minimum interval between two position-progress socket emits of the same shade
 // while it travels. emitState() serialises the full shade and broadcasts it to
 // every socket client; at up to SOMFY_MAX_SHADES moving at once, one emit per 1%
@@ -4227,18 +4239,39 @@ void SomfyRemote::repeatFrame(uint8_t repeat) {
   //somfy.processFrame(this->lastFrame, true);
 }
 void SomfyShadeController::sendFrame(somfy_frame_t &frame, uint8_t repeat) {
-  somfy.transceiver.beginTransmit();
   byte frm[10];
   frame.encodeFrame(frm);
-  this->transceiver.sendFrame(frm, frame.bitLength == 56 ? 2 : 12, frame.bitLength);
-  for(uint8_t i = 0; i < repeat; i++) {
-    // For each 80-bit frame we need to adjust the byte encoding for the
-    // silence.
-    if(frame.bitLength == 80) frame.encode80BitFrame(&frm[0], i + 1);
-    this->transceiver.sendFrame(frm, frame.bitLength == 56 ? 7 : 6, frame.bitLength);
-    esp_task_wdt_reset();
+  const uint8_t firstSync = frame.bitLength == 56 ? 2 : 12;
+  const uint8_t repeatSync = frame.bitLength == 56 ? 7 : 6;
+  // Fully-synchronous contiguous send. Used for:
+  //  - no repeats (nothing to offload),
+  //  - hold/long-press commands (repeat >= TX_CONTIGUOUS_REPEATS: set-My, tilt holds, euromode)
+  //    which the motor only registers from an uninterrupted frame train, and
+  //  - the rare case where every queue slot is busy.
+  // A brief loop freeze here is acceptable: set-My is a deliberate, infrequent action and holds
+  // block the same way they always did. This path is byte-for-byte the original send.
+  if(repeat == 0 || repeat >= TX_CONTIGUOUS_REPEATS || !this->transceiver.hasQueueSlot(frame.remoteAddress)) {
+    this->transceiver.beginTransmit();
+    this->transceiver.sendFrame(frm, firstSync, frame.bitLength);
+    for(uint8_t i = 0; i < repeat; i++) {
+      // For each 80-bit frame we need to adjust the byte encoding for the silence.
+      if(frame.bitLength == 80) frame.encode80BitFrame(&frm[0], i + 1);
+      this->transceiver.sendFrame(frm, repeatSync, frame.bitLength);
+      esp_task_wdt_reset();
+    }
+    this->transceiver.endTransmit();
+    return;
   }
+  // Non-blocking path (approach a): transmit the first frame synchronously so the motor has
+  // received a complete command by the time this returns -- the caller (processFrame, run right
+  // after) anchors moveStart/startPos on this moment, so position tracking starts as it always
+  // did. Only the repeat train is handed to the queue, to interleave with other shades'. The
+  // first frame carries no trailing silence (false): that gap is scheduled before the first
+  // queued repeat via nextSendAt. hasQueueSlot() was just checked, so queueRepeats() succeeds.
+  this->transceiver.beginTransmit();
+  this->transceiver.sendFrame(frm, firstSync, frame.bitLength, false);
   this->transceiver.endTransmit();
+  this->transceiver.queueRepeats(frame, repeat);
 }
 bool SomfyShadeController::deleteShade(uint8_t shadeId) {
   for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
@@ -4473,6 +4506,12 @@ static int16_t  bitMin = SYMBOL * TOLERANCE_MIN;
 static somfy_rx_t somfy_rx;
 static somfy_rx_queue_t rx_queue;
 static somfy_tx_queue_t tx_queue;
+// In-flight repeat jobs (see somfy_tx_job_t), one slot per shade so several shades can have a
+// repeat train draining at once. The single radio drains them round-robin, one frame per loop
+// pass, so their trains interleave rather than serialise: three shades commanded together each
+// pay only their synchronous first frame, then their repeats interleave in the background.
+static somfy_tx_job_t txJobs[SOMFY_MAX_SHADES];
+static uint8_t txCursor = 0;  // round-robin position across txJobs
 // Guards the rx_queue handoff between the IRAM receive ISR (producer) and the
 // main loop (consumer).  Only the small bookkeeping (length + index[]) is held
 // under this spinlock; the ~1.2KB per-frame copy is always done outside it.
@@ -4561,7 +4600,7 @@ bool somfy_rx_queue_t::pop(somfy_rx_t *rx) {
   return true;
 }
 
-void Transceiver::sendFrame(byte *frame, uint8_t sync, uint8_t bitLength) {
+void Transceiver::sendFrame(byte *frame, uint8_t sync, uint8_t bitLength, bool interFrameGap) {
   if(!this->config.enabled) return;
   uint32_t pin = 1 << this->config.TXPin;
   if (sync == 2 || sync == 12) {  // Only with the first frame.  Repeats do not get a wakeup pulse.
@@ -4629,7 +4668,9 @@ void Transceiver::sendFrame(byte *frame, uint8_t sync, uint8_t bitLength) {
   // Below are the original calculations for inter-frame silence.  However, when actually inspecting this from
   // the remote it appears to be closer to 27500us.  The delayMicoseconds call cannot be called with
   // values larger than 16383.
-  if(bitLength != 80) {
+  // Skipped on the non-blocking repeat path (interFrameGap == false): the gap between frames is
+  // scheduled between loop passes there instead of being spun on here.
+  if(interFrameGap && bitLength != 80) {
     delayMicroseconds(13717);
     delayMicroseconds(13717);
   }
@@ -5360,8 +5401,38 @@ void Transceiver::loop() {
   }
   else {
     somfy.processWaitingFrame();
-    // Check to see if there is anything in the buffer
-    if(tx_queue.length > 0 && (int32_t)(millis() - tx_queue.delay_time) >= 0 && somfy_rx.cpt_synchro_hw == 0) {
+    // Non-blocking repeat trains: emit at most ONE queued repeat frame per pass so the loop is
+    // never held for more than a single ~113ms frame, and rotate through the job slots so that
+    // several shades' trains interleave instead of one draining fully before the next starts.
+    // cpt_synchro_hw guards against stepping on an inbound frame (rx has priority), exactly like
+    // the repeater path below. beginTransmit/endTransmit bracket each frame here (rather than a
+    // whole job) so the radio state stays correct across the interleaving and when an urgent
+    // frame -- a STOP sent synchronously from checkMovement -- goes out between repeats.
+    bool sentRepeat = false;
+    if(somfy_rx.cpt_synchro_hw == 0) {
+      const uint32_t now = millis();
+      for(uint8_t k = 0; k < SOMFY_MAX_SHADES; k++) {
+        uint8_t idx = (txCursor + k) % SOMFY_MAX_SHADES;
+        somfy_tx_job_t &job = txJobs[idx];
+        if(!job.active || (int32_t)(now - job.nextSendAt) < 0) continue;
+        // 80-bit repeats re-encode per ordinal; 56-bit reuse the buffer captured at queue time.
+        if(job.bit_length == 80) job.frame.encode80BitFrame(job.encoded, job.ordinal);
+        this->beginTransmit();
+        this->sendFrame(job.encoded, job.bit_length == 56 ? 7 : 6, job.bit_length, false);
+        this->endTransmit();
+        esp_task_wdt_reset();
+        job.ordinal++;
+        if(job.repeatsRemaining > 0) job.repeatsRemaining--;
+        if(job.repeatsRemaining == 0) job.clear();
+        else job.nextSendAt = millis() + TX_REPEAT_GAP;
+        txCursor = (idx + 1) % SOMFY_MAX_SHADES;  // resume the rotation after this slot next pass
+        sentRepeat = true;
+        break;
+      }
+    }
+    // Check to see if there is anything in the repeater buffer. Only when we did not just emit a
+    // repeat frame above, so we never transmit two frames in one pass.
+    if(!sentRepeat && tx_queue.length > 0 && (int32_t)(millis() - tx_queue.delay_time) >= 0 && somfy_rx.cpt_synchro_hw == 0) {
       this->beginTransmit();
       somfy_tx_t tx;
       
@@ -5405,4 +5476,35 @@ void Transceiver::endTransmit() {
       //delay(100);
       this->enableReceive();
     }
+}
+bool Transceiver::hasQueueSlot(uint32_t remoteAddress) {
+  // A command can be queued if there is a free slot, or if a slot for the same remote is already
+  // draining -- queueRepeats() reuses that one, so the same shade never needs two slots.
+  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) if(!txJobs[i].active) return true;
+  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++)
+    if(txJobs[i].active && txJobs[i].frame.remoteAddress == remoteAddress) return true;
+  return false;
+}
+void Transceiver::queueRepeats(somfy_frame_t &frame, uint8_t repeat) {
+  // Register the repeat frames that follow a synchronously-sent first frame. A slot already
+  // draining for this remote is reused so a new command on a shade supersedes its previous
+  // command's leftover repeats (whose older rolling code the motor would ignore anyway) instead
+  // of trailing them and consuming a second slot; otherwise the first free slot is taken.
+  if(repeat == 0) return;
+  int8_t slot = -1;
+  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++)
+    if(txJobs[i].active && txJobs[i].frame.remoteAddress == frame.remoteAddress) { slot = i; break; }
+  if(slot < 0) for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) if(!txJobs[i].active) { slot = i; break; }
+  if(slot < 0) return;  // queue full; caller sent contiguously instead (hasQueueSlot() gate)
+  somfy_tx_job_t &job = txJobs[slot];
+  // Plain value copy of the whole frame (cmd, stepSize, rollingCode, address, encKey, proto,
+  // bitLength). somfy_frame_t::copy() is the RX accumulator with repeat detection and does not
+  // copy every field encode80BitFrame() needs, so a struct assignment is what we want here.
+  job.frame = frame;
+  frame.encodeFrame(job.encoded);
+  job.bit_length = frame.bitLength;
+  job.repeatsRemaining = repeat;
+  job.ordinal = 1;  // the synchronous first frame was ordinal 0; repeats continue from 1
+  job.nextSendAt = millis() + TX_REPEAT_GAP;
+  job.active = true;
 }
