@@ -192,7 +192,9 @@ bool ConfigSettings::begin() {
       strcpy(this->chipModel, "h2");
       break;
     default:
-      sprintf(this->chipModel, "UNK%d", static_cast<int>(ci.model));
+      // chipModel is only 10 bytes: "UNK" plus a full int would overflow it on an
+      // unknown/negative model id, so bound the write to the destination.
+      snprintf(this->chipModel, sizeof(this->chipModel), "UNK%d", static_cast<int>(ci.model));
       break;
   }
   Serial.printf("Chip Model ESP32-%s\n", this->chipModel);
