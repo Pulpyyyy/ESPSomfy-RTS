@@ -27,3 +27,6 @@ debug.cfg
 
 # PlatformIO ino->cpp conversion artifact (regenerated at each build)
 src/*.ino.cpp
+
+# Claude Code local working directory (agent worktrees, session state)
+.claude/
