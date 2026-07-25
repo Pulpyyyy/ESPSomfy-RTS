@@ -1099,6 +1099,12 @@ void Web::handleDiscovery(WebServer &server) {
 }
 void Web::handleBackup(WebServer &server, bool attach) {
   webServer.sendCORSHeaders(server);
+  // A backup writes to LittleFS; refuse while a filesystem update is in progress
+  // so we do not race the OTA write against the config partition.
+  if(git.lockFS) {
+    server.send(503, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}"));
+    return;
+  }
   // The backup file contains the WiFi passphrase by design (needed for restore).
   if(!this->ensureAuth(server, true)) return;
   if(server.hasArg("attach")) attach = toBoolean(server.arg("attach").c_str(), attach);
