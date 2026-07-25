@@ -3,7 +3,6 @@ name: ESPSomfy-RTS Build
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
   release:
     types: [published]
@@ -13,7 +12,8 @@ jobs:
   # JOB 1 : Génération du LittleFS unique (Compiles pour Dev ET Release)
   # =======================================================================
   littlefs:
-    permissions: write-all
+    permissions:
+      contents: write
     name: LittleFS Image
     runs-on: ubuntu-latest
 
@@ -21,15 +21,15 @@ jobs:
       - name: Get Release info
         if: github.event_name == 'release'
         id: get_release
-        uses: bruceadams/get-release@v1.3.2
+        uses: bruceadams/get-release@74c3d60f5a28f358ccf241a00c9021ea16f0569f # v1.3.2
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
@@ -59,7 +59,7 @@ jobs:
 
       # Sauvegarde temporaire du LittleFS pour le job suivant (firmwares)
       - name: Upload LittleFS Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: LittleFS
           path: SomfyController.littlefs.bin
@@ -68,7 +68,7 @@ jobs:
       # Upload du LittleFS UNIQUE sur la page de la Release
       - name: Upload LittleFS to Release
         if: github.event_name == 'release'
-        uses: shogo82148/actions-upload-release-asset@v1.7.5
+        uses: shogo82148/actions-upload-release-asset@8f032eff0255912cc9c8455797fd6d72f25c7ab7 # v1.7.5
         with:
           github_token: ${{ github.token }}
           upload_url: ${{ steps.get_release.outputs.upload_url }}
@@ -80,7 +80,8 @@ jobs:
   # JOB 2 : Compilation de chaque carte, Onboard fusionné et Uploads
   # =======================================================================
   arduino:
-    permissions: write-all
+    permissions:
+      contents: write
     name: ${{ matrix.name }}
     needs: [littlefs]
     runs-on: ubuntu-latest
@@ -140,26 +141,26 @@ jobs:
       - name: Get Release info
         if: github.event_name == 'release'
         id: get_release
-        uses: bruceadams/get-release@v1.3.2
+        uses: bruceadams/get-release@74c3d60f5a28f358ccf241a00c9021ea16f0569f # v1.3.2
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Récupération du LittleFS généré au Job 1
       - name: Get LittleFS
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: LittleFS
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
       - name: Install PlatformIO and esptool
-        run: pip install platformio esptool
+        run: pip install platformio==6.1.19 esptool==5.3.1
 
       # Sur une release, FW_VERSION est pris du tag pour que le firmware
       # publié s'identifie correctement (comparaison de versions de l'OTA).
@@ -204,7 +205,7 @@ jobs:
       # CAS 1 : Si c'est un PUSH de dev
       - name: Upload ${{ matrix.name }} (Dev Artifact)
         if: github.event_name != 'release'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.name }}
           path: |
@@ -217,7 +218,7 @@ jobs:
       # CAS 2 : Si c'est une RELEASE (Firmware applicatif)
       - name: Upload firmware to Release
         if: github.event_name == 'release'
-        uses: shogo82148/actions-upload-release-asset@v1.7.5
+        uses: shogo82148/actions-upload-release-asset@8f032eff0255912cc9c8455797fd6d72f25c7ab7 # v1.7.5
         with:
           github_token: ${{ github.token }}
           upload_url: ${{ steps.get_release.outputs.upload_url }}
@@ -228,7 +229,7 @@ jobs:
       # CAS 2 suite : Si c'est une RELEASE (Image zip d'usine)
       - name: Upload onboard image to Release
         if: github.event_name == 'release'
-        uses: shogo82148/actions-upload-release-asset@v1.7.5
+        uses: shogo82148/actions-upload-release-asset@8f032eff0255912cc9c8455797fd6d72f25c7ab7 # v1.7.5
         with:
           github_token: ${{ github.token }}
           upload_url: ${{ steps.get_release.outputs.upload_url }}
