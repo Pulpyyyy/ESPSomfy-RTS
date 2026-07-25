@@ -130,31 +130,31 @@ void JsonFormatter::addElem(const char *name, const char *val) {
   this->_safecat(val, true);
 }
 void JsonFormatter::addElem(const char *val) { this->addElem(nullptr, val); }
-void JsonFormatter::addElem(float fval) { sprintf(this->_numbuff, "%.4f", fval); this->_appendNumber(nullptr); }
-void JsonFormatter::addElem(int8_t nval) { sprintf(this->_numbuff, "%d", nval); this->_appendNumber(nullptr); }
-void JsonFormatter::addElem(uint8_t nval) { sprintf(this->_numbuff, "%u", nval); this->_appendNumber(nullptr); }
-void JsonFormatter::addElem(int32_t nval) { sprintf(this->_numbuff, "%ld", (long)nval); this->_appendNumber(nullptr); }
-void JsonFormatter::addElem(uint32_t nval) { sprintf(this->_numbuff, "%lu", (unsigned long)nval); this->_appendNumber(nullptr); }
+void JsonFormatter::addElem(float fval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%.4f", fval); this->_appendNumber(nullptr); }
+void JsonFormatter::addElem(int8_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%d", nval); this->_appendNumber(nullptr); }
+void JsonFormatter::addElem(uint8_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%u", nval); this->_appendNumber(nullptr); }
+void JsonFormatter::addElem(int32_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%ld", (long)nval); this->_appendNumber(nullptr); }
+void JsonFormatter::addElem(uint32_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%lu", (unsigned long)nval); this->_appendNumber(nullptr); }
 
 /*
-void JsonFormatter::addElem(int16_t nval) { sprintf(this->_numbuff, "%d", nval); this->_appendNumber(nullptr); }
-void JsonFormatter::addElem(uint16_t nval) { sprintf(this->_numbuff, "%u", nval); this->_appendNumber(nullptr); }
-void JsonFormatter::addElem(int64_t lval) { sprintf(this->_numbuff, "%lld", (long long)lval); this->_appendNumber(nullptr); }
-void JsonFormatter::addElem(uint64_t lval) { sprintf(this->_numbuff, "%llu", (unsigned long long)lval); this->_appendNumber(nullptr); }
+void JsonFormatter::addElem(int16_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%d", nval); this->_appendNumber(nullptr); }
+void JsonFormatter::addElem(uint16_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%u", nval); this->_appendNumber(nullptr); }
+void JsonFormatter::addElem(int64_t lval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%lld", (long long)lval); this->_appendNumber(nullptr); }
+void JsonFormatter::addElem(uint64_t lval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%llu", (unsigned long long)lval); this->_appendNumber(nullptr); }
 */
 void JsonFormatter::addElem(bool bval) { strcpy(this->_numbuff, bval ? "true" : "false"); this->_appendNumber(nullptr); }
 
-void JsonFormatter::addElem(const char *name, float fval) { sprintf(this->_numbuff, "%.4f", fval); this->_appendNumber(name); }
-void JsonFormatter::addElem(const char *name, int8_t nval) { sprintf(this->_numbuff, "%d", nval); this->_appendNumber(name); }
-void JsonFormatter::addElem(const char *name, uint8_t nval) { sprintf(this->_numbuff, "%u", nval); this->_appendNumber(name); }
-void JsonFormatter::addElem(const char *name, int32_t nval) { sprintf(this->_numbuff, "%ld", (long)nval); this->_appendNumber(name); }
-void JsonFormatter::addElem(const char *name, uint32_t nval) { sprintf(this->_numbuff, "%lu", (unsigned long)nval); this->_appendNumber(name); }
+void JsonFormatter::addElem(const char *name, float fval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%.4f", fval); this->_appendNumber(name); }
+void JsonFormatter::addElem(const char *name, int8_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%d", nval); this->_appendNumber(name); }
+void JsonFormatter::addElem(const char *name, uint8_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%u", nval); this->_appendNumber(name); }
+void JsonFormatter::addElem(const char *name, int32_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%ld", (long)nval); this->_appendNumber(name); }
+void JsonFormatter::addElem(const char *name, uint32_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%lu", (unsigned long)nval); this->_appendNumber(name); }
 
 /*
-void JsonFormatter::addElem(const char *name, int16_t nval) { sprintf(this->_numbuff, "%d", nval); this->_appendNumber(name); }
-void JsonFormatter::addElem(const char *name, uint16_t nval) { sprintf(this->_numbuff, "%u", nval); this->_appendNumber(name); }
-void JsonFormatter::addElem(const char *name, int64_t lval) { sprintf(this->_numbuff, "%lld", (long long)lval); this->_appendNumber(name); }
-void JsonFormatter::addElem(const char *name, uint64_t lval) { sprintf(this->_numbuff, "%llu", (unsigned long long)lval); this->_appendNumber(name); }
+void JsonFormatter::addElem(const char *name, int16_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%d", nval); this->_appendNumber(name); }
+void JsonFormatter::addElem(const char *name, uint16_t nval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%u", nval); this->_appendNumber(name); }
+void JsonFormatter::addElem(const char *name, int64_t lval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%lld", (long long)lval); this->_appendNumber(name); }
+void JsonFormatter::addElem(const char *name, uint64_t lval) { snprintf(this->_numbuff, sizeof(this->_numbuff), "%llu", (unsigned long long)lval); this->_appendNumber(name); }
 */
 void JsonFormatter::addElem(const char *name, bool bval) { strcpy(this->_numbuff, bval ? "true" : "false"); this->_appendNumber(name); }
 
