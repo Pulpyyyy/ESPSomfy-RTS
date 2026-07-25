@@ -6,7 +6,11 @@ var DBG = false; // UI debug logging (requests, heap); never logs secrets
 
 var _rooms = [];
 let LANG = {};
-var baseUrl = window.location.protocol === 'file:' ? `http://${hst}` : '';
+// Reverse-proxy support: when the UI is served under a sub-path (e.g.
+// https://ha.local/espsomfy/), every API path must carry that prefix. Served
+// from the device root, basePath resolves to '' and requests are unchanged.
+var basePath = window.location.protocol === 'file:' ? '' : window.location.pathname.replace(/\/[^/]*$/, '');
+var baseUrl = window.location.protocol === 'file:' ? `http://${hst}` : basePath;
 var waitLoad;
 var mouseDown = false;
 // Global press tracking: the hold-to-repeat loops (virtual remote, Prog buttons)
@@ -739,8 +743,17 @@ async function initSockets() {
     let host = window.location.protocol === 'file:' ? hst : window.location.hostname;
     try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const port = window.location.protocol === 'https:' ? '' : ':8080';
-        socket = new WebSocket(`${protocol}//${host}${port}/`);
+        let sockUrl;
+        if (window.location.protocol !== 'file:' && basePath.length > 0) {
+            // Behind a reverse proxy under a sub-path: tunnel the socket
+            // through the proxy at <basePath>/ws on the page's own origin
+            // (wss on HTTPS pages — no mixed content, no direct :8080 access).
+            sockUrl = `${protocol}//${window.location.host}${basePath}/ws`;
+        } else {
+            const port = window.location.protocol === 'https:' ? '' : ':8080';
+            sockUrl = `${protocol}//${host}${port}/`;
+        }
+        socket = new WebSocket(sockUrl);
         socket.onmessage = (evt) => {
             if (evt.data.startsWith('42')) {
                 let ndx = evt.data.indexOf(',');
