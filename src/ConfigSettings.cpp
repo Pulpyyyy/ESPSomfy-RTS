@@ -5,6 +5,7 @@
 #include <Preferences.h>
 #include "ConfigSettings.h"
 #include "Utils.h"
+#include "VersionParse.h"
 #include "esp_chip_info.h"
 #include "esp_random.h"
 
@@ -19,19 +20,15 @@ void restore_options_t::fromJSON(JsonObject &obj) {
   if(obj.containsKey("repeaters")) this->repeaters = obj["repeaters"];
   if(obj.containsKey("mqtt")) this->mqtt = obj["mqtt"];
 }
+// appver_t is the on-device wrapper: it keeps the original tag in `name` and
+// serialises to JSON. The parsing and the ordering themselves live in
+// VersionParse.cpp, which has no Arduino dependency and is covered by
+// test/test_version.
 int8_t appver_t::compare(appver_t &ver) {
-  if(this->major == ver.major && this->minor == ver.minor && this->build == ver.build) return 0;
-  if(this->major > ver.major) return 1;
-  else if(this->major < ver.major) return -1;
-  else {
-    if(this->minor > ver.minor) return 1;
-    else if(this->minor < ver.minor) return -1;
-    else {
-      if(this->build > ver.build) return 1;
-      else if(this->build < ver.build) return -1;
-    }
-  }
-  return 0;
+  version_t a, b;
+  a.major = this->major; a.minor = this->minor; a.build = this->build;
+  b.major = ver.major;   b.minor = ver.minor;   b.build = ver.build;
+  return compareVersion(a, b);
 }
 void appver_t::copy(appver_t &ver) {
   strcpy(this->name, ver.name);
@@ -40,41 +37,16 @@ void appver_t::copy(appver_t &ver) {
   this->build = ver.build;
   strcpy(this->suffix, ver.suffix);
 }
-// Reads the next numeric part of a version string starting at *pos and stops on
-// the '.' separator or at the end of the string.  Digits are accumulated
-// straight into an integer: the previous char num[3] buffer was filled to its
-// last byte before being handed to atoi(), so a version string with three or
-// more digits in a part left it without a null terminator.  When stopOnNonDigit
-// is set the part ends at the first non numeric character (suffix separator),
-// otherwise non numeric characters are skipped (leading "v", ...).
-static uint8_t _parseVersionPart(const char *ver, size_t len, size_t *pos, bool stopOnNonDigit) {
-  uint16_t val = 0;
-  uint8_t digits = 0;
-  while(*pos < len) {
-    char ch = ver[(*pos)++];
-    if(ch == '.') break;
-    if(!isdigit(static_cast<unsigned char>(ch))) {
-      if(stopOnNonDigit) break;
-      continue;
-    }
-    if(digits < 3) {
-      val = (val * 10) + (ch - '0');
-      digits++;
-    }
-  }
-  return static_cast<uint8_t>(val & 0xFF);
-}
 void appver_t::parse(const char *ver) {
-  // Now lets parse this pig.
   memset(this, 0x00, sizeof(appver_t));
   if(!ver) return;
   strlcpy(this->name, ver, sizeof(this->name));
-  size_t len = strlen(ver);
-  size_t i = 0;
-  this->major = _parseVersionPart(ver, len, &i, false);
-  this->minor = _parseVersionPart(ver, len, &i, false);
-  this->build = _parseVersionPart(ver, len, &i, true);
-  if(i < len) strlcpy(this->suffix, &ver[i], sizeof(this->suffix));
+  version_t parsed;
+  parseVersion(ver, parsed);
+  this->major = parsed.major;
+  this->minor = parsed.minor;
+  this->build = parsed.build;
+  memcpy(this->suffix, parsed.suffix, sizeof(this->suffix));
 }
 bool appver_t::toJSON(JsonObject &obj) {
   obj["name"] = this->name;
