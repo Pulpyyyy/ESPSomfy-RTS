@@ -6440,7 +6440,7 @@ class Firmware {
         if (!silent) overlay = ui.waitMessage(document.getElementById('divContainer'));
         try {
             let ret = { resp: { ok: false }, info: null };
-            ret.resp = await fetch(`https://api.github.com/repos/Pulpyyyy/ESPSomfy-RTS/releases/tags/${tag}`);
+            ret.resp = await fetch(`https://api.github.com/repos/Pulpyyyy/ESPSomfy-RTS/releases/tags/${encodeURIComponent(tag)}`);
             if (ret.resp.ok) {
                 ret.info = await ret.resp.json();
             }
@@ -6455,15 +6455,19 @@ class Firmware {
     }
     formatInlineMarkdown(txt) {
         if (!txt) return '';
-        return txt
+        // Release notes are fetched from the GitHub API and injected with innerHTML, so
+        // escape the whole text first and let only the rules below emit markup. Markdown
+        // syntax characters are untouched by esc(). Everything past this point is already
+        // escaped -- notably link labels and hrefs -- so it must not be escaped again.
+        return esc(txt)
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<i>$1</i>')
         .replace(/`([^`]+)`/g, '<code class="md-code-inline">$1</code>')
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, text, url) => {
             const href = safeUrl(url);
-            return href ? `<a href="${esc(href)}" target="_blank" class="md-link">${text}</a>` : text;
+            return href ? `<a href="${href}" target="_blank" class="md-link">${text}</a>` : text;
         })
-        .replace(/(?<!["=>])(https?:\/\/[^\s<]+)/g, (m, url) => `<a href="${esc(url)}" target="_blank" class="md-link-auto">${esc(url)}</a>`);
+        .replace(/(?<!["=>])(https?:\/\/[^\s<]+)/g, (m, url) => `<a href="${url}" target="_blank" class="md-link-auto">${url}</a>`);
     }
     parseMarkdown(bodyText) {
         const self = this;
