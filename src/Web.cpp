@@ -440,11 +440,20 @@ void Web::handleStreamFile(WebServer &server, const char *filename, const char *
     return;
   }
   server.setContentLength(file.size());
-  
+
+  // Harden the UI document itself. The page uses inline <script>, inline event
+  // handlers and inline style attributes (hence 'unsafe-inline'); the live
+  // WebSocket runs on :8080 and release notes are fetched from api.github.com,
+  // so connect-src is widened accordingly. Everything else stays same-origin.
+  if(encoding == _encoding_html) {
+    server.sendHeader(F("Content-Security-Policy"), F("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.github.com ws://*:8080 wss://*:8080; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"));
+    server.sendHeader(F("X-Content-Type-Options"), F("nosniff"));
+  }
+
   if (String(filename).endsWith(".gz")) {
       server.sendHeader("Content-Encoding", "gzip");
   }
-  server.send(200, encoding, ""); 
+  server.send(200, encoding, "");
   server.client().write(file); 
   
   file.close();
