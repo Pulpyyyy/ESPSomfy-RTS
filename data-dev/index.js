@@ -192,7 +192,7 @@ document.addEventListener('keydown', (e) => {
 });
 function loadLang(callback) {
     if (Object.keys(LANG).length > 0) {
-        if(DBG) console.log("Langue déjà en mémoire, utilisation du cache.");
+        if(DBG) console.log("Language already in memory, using the cache.");
         if (callback) callback();
         return;
     }
@@ -204,7 +204,7 @@ function loadLang(callback) {
         finishLoad(callback);
     })
     .catch(err => {
-        console.error("Erreur langue, mode secours activé", err);
+        console.error("Language load failed, falling back to the built-in dictionary", err);
         LANG = { "BT_LOGIN": "Login", "HOME": "Maison" };
         translator.init();
         finishLoad(callback);
@@ -869,9 +869,9 @@ document.addEventListener('keydown', (e) => {
     clearOverlays();
 });
 /**
- * synchronisation Sidebar et Tabs
- * @param {string} groupId - L'ID du groupe à activer
- * @param {boolean} isSubTab - Si c'est un sous-onglet
+ * Keeps the sidebar and the tab strip on the same selection.
+ * @param {string} groupId - id of the group to activate
+ * @param {boolean} isSubTab - true when the target is a sub-tab
  */
 function syncNavigationState(groupId, isSubTab = false) {
     if (!groupId) return;
@@ -1996,10 +1996,10 @@ class UIBinder {
             }
         }
     }
-    /**Dirige l'attention de l'utilisateur sur un élément spécifique
-     * @param {string|HTMLElement} target - ID de l'élément ou l'élément lui-même
-     * @param {boolean} activate - Activer ou désactiver l'animation
-     * @param {string} color - Couleur spécifique (ex: 'red', '#FFA500')
+    /**Draws the user's attention to one particular element
+     * @param {string|HTMLElement} target - element id, or the element itself
+     * @param {boolean} activate - turn the animation on or off
+     * @param {string} color - explicit colour (e.g. 'red', '#FFA500')
      */
     setFocus(target, activate = true, color = null) {
         let el = (typeof target === 'string') ? document.getElementById(target) : target;
@@ -2217,7 +2217,7 @@ class Security {
         const pnl = get('divUnauthenticated');
         if (!pnl) return;
 
-        // Cache groupé des éléments de login
+        // Cached lookup of the login elements
         const qs = (s) => pnl.querySelector(s);
         const btn = qs('#loginButtons'), pwd = qs('#divLoginPassword'), pin = qs('#divLoginPin');
         pnl.style.display = btn.style.display = pwd.style.display = pin.style.display = 'none';
@@ -2231,7 +2231,7 @@ class Security {
                     if (ctx.uptime) displayUptime(ctx.uptime, 'uptime-display');
                     if (ctx.netUptime) displayUptime(ctx.netUptime, 'net-display');
                     if (ctx.cpuFreq) get('info-cpu').textContent = `${ctx.cores > 1 ? 'Dual' : 'Single'}-Core @ ${ctx.cpuFreq} ${tr('MHZ')}`;
-                    // Flash & FileSystem (Regroupé)
+                    // Flash & FileSystem (grouped)
                     if (ctx.flashSize) {
                         get('info-flash').innerHTML = `<span>${tr('FW_TOTAL')}: </span><span class="status-detail">${ctx.flashSize}</span> Mo (<span class="hide550">${tr('FW_SPEED')}: </span><span class="status-detail">${ctx.flashSpeed}</span> ${tr('MHZ')})`;
                     }
@@ -2253,7 +2253,7 @@ class Security {
 
                     const cont = get('divContainer');
                     if (cont) cont.setAttribute('data-securitytype', ctx.type);
-                    // Gestion du Login
+                    // Login handling
                     if (ctx.type !== 0) {
                         btn.style.display = '';
                         const fld = ctx.type === 1 ? qs('.pin-digit[data-bind="login.pin.d0"]') : qs('#fldLoginUsername');
@@ -2538,7 +2538,7 @@ class General {
                 console.error(err);
                 return;
             }
-            if(DBG) console.log("Settings reçus:", settings);
+            if(DBG) console.log("Settings received:", settings);
             if (typeof somfy !== 'undefined') somfy.initPins();
 
             get('spanFwVersion').innerText = settings.fwVersion;
@@ -2676,7 +2676,7 @@ class General {
             }
         })
         .catch(err => {
-            console.error("Erreur lors du changement de langue:", err);
+            console.error("Language switch failed:", err);
             if (sel) sel.disabled = false;
         });
     }
@@ -2955,7 +2955,7 @@ class Wifi {
             inputEl.value = 0;
             inputEl.dispatchEvent(new Event('change', { bubbles: true }));
             this.updateEthernetSummary('PWRPin', 0);
-            this.togglePowerIcon(false); // Mode numérique -> Icône ON
+            this.togglePowerIcon(false); // Numeric mode -> icon ON
             return;
         }
 
@@ -2993,7 +2993,7 @@ class Wifi {
         inputPwr.value = 'None';
 
         this.updateEthernetSummary('PWRPin', -1);
-        this.togglePowerIcon(true); // Mode None -> Icône OFF
+        this.togglePowerIcon(true); // None mode -> icon OFF
     }
     onDHCPClicked(cb) { get('divStaticIP').style.display = cb.checked ? 'none' : ''; }
 
@@ -3246,7 +3246,7 @@ class Wifi {
     saveNetwork() {
         let pnl = get('divNetAdapter'), obj = ui.fromElement(pnl);
         const eth = obj.ethernet;
-        // Si la valeur extraite est NaN, vide ou "None", on la remet proprement à -1
+        // Reset to -1 when the extracted value is NaN, empty or "None"
         if (isNaN(eth.PWRPin) || eth.PWRPin === 'None' || eth.PWRPin === '') {
             eth.PWRPin = -1;
         }
@@ -3530,7 +3530,7 @@ class Somfy {
         divG.style.display = target ? 'none' : 'inline-block';
     }
     async loadSomfy() {
-        //console.trace("Appel à loadSomfy");
+        //console.trace("loadSomfy called");
         getJSONSync('/controller', (err, somfy) => {
             if (err) {
                 if(DBG) console.log(err);
@@ -4478,7 +4478,7 @@ class Somfy {
                 let room = _rooms.find(x => x.roomId === group.roomId) || { roomId: 0, name: '' };
                 // --- Section Configuration ---
                 divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', group.name))} onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', group.name))} onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" style="color: var(--danger-color, red);"><use href=#svg-close></use></svg></div></div>`;
-                // --- Section Contrôle (divCtl) ---
+                // --- Control section (divCtl) ---
                 divCtl += `<div class="somfyGroupCtl" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-groupId="${group.groupId}" data-roomid="${group.roomId}" data-remoteaddress="${group.remoteAddress}">
                 <div class="group-name">
                 <span class="groupctl-room">${esc(room.name)}</span>
@@ -4907,8 +4907,8 @@ class Somfy {
             disp('divTiltSettings', st.tilt);
             disp('divShadeTimings', hasLift);
             disp('divLiftSettings', showLiftSettings);
-            // Le temps de décollage des lames ne concerne que les tabliers sans inclinaison
-            // (le firmware l'ignore pour les autres types via effectiveLiftTime).
+            // The slat lift time only applies to shades without tilt; the firmware
+            // ignores it for the other types through effectiveLiftTime.
             disp('divLiftTime', curTilt === 0);
             disp('divSunSensor', st.sun);
             disp('divLightSwitch', st.light);
@@ -5185,7 +5185,7 @@ class Somfy {
         obj = ui.fromElement(g('somfyShade')),
         settings = g('divSomfySettings');
 
-        // Champ vide ou firmware plus ancien que l'UI (JSON sans liftTime) : 0 = comportement d'origine.
+        // Empty field, or firmware older than the UI (JSON without liftTime): 0 = original behaviour.
         if (isNaN(obj.liftTime)) obj.liftTime = 0;
 
         const checks = [
@@ -6197,7 +6197,7 @@ class Firmware {
     restore() {
         let div = this.createFileUploader('/restore');
         let inst = div.querySelector('#divInstText');
-        //[id, bind, texte, checked]
+        //[id, bind, text, checked]
         const opts = [
             ['cbRestoreShades', 'shades', 'RESTORE_SHADES_GROUPS', 1],
             ['cbRestoreRepeaters', 'repeaters', 'RESTORE_REPEATERS', 0],
@@ -6406,7 +6406,7 @@ class Firmware {
             }
         }
     }
-    // Extrait juste le premier nombre après le 'v' (ex: "v2.5.2" -> 2, "v3.0.0" -> 3, "3.1.2" -> 3)
+    // Extract only the first number after the 'v' (e.g. "v2.5.2" -> 2, "v3.0.0" -> 3, "3.1.2" -> 3)
     getMainVersion(verStr) {
         if (!verStr) return 0;
         const match = verStr.match(/[vV]?(\d+)/);

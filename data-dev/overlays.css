@@ -712,7 +712,7 @@ div.error-message,
     margin-top: 8px;
     text-transform: uppercase;
 }
-/*États Actifs*/
+/* Active states */
 .wizard[data-stepid="1"] .stepper-item[data-stepid="1"] .step-counter { background: var(--accent-color); color: white; }
 .wizard[data-stepid="2"] .stepper-item[data-stepid="1"] .step-counter,
 .wizard[data-stepid="2"] .stepper-item[data-stepid="2"] .step-counter { background: var(--accent-color); color: white; }
@@ -720,7 +720,7 @@ div.error-message,
 .wizard[data-stepid="3"] .stepper-item[data-stepid="2"] .step-counter,
 .wizard[data-stepid="3"] .stepper-item[data-stepid="3"] .step-counter { background: var(--accent-color); color: white; }
 .wizard[data-stepid="4"] .stepper-item .step-counter { background: var(--accent-color); color: white; }
-/*titre step*/
+/* Step title */
 .step-title-container {
     text-align: center;
     margin-bottom: 10px;
@@ -1080,7 +1080,7 @@ cursor: pointer;
     line-height: 1.4;
     display: list-item;
 }
-/*Accueil Rooms, Shades Card and Groupes*/
+/* Home: rooms, shade cards and groups */
 .room-nav-container {
     display: none;
     position: relative;
