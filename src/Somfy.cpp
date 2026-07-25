@@ -4937,9 +4937,13 @@ void transceiver_config_t::fromJSON(JsonObject& obj) {
     if(obj.containsKey("RXPin")) this->RXPin = obj["RXPin"];
     if(obj.containsKey("SCKPin")) this->SCKPin = obj["SCKPin"];
     if(obj.containsKey("TXPin")) this->TXPin = obj["TXPin"];
-    // Clamp to the CC1101's documented ranges. These values are persisted and later
-    // formatted into a fixed-size buffer, so an out-of-range float from /saveRadio would
-    // both program the radio with nonsense and overflow that buffer on the way out.
+    // Clamp to the CC1101's documented ranges. radioBoardType selects a host board pinout
+    // (D1 mini, WT32-ETH01, Olimex PoE, XIAO-C3, ...), not a different transceiver: the
+    // CC1101 driver is the only one linked in, and these limits come from the chip, so
+    // they hold for every board. The frequency bound spans all three CC1101 bands, well
+    // beyond the 433 MHz range the UI slider offers, so no reachable setting is rejected.
+    // Values are persisted and later formatted into a fixed-size buffer, so an unchecked
+    // float from /saveRadio both programmed the radio with nonsense and overflowed it.
     if(obj.containsKey("rxBandwidth")) this->rxBandwidth = constrain((float)obj["rxBandwidth"], 58.03f, 812.50f);
     if(obj.containsKey("frequency")) this->frequency = constrain((float)obj["frequency"], 300.0f, 928.0f);
     if(obj.containsKey("deviation")) this->deviation = constrain((float)obj["deviation"], 1.58f, 380.85f);
