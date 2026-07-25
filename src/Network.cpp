@@ -373,7 +373,10 @@ bool Network::connectWired() {
       ETH.setHostname("ESPSomfy-RTS");
     Serial.print("Set hostname to:");
     Serial.println(ETH.getHostname());
-    if(!ETH.begin(settings.Ethernet.phyAddress, settings.Ethernet.PWRPin, settings.Ethernet.MDCPin, settings.Ethernet.MDIOPin, settings.Ethernet.phyType, settings.Ethernet.CLKMode)) { 
+    // Arduino-ESP32 3.x rewrote the ETH library for multiple interfaces and changed the
+    // RMII begin() parameter order from 2.x's (phy_addr, power, mdc, mdio, type, clk_mode)
+    // to (type, phy_addr, mdc, mdio, power, clk_mode). Same values, reordered.
+    if(!ETH.begin(settings.Ethernet.phyType, settings.Ethernet.phyAddress, settings.Ethernet.MDCPin, settings.Ethernet.MDIOPin, settings.Ethernet.PWRPin, settings.Ethernet.CLKMode)) {
       Serial.println("Ethernet Begin failed");
       this->ethStarted = false;
       if(settings.connType == conn_types_t::ethernetpref) {
