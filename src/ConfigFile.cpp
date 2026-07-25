@@ -149,27 +149,27 @@ bool ConfigFile::seekRecordByIndex(uint16_t ndx) {
 }
 */
 bool ConfigFile::readString(char *buff, size_t len) {
-  if(!this->file) return false;
+  if(!this->file || len == 0) return false;
   memset(buff, 0x00, len);
   uint16_t i = 0;
-  while(i < len) {
+  // A record written by writeString() holds len - 1 payload bytes followed by a
+  // separator, so a well formed file always returns from the switch below.  A
+  // forged file with no separator used to fill all len bytes, leaving buff
+  // without its terminator for _rtrim(), atoi() and every caller downstream.
+  // Keep consuming up to len bytes from the file so the stream stays aligned,
+  // but never write the last byte of the destination buffer.
+  for(uint16_t j = 0; j < len; j++) {
     uint8_t val;
-    if(this->file.read(&val, 1) == 1) {
-      switch(val) {
-        case CFG_REC_END:
-        case CFG_VALUE_SEP:
-          _rtrim(buff);
-          return true;
-      }
-      buff[i++] = val;
-      if(i == len) {
+    if(this->file.read(&val, 1) != 1) return false;
+    switch(val) {
+      case CFG_REC_END:
+      case CFG_VALUE_SEP:
         _rtrim(buff);
         return true;
-      }
     }
-    else 
-      return false;
+    if(i < len - 1) buff[i++] = val;
   }
+  buff[len - 1] = '\0';
   _rtrim(buff);
   return true;
 }
@@ -197,37 +197,32 @@ bool ConfigFile::skipValue(size_t len) {
   return true;
 }
 bool ConfigFile::readVarString(char *buff, size_t len) {
-  if(!this->file) return false;
+  if(!this->file || len == 0) return false;
   memset(buff, 0x00, len);
   uint8_t quotes = 0;
   uint16_t i = 0;
-  uint16_t j = 0;
-  while(j < len) {
+  // Same hardening as readString(): a quoted value from a forged file that never
+  // closes its quotes would otherwise fill the whole buffer and drop the
+  // terminator.  Bytes past the destination capacity are consumed and discarded.
+  for(uint16_t j = 0; j < len; j++) {
     uint8_t val;
-    j++;
-    if(this->file.read(&val, 1) == 1) {
-      switch(val) {
-        case CFG_VALUE_SEP:
-          if(quotes >= 2) {
-            _rtrim(buff);
-            return true;
-          }
-          break;
-        case CFG_REC_END:
+    if(this->file.read(&val, 1) != 1) return false;
+    switch(val) {
+      case CFG_VALUE_SEP:
+        if(quotes >= 2) {
+          _rtrim(buff);
           return true;
-        case CFG_TOK_QUOTE:
-          quotes++;
-          continue;
-      }
-      buff[i++] = val;
-      if(i == len) {
-        _rtrim(buff);
+        }
+        break;
+      case CFG_REC_END:
         return true;
-      }
+      case CFG_TOK_QUOTE:
+        quotes++;
+        continue;
     }
-    else 
-      return false;
+    if(i < len - 1) buff[i++] = val;
   }
+  buff[len - 1] = '\0';
   _rtrim(buff);
   return true;
 }

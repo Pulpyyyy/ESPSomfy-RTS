@@ -23,6 +23,16 @@
 // 5 slots dropped discovery replies when several clients (HA, phones, TVs,
 // voice assistants) sent M-SEARCH at the same time; ~90 bytes per slot.
 #define SSDP_QUEUE_SIZE             20
+// UPnP caps MX at 5 seconds. A forged "MX: 255" would park our replies in the
+// queue for minutes and keep every slot busy while it waited.
+#define SSDP_MAX_MX                 5
+// One M-SEARCH can make us emit up to three ~300 byte replies for a ~100 byte
+// request, and the source address of a UDP datagram is trivially spoofed. Allow
+// a short burst per source (clients legitimately retransmit M-SEARCH and probe
+// several STs in a row) then drop the rest.
+#define SSDP_RATE_SLOTS             8
+#define SSDP_RATE_WINDOW_MS         2000
+#define SSDP_RATE_BURST             4
 
 //#define DEBUG_SSDP Serial
 //#define DEBUG_SSDP_PACKET Serial
@@ -100,6 +110,13 @@ class UPNPDeviceType {
     char *getUSN(response_types_t responseType);
     void setChipId(uint32_t chipId);
 };
+// Per source bookkeeping used to throttle M-SEARCH replies.
+struct ssdp_source_t {
+  bool inUse;
+  uint32_t address;
+  unsigned long windowStart;
+  uint8_t hits;
+};
 struct ssdp_response_t {
   bool waiting;
   IPAddress address;
@@ -114,6 +131,7 @@ class SSDPClass {
   uint8_t m_cdeviceTypes = SSDP_CHILD_DEVICES + 1;
   protected:
     ssdp_response_t sendQueue[SSDP_QUEUE_SIZE];
+    ssdp_source_t recentSources[SSDP_RATE_SLOTS];
     //ssdp_response_t sendQueue[SSDP_QUEUE_SIZE];
     //void _send(ssdp_method_t method, UPNPDeviceType *dev, bool useUUID);
     //void _sendAll(ssdp_method_t method, bool useUUID);
@@ -139,6 +157,7 @@ class SSDPClass {
     void _parsePacket(ssdp_packet_t *pkt, AsyncUDPPacket &p);
     void _printPacket(ssdp_packet_t *pkt);
     bool _startsWith(const char* pre, const char* str);
+    bool _rateLimited(IPAddress addr);
     void _addToSendQueue(IPAddress addr, uint16_t port, UPNPDeviceType *d, const char *st, response_types_t responseType, uint8_t sec);
    
   public:

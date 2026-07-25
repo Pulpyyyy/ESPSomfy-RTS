@@ -160,12 +160,13 @@ void UPNPDeviceType::setChipId(uint32_t chipId) {
     (uint16_t)((chipId >> 8) & 0xff),
     (uint16_t)chipId & 0xff);    
 }
-SSDPClass::SSDPClass():sendQueue{false, INADDR_NONE, 0, nullptr, false, 0, "", response_types_t::root} {}
+SSDPClass::SSDPClass():sendQueue{false, INADDR_NONE, 0, nullptr, false, 0, "", response_types_t::root}, recentSources{} {}
 SSDPClass::~SSDPClass() { end(); this->isStarted = false; }
 bool SSDPClass::begin() { 
   for(int i = 0; i < SSDP_QUEUE_SIZE; i++) {
     this->sendQueue[i].waiting = false;
   }
+  memset(this->recentSources, 0x00, sizeof(this->recentSources));
   if(this->_server.connected()) this->end();
   //assert(NULL == _server);
   if(_server.connected()) {
@@ -233,6 +234,41 @@ UPNPDeviceType* SSDPClass::findDeviceByUUID(char *uuid) {
 }
 
 bool SSDPClass::_startsWith(const char *sw, const char *str) { return strncmp(sw, str, strlen(sw)) == 0; }
+bool SSDPClass::_rateLimited(IPAddress addr) {
+  // A single M-SEARCH costs us up to three ~300 byte datagrams for a ~100 byte
+  // request, and nothing proves the source address is real. Track the recent
+  // sources in a tiny LRU table and drop whatever exceeds the burst allowance.
+  unsigned long now = millis();
+  uint32_t ip = static_cast<uint32_t>(addr);
+  uint8_t slot = 0;
+  unsigned long slotAge = 0;
+  for(uint8_t i = 0; i < SSDP_RATE_SLOTS; i++) {
+    ssdp_source_t *s = &this->recentSources[i];
+    if(s->inUse && s->address == ip) {
+      if(now - s->windowStart >= SSDP_RATE_WINDOW_MS) {
+        // The window elapsed, start counting again.
+        s->windowStart = now;
+        s->hits = 1;
+        return false;
+      }
+      if(s->hits >= SSDP_RATE_BURST) return true;
+      s->hits++;
+      return false;
+    }
+    // Remember where a new source would go: a free slot, else the stalest one.
+    unsigned long age = s->inUse ? (now - s->windowStart) : 0xFFFFFFFFUL;
+    if(age >= slotAge) {
+      slotAge = age;
+      slot = i;
+    }
+  }
+  ssdp_source_t *s = &this->recentSources[slot];
+  s->inUse = true;
+  s->address = ip;
+  s->windowStart = now;
+  s->hits = 1;
+  return false;
+}
 void SSDPClass::_parsePacket(ssdp_packet_t *pkt, AsyncUDPPacket &p) {
   //MSEARCH = "M-SEARCH * HTTP/1.1\nHost: 239.255.255.250:1900\nMan: \"ssdp:discover\"\nST: roku:ecp\n";   
   memset(pkt, 0x00, sizeof(ssdp_packet_t));
@@ -333,9 +369,16 @@ void SSDPClass::_parsePacket(ssdp_packet_t *pkt, AsyncUDPPacket &p) {
             case ST:
               strcpy(pkt->st, buffer);
               break;
-            case MX:
-              pkt->mx = atoi(buffer);
+            case MX: {
+              // MX is the number of seconds the client lets us wait before
+              // answering. UPnP caps it at 5; anything larger (up to the 255 a
+              // uint8_t used to accept) only served to hold our queue slots.
+              int mx = atoi(buffer);
+              if(mx < 0) mx = 0;
+              else if(mx > SSDP_MAX_MX) mx = SSDP_MAX_MX;
+              pkt->mx = static_cast<uint8_t>(mx);
               break;
+            }
             case AGENT:
               strcpy(pkt->agent, buffer);
               break;
@@ -623,7 +666,11 @@ void SSDPClass::_addToSendQueue(IPAddress addr, uint16_t port, UPNPDeviceType *d
         #endif
         ssdp_response_t *q = &this->sendQueue[i];
         q->dev = d;
-        q->sendTime = millis() + (random(0, sec - 1) * 1000L);
+        // sec comes from the client supplied MX. Clamp it again here so this
+        // helper cannot be handed an out of range delay, and avoid the
+        // "sec - 1" underflow when the client asked for 0 or 1 second.
+        uint8_t maxDelay = (sec > SSDP_MAX_MX) ? SSDP_MAX_MX : sec;
+        q->sendTime = millis() + ((maxDelay > 1) ? random(0, maxDelay - 1) : 0) * 1000L;
         q->address = addr;
         q->port = port;
         q->responseType = responseType;
@@ -688,6 +735,15 @@ void SSDPClass::_processRequest(AsyncUDPPacket &p) {
   ssdp_packet_t pkt;
   this->_parsePacket(&pkt, p);
   if(pkt.valid && pkt.method == SEARCH) {
+    // Throttle before queueing anything: replying to every M-SEARCH turns the
+    // device into a UDP amplifier for whoever puts a victim address in the
+    // source field.
+    if(this->_rateLimited(p.remoteIP())) {
+      #ifdef DEBUG_SSDP
+      DEBUG_SSDP.println("Rate limited M-SEARCH, dropping");
+      #endif
+      return;
+    }
     // Check to see if we have anything to respond to from this packet.
     if(strcmp("ssdp:all", pkt.st) == 0) {
       #ifdef DEBUG_SSDP
@@ -741,6 +797,36 @@ void SSDPClass::loop() {
   // We need to send the notify if required.
   this->_sendNotify();
 }
+// Escapes the XML metacharacters of a value copied into /upnp.xml. The friendly
+// name is the hostname the user typed in, so an unescaped '<' let it inject
+// arbitrary markup into the schema served to every UPnP client on the LAN (and
+// break the "</deviceList>" split below). Always writes a terminated string and
+// stops short rather than overflowing dest.
+static void _xmlEscape(char *dest, size_t len, const char *src) {
+  if(!dest || len == 0) return;
+  size_t j = 0;
+  for(size_t i = 0; src && src[i] != '\0'; i++) {
+    const char *ent = nullptr;
+    switch(src[i]) {
+      case '&': ent = "&amp;"; break;
+      case '<': ent = "&lt;"; break;
+      case '>': ent = "&gt;"; break;
+      case '"': ent = "&quot;"; break;
+      case '\'': ent = "&apos;"; break;
+    }
+    if(ent) {
+      size_t elen = strlen(ent);
+      if(j + elen >= len) break;
+      memcpy(&dest[j], ent, elen);
+      j += elen;
+    }
+    else {
+      if(j + 1 >= len) break;
+      dest[j++] = src[i];
+    }
+  }
+  dest[j] = '\0';
+}
 void SSDPClass::schema(Print &client) {
   IPAddress ip = this->localIP();
   uint8_t devCount = 0;
@@ -751,14 +837,19 @@ void SSDPClass::schema(Print &client) {
   char device_template[strlen_P(_ssdp_device_schema_template)+1];
   strcpy_P(schema_template, _ssdp_schema_template);
   strcpy_P(device_template, _ssdp_device_schema_template);
-  char buff[sizeof(device_template) + sizeof(UPNPDeviceType)];
+  // Worst case every character of the friendly name becomes a 6 character
+  // entity. Kept static: schema() already puts three sizeable buffers on the
+  // stack and the web server serves /upnp.xml from a single task.
+  static char esc[(SSDP_FRIENDLY_NAME_SIZE * 6) + 1];
+  char buff[sizeof(device_template) + sizeof(UPNPDeviceType) + sizeof(esc)];
   buff[0] = '\0';
   client.printf(schema_template,
     ip.toString().c_str(), _port);
   UPNPDeviceType *r = &this->deviceTypes[0];
-  sprintf(buff, device_template,
+  _xmlEscape(esc, sizeof(esc), r->friendlyName);
+  snprintf(buff, sizeof(buff), device_template,
         r->deviceType,
-        r->friendlyName,
+        esc,
         r->presentationURL,
         r->serialNumber,
         r->modelName,
@@ -768,16 +859,20 @@ void SSDPClass::schema(Print &client) {
         r->manufacturerURL,
         settings.fwVersion.name,
         r->uuid );
-  char *devList = strstr(buff, "</device>") - strlen("</deviceList>");
-  devList[0] = '\0';
+  // Cut the root device open just before its empty <deviceList> so the child
+  // devices can be streamed inside it. Now that the name is escaped no value
+  // can forge this marker, but a truncated buffer still has to be handled.
+  char *devList = strstr(buff, "</deviceList>");
+  if(devList) devList[0] = '\0';
   client.print(buff);
   for(uint8_t i = 1; i < this->m_cdeviceTypes; i++) {
     UPNPDeviceType *dev = &this->deviceTypes[i];
     if(strlen(dev->deviceType) > 0) {
         //Serial.print(devList);
+        _xmlEscape(esc, sizeof(esc), dev->friendlyName);
         client.printf(device_template,
           dev->deviceType,
-          dev->friendlyName,
+          esc,
           dev->presentationURL,
           dev->serialNumber,
           dev->modelName,

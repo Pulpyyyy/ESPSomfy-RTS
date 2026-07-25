@@ -35,6 +35,26 @@ time_t Timestamp::mkUTCTime(struct tm *dt) {
   time_t tsLocalOffset = tsLocal - tsBadUTC;
   return tsBadLocal + tsLocalOffset;
 }
+// Reads the next numeric field of an ISO timestamp starting at *pos and stops on
+// any of the supplied delimiters (or at the end of the string).  Digits are
+// accumulated straight into an int so there is no intermediate char buffer that
+// could be filled to the brim and handed to atoi() without a null terminator.
+// At most maxDigits digits contribute to the value; the rest of the field is
+// consumed so the caller stays aligned on the following delimiter.
+static int _parseTimePart(const char *buff, size_t len, size_t *pos, const char *delims, uint8_t maxDigits) {
+  int val = 0;
+  uint8_t digits = 0;
+  while(*pos < len) {
+    char ch = buff[(*pos)++];
+    if(strchr(delims, ch) != nullptr) break;
+    if(!isdigit(static_cast<unsigned char>(ch))) continue;
+    if(digits < maxDigits) {
+      val = (val * 10) + (ch - '0');
+      digits++;
+    }
+  }
+  return val;
+}
 time_t Timestamp::parseUTCTime(const char *buff) {
   struct tm dt;
   dt.tm_hour = 0;
@@ -44,55 +64,15 @@ time_t Timestamp::parseUTCTime(const char *buff) {
   dt.tm_wday = 0;
   dt.tm_yday = 0;
   dt.tm_isdst = false;
-  char num[5];
-  uint8_t i = 0;
-  memset(num, 0x00, sizeof(num));
-  for(uint8_t j = 0; j < 5 && i < strlen(buff);) {
-    char ch = buff[i++];
-    if(ch == '-') break;
-    if(!isdigit(ch)) continue;
-    else num[j++] = ch;
-  }
-  dt.tm_year = atoi(num)-1900;
-  memset(num, 0x00, sizeof(num));
-  for(uint8_t j = 0; j < 5 && i < strlen(buff);) {
-    char ch = buff[i++];
-    if(ch == '-') break;
-    if(!isdigit(ch)) continue;
-    else num[j++] = ch;
-  }
-  dt.tm_mon = atoi(num)-1;  
-  memset(num, 0x00, sizeof(num));
-  for(uint8_t j = 0; j < 5 && i < strlen(buff);) {
-    char ch = buff[i++];
-    if(ch == '-' || ch == 'T' || ch == 't') break;
-    if(!isdigit(ch)) continue;
-    else num[j++] = ch;
-  }
-  dt.tm_mday = atoi(num);
-  memset(num, 0x00, sizeof(num));
-  for(uint8_t j = 0; j < 5 && i < strlen(buff);) {
-    char ch = buff[i++];
-    if(ch == '-' || ch == ':') break;
-    if(!isdigit(ch)) continue;
-    else num[j++] = ch;
-  }
-  dt.tm_hour = atoi(num);
-  memset(num, 0x00, sizeof(num));
-  for(uint8_t j = 0; j < 5 && i < strlen(buff);) {
-    char ch = buff[i++];
-    if(ch == '-' || ch == ':') break;
-    if(!isdigit(ch)) continue;
-    else num[j++] = ch;
-  }
-  dt.tm_min = atoi(num);
-  for(uint8_t j = 0; j < 5 && i < strlen(buff);) {
-    char ch = buff[i++];
-    if(ch == '-' || ch == ':' || ch == 'Z') break;
-    if(!isdigit(ch)) continue;
-    else num[j++] = ch;
-  }
-  dt.tm_sec = atoi(num);
+  if(!buff) return Timestamp::mkUTCTime(&dt);
+  size_t len = strlen(buff);
+  size_t i = 0;
+  dt.tm_year = _parseTimePart(buff, len, &i, "-", 4) - 1900;
+  dt.tm_mon = _parseTimePart(buff, len, &i, "-", 2) - 1;
+  dt.tm_mday = _parseTimePart(buff, len, &i, "-Tt", 2);
+  dt.tm_hour = _parseTimePart(buff, len, &i, "-:", 2);
+  dt.tm_min = _parseTimePart(buff, len, &i, "-:", 2);
+  dt.tm_sec = _parseTimePart(buff, len, &i, "-:Z", 2);
   //Serial.printf("Y:%d M:%d D:%d H:%d M:%d S:%d\n", dt.tm_year, dt.tm_mon, dt.tm_mday, dt.tm_hour, dt.tm_min, dt.tm_sec);
   return Timestamp::mkUTCTime(&dt);
 }

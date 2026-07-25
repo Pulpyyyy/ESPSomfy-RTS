@@ -2434,22 +2434,60 @@ void Web::begin() {
         fup.close();
       }
       else if (upload.status == UPLOAD_FILE_WRITE) {
+        // A shade config is an ordinary LittleFS file. Update.write() used to be
+        // called here as a "does this look valid" probe: it tells us nothing
+        // about the content and, whenever an OTA session happened to be open, it
+        // pushed the uploaded bytes straight into the flash partition and skipped
+        // the file write entirely. Sniff the header instead and only ever append.
+        if (g_uploadBytes == 0 && upload.currentSize > 0) {
+          // Every config file starts with the header version written by
+          // writeUInt8(): three space padded digits then the ',' separator.
+          bool looksValid = upload.currentSize >= 4 && upload.buf[3] == ',';
+          for (uint8_t i = 0; looksValid && i < 3; i++) {
+            char c = (char)upload.buf[i];
+            if (c != ' ' && (c < '0' || c > '9')) looksValid = false;
+          }
+          if (!looksValid) {
+            g_uploadAuthorized = false;
+            Serial.println("Update aborted: not a shade configuration file");
+            LittleFS.remove("/shades.tmp");
+            return;
+          }
+        }
         // Cap the cumulative size so a large repeated upload cannot fill the filesystem.
         g_uploadBytes += upload.currentSize;
         if (g_uploadBytes > SHADECFG_MAX_UPLOAD) {
           g_uploadAuthorized = false; // make every later chunk (and END) a no-op
           Serial.printf("Update aborted: upload exceeds %u bytes\n", (unsigned)SHADECFG_MAX_UPLOAD);
+          LittleFS.remove("/shades.tmp");
           return;
         }
-        /* flashing littlefs to ESP*/
-        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-          File fup = LittleFS.open("/shades.tmp", "a");
-          fup.write(upload.buf, upload.currentSize);
-          fup.close();
+        File fup = LittleFS.open("/shades.tmp", "a");
+        if (!fup) {
+          g_uploadAuthorized = false;
+          Serial.println("Update aborted: cannot open /shades.tmp");
+          return;
         }
+        if (fup.write(upload.buf, upload.currentSize) != upload.currentSize) {
+          g_uploadAuthorized = false;
+          Serial.println("Update aborted: write error on /shades.tmp");
+        }
+        fup.close();
+      }
+      else if (upload.status == UPLOAD_FILE_ABORTED) {
+        g_uploadAuthorized = false;
+        LittleFS.remove("/shades.tmp");
       }
       else if (upload.status == UPLOAD_FILE_END) {
-        somfy.loadShadesFile("/shades.tmp");
+        if (g_uploadBytes == 0) {
+          Serial.println("Update aborted: empty shade configuration upload");
+          LittleFS.remove("/shades.tmp");
+          return;
+        }
+        // loadShadesFile() runs validate() first, so a truncated or forged file
+        // is rejected before any of it reaches the shade/room/group arrays.
+        if (!somfy.loadShadesFile("/shades.tmp"))
+          Serial.println("Shade configuration upload rejected as invalid");
       }
     });
   server.on("/updateApplication", HTTP_POST, []() {
