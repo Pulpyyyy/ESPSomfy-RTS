@@ -141,6 +141,10 @@ bool MQTTClass::connect() {
   }
 
   mqttClient.setServer(settings.MQTT.hostname, settings.MQTT.port);
+  // connect() blocks the loop, and with it the radio timing, until the socket answers.
+  // PubSubClient defaults to 15s, which is the watchdog period: an unreachable broker on
+  // a reachable network could freeze the device long enough to trigger a panic reboot.
+  mqttClient.setSocketTimeout(2);
   if(mqttClient.connect(this->clientId, settings.MQTT.username, settings.MQTT.password, makeTopic("status"), 0, true, "offline")) {
     this->publish("status", "online", true);
     this->publish("ipAddress", settings.IP.ip.toString().c_str(), true);
