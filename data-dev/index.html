@@ -191,7 +191,7 @@
                             <hr>
                             <div>
                                 <label class="label" for="fldNtptimeserver" tr="GENERAL_NTP_SERVER"></label>
-                                <input id="fldNtptimesever" class="inputAndSelect" name="ntptimeserver" type="text" length=32 data-bind="general.ntpServer" tr="GENERAL_PH_NTP_SERVER" placeholder="Entrer votre Serveur NTP">
+                                <input id="fldNtptimeserver" class="inputAndSelect" name="ntptimeserver" type="text" length=32 data-bind="general.ntpServer" tr="GENERAL_PH_NTP_SERVER" placeholder="Entrer votre Serveur NTP">
                             </div>
                         </div>
                         <div class="unibloc">
@@ -242,7 +242,7 @@
                             </div>
                         </div>
                         <div class="footer-overlay">
-                            <button id="btnReboot" type="button" line onclick="general.rebootDevice();" tr="BT_REBOOT"></button>
+                            <button id="btnRebootGeneral" type="button" line onclick="general.rebootDevice();" tr="BT_REBOOT"></button>
                             <button id="btnSaveGeneral" type="button" tr="BT_SAVE" onclick="general.setGeneral();" ></button>
                         </div>
                     </div>
@@ -308,7 +308,7 @@
                             </div>
                         </div>
                         <div class="footer-overlay">
-                            <button id="btnLogin" type="button"  value="Submit" onclick="general.saveSecurity();" tr="BT_SAVE"></button>
+                            <button id="btnSaveSecurity" type="button"  value="Submit" onclick="general.saveSecurity();" tr="BT_SAVE"></button>
                         </div>
                     </div>
                     <div id="divFirmware" class="subtab-content" style="display:none;">
@@ -723,7 +723,7 @@
                             </form>
                         </div>
                         <div class="information">
-                            <svg><use id="useStatusIcon" href=#svg-info></use></svg>
+                            <svg><use id="useHotspotIcon" href=#svg-info></use></svg>
                             <div class="msgHotspot">
                                 <b tr="MSG_INFO"></b>
                                 <span>
@@ -754,7 +754,7 @@
                                 </div>
                                 <div class="uniRight">
                                     <span class="switch">
-                                        <input id="cbRoaming" type="checkbox" name="dhcp" data-bind="ip.dhcp" onclick="wifi.onDHCPClicked(this);"/>
+                                        <input id="cbDHCP" type="checkbox" name="dhcp" data-bind="ip.dhcp" onclick="wifi.onDHCPClicked(this);"/>
                                         <div></div>
                                     </span>
                                 </div>
@@ -788,11 +788,11 @@
                                 </div>
                             </div>
                         </div>
-                         <div id="divSystemStatus" class="information">
-                            <svg><use id="useStatusIcon" href=#svg-info></use></svg>
+                         <div id="divIpRebootInfo" class="information">
+                            <svg><use id="useIpRebootIcon" href=#svg-info></use></svg>
                             <div style="text-align:left; flex:1;">
-                                <b id="statusTitle" tr="MSG_INFO"></b>
-                                <span id="statusDesc" tr="ADRESSIP_IP_REBOOT_INFO"></span>
+                                <b id="ipRebootTitle" tr="MSG_INFO"></b>
+                                <span id="ipRebootDesc" tr="ADRESSIP_IP_REBOOT_INFO"></span>
                             </div>
                         </div>
                         <div class="footer-overlay">
@@ -849,7 +849,7 @@
                                 <div class="LoginPassword-input password-container">
                                     <input id="fldMqttPassword" class="inputAndSelect" name="mqtt-password" type="password" data-bind="mqtt.password" length=64 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
                                     <div class="password-eye" onclick="security.toggleFieldPassword('fldMqttPassword', this)">
-                                        <svg class="pwd-icon pwd-iconeye"><use id="wifiEyeIcon" href="#svg-eyeOff"></use></svg>
+                                        <svg class="pwd-icon pwd-iconeye"><use id="mqttEyeIcon" href="#svg-eyeOff"></use></svg>
                                     </div>
                                 </div>
                             </div>
@@ -1219,7 +1219,7 @@
                                 </div>
                                 <hr>
                                 <div>
-                                    <label class="label" for="selRepeatCommnds" tr="REPEAT_COMMANDS" ></label>
+                                    <label class="label" for="selRepeatCommands" tr="REPEAT_COMMANDS" ></label>
                                     <select id="selRepeatCommands" class="inputAndSelect" data-bind="repeats" data-datatype="int">
                                         <option value="0" tr="OPT_NO_REPEAT">Aucune répétition</option>
                                         <option value="1" tr="OPT_1TIME"></option>
@@ -1353,8 +1353,8 @@
                                 </label>
                                 <hr>
                                 <div>
-                                    <label class="label" for="selRepeatCommnds" tr="REPEAT_COMMANDS"></label>
-                                    <select id="selRepeatCommands" class="inputAndSelect" data-bind="repeats" data-datatype="int">
+                                    <label class="label" for="selGroupRepeatCommands" tr="REPEAT_COMMANDS"></label>
+                                    <select id="selGroupRepeatCommands" class="inputAndSelect" data-bind="repeats" data-datatype="int">
                                         <option value="0" tr="OPT_NO_REPEAT"></option>
                                         <option value="1" tr="OPT_1TIME"></option>
                                         <option value="2" tr="OPT_2TIME"></option>
