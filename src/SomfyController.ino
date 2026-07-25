@@ -3,7 +3,7 @@
 #include <LittleFS.h>
 #include <esp_task_wdt.h>
 #include "ConfigSettings.h"
-#include "Network.h"
+#include "SomfyNetwork.h"
 #include "Web.h"
 #include "Sockets.h"
 #include "Utils.h"
@@ -16,7 +16,7 @@
 ConfigSettings settings;
 Web webServer;
 SocketEmitter sockEmit;
-Network net;
+SomfyNetwork net;
 rebootDelay_t rebootDelay;
 SomfyShadeController somfy;
 MQTTClass mqtt;

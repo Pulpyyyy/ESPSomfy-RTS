@@ -14,7 +14,7 @@
 #include "MQTT.h"
 #include "GitOTA.h"
 #include "Rollback.h"
-#include "Network.h"
+#include "SomfyNetwork.h"
 
 extern ConfigSettings settings;
 extern SSDPClass SSDP;
@@ -23,7 +23,7 @@ extern SomfyShadeController somfy;
 extern Web webServer;
 extern MQTTClass mqtt;
 extern GitUpdater git;
-extern Network net;
+extern SomfyNetwork net;
 
 //#define WEB_MAX_RESPONSE 34768
 #define WEB_MAX_RESPONSE 4096

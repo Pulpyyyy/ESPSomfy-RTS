@@ -1,5 +1,5 @@
-#ifndef Network_h
-#define Network_h
+#ifndef SomfyNetwork_h
+#define SomfyNetwork_h
 
 #include <Arduino.h>
 
@@ -11,7 +11,7 @@
 #define ROAM_HYSTERESIS_DB 15
 #define ROAM_MIN_INTERVAL 600000UL
 
-class Network {
+class SomfyNetwork {
 protected:
   uint32_t lastEmit = 0;
   uint32_t lastMDNS = 0;

@@ -14,7 +14,7 @@
 #include "Somfy.h"
 #include "Web.h"
 #include "WResp.h"
-#include "Network.h"
+#include "SomfyNetwork.h"
 
 
 extern ConfigSettings settings;
@@ -22,7 +22,7 @@ extern SocketEmitter sockEmit;
 extern SomfyShadeController somfy;
 extern rebootDelay_t rebootDelay;
 extern Web webServer;
-extern Network net;
+extern SomfyNetwork net;
 
 // Certificate validation requires a correct clock: before NTP sync the ESP32
 // starts in 1970 and every legitimate TLS handshake would wrongly fail.
