@@ -40,44 +40,41 @@ void appver_t::copy(appver_t &ver) {
   this->build = ver.build;
   strcpy(this->suffix, ver.suffix);
 }
+// Reads the next numeric part of a version string starting at *pos and stops on
+// the '.' separator or at the end of the string.  Digits are accumulated
+// straight into an integer: the previous char num[3] buffer was filled to its
+// last byte before being handed to atoi(), so a version string with three or
+// more digits in a part left it without a null terminator.  When stopOnNonDigit
+// is set the part ends at the first non numeric character (suffix separator),
+// otherwise non numeric characters are skipped (leading "v", ...).
+static uint8_t _parseVersionPart(const char *ver, size_t len, size_t *pos, bool stopOnNonDigit) {
+  uint16_t val = 0;
+  uint8_t digits = 0;
+  while(*pos < len) {
+    char ch = ver[(*pos)++];
+    if(ch == '.') break;
+    if(!isdigit(static_cast<unsigned char>(ch))) {
+      if(stopOnNonDigit) break;
+      continue;
+    }
+    if(digits < 3) {
+      val = (val * 10) + (ch - '0');
+      digits++;
+    }
+  }
+  return static_cast<uint8_t>(val & 0xFF);
+}
 void appver_t::parse(const char *ver) {
   // Now lets parse this pig.
   memset(this, 0x00, sizeof(appver_t));
+  if(!ver) return;
   strlcpy(this->name, ver, sizeof(this->name));
-  char num[3];
-  uint8_t i = 0;
-  memset(num, 0x00, sizeof(num));
-  for(uint8_t j = 0; j < 3 && i < strlen(ver);) {
-    char ch = ver[i++];
-    // Trim off all the prefix.
-    if(ch == '.') break;
-    if(!isdigit(ch)) continue;
-    if(ch != '.')
-      num[j++] = ch;
-    else
-      break;
-  }
-  this->major = static_cast<uint8_t>(atoi(num) & 0xFF);
-  memset(num, 0x00, sizeof(num));
-  for(uint8_t j = 0; j < 3 && i < strlen(ver);) {
-    char ch = ver[i++];
-    if(ch != '.')
-      num[j++] = ch;
-    else
-      break;
-  }
-  this->minor = static_cast<uint8_t>(atoi(num) & 0xFF);
-  memset(num, 0x00, sizeof(num));
-  for(uint8_t j = 0; j < 3 && i < strlen(ver);) {
-    char ch = ver[i++];
-    if(!isdigit(ch)) break;
-    if(ch != '.')
-      num[j++] = ch;
-    else
-      break;
-  }
-  this->build = static_cast<uint8_t>(atoi(num) & 0xFF);
-  if(strlen(ver) < i) strlcpy(this->suffix, &ver[i], sizeof(this->suffix));
+  size_t len = strlen(ver);
+  size_t i = 0;
+  this->major = _parseVersionPart(ver, len, &i, false);
+  this->minor = _parseVersionPart(ver, len, &i, false);
+  this->build = _parseVersionPart(ver, len, &i, true);
+  if(i < len) strlcpy(this->suffix, &ver[i], sizeof(this->suffix));
 }
 bool appver_t::toJSON(JsonObject &obj) {
   obj["name"] = this->name;
