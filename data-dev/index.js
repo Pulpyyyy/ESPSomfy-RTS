@@ -4559,7 +4559,7 @@ class Somfy {
         let flags = document.querySelectorAll(`.button-sunflag[data-groupid="${state.groupId}"]`);
         for (let i = 0; i < flags.length; i++) {
             flags[i].style.display = state.sunSensor ? '' : 'none';
-            flags[i].setAttribute('data-on', state.flags & 0x20 === 0x20 ? 'true' : 'false');
+            flags[i].setAttribute('data-on', (state.flags & 0x01) === 0x01 ? 'true' : 'false');
         }
     }
     procShadeState(state) {
