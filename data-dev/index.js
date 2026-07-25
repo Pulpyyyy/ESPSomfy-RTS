@@ -30,9 +30,84 @@ function safeUrl(u) {
     return s;                                     // schemeless relative (e.g. "path/x")
 }
 
+// --- Modal dialogs -----------------------------------------------------------
+// Overlays were plain <div>s: screen readers never announced them, Tab wandered off into
+// the page behind, and closing one dropped focus back on <body>, so keyboard users
+// restarted from the top of the document every time. openDialog/closeDialog wrap every
+// overlay creation path so the semantics, the focus trap and the focus restore are
+// defined in exactly one place.
+const DLG_FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[role="button"]:not([disabled]),[tabindex]:not([tabindex="-1"])';
+let _dlgStack = [];
+let _dlgSeq = 0;
+// True when the element is actually rendered. getClientRects is used rather than
+// offsetParent, which is null for position:fixed controls even while they are visible.
+function dlgVisible(n) { return !!n && n.getClientRects().length > 0; }
+function dlgFocusables(el) {
+    // Skips the display:none branches these overlays are full of (wizard steps,
+    // expert-only rows) so Tab never lands on an invisible control.
+    return Array.prototype.filter.call(el.querySelectorAll(DLG_FOCUSABLE), dlgVisible);
+}
+function openDialog(el) {
+    if (!el || el.hasAttribute('data-dialog')) return;
+    el.setAttribute('data-dialog', '');
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    // Name the dialog from whatever heading it already shows, rather than inventing a label
+    // that would not match what is on screen.
+    const title = el.querySelector('h1,h2,h3,.prompt-text,.info-text,.inner-error,.wait-label');
+    if (title) {
+        if (!title.id) title.id = `dlgTitle${++_dlgSeq}`;
+        el.setAttribute('aria-labelledby', title.id);
+    }
+    const opener = document.activeElement;
+    _dlgStack.push({ el: el, opener: (opener && opener !== document.body) ? opener : null });
+    const first = dlgFocusables(el)[0];
+    if (first) first.focus();
+    else {
+        if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+        el.focus();
+    }
+}
+function closeDialog(el) {
+    if (!el) return;
+    const i = _dlgStack.findIndex((d) => d.el === el);
+    if (i < 0) return;
+    const entry = _dlgStack[i];
+    _dlgStack.splice(i, 1);
+    el.removeAttribute('data-dialog');
+    // Only give focus back if the trigger is still on the page and still reachable.
+    if (entry.opener && document.body.contains(entry.opener) && dlgVisible(entry.opener)) {
+        entry.opener.focus();
+    }
+}
+// Tab cycling for the topmost dialog. One document-level listener keeps working even when
+// focus has escaped the overlay (a background click), which a listener bound to the
+// overlay itself would not.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || _dlgStack.length === 0) return;
+    const top = _dlgStack[_dlgStack.length - 1];
+    if (!document.body.contains(top.el)) { closeDialog(top.el); return; }
+    const f = dlgFocusables(top.el);
+    if (f.length === 0) {
+        e.preventDefault();
+        if (!top.el.hasAttribute('tabindex')) top.el.setAttribute('tabindex', '-1');
+        top.el.focus();
+        return;
+    }
+    const first = f[0], last = f[f.length - 1];
+    if (!top.el.contains(document.activeElement)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+    } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+    }
+});
 const closeOverlay = (div, callback) => {
     if (!div) return;
     if (typeof callback === 'function') callback();
+    closeDialog(div);
     div.classList.add('overlay-exit');
     setTimeout(() => div.remove(), 300);
 };
@@ -748,7 +823,7 @@ async function initSockets() {
 }
 function clearOverlays() {
     const selectors = ['.inst-overlay', '.info-message', '.prompt-message', '.error-message', '.instructions', '#divGitInstall'];
-    selectors.forEach(s => document.querySelectorAll(s).forEach(el => el.remove()));
+    selectors.forEach(s => document.querySelectorAll(s).forEach(el => { closeDialog(el); el.remove(); }));
 }
 // Overlays could only be dismissed with the mouse, which left keyboard users stuck in
 // an edit dialog or a PIN prompt with no way out.
@@ -962,7 +1037,8 @@ function navConfirmLeave(proceed) {
         + `<button type="button" id="navSave">${tr('BT_SAVE')}</button>`
         + '</div></div>';
     get('divContainer').appendChild(div);
-    const done = () => div.remove();
+    openDialog(div);
+    const done = () => { closeDialog(div); div.remove(); };
     div.querySelector('#navCancel').onclick = done;
     div.querySelector('#navDiscard').onclick = () => { navClearDirty(); done(); proceed(); };
     div.querySelector('#navSave').onclick = () => {
@@ -1055,6 +1131,7 @@ function shOverlay(div, onClose) {
     if (btn) btn.onclick = () => closeOverlay(div, onClose);
     get('divContainer').appendChild(div);
     window.scrollTo(0, 0);
+    openDialog(div);
 }
 // --- Calibration wizard (v1) -------------------------------------------------
 // 100% UI: drives the shade via /shadeCommand, times the user's taps locally,
@@ -1794,6 +1871,7 @@ class UIBinder {
         div.classList.add('socket-error');
         div.classList.add('modal-overlay');
         el.appendChild(div);
+        openDialog(div);
         return div;
     }
     errorMessage(el, msg) {
@@ -1806,6 +1884,7 @@ class UIBinder {
         div.innerHTML = `<div class="error-content"><div class="inner-error">${msg}</div><div class="sub-message"></div><button type="button" onclick="ui.clearErrors();">${tr('BT_CLOSE')}</button></div>`;
         div.classList.add('error-message', 'modal-overlay');
         el.appendChild(div);
+        openDialog(div);
         return div;
     }
     promptMessage(el, msg, onYes) {
@@ -1820,6 +1899,7 @@ class UIBinder {
         <div class="button-container-row"><button line type="button" onclick="ui.clearErrors();">${tr('BT_NO')}</button><button id="btnYes" type="button">${tr('BT_YES')}</button></div></div>`;
         el.appendChild(div);
 
+        openDialog(div);
         div.querySelector('#btnYes').onclick = () => {
             if (typeof onYes === 'function') onYes();
             ui.clearErrors();
@@ -1836,6 +1916,7 @@ class UIBinder {
         div.innerHTML = `<div class="message-content"><div class="info-text">${msg}</div><div class="sub-message"></div><div class="button-container-row"><button id="btnOk" type="button">${tr('BT_OK')}</button></div></div>`;
         div.classList.add('info-message', 'modal-overlay');
         el.appendChild(div);
+        openDialog(div);
 
         const btnOk = div.querySelector('#btnOk');
         if (typeof onOk === 'function') {
@@ -1848,6 +1929,7 @@ class UIBinder {
     clearErrors() {
         let errors = document.querySelectorAll('div.modal-overlay');
         errors.forEach((el) => {
+            closeDialog(el);
             el.classList.add('overlay-exit');
         });
         if (errors.length > 0) {
