@@ -33,6 +33,12 @@ uint8_t rxmode = 0;  // Indicates whether the radio is in receive mode.  Just to
 #define SETMY_REPEATS 35
 #define TILT_REPEATS 15
 #define TX_QUEUE_DELAY 100
+// Minimum interval between two position-progress socket emits of the same shade
+// while it travels. emitState() serialises the full shade and broadcasts it to
+// every socket client; at up to SOMFY_MAX_SHADES moving at once, one emit per 1%
+// step floods the loop so it runs slower and skips positions. Start/stop/arrival
+// (direction changes) are still emitted immediately, so no transition is lost.
+#define MOVE_EMIT_INTERVAL 250
 
 int sort_asc(const void *cmp1, const void *cmp2) {
   int a = *((uint8_t *)cmp1);
@@ -1487,9 +1493,22 @@ void SomfyShade::checkMovement() {
     // finishSetMyPosition() runs from the top of checkMovement() once the gap has elapsed.
     this->startCmdGap(pending_cmd_t::setMyPos, 200);
   }
-  else if(currDir != this->direction || currPos != floor(this->currentPos) || currTiltDir != this->tiltDirection || currTiltPos != floor(this->currentTiltPos)) {
-    // We need to emit on the socket that our state has changed.
+  else if(currDir != this->direction || currTiltDir != this->tiltDirection) {
+    // A direction change means the shade just started, stopped or reached its
+    // target. Emit immediately so Home Assistant never misses a transition, and
+    // reset the throttle window so the next progress emit is spaced from here.
     this->emitState();
+    this->lastMoveEmit = curTime;
+  }
+  else if(currPos != floor(this->currentPos) || currTiltPos != floor(this->currentTiltPos)) {
+    // Plain travel progress. Throttle to one emit per MOVE_EMIT_INTERVAL so many
+    // shades moving together cannot flood the loop (subtractive compare is rollover
+    // safe). The exact final position is still delivered by the direction-change
+    // branch above when the shade stops.
+    if(curTime - this->lastMoveEmit >= MOVE_EMIT_INTERVAL) {
+      this->emitState();
+      this->lastMoveEmit = curTime;
+    }
   }
 }
 void SomfyShade::finishSetMyPosition() {
