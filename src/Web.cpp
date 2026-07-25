@@ -143,6 +143,76 @@ bool Web::ensureAuth(WebServer &server, bool cfg) {
   server.send(401, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Not authenticated\"}"));
   return false;
 }
+// --- CSRF / DNS-rebinding protection --------------------------------------
+// Extract the bare host from a Host/Origin/Referer value, dropping any scheme,
+// path and port.  Handles bracketed IPv6 literals ("[::1]:80" -> "::1").
+static String csrfExtractHost(String v) {
+  v.trim();
+  int scheme = v.indexOf("://");
+  if(scheme >= 0) v = v.substring(scheme + 3);    // strip "http://" (Origin/Referer)
+  int slash = v.indexOf('/');
+  if(slash >= 0) v = v.substring(0, slash);        // strip "/path" (Referer)
+  if(v.length() && v[0] == '[') {                  // bracketed IPv6 literal
+    int close = v.indexOf(']');
+    if(close > 0) return v.substring(1, close);
+    return v;
+  }
+  int first = v.indexOf(':');
+  int last = v.lastIndexOf(':');
+  if(first >= 0 && first == last) v = v.substring(0, first); // single ':' -> host:port
+  // Several colons and no brackets means a bare IPv6 literal: keep it verbatim.
+  return v;
+}
+// True when the host is an IP literal (v4 or v6).  DNS-rebinding needs a real
+// DNS name, so any literal address (including the 192.168.4.1 recovery AP) is safe.
+static bool csrfIsIpLiteral(const String &h) {
+  if(h.length() == 0) return false;
+  if(h.indexOf(':') >= 0) {                         // candidate IPv6 literal
+    for(size_t i = 0; i < h.length(); i++) {
+      char c = h.charAt(i);
+      if(c != ':' && !isxdigit((int)c)) return false;
+    }
+    return true;
+  }
+  IPAddress ip;
+  return ip.fromString(h);                           // strict IPv4 parse
+}
+// True when the host matches the configured device hostname, with or without
+// the mDNS ".local" suffix (case-insensitive).
+static bool csrfIsConfiguredHost(const String &h) {
+  String hn = String(settings.hostname);
+  if(hn.length() == 0) return false;
+  hn.toLowerCase();
+  String lh = h; lh.toLowerCase();
+  return lh == hn || lh == hn + ".local";
+}
+// Reject cross-site and DNS-rebinding requests on the browser-facing server.
+// Home Assistant talks to the dedicated API port (apiServer) with token auth and
+// is not browser-driven, so this check is skipped there to avoid breaking it.
+bool Web::sameOriginOK(WebServer &server) {
+  if(&server == &apiServer) return true;
+  String host = csrfExtractHost(server.hostHeader());
+  // (a) Anti DNS-rebinding: the Host must be an IP literal or our own hostname.
+  //     An absent Host cannot carry a rebinding attack, so it is allowed through.
+  if(host.length() != 0 && !csrfIsIpLiteral(host) && !csrfIsConfiguredHost(host)) {
+    server.send(403, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Forbidden host\"}"));
+    return false;
+  }
+  // (b) If the browser sent an Origin or Referer, its host must equal the Host
+  //     header; a cross-site page driving this API would carry a foreign origin.
+  String src = server.header("Origin");
+  if(src.length() == 0) src = server.header("Referer");
+  if(src.length() != 0 && host.length() != 0) {
+    String srcHost = csrfExtractHost(src);
+    srcHost.toLowerCase();
+    String lh = host; lh.toLowerCase();
+    if(srcHost != lh) {
+      server.send(403, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Cross-origin request blocked\"}"));
+      return false;
+    }
+  }
+  return true;
+}
 void sendJsonError(const char* detail = "") {
   String msg = F("JSON Err: ");
   msg += detail;
@@ -520,6 +590,7 @@ void Web::handleGetGroups(WebServer &server) {
 void Web::handleShadeCommand(WebServer& server) {
   webServer.sendCORSHeaders(server);
   if (server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   uint8_t shadeId = 255;
@@ -586,6 +657,7 @@ void Web::handleRepeatCommand(WebServer& server) {
   webServer.sendCORSHeaders(server);
   HTTPMethod method = server.method();
   if (method == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   uint8_t shadeId = 255;
   uint8_t groupId = 255;
@@ -671,6 +743,7 @@ void Web::handleRepeatCommand(WebServer& server) {
 void Web::handleGroupCommand(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   uint8_t groupId = 255;
@@ -731,6 +804,7 @@ void Web::handleGroupCommand(WebServer &server) {
 void Web::handleTiltCommand(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
   uint8_t shadeId = 255;
@@ -1046,6 +1120,7 @@ void Web::handleBackup(WebServer &server, bool attach) {
 void Web::handleSetPositions(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
   int8_t pos = (server.hasArg("position")) ? atoi(server.arg("position").c_str()) : -1;
@@ -1087,6 +1162,7 @@ void Web::handleSetPositions(WebServer &server) {
 void Web::handleSetSensor(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  if(!this->sameOriginOK(server)) return;
   if(!this->ensureAuth(server, false)) return;
   uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
   uint8_t groupId = (server.hasArg("groupId")) ? atoi(server.arg("groupId").c_str()) : 255;
@@ -1230,10 +1306,14 @@ void Web::begin() {
   // No CORS headers: the embedded UI is same-origin and Home Assistant talks
   // server-to-server. A wildcard here would let any web page visited from the
   // LAN read and drive this API from the victim's browser.
-  const char *keys[1] = {"apikey"};
-  server.collectHeaders(keys, 1);
+  // The ESP32 WebServer only exposes headers it was told to collect. Origin and
+  // Referer are needed for the CSRF/DNS-rebinding check; Host is exposed via
+  // hostHeader() but is collected here too for completeness.
+  const char *keys[] = {"apikey", "Host", "Origin", "Referer"};
+  const size_t keyCount = sizeof(keys) / sizeof(keys[0]);
+  server.collectHeaders(keys, keyCount);
   // API Server Handlers
-  apiServer.collectHeaders(keys, 1);
+  apiServer.collectHeaders(keys, keyCount);
   apiServer.on("/discovery", []() { webServer.handleDiscovery(apiServer); });
   apiServer.on("/rooms", []() {webServer.handleGetRooms(apiServer); });
   apiServer.on("/shades", []() { webServer.handleGetShades(apiServer); });
