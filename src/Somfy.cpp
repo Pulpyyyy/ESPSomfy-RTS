@@ -103,22 +103,6 @@ bool SomfyShade::linkRemote(uint32_t address, uint16_t rollingCode) {
     if(this->linkedRemotes[i].getRemoteAddress() == 0) {
       this->linkedRemotes[i].setRemoteAddress(address);
       this->linkedRemotes[i].setRollingCode(rollingCode);
-      #ifdef USE_NVS
-      if(somfy.useNVS()) {
-        uint32_t linkedAddresses[SOMFY_MAX_LINKED_REMOTES];
-        memset(linkedAddresses, 0x00, sizeof(linkedAddresses));
-        uint8_t j = 0;
-        for(uint8_t i = 0; i < SOMFY_MAX_LINKED_REMOTES; i++) {
-          SomfyLinkedRemote lremote = this->linkedRemotes[i];
-          if(lremote.getRemoteAddress() != 0) linkedAddresses[j++] = lremote.getRemoteAddress();
-        }
-        char shadeKey[15];
-        snprintf(shadeKey, sizeof(shadeKey), "SomfyShade%u", this->getShadeId());
-        pref.begin(shadeKey);
-        pref.putBytes("linkedAddr", linkedAddresses, sizeof(uint32_t) * SOMFY_MAX_LINKED_REMOTES);
-        pref.end();
-      }
-      #endif
       this->commit();
       return true;
     }
@@ -144,67 +128,17 @@ bool SomfyGroup::linkShade(uint8_t shadeId) {
 void SomfyShade::commit() { somfy.commit(); }
 void SomfyShade::commitShadePosition() {
   somfy.isDirty = true;
-  #ifdef USE_NVS
-  char shadeKey[15];
-  if(somfy.useNVS()) {
-    snprintf(shadeKey, sizeof(shadeKey), "SomfyShade%u", this->shadeId);
-    Serial.print("Writing current shade position: ");
-    Serial.println(this->currentPos, 4);
-    pref.begin(shadeKey);
-    pref.putFloat("currentPos", this->currentPos);
-    pref.end();
-  }
-  #endif
 }
 void SomfyShade::commitMyPosition() {
   somfy.isDirty = true;
-  #ifdef USE_NVS
-  if(somfy.useNVS()) {
-    char shadeKey[15];
-    snprintf(shadeKey, sizeof(shadeKey), "SomfyShade%u", this->shadeId);
-    Serial.print("Writing my shade position:");
-    Serial.print(this->myPos);
-    Serial.println("%");
-    pref.begin(shadeKey);
-    pref.putUShort("myPos", this->myPos);
-    pref.end();
-  }
-  #endif
 }
 void SomfyShade::commitTiltPosition() {
   somfy.isDirty = true;
-  #ifdef USE_NVS
-  if(somfy.useNVS()) {
-    char shadeKey[15];
-    snprintf(shadeKey, sizeof(shadeKey), "SomfyShade%u", this->shadeId);
-    Serial.print("Writing current shade tilt position: ");
-    Serial.println(this->currentTiltPos, 4);
-    pref.begin(shadeKey);
-    pref.putFloat("currentTiltPos", this->currentTiltPos);
-    pref.end();
-  }
-  #endif
 }
 bool SomfyShade::unlinkRemote(uint32_t address) {
   for(uint8_t i = 0; i < SOMFY_MAX_LINKED_REMOTES; i++) {
     if(this->linkedRemotes[i].getRemoteAddress() == address) {
       this->linkedRemotes[i].setRemoteAddress(0);
-      #ifdef USE_NVS
-      if(somfy.useNVS()) {
-        char shadeKey[15];
-        snprintf(shadeKey, sizeof(shadeKey), "SomfyShade%u", this->getShadeId());
-        uint32_t linkedAddresses[SOMFY_MAX_LINKED_REMOTES];
-        memset(linkedAddresses, 0x00, sizeof(linkedAddresses));
-        uint8_t j = 0;
-        for(uint8_t i = 0; i < SOMFY_MAX_LINKED_REMOTES; i++) {
-          SomfyLinkedRemote lremote = this->linkedRemotes[i];
-          if(lremote.getRemoteAddress() != 0) linkedAddresses[j++] = lremote.getRemoteAddress();
-        }
-        pref.begin(shadeKey);
-        pref.putBytes("linkedAddr", linkedAddresses, sizeof(uint32_t) * SOMFY_MAX_LINKED_REMOTES);
-        pref.end();
-      }
-      #endif
       this->commit();
       return true;
     }
@@ -417,72 +351,6 @@ void SomfyShade::triggerGPIOs(somfy_frame_t &frame) {
     this->gpioDir = dir;
   }  
 }
-#ifdef USE_NVS
-void SomfyShade::load() {
-    char shadeKey[15];
-    uint32_t linkedAddresses[SOMFY_MAX_LINKED_REMOTES];
-    memset(linkedAddresses, 0x00, sizeof(uint32_t) * SOMFY_MAX_LINKED_REMOTES);
-    snprintf(shadeKey, sizeof(shadeKey), "SomfyShade%u", this->shadeId);
-    // Now load up each of the shades into memory.
-    //Serial.print("key:");
-    //Serial.println(shadeKey);
-    
-    pref.begin(shadeKey, !somfy.useNVS());
-    pref.getString("name", this->name, sizeof(this->name));
-    this->paired = pref.getBool("paired", false);
-    if(pref.isKey("upTime") && pref.getType("upTime") != PreferenceType::PT_U32) {
-      // We need to convert these to 32 bits because earlier versions did not support this.
-      this->upTime = static_cast<uint32_t>(pref.getUShort("upTime", 1000));
-      this->downTime = static_cast<uint32_t>(pref.getUShort("downTime", 1000));
-      this->tiltTime = static_cast<uint32_t>(pref.getUShort("tiltTime", 7000));
-      if(somfy.useNVS()) {
-        pref.remove("upTime");
-        pref.putUInt("upTime", this->upTime);
-        pref.remove("downTime");
-        pref.putUInt("downTime", this->downTime);
-        pref.remove("tiltTime");
-        pref.putUInt("tiltTime", this->tiltTime);
-      }
-    }
-    else {
-      this->upTime = pref.getUInt("upTime", this->upTime);
-      this->downTime = pref.getUInt("downTime", this->downTime);
-      this->tiltTime = pref.getUInt("tiltTime", this->tiltTime);
-    }
-    this->liftTime = pref.getUInt("liftTime", this->liftTime);
-    this->curveGain = pref.getFloat("curveGain", this->curveGain);
-    this->setRemoteAddress(pref.getUInt("remoteAddress", 0));
-    this->currentPos = pref.getFloat("currentPos", 0);
-    this->target = floor(this->currentPos);
-    // A shade that rebooted fully closed has its slats stacked.
-    this->liftPos = this->startLiftPos = this->currentPos >= 100.0f ? 1.0f : 0.0f;
-    this->myPos = static_cast<float>(pref.getUShort("myPos", this->myPos));
-    this->tiltType = pref.getBool("hasTilt", false) ? tilt_types::none : tilt_types::tiltmotor;
-    this->shadeType = static_cast<shade_types>(pref.getChar("shadeType", static_cast<uint8_t>(this->shadeType)));
-    this->currentTiltPos = pref.getFloat("currentTiltPos", 0);
-    this->tiltTarget = floor(this->currentTiltPos);
-    pref.getBytes("linkedAddr", linkedAddresses, sizeof(linkedAddresses));
-    pref.end();
-    Serial.print("shadeId:");
-    Serial.print(this->getShadeId());
-    Serial.print(" name:");
-    Serial.print(this->name);
-    Serial.print(" address:");
-    Serial.print(this->getRemoteAddress());
-    Serial.print(" position:");
-    Serial.print(this->currentPos);
-    Serial.print(" myPos:");
-    Serial.println(this->myPos);
-    pref.begin("ShadeCodes");
-    this->lastRollingCode = pref.getUShort(this->m_remotePrefId, 0);
-    for(uint8_t j = 0; j < SOMFY_MAX_LINKED_REMOTES; j++) {
-      SomfyLinkedRemote &lremote = this->linkedRemotes[j];
-      lremote.setRemoteAddress(linkedAddresses[j]);
-      lremote.lastRollingCode = pref.getUShort(lremote.getRemotePrefId(), 0);
-    }
-    pref.end();
-}
-#endif
 // State Setters
 float SomfyShade::p_currentPos(float pos) {
   float old = this->currentPos;
@@ -1278,37 +1146,6 @@ void SomfyShade::processInternalCommand(somfy_commands cmd, uint8_t repeat) {
   this->setMovement(dir);
 }
 bool SomfyShade::save() {
-  #ifdef USE_NVS
-  if(somfy.useNVS()) {
-    char shadeKey[15];
-    snprintf(shadeKey, sizeof(shadeKey), "SomfyShade%u", this->getShadeId());
-    pref.begin(shadeKey);
-    pref.clear();
-    pref.putChar("shadeType", static_cast<uint8_t>(this->shadeType));
-    pref.putUInt("remoteAddress", this->getRemoteAddress());
-    pref.putString("name", this->name);
-    pref.putBool("hasTilt", this->tiltType != tilt_types::none);
-    pref.putBool("paired", this->paired);
-    pref.putUInt("upTime", this->upTime);
-    pref.putUInt("downTime", this->downTime);
-    pref.putUInt("liftTime", this->liftTime);
-    pref.putFloat("curveGain", this->curveGain);
-    pref.putUInt("tiltTime", this->tiltTime);
-    pref.putFloat("currentPos", this->currentPos);
-    pref.putFloat("currentTiltPos", this->currentTiltPos);
-    pref.putUShort("myPos", this->myPos);
-    uint32_t linkedAddresses[SOMFY_MAX_LINKED_REMOTES];
-    memset(linkedAddresses, 0x00, sizeof(linkedAddresses));
-    uint8_t j = 0;
-    for(uint8_t i = 0; i < SOMFY_MAX_LINKED_REMOTES; i++) {
-      SomfyLinkedRemote lremote = this->linkedRemotes[i];
-      if(lremote.getRemoteAddress() != 0) linkedAddresses[j++] = lremote.getRemoteAddress();
-    }
-    pref.remove("linkedAddr");
-    pref.putBytes("linkedAddr", linkedAddresses, sizeof(uint32_t) * SOMFY_MAX_LINKED_REMOTES);
-    pref.end();
-  }
-  #endif
   this->commit();
   this->publish();
   return true;

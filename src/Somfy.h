@@ -189,9 +189,6 @@ class SomfyShade : public SomfyRemote {
     bool flipPosition = false;
     shade_types shadeType = shade_types::roller;
     tilt_types tiltType = tilt_types::none;
-    #ifdef USE_NVS
-    void load();
-    #endif
     float currentPos = 0.0f;
     float currentTiltPos = 0.0f;
     // Fraction of the slats stacked at the fully closed position (0=unstacked, 1=stacked).
@@ -345,7 +342,6 @@ class SomfyShadeController {
     uint8_t m_shadeIds[SOMFY_MAX_SHADES];
     uint32_t lastCommit = 0;
   public:
-    bool useNVS();
     bool isDirty = false;
     uint32_t startingAddress;
     uint8_t getNextRoomId();
@@ -401,9 +397,6 @@ class SomfyShadeController {
     void commit();
     void writeBackup();
     bool loadShadesFile(const char *filename);
-    #ifdef USE_NVS
-    bool loadLegacy();
-    #endif
 };
 
 #endif

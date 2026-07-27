@@ -29,7 +29,6 @@ SomfyShadeController::SomfyShadeController() {
   uint64_t mac = ESP.getEfuseMac();
   this->startingAddress = mac & 0x0FFFFF;
 }
-bool SomfyShadeController::useNVS() { return !(settings.appVersion.major > 1 || settings.appVersion.minor >= 4); };
 SomfyShade *SomfyShadeController::findShadeByRemoteAddress(uint32_t address) {
   for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
     SomfyShade &shade = this->shades[i];
@@ -60,98 +59,16 @@ void SomfyShadeController::updateGroupFlags() {
     }
   }
 }
-#ifdef USE_NVS
-bool SomfyShadeController::loadLegacy() {
-  Serial.println("Loading Legacy shades using NVS");
-  pref.begin("Shades", true);
-  pref.getBytes("shadeIds", this->m_shadeIds, sizeof(this->m_shadeIds));
-  pref.end();
-  for(uint8_t i = 0; i < sizeof(this->m_shadeIds); i++) {
-    if(i != 0) DEBUG_SOMFY.print(",");
-    DEBUG_SOMFY.print(this->m_shadeIds[i]);
-  }
-  DEBUG_SOMFY.println();
-  sortArray<uint8_t>(this->m_shadeIds, sizeof(this->m_shadeIds));
-  #ifdef DEBUG_SOMFY
-  for(uint8_t i = 0; i < sizeof(this->m_shadeIds); i++) {
-    if(i != 0) DEBUG_SOMFY.print(",");
-    DEBUG_SOMFY.print(this->m_shadeIds[i]);
-  }
-  DEBUG_SOMFY.println();
-  #endif
-
-  uint8_t id = 0;
-  for(uint8_t i = 0; i < sizeof(this->m_shadeIds); i++) {
-    if(this->m_shadeIds[i] == id) this->m_shadeIds[i] = 255;
-    id = this->m_shadeIds[i];
-    SomfyShade *shade = &this->shades[i];
-    shade->setShadeId(id);
-    if(id == 255) {
-      continue;
-    }
-    shade->load();
-  }
-  #ifdef DEBUG_SOMFY
-  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
-    DEBUG_SOMFY.print(this->shades[i].getShadeId());
-    DEBUG_SOMFY.print(":");
-    DEBUG_SOMFY.print(this->m_shadeIds[i]);
-    if(i < SOMFY_MAX_SHADES - 1) DEBUG_SOMFY.print(",");
-  }
-  Serial.println();
-  #endif
-  #ifdef USE_NVS
-  if(!this->useNVS()) {
-    pref.begin("Shades");
-    pref.putBytes("shadeIds", this->m_shadeIds, sizeof(this->m_shadeIds));
-    pref.end();
-  }
-  #endif
-  this->commit();
-  return true;
-}
-#endif
 bool SomfyShadeController::begin() {
   // Load up all the configuration data.
   //ShadeConfigFile::getAppVersion(this->appVersion);
   Serial.printf("App Version:%u.%u.%u\n", settings.appVersion.major, settings.appVersion.minor, settings.appVersion.build);
-  #ifdef USE_NVS
-  if(!this->useNVS()) {  // At 1.4 we started using the configuration file.  If the file doesn't exist then booh.
-    // We need to remove all the extraeneous data from NVS for the shades.  From here on out we
-    // will rely on the shade configuration.
-    Serial.println("No longer using NVS");
-    if(ShadeConfigFile::exists()) {
-      ShadeConfigFile::load(this);
-    }
-    else {
-      this->loadLegacy();
-    }
-    pref.begin("Shades");
-    if(pref.isKey("shadeIds")) {
-      pref.getBytes("shadeIds", this->m_shadeIds, sizeof(this->m_shadeIds));
-      pref.clear(); // Delete all the keys.
-    }
-    pref.end();
-    for(uint8_t i = 0; i < sizeof(this->m_shadeIds); i++) {
-      // Start deleting the keys for the shades.
-      if(this->m_shadeIds[i] == 255) continue;
-      char shadeKey[15];
-      sprintf(shadeKey, "SomfyShade%u", this->m_shadeIds[i]);
-      pref.begin(shadeKey);
-      pref.clear();
-      pref.end();
-    }
-  }
-  #endif
   if(ShadeConfigFile::exists()) {
     Serial.println("shades.cfg exists so we are using that");
     ShadeConfigFile::load(this);
   }
   else {
     Serial.println("Starting clean");
-    #ifdef USE_NVS
-    this->loadLegacy();
-    #endif
   }
   this->transceiver.begin();
 
@@ -396,54 +313,6 @@ SomfyShade *SomfyShadeController::addShade() {
     shade->sortOrder = this->getMaxShadeOrder() + 1;
     Serial.printf("Sort order set to %d\n", shade->sortOrder);
     this->isDirty = true;
-    #ifdef USE_NVS
-    if(this->useNVS()) {
-      for(uint8_t i = 0; i < sizeof(this->m_shadeIds); i++) {
-        this->m_shadeIds[i] = this->shades[i].getShadeId();
-      }
-      sortArray<uint8_t>(this->m_shadeIds, sizeof(this->m_shadeIds));
-      uint8_t id = 0;
-      // This little diddy is about a bug I had previously that left duplicates in the
-      // sorted array.  So we will walk the sorted array until we hit a duplicate where the previous
-      // value == the current value.  Set it to 255 then sort the array again.
-      // 1,1,2,2,3,3,255...
-      bool hadDups = false;
-      for(uint8_t i = 0; i < sizeof(this->m_shadeIds); i++) {
-        if(this->m_shadeIds[i] == 255) break;
-        if(id == this->m_shadeIds[i]) {
-          id = this->m_shadeIds[i];
-          this->m_shadeIds[i] = 255;
-          hadDups = true;
-        }
-        else {
-          id = this->m_shadeIds[i];
-        }
-      }
-      if(hadDups) sortArray<uint8_t>(this->m_shadeIds, sizeof(this->m_shadeIds));
-      pref.begin("Shades");
-      pref.remove("shadeIds");
-      int x = pref.putBytes("shadeIds", this->m_shadeIds, sizeof(this->m_shadeIds));
-      Serial.printf("WROTE %d bytes to shadeIds\n", x);
-      pref.end();
-      for(uint8_t i = 0; i < sizeof(this->m_shadeIds); i++) {
-        if(i != 0) Serial.print(",");
-        else Serial.print("Shade Ids: ");
-        Serial.print(this->m_shadeIds[i]);
-      }
-      Serial.println();
-      pref.begin("Shades");
-      pref.getBytes("shadeIds", this->m_shadeIds, sizeof(this->m_shadeIds));
-      Serial.print("LENGTH:");
-      Serial.println(pref.getBytesLength("shadeIds"));
-      pref.end();
-      for(uint8_t i = 0; i < sizeof(this->m_shadeIds); i++) {
-        if(i != 0) Serial.print(",");
-        else Serial.print("Shade Ids: ");
-        Serial.print(this->m_shadeIds[i]);
-      }
-      Serial.println();
-    }
-    #endif
   }
   return shade;
 }
@@ -561,21 +430,6 @@ bool SomfyShadeController::deleteShade(uint8_t shadeId) {
       this->shades[i].clear();
     }
   }
-  #ifdef USE_NVS
-  if(this->useNVS()) {
-    for(uint8_t i = 0; i < sizeof(this->m_shadeIds) - 1; i++) {
-      if(this->m_shadeIds[i] == shadeId) {
-        this->m_shadeIds[i] = 255;
-      }
-    }
-    
-    sortArray<uint8_t>(this->m_shadeIds, sizeof(this->m_shadeIds));
-    
-    pref.begin("Shades");
-    pref.putBytes("shadeIds", this->m_shadeIds, sizeof(this->m_shadeIds));
-    pref.end();
-  }
-  #endif
   this->commit();
   return true;
 }
