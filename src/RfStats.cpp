@@ -16,11 +16,13 @@ void rf_stats_entry_t::clear() {
   this->frames = 0;
   this->firstSeen = 0;
   this->lastSeen = 0;
+  this->guidedAt = 0;
   this->rssiAvg = 0.0f;
   this->rssiEwma = 0.0f;
   this->rssiLast = 0;
   this->rssiMin = 0;
   this->rssiMax = 0;
+  this->guidedRssi = 0;
   this->proto = 0;
 }
 void rf_stats_entry_t::toJSON(JsonFormatter &json) {
@@ -34,6 +36,8 @@ void rf_stats_entry_t::toJSON(JsonFormatter &json) {
   json.addElem("max", this->rssiMax);
   json.addElem("avg", this->rssiAvg);
   json.addElem("recent", this->rssiEwma);
+  json.addElem("guided", this->guidedRssi);
+  json.addElem("guidedAt", this->guidedAt);
 }
 void rf_epoch_t::clear() {
   this->start = 0;
@@ -121,6 +125,17 @@ void RfStats::recordNoise(int rssi) {
     this->epochCur.noiseAvg += (v - this->epochCur.noiseAvg) / (float)this->epochCur.noiseCount;
   }
   this->dirty = true;
+}
+bool RfStats::setGuided(uint32_t address, int rssi) {
+  if(address == 0 || rssi >= 0 || rssi < -127) return false;
+  rf_stats_entry_t *e = this->findEntry(address);
+  if(!e) e = this->createEntry(address);
+  if(!e) return false;
+  e->guidedRssi = (int8_t)rssi;
+  time_t t = time(nullptr);
+  e->guidedAt = t >= (time_t)RF_STATS_MIN_EPOCH ? (uint32_t)t : 0;
+  this->dirty = true;
+  return true;
 }
 void RfStats::syncEpoch(float frequency, float rxBandwidth, int8_t txPower) {
   rf_epoch_t &c = this->epochCur;

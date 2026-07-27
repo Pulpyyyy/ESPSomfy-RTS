@@ -29,11 +29,16 @@ struct rf_stats_entry_t {
   uint32_t frames = 0;     // frame samples, hardware repeats included
   uint32_t firstSeen = 0;  // epoch seconds, 0 when the clock was not set
   uint32_t lastSeen = 0;
+  uint32_t guidedAt = 0;   // when the guided measurement was taken (0 = never)
   float rssiAvg = 0.0f;    // cumulative mean since first observation
   float rssiEwma = 0.0f;   // recent trend (alpha = 1/8) for drift detection
   int8_t rssiLast = 0;
   int8_t rssiMin = 0;
   int8_t rssiMax = 0;
+  // RSSI measured with the remote held NEXT TO ITS SHADE (guided session).  By antenna
+  // reciprocity this approximates the ESP->motor path where passive samples only
+  // reflect wherever the remote happens to be pressed from.  0 = not measured.
+  int8_t guidedRssi = 0;
   uint8_t proto = 0;       // radio_proto of the last frame
   void clear();
   void toJSON(JsonFormatter &json);
@@ -73,6 +78,7 @@ class RfStats {
     void end();                             // save if dirty (graceful reboot path)
     void record(const somfy_frame_t &frame);
     void recordNoise(int rssi);             // idle-channel RSSI sample (no frame on air)
+    bool setGuided(uint32_t address, int rssi);  // store a guided-session measurement
     // Roll the epoch when the active radio config actually changed; no-op otherwise.
     void syncEpoch(float frequency, float rxBandwidth, int8_t txPower);
     uint8_t count();

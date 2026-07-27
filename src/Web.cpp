@@ -3154,6 +3154,18 @@ void Web::begin() {
     rfStats.clear();
     server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics cleared\"}");
   });
+  server.on("/setGuidedRssi", []() {
+    webServer.sendCORSHeaders(server);
+    if(server.method() == HTTP_OPTIONS) return server.send(200);
+    if(!webServer.ensureAuth(server, true)) return;
+    StaticJsonDocument<128> doc;
+    if(deserializeJson(doc, server.arg("plain"))) return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON\"}");
+    JsonObject obj = doc.as<JsonObject>();
+    if(!obj.containsKey("address") || !obj.containsKey("rssi")
+      || !rfStats.setGuided(obj["address"], obj["rssi"]))
+      return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid address or RSSI\"}");
+    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Guided measurement stored\"}");
+  });
   server.on("/recoverFilesystem", [] () {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
     webServer.sendCORSHeaders(server);

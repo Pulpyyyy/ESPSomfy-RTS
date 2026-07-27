@@ -4845,7 +4845,7 @@ class Somfy {
         const qs = (s) => get(s);
         qs('spanRssi').textContent = frame.rssi;
         qs('spanFrameCount').innerHTML = parseInt(qs('spanFrameCount').innerHTML || 0, 10) + 1;
-        rfdiag.onRemoteFrame();
+        rfdiag.onRemoteFrame(frame);
 
         const lnk = qs('divLinking') || qs('divLinkRepeater');
         if (lnk) {
@@ -6140,15 +6140,115 @@ class RfDiag {
         const div = get('divRFDiagnostics');
         return div && div.style.display !== 'none' && div.offsetParent !== null;
     }
-    onRemoteFrame() {
-        // A frame just came in: refresh the table shortly after, but debounce so a
+    onRemoteFrame(frame) {
+        // While the guided wizard is open it consumes every frame; otherwise a frame
+        // just means fresh stats, so refresh the table shortly after, debounced so a
         // repeat train (dozens of frames) causes a single reload.
+        if (frame && this.guidedFrame(frame)) return;
         if (!this.isVisible()) return;
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
         this.refreshTimer = setTimeout(() => {
             this.refreshTimer = null;
             this.reload();
         }, 1500);
+    }
+    // ---- Guided measurement session ----
+    // The user stands NEXT TO each shade and holds a button of its remote: every RTS
+    // repeat is one RSSI sample of the remote->ESP path from the motor's location,
+    // which by antenna reciprocity approximates the ESP->motor path.  The median of
+    // the burst is stored per remote address and takes over the difficulty ranking.
+    guided = null;
+    startGuided() {
+        const shades = (somfy.shades || []).filter((s) => (s.linkedRemotes || []).length);
+        if (!shades.length) {
+            ui.infoMessage(get('divRFDiagnostics'), tr('RFDIAG_GUIDED_NONE'));
+            return;
+        }
+        this.guided = { shades, idx: 0, samples: [] };
+        let div = get('divRfGuided');
+        if (!div) {
+            div = document.createElement('div');
+            div.id = 'divRfGuided';
+            div.className = 'inst-overlay';
+            div.innerHTML = `
+            <div class="instructions-content">
+            <div class="overlay-scroll-content">
+            ${overlayHeader('RFDIAG_GUIDED_TITLE', 'RFDIAG_GUIDED_DESC', 'icon-tabRadio')}
+            <div class="unibloc">
+            <div id="divRfGuidedStep" class="uniLabel"></div>
+            <div class="uniStatus">${tr('RFDIAG_GUIDED_HINT')}</div>
+            </div>
+            <div class="unibloc">
+            <div class="uniRow">
+            <div class="uniText"><div class="uniLabel">${tr('RFDIAG_GUIDED_SAMPLES')}</div><div id="divRfGuidedCount" class="uniStatus">0</div></div>
+            <div class="uniRight"><span id="spanRfGuidedRssi" class="rfdiag-value">--</span></div>
+            </div>
+            </div>
+            <div class="button-container-col">
+            <button id="btnRfGuidedSave" type="button" disabled onclick="rfdiag.guidedSave();">${tr('BT_SAVE')}</button>
+            <div style="display:flex;gap:10px;width:100%">
+            <button id="btnRfGuidedSkip" line type="button" onclick="rfdiag.guidedNext();">${tr('RFDIAG_BT_SKIP')}</button>
+            <button id="btnRfGuidedClose" line type="button">${tr('BT_CLOSE')}</button>
+            </div>
+            </div>
+            </div>
+            </div>`;
+            shOverlay(div);
+            div.querySelector('#btnRfGuidedClose').onclick = () => {
+                this.guided = null;
+                closeOverlay(div);
+                this.load();
+            };
+        }
+        this.guidedShow();
+    }
+    guidedShow() {
+        const g = this.guided;
+        g.samples = [];
+        get('divRfGuidedStep').textContent = trf('RFDIAG_GUIDED_STEP', g.idx + 1, g.shades.length, g.shades[g.idx].name);
+        get('divRfGuidedCount').textContent = '0';
+        get('spanRfGuidedRssi').textContent = '--';
+        get('btnRfGuidedSave').disabled = true;
+    }
+    guidedMedian() {
+        const vals = this.guided.samples.map((s) => s.rssi).sort((a, b) => a - b);
+        return vals.length ? vals[Math.floor(vals.length / 2)] : 0;
+    }
+    guidedFrame(frame) {
+        const g = this.guided;
+        if (!g) return false;
+        const shade = g.shades[g.idx];
+        // Frames from unrelated remotes are ignored but still consumed by the wizard.
+        if ((shade.linkedRemotes || []).some((r) => r.remoteAddress === frame.address)) {
+            g.samples.push({ address: frame.address, rssi: frame.rssi });
+            get('divRfGuidedCount').textContent = g.samples.length;
+            get('spanRfGuidedRssi').textContent = `${this.guidedMedian()} dBm`;
+            if (g.samples.length >= 8) get('btnRfGuidedSave').disabled = false;
+        }
+        return true;
+    }
+    guidedSave() {
+        const g = this.guided;
+        // Store against the address that actually produced the burst (a shade can
+        // have several linked remotes; the user pressed one of them).
+        const counts = {};
+        for (const s of g.samples) counts[s.address] = (counts[s.address] || 0) + 1;
+        const address = parseInt(Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0], 10);
+        putJSON('/setGuidedRssi', { address, rssi: this.guidedMedian() }, (err) => {
+            if (err) ui.serviceError(err);
+            else this.guidedNext();
+        });
+    }
+    guidedNext() {
+        const g = this.guided;
+        if (++g.idx >= g.shades.length) {
+            this.guided = null;
+            const div = get('divRfGuided');
+            if (div) closeOverlay(div);
+            ui.successMessage(tr('RFDIAG_GUIDED_DONE'));
+            this.load();
+        }
+        else this.guidedShow();
     }
     load() {
         const fetchStats = () => getJSONBusy('/rfStats', (err, stats) => {
@@ -6237,22 +6337,28 @@ class RfDiag {
         }
         else noise.textContent = '--';
         this.setEpochs(stats);
+        // A guided measurement (taken at the shade's position) outranks the passive
+        // EWMA, which only reflects wherever the remote is usually pressed from.
+        const eff = (e) => e.guided || e.recent;
         const entries = (stats.entries || []).slice()
-            .sort((a, b) => a.recent - b.recent); // hardest cases first: that is what the page is for
+            .sort((a, b) => eff(a) - eff(b)); // hardest cases first: that is what the page is for
         get('divRfDiagEmpty').style.display = entries.length ? 'none' : '';
         get('divRfDiagTable').style.display = entries.length ? '' : 'none';
         const rows = get('divRfDiagRows');
         rows.innerHTML = '';
         for (const e of entries) {
-            const q = this.quality(e.recent);
+            const q = this.quality(eff(e));
             const names = this.deviceNames(e.address);
             const name = names.length ? names.join(', ') : tr('RFDIAG_UNKNOWN_REMOTE');
+            const detail = e.guided
+                ? `${tr('RFDIAG_GUIDED_MEASURED')} - ${trf('RFDIAG_RSSI_DETAIL', e.avg.toFixed(1), e.min, e.max)}`
+                : trf('RFDIAG_RSSI_DETAIL', e.avg.toFixed(1), e.min, e.max);
             const row = document.createElement('div');
             row.className = 'frame-row rfdiag-row';
             if (!names.length) row.classList.add('rfdiag-unknown');
             row.innerHTML = `<span><span class="rfdiag-name">${esc(name)}</span><span class="rfdiag-addr">${esc(e.address)}</span></span>`
                 + `<span><span class="rfdiag-badge ${q.cls}">${esc(tr(q.key))}</span></span>`
-                + `<span title="${esc(trf('RFDIAG_RSSI_DETAIL', e.avg.toFixed(1), e.min, e.max))}">${esc(Math.round(e.recent))} dBm</span>`
+                + `<span title="${esc(detail)}">${esc(Math.round(eff(e)))} dBm${e.guided ? ' \u{1F4CD}' : ''}</span>`
                 + `<span>${esc(e.frames)}</span>`
                 + `<span>${esc(this.lastSeenText(e.lastSeen))}</span>`;
             rows.appendChild(row);
