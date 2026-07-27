@@ -8,6 +8,7 @@
 #include "Sockets.h"
 #include "Utils.h"
 #include "Somfy.h"
+#include "RfStats.h"
 #include "MQTT.h"
 #include "GitOTA.h"
 #include "Rollback.h"
@@ -19,6 +20,7 @@ SocketEmitter sockEmit;
 Network net;
 rebootDelay_t rebootDelay;
 SomfyShadeController somfy;
+RfStats rfStats;
 MQTTClass mqtt;
 GitUpdater git;
 
@@ -47,6 +49,7 @@ void setup() {
   delay(1000);
   net.setup();
   somfy.begin();
+  rfStats.begin();
   esp_task_wdt_init(15, true); //enable panic so ESP32 restarts
   esp_task_wdt_add(NULL); //add current thread to WDT watch
 
@@ -69,6 +72,7 @@ void loop() {
     // quick successive reboots do not trip the OTA rollback. markValid() keeps
     // a marker set in this session (post-flash, pre-reboot) pending.
     OTARollback::markValid();
+    rfStats.end();
     net.end();
     ESP.restart();
     return;
@@ -80,6 +84,7 @@ void loop() {
   timing = millis();
   esp_task_wdt_reset();
   somfy.loop();
+  rfStats.loop();
   if(millis() - timing > 100) Serial.printf("Timing Somfy: %ldms\n", millis() - timing);
   timing = millis();
   esp_task_wdt_reset();

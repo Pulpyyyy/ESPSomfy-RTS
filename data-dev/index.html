@@ -105,6 +105,7 @@
                 </a>
                 <div class="submenu" style="display:none;">
                     <a class="sub-nav-item" data-grpid="divTransceiverSettings" tr="SUBTAB_TRANSCEIVER">Émetteur</a>
+                    <a class="sub-nav-item" data-grpid="divRFDiagnostics" tr="SUBTAB_RFDIAG">Diagnostic RF</a>
                     <a class="sub-nav-item" data-grpid="divFrameLog" tr="SUBTAB_LOGS">Journaux</a>
                 </div>
             </div>
@@ -1486,6 +1487,7 @@
                 <div id="divRadioSettings" style="display:none;">
                     <div class="subtab-container">
                         <span class="selected" data-grpid="divTransceiverSettings" tr="SUBTAB_TRANSCEIVER"></span>
+                        <span data-grpid="divRFDiagnostics" tr="SUBTAB_RFDIAG"></span>
                         <span data-grpid="divFrameLog" tr="SUBTAB_LOGS"></span>
                     </div>
                     <div id="divTransceiverSettings" class="subtab-content">
@@ -1786,6 +1788,42 @@
                         <div class="footer-overlay">
                             <button id="btnScanFrequency" line type="button" onclick="somfy.scanFrequency(true);" tr="BT_SCANFREQ"></button>
                             <button id="btnSaveRadio"  type="button"  onclick="somfy.saveRadio();" tr="BT_SAVE"></button>
+                        </div>
+                    </div>
+                    <div id="divRFDiagnostics" class="subtab-content" style="display:none;">
+                        <div class="unibloc">
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_FREQUENCY"></div>
+                                    <div class="uniStatus" tr="RFDIAG_FREQUENCY_DESC"></div>
+                                </div>
+                                <div class="uniRight"><span id="spanRfDiagFreq" class="rfdiag-value">--</span></div>
+                            </label>
+                            <hr>
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_REMOTES"></div>
+                                    <div class="uniStatus" tr="RFDIAG_REMOTES_DESC"></div>
+                                </div>
+                                <div class="uniRight"><span id="spanRfDiagRemotes" class="rfdiag-value">0</span></div>
+                            </label>
+                            <hr>
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_FRAMES"></div>
+                                    <div class="uniStatus" tr="RFDIAG_FRAMES_DESC"></div>
+                                </div>
+                                <div class="uniRight"><span id="spanRfDiagFrames" class="rfdiag-value">0</span></div>
+                            </label>
+                        </div>
+                        <div id="divRfDiagEmpty" class="empty-state" style="display:none;" tr="RFDIAG_EMPTY"></div>
+                        <div id="divRfDiagTable" class="log-global-container rfdiag-log" style="display:none;">
+                            <div class="frame-header rfdiag-row"><span tr="RFDIAG_COL_DEVICE"></span><span tr="RFDIAG_COL_QUALITY"></span><span tr="SCANFREQ_RSSI"></span><span tr="RFDIAG_COL_FRAMES"></span><span tr="RFDIAG_COL_LASTSEEN"></span></div>
+                            <div id="divRfDiagRows" class="frame-list"></div>
+                        </div>
+                        <div class="footer-overlay">
+                            <button id="btnClearRfStats" type="button" line onclick="rfdiag.clearStats();" tr="BT_CLEAR"></button>
+                            <button id="btnRefreshRfStats" type="button" onclick="rfdiag.load();" tr="RFDIAG_BT_REFRESH"></button>
                         </div>
                     </div>
                     <div id="divFrameLog" class="subtab-content frame-log" style="display:none;">

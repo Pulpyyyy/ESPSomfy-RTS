@@ -1605,6 +1605,7 @@ async function init() {
     somfy.init();
     mqtt.init();
     firmware.init();
+    rfdiag.init();
     somfy.setStep('freq', 1);
     somfy.setStep('bandwidth', 1);
     somfy.setStep('deviation', 1);
@@ -4832,6 +4833,7 @@ class Somfy {
         const qs = (s) => get(s);
         qs('spanRssi').textContent = frame.rssi;
         qs('spanFrameCount').innerHTML = parseInt(qs('spanFrameCount').innerHTML || 0, 10) + 1;
+        rfdiag.onRemoteFrame();
 
         const lnk = qs('divLinking') || qs('divLinkRepeater');
         if (lnk) {
@@ -6109,6 +6111,111 @@ class Somfy {
     }
 }
 var somfy = new Somfy();
+class RfDiag {
+    // Passive RF statistics page.  Data comes from /rfStats (aggregates kept by the
+    // firmware for every remote address heard over the air); shade names are joined
+    // client-side through each shade's linkedRemotes list.
+    loaded = false;
+    refreshTimer = null;
+    init() {
+        // Lazy-load on first visit to the panel; navigation binding is generic so we
+        // only need a click hook on the elements that target our group id.
+        document.querySelectorAll('[data-grpid="divRFDiagnostics"]').forEach((el) => {
+            el.addEventListener('click', () => this.load());
+        });
+    }
+    isVisible() {
+        const div = get('divRFDiagnostics');
+        return div && div.style.display !== 'none' && div.offsetParent !== null;
+    }
+    onRemoteFrame() {
+        // A frame just came in: refresh the table shortly after, but debounce so a
+        // repeat train (dozens of frames) causes a single reload.
+        if (!this.isVisible()) return;
+        if (this.refreshTimer) clearTimeout(this.refreshTimer);
+        this.refreshTimer = setTimeout(() => {
+            this.refreshTimer = null;
+            this.reload();
+        }, 1500);
+    }
+    load() {
+        const fetchStats = () => getJSONBusy('/rfStats', (err, stats) => {
+            if (err) ui.serviceError(err);
+            else {
+                this.loaded = true;
+                this.setStats(stats);
+            }
+        });
+        // The name column joins on the shades list; make sure it is available when the
+        // user deep-links straight into this panel.
+        if ((somfy.shades || []).length) fetchStats();
+        else getJSON('/shades', (err, shades) => {
+            if (!err && Array.isArray(shades)) somfy.shades = shades;
+            fetchStats();
+        });
+    }
+    reload() {
+        // Silent refresh (no busy overlay) used by the socket-driven updates.
+        getJSON('/rfStats', (err, stats) => { if (!err) this.setStats(stats); });
+    }
+    clearStats() {
+        ui.promptMessage(get('divRFDiagnostics'), tr('RFDIAG_CLEAR_CONFIRM'), () => {
+            putJSONBusy('/clearRfStats', {}, (err) => {
+                if (err) ui.serviceError(err);
+                else this.load();
+            });
+        });
+    }
+    // Ranked from the recent (EWMA) level: the remote->ESP path is the only thing RTS
+    // lets us observe, so these are relative link-budget classes, not motor guarantees.
+    quality(rssi) {
+        if (rssi >= -65) return { cls: 'good', key: 'RFDIAG_QUALITY_GOOD' };
+        if (rssi >= -80) return { cls: 'fair', key: 'RFDIAG_QUALITY_FAIR' };
+        return { cls: 'weak', key: 'RFDIAG_QUALITY_WEAK' };
+    }
+    deviceNames(address) {
+        const names = [];
+        for (const shade of somfy.shades || []) {
+            if (shade.remoteAddress === address) names.push(`ESPSomfy · ${shade.name}`);
+            else if ((shade.linkedRemotes || []).some((r) => r.remoteAddress === address)) names.push(shade.name);
+        }
+        return names;
+    }
+    lastSeenText(epoch) {
+        if (!epoch) return '--';
+        const secs = Math.max(0, Math.floor(Date.now() / 1000) - epoch);
+        if (secs < 60) return trf('RFDIAG_AGO_SECONDS', secs);
+        if (secs < 3600) return trf('RFDIAG_AGO_MINUTES', Math.floor(secs / 60));
+        if (secs < 86400) return trf('RFDIAG_AGO_HOURS', Math.floor(secs / 3600));
+        return trf('RFDIAG_AGO_DAYS', Math.floor(secs / 86400));
+    }
+    setStats(stats) {
+        get('spanRfDiagFreq').textContent = typeof stats.frequency === 'number' ? `${stats.frequency.toFixed(3)} MHz` : '--';
+        get('spanRfDiagRemotes').textContent = stats.remotes || 0;
+        get('spanRfDiagFrames').textContent = stats.frames || 0;
+        const entries = (stats.entries || []).slice()
+            .sort((a, b) => a.recent - b.recent); // hardest cases first: that is what the page is for
+        get('divRfDiagEmpty').style.display = entries.length ? 'none' : '';
+        get('divRfDiagTable').style.display = entries.length ? '' : 'none';
+        const rows = get('divRfDiagRows');
+        rows.innerHTML = '';
+        for (const e of entries) {
+            const q = this.quality(e.recent);
+            const names = this.deviceNames(e.address);
+            const name = names.length ? names.join(', ') : tr('RFDIAG_UNKNOWN_REMOTE');
+            const row = document.createElement('div');
+            row.className = 'frame-row rfdiag-row';
+            if (!names.length) row.classList.add('rfdiag-unknown');
+            row.innerHTML = `<span><span class="rfdiag-name">${esc(name)}</span><span class="rfdiag-addr">${esc(e.address)}</span></span>`
+                + `<span><span class="rfdiag-badge ${q.cls}">${esc(tr(q.key))}</span></span>`
+                + `<span title="${esc(trf('RFDIAG_RSSI_DETAIL', e.avg.toFixed(1), e.min, e.max))}">${esc(Math.round(e.recent))} dBm</span>`
+                + `<span>${esc(e.frames)}</span>`
+                + `<span>${esc(this.lastSeenText(e.lastSeen))}</span>`;
+            rows.appendChild(row);
+        }
+    }
+}
+var rfdiag = new RfDiag();
 class MQTT {
     initialized = false;
     init() { this.initialized = true; }

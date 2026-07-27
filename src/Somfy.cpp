@@ -11,6 +11,7 @@
 #include "ConfigFile.h"
 #include "GitOTA.h"
 #include "SomfyCodec.h"
+#include "RfStats.h"
 
 extern Preferences pref;
 extern SomfyShadeController somfy;
@@ -18,6 +19,7 @@ extern SocketEmitter sockEmit;
 extern ConfigSettings settings;
 extern MQTTClass mqtt;
 extern GitUpdater git;
+extern RfStats rfStats;
 
 
 uint8_t rxmode = 0;  // Indicates whether the radio is in receive mode.  Just to ensure there isn't more than one interrupt hooked.
@@ -3780,6 +3782,10 @@ bool SomfyRemote::toJSON(JsonObject &obj) {
 void SomfyRemote::setRemoteAddress(uint32_t address) { this->m_remoteAddress = address; snprintf(this->m_remotePrefId, sizeof(this->m_remotePrefId), "_%lu", (unsigned long)this->m_remoteAddress); }
 uint32_t SomfyRemote::getRemoteAddress() { return this->m_remoteAddress; }
 void SomfyShadeController::processFrame(somfy_frame_t &frame, bool internal) {
+  // Internal frames are our own virtual remotes routed back through the pipeline
+  // (GPIO triggers etc.); only frames that actually travelled over the air belong
+  // in the RF statistics.
+  if(!internal) rfStats.record(frame);
   for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
     if(this->shades[i].getShadeId() != 255) this->shades[i].processFrame(frame, internal);
   }

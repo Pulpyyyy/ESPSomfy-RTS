@@ -9,6 +9,7 @@
 #include "Utils.h"
 #include "SSDP.h"
 #include "Somfy.h"
+#include "RfStats.h"
 #include "WResp.h"
 #include "Web.h"
 #include "MQTT.h"
@@ -24,6 +25,7 @@ extern Web webServer;
 extern MQTTClass mqtt;
 extern GitUpdater git;
 extern Network net;
+extern RfStats rfStats;
 
 //#define WEB_MAX_RESPONSE 34768
 #define WEB_MAX_RESPONSE 4096
@@ -3131,6 +3133,23 @@ void Web::begin() {
     serializeJson(doc, g_content);
     server.send(200, _encoding_json, g_content);
     */
+  });
+  server.on("/rfStats", []() {
+    webServer.sendCORSHeaders(server);
+    if(!webServer.ensureAuth(server, true)) return;
+    JsonResponse resp;
+    resp.beginResponse(&server, g_content, sizeof(g_content));
+    resp.beginObject();
+    resp.addElem("frequency", somfy.transceiver.config.frequency);
+    rfStats.toJSON(resp);
+    resp.endObject();
+    resp.endResponse();
+  });
+  server.on("/clearRfStats", []() {
+    webServer.sendCORSHeaders(server);
+    if(!webServer.ensureAuth(server, true)) return;
+    rfStats.clear();
+    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics cleared\"}");
   });
   server.on("/recoverFilesystem", [] () {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
