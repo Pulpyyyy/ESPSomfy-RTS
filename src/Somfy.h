@@ -20,6 +20,16 @@
 #define SOMFY_NO_WIND_TIMEOUT MINS_TO_MILLIS(12)
 #define SOMFY_NO_WIND_REMOTE_TIMEOUT SECS_TO_MILLIS(30)
 
+// Repeat counts for hold/long-press command trains.
+#define SETMY_REPEATS 35
+#define TILT_REPEATS 15
+// A command whose repeat count reaches this is a "hold"/long-press (set-My = SETMY_REPEATS=35,
+// tilt holds and euromode = TILT_REPEATS=15). Those need a CONTIGUOUS frame train for the motor
+// to register them, so they are sent fully synchronously instead of being interleaved into the
+// non-blocking queue. Normal presses (up/down/my/stop/step, a handful of repeats) do not need
+// contiguity -- the repeater path already spaces such frames 100ms apart -- so they are queued.
+#define TX_CONTIGUOUS_REPEATS TILT_REPEATS
+
 
 enum class radio_proto : byte { // Ordinal byte 0-255
   RTS = 0x00,
@@ -180,11 +190,6 @@ enum class somfy_flags_t : byte {
 };
 enum class gpio_flags_t : byte {
   LowLevelTrigger = 0x01
-};
-struct somfy_relay_t {
-  uint32_t remoteAddress = 0;
-  uint8_t sync = 0;
-  byte frame[10] = {0};
 };
 struct somfy_frame_t {
     bool valid = false;

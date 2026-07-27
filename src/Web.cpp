@@ -221,11 +221,6 @@ bool Web::sameOriginOK(WebServer &server) {
   server.send(403, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Cross-origin or forbidden host\"}"));
   return false;
 }
-void sendJsonError(const char* detail = "") {
-  String msg = F("JSON Err: ");
-  msg += detail;
-  server.send(400, "text/html", msg);
-}
 bool Web::createAPIPinToken(const IPAddress ipAddress, const char *pin, char *token) {
   return this->createAPIToken((String(pin) + ":" + ipAddress.toString()).c_str(), token);
 }

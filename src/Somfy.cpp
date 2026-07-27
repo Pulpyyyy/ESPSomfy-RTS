@@ -22,28 +22,14 @@ extern GitUpdater git;
 extern RfStats rfStats;
 
 
-#define SETMY_REPEATS 35
-#define TILT_REPEATS 15
-// A command whose repeat count reaches this is a "hold"/long-press (set-My = SETMY_REPEATS=35,
-// tilt holds and euromode = TILT_REPEATS=15). Those need a CONTIGUOUS frame train for the motor
-// to register them, so they are sent fully synchronously instead of being interleaved into the
-// non-blocking queue. Normal presses (up/down/my/stop/step, a handful of repeats) do not need
-// contiguity -- the repeater path already spaces such frames 100ms apart -- so they are queued.
-#define TX_CONTIGUOUS_REPEATS TILT_REPEATS
+// SETMY_REPEATS / TILT_REPEATS / TX_CONTIGUOUS_REPEATS live in Somfy.h: the movement
+// engine and the controller transmit path both key off them.
 // Minimum interval between two position-progress socket emits of the same shade
 // while it travels. emitState() serialises the full shade and broadcasts it to
 // every socket client; at up to SOMFY_MAX_SHADES moving at once, one emit per 1%
 // step floods the loop so it runs slower and skips positions. Start/stop/arrival
 // (direction changes) are still emitted immediately, so no transition is lost.
 #define MOVE_EMIT_INTERVAL 250
-
-int sort_asc(const void *cmp1, const void *cmp2) {
-  int a = *((uint8_t *)cmp1);
-  int b = *((uint8_t *)cmp2);
-  if(a == b) return 0;
-  else if(a < b) return -1;
-  return 1;
-}
 
 somfy_commands translateSomfyCommand(const String& string) {
     if (string.equalsIgnoreCase("My")) return somfy_commands::My;
@@ -4276,7 +4262,6 @@ bool SomfyShadeController::deleteShade(uint8_t shadeId) {
       }
     }
     
-    //qsort(this->m_shadeIds, sizeof(this->m_shadeIds)/sizeof(this->m_shadeIds[0]), sizeof(this->m_shadeIds[0]), sort_asc);
     sortArray<uint8_t>(this->m_shadeIds, sizeof(this->m_shadeIds));
     
     pref.begin("Shades");
