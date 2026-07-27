@@ -65,4 +65,17 @@ public:
   //void chunkGroupsResponse(WebServer &server, const char *elem = nullptr);
   //void chunkGroupResponse(WebServer &server, SomfyGroup *, const char *prefix = nullptr);
 };
+// Shared between the Web*.cpp translation units.  One response buffer for the whole
+// (single-threaded) server, and the canonical MIME strings.  handleStreamFile()
+// compares encodings by POINTER (encoding == _encoding_html), so every file must
+// reference these single definitions in Web.cpp -- duplicating the string literals
+// per file would silently break that comparison.
+#define WEB_MAX_RESPONSE 4096
+extern char g_content[WEB_MAX_RESPONSE];
+extern const char _response_404[];
+extern const char _encoding_text[];
+extern const char _encoding_html[];
+extern const char _encoding_json[];
+extern WebServer server;
+extern WebServer apiServer;
 #endif
