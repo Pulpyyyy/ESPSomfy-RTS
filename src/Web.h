@@ -46,6 +46,13 @@ public:
   void handleReboot(WebServer &server);
   void handleDeserializationError(WebServer &server, DeserializationError &err);
   void begin();
+  // Route registration split by concern; begin() calls these in order.  The shade
+  // and system groups live in WebRoutesShades.cpp / WebRoutesSystem.cpp.
+  void beginApiRoutes();
+  void beginShadeRoutes();
+  void beginSystemRoutes();
+  void beginNetworkRoutes();
+  void beginRadioRoutes();
   void loop();
   void end();
   // Web Handlers
