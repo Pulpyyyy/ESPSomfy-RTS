@@ -3775,13 +3775,13 @@ class Somfy {
         let spanBestRSSI = get('spanBestRSSI');
 
         if (spanBestFreq) {
-            spanBestFreq.innerHTML = scan.RSSI !== -100 ? scan.frequency.fmt('###.00') : '----';
+            spanBestFreq.innerHTML = scan.RSSI !== -100 ? scan.frequency.toFixed(3) : '----';
         }
         if (spanBestRSSI) {
             spanBestRSSI.innerHTML = scan.RSSI !== -100 ? scan.RSSI : '----';
         }
         if (spanTestFreq) {
-            spanTestFreq.innerHTML = scan.testFreq.fmt('###.00');
+            spanTestFreq.innerHTML = scan.testFreq.toFixed(3);
         }
         if (spanTestRSSI) {
             spanTestRSSI.innerHTML = scan.testRSSI !== -100 ? scan.testRSSI : '----';
@@ -3789,6 +3789,18 @@ class Somfy {
             if (this.rssiGraph) {
                 this.rssiGraph.update(scan.testRSSI);
             }
+        }
+        // Scan v2 phases: 1 = coarse hunt, 2 = fine edge sweep, 3 = calibrated.
+        const phaseDiv = get('divScanPhase');
+        if (phaseDiv) {
+            if (scan.phase === 2) phaseDiv.textContent = trf('SCANFREQ_PHASE_FINE', scan.progress);
+            else if (scan.phase === 3) {
+                phaseDiv.textContent = scan.fLow ? trf('SCANFREQ_PHASE_DONE', scan.fLow.toFixed(3), scan.fHigh.toFixed(3)) : tr('SCANFREQ_PHASE_DONE_NOEDGE');
+                const btn = get('btnCopyFrequency');
+                if (btn) btn.style.display = '';
+            }
+            else if (scan.scanning) phaseDiv.textContent = tr('SCANFREQ_PHASE_COARSE');
+            else phaseDiv.textContent = '';
         }
         if (scan.RSSI !== -100)
             div.setAttribute('data-frequency', scan.frequency);
@@ -3805,7 +3817,7 @@ class Somfy {
             <div class="instructions-content">
             <div class="overlay-scroll-content">
             ${overlayHeader('SCANFREQ_TITLE', 'SCANFREQ_DESC', 'icon-tabRadio')}
-            <div class="unibloc"><div>${tr("SCANFREQ_SCAN_DESC")}</div></div>
+            <div class="unibloc"><div>${tr("SCANFREQ_SCAN_DESC")}</div><div id="divScanPhase" class="uniStatus"></div></div>
             <div class="unibloc">
             <div class="uniRow">
             <div class="scanfreqRssiLeft"><div class="uniLabel">${tr("SCANFREQ_SCAN")}</div><div class="scanfreqValue"><span id="spanTestFreq">433.00</span> <span>${tr("MHZ")}</span></div></div>
@@ -6189,10 +6201,42 @@ class RfDiag {
         if (secs < 86400) return trf('RFDIAG_AGO_HOURS', Math.floor(secs / 3600));
         return trf('RFDIAG_AGO_DAYS', Math.floor(secs / 86400));
     }
+    epochText(e) {
+        const perDay = e.seconds >= 3600 ? Math.round(e.frames * 86400 / e.seconds) : null;
+        return trf('RFDIAG_EPOCH_LINE',
+            e.frequency.toFixed(3),
+            perDay !== null ? perDay : `(${e.frames})`,
+            e.floor || '--',
+            e.noiseAvg ? e.noiseAvg.toFixed(1) : '--',
+            e.start ? this.lastSeenText(e.start) : tr('RFDIAG_EPOCH_THISBOOT'));
+    }
+    setEpochs(stats) {
+        const div = get('divRfDiagEpochs');
+        const cur = stats.epoch || {};
+        if (!cur.frequency) { div.style.display = 'none'; return; }
+        div.style.display = '';
+        get('divRfDiagEpochCur').textContent = this.epochText(cur);
+        const prevDiv = get('divRfDiagEpochPrev');
+        const prev = stats.epochPrev || {};
+        if (prev.frequency) {
+            prevDiv.style.display = '';
+            prevDiv.textContent = `${tr('RFDIAG_EPOCH_PREV')} : ${this.epochText(prev)}`;
+        }
+        else prevDiv.style.display = 'none';
+    }
     setStats(stats) {
         get('spanRfDiagFreq').textContent = typeof stats.frequency === 'number' ? `${stats.frequency.toFixed(3)} MHz` : '--';
         get('spanRfDiagRemotes').textContent = stats.remotes || 0;
         get('spanRfDiagFrames').textContent = stats.frames || 0;
+        const noise = get('spanRfDiagNoise');
+        if (stats.noiseSamples > 0) {
+            noise.textContent = `${stats.noise.toFixed(1)} dBm`;
+            noise.title = trf('RFDIAG_NOISE_BASELINE', stats.noiseBaseline.toFixed(1));
+            // A floor sitting well above its long-term baseline means something is jamming.
+            noise.classList.toggle('rfdiag-alert', stats.noiseSamples > 360 && stats.noise - stats.noiseBaseline >= 6);
+        }
+        else noise.textContent = '--';
+        this.setEpochs(stats);
         const entries = (stats.entries || []).slice()
             .sort((a, b) => a.recent - b.recent); // hardest cases first: that is what the page is for
         get('divRfDiagEmpty').style.display = entries.length ? 'none' : '';

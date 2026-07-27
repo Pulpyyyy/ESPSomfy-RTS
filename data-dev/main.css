@@ -1390,6 +1390,7 @@ div.frame-pulses {
 .rfdiag-badge.good { color: #4caf50; background: color-mix(in srgb, #4caf50 15%, transparent); }
 .rfdiag-badge.fair { color: #ff9800; background: color-mix(in srgb, #ff9800 15%, transparent); }
 .rfdiag-badge.weak { color: #f44336; background: color-mix(in srgb, #f44336 15%, transparent); }
+.rfdiag-alert { color: #ff9800; }
 /* Security */
 #divPinSecurity { justify-content: center; }
 #divPinSecurity label { margin: 20px; }

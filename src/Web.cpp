@@ -2654,6 +2654,9 @@ void Web::begin() {
       JsonObject obj = doc.as<JsonObject>();
       somfy.transceiver.fromJSON(obj);
       somfy.transceiver.save();
+      // Roll the RF-stats epoch so KPIs accumulated under the old radio settings are
+      // frozen for the before/after comparison; no-op when nothing relevant changed.
+      rfStats.syncEpoch(somfy.transceiver.config.frequency, somfy.transceiver.config.rxBandwidth, somfy.transceiver.config.txPower);
 
       JsonResponse resp;
       resp.beginResponse(&server, g_content, sizeof(g_content));

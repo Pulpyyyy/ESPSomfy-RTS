@@ -15,6 +15,12 @@
 // Epochs below 2000-01-01 mean the clock has not been NTP-synced; store 0 so consumers
 // can tell "unknown time" from a bogus 1970 date.
 #define RF_STATS_MIN_EPOCH 946684800UL
+// Idle noise floor is sampled every 10s from the receive loop.  The fast EWMA
+// (1/90 ~ 15min) answers "is something jamming right now"; the slow baseline
+// (1/8640 ~ 24h of samples) is what drift gets compared against.
+#define RF_STATS_NOISE_INTERVAL 10000UL
+#define RF_STATS_NOISE_ALPHA 90.0f
+#define RF_STATS_NOISE_BASELINE_ALPHA 8640.0f
 
 // Incremental RSSI statistics for one observed remote address.  No frames are stored,
 // only running aggregates, so the whole table costs ~1.3KB of RAM.
@@ -32,11 +38,33 @@ struct rf_stats_entry_t {
   void clear();
   void toJSON(JsonFormatter &json);
 };
+// One radio-config "epoch": the KPIs accumulated while a given (frequency,
+// bandwidth, txPower) tuple was active.  Keeping the previous epoch alongside the
+// current one gives the before/after comparison that validates a config change.
+struct rf_epoch_t {
+  uint32_t start = 0;       // epoch seconds when this config became active (0 = clock unknown)
+  uint32_t seconds = 0;     // active seconds accumulated under this config
+  uint32_t frames = 0;      // frames decoded under this config
+  uint32_t noiseCount = 0;
+  float noiseAvg = 0.0f;    // running mean of the idle noise floor (0 = no sample yet)
+  float frequency = 0.0f;   // 0 = epoch slot unused
+  float rxBandwidth = 0.0f;
+  int8_t txPower = 0;
+  int8_t decodeFloor = 0;   // weakest RSSI decoded (0 = none yet)
+  void clear();
+  void toJSON(JsonFormatter &json);
+};
 class RfStats {
   protected:
     rf_stats_entry_t entries[RF_STATS_MAX_ENTRIES];
+    rf_epoch_t epochCur;
+    rf_epoch_t epochPrev;
+    float noiseEwma = 0.0f;      // fast EWMA of the idle noise floor
+    float noiseBaseline = 0.0f;  // slow EWMA, the long-term reference
+    uint32_t noiseSamples = 0;
     bool dirty = false;
     uint32_t lastSave = 0;
+    uint32_t lastSecTick = 0;
     rf_stats_entry_t *findEntry(uint32_t address);
     rf_stats_entry_t *createEntry(uint32_t address);
   public:
@@ -44,6 +72,9 @@ class RfStats {
     void loop();
     void end();                             // save if dirty (graceful reboot path)
     void record(const somfy_frame_t &frame);
+    void recordNoise(int rssi);             // idle-channel RSSI sample (no frame on air)
+    // Roll the epoch when the active radio config actually changed; no-op otherwise.
+    void syncEpoch(float frequency, float rxBandwidth, int8_t txPower);
     uint8_t count();
     uint32_t totalFrames();
     bool save();

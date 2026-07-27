@@ -7,6 +7,7 @@
 #include "ConfigSettings.h"
 #include "Somfy.h"
 #include "Sockets.h"
+#include "RfStats.h"
 
 // Radio hardware implementation, split out of Somfy.cpp: CC1101 configuration,
 // the RTS receive ISR with its queues, the frequency scan, and the blocking +
@@ -15,6 +16,7 @@
 extern Preferences pref;
 extern SomfyShadeController somfy;
 extern SocketEmitter sockEmit;
+extern RfStats rfStats;
 
 uint8_t rxmode = 0;  // Indicates whether the radio is in receive mode.  Just to ensure there isn't more than one interrupt hooked.
 #define SYMBOL 640
@@ -377,11 +379,46 @@ void RECEIVE_ATTR Transceiver::handleReceive() {
         somfy_rx.status = waiting_synchro;
     }
 }
+// ---------------------------------------------------------------------------
+// Frequency scan v2: two-pass edge calibration.
+//
+// The RTS carrier cannot be measured directly (FREQEST needs FSK; RTS is OOK),
+// so the remote is located through the RX filter response.  With a ~100kHz
+// bandwidth the RSSI-vs-frequency curve is a flat-topped plateau: taking the
+// maximum, as the old scan did, draws a random point inside the plateau because
+// per-frame RSSI noise (+/-2-3dB) swamps the filter-edge slope.  Instead:
+//
+//  - coarse pass: legacy 10kHz sweep at the configured bandwidth until a frame
+//    decodes with a solid level; that decode sits somewhere on the plateau;
+//  - fine pass: bandwidth narrowed to 58kHz, +/-80kHz window walked in 5kHz
+//    steps, dwelling on each step until a couple of frames decode (or a
+//    timeout).  The result is the MIDPOINT between the two -6dB edges of the
+//    decoded plateau, which is robust to RSSI noise where the maximum is not.
+//
+// Centring the remote in our RX filter cancels this module's crystal offset,
+// and since RX and TX share the same crystal the correction holds for TX too.
 float currFreq = 433.0f;
 int currRSSI = -100;
 float markFreq = 433.0f;
 int markRSSI = -100;
 uint32_t lastScan = 0;
+#define SCAN_FINE_STEPS 33
+#define SCAN_FINE_STEP 0.005f
+#define SCAN_FINE_HALF_SPAN 0.08f
+#define SCAN_FINE_BW 58.03f
+#define SCAN_STEP_TIMEOUT 1200UL   // ms on one fine step without enough decodes
+#define SCAN_STEP_DECODES 2        // decodes that advance a fine step early
+#define SCAN_COARSE_LEVEL -85      // decode level that ends the coarse pass
+#define SCAN_EDGE_DROP 6           // dB below peak that defines a plateau edge
+static uint8_t scanPhase = 0;      // 0=idle 1=coarse 2=fine 3=done
+static float fineCenter = 433.42f;
+static float fineLow = 0.0f;       // resolved -6dB edges, exposed once done
+static float fineHigh = 0.0f;
+static int8_t fineRssi[SCAN_FINE_STEPS];
+static uint8_t fineDecodes[SCAN_FINE_STEPS];
+static uint8_t fineStep = 0;
+static uint32_t stepStart = 0;
+static float scanFineFreq(uint8_t step) { return fineCenter - SCAN_FINE_HALF_SPAN + (float)step * SCAN_FINE_STEP; }
 void Transceiver::beginFrequencyScan() {
   if(this->config.enabled) {
     this->disableReceive();
@@ -392,6 +429,11 @@ void Transceiver::beginFrequencyScan() {
     ELECHOUSE_cc1101.SetRx();
     markFreq = currFreq = 433.0f;
     markRSSI = -100;
+    scanPhase = 1;
+    fineLow = fineHigh = 0.0f;
+    fineStep = 0;
+    memset(fineDecodes, 0x00, sizeof(fineDecodes));
+    for(uint8_t i = 0; i < SCAN_FINE_STEPS; i++) fineRssi[i] = -128;
     ELECHOUSE_cc1101.setMHZ(currFreq);
     Serial.printf("Begin frequency scan on Pin #%d\n", this->config.RXPin);
     attachInterrupt(interruptPin, handleReceive, CHANGE);
@@ -399,23 +441,29 @@ void Transceiver::beginFrequencyScan() {
   }
 }
 void Transceiver::processFrequencyScan(bool received) {
-  if(this->config.enabled && rxmode == 3) {
+  if(!this->config.enabled || rxmode != 3) return;
+  if(scanPhase == 1) {
     if(received) {
       currRSSI = ELECHOUSE_cc1101.getRssi();
-      if((long)(markFreq * 100) == (long)(currFreq * 100)) {
+      if(currRSSI > markRSSI) {
         markRSSI = currRSSI;
+        markFreq = currFreq;
       }
-      else if(currRSSI >-75) {
-        if(currRSSI > markRSSI) {
-          markRSSI = currRSSI;
-          markFreq = currFreq;
-        }
+      if(currRSSI > SCAN_COARSE_LEVEL) {
+        // Somewhere on the plateau: switch to the narrow-band fine sweep around it.
+        fineCenter = currFreq;
+        scanPhase = 2;
+        fineStep = 0;
+        stepStart = millis();
+        ELECHOUSE_cc1101.setRxBW(SCAN_FINE_BW);
+        currFreq = scanFineFreq(0);
+        ELECHOUSE_cc1101.setMHZ(currFreq);
+        Serial.printf("Frequency scan: fine pass around %.3fMHz\n", fineCenter);
+        this->emitFrequencyScan();
+        return;
       }
     }
-    else {
-      currRSSI = -100;
-    }
-    
+    else currRSSI = -100;
     if(millis() - lastScan > 100 && somfy_rx.status == waiting_synchro) {
       lastScan = millis();
       this->emitFrequencyScan();
@@ -424,11 +472,53 @@ void Transceiver::processFrequencyScan(bool received) {
       ELECHOUSE_cc1101.setMHZ(currFreq);
     }
   }
+  else if(scanPhase == 2) {
+    if(received) {
+      currRSSI = ELECHOUSE_cc1101.getRssi();
+      if(currRSSI > fineRssi[fineStep]) fineRssi[fineStep] = (int8_t)currRSSI;
+      if(fineDecodes[fineStep] < 255) fineDecodes[fineStep]++;
+    }
+    bool advance = fineDecodes[fineStep] >= SCAN_STEP_DECODES || millis() - stepStart > SCAN_STEP_TIMEOUT;
+    if(advance && somfy_rx.status == waiting_synchro) {
+      this->emitFrequencyScan();
+      if(++fineStep >= SCAN_FINE_STEPS) {
+        // Resolve the plateau: peak over decoded steps, then the outermost steps
+        // still within SCAN_EDGE_DROP of it; the recommendation is their midpoint.
+        int8_t peak = -128;
+        for(uint8_t i = 0; i < SCAN_FINE_STEPS; i++)
+          if(fineDecodes[i] > 0 && fineRssi[i] > peak) peak = fineRssi[i];
+        if(peak > -128) {
+          uint8_t iLow = 255, iHigh = 0;
+          for(uint8_t i = 0; i < SCAN_FINE_STEPS; i++) {
+            if(fineDecodes[i] == 0 || fineRssi[i] < peak - SCAN_EDGE_DROP) continue;
+            if(iLow == 255) iLow = i;
+            iHigh = i;
+          }
+          fineLow = scanFineFreq(iLow);
+          fineHigh = scanFineFreq(iHigh);
+          markFreq = (fineLow + fineHigh) / 2.0f;
+          markRSSI = peak;
+          Serial.printf("Frequency scan: plateau %.3f-%.3fMHz, recommending %.3fMHz\n", fineLow, fineHigh, markFreq);
+        } // else: nothing decoded in the fine window; keep the coarse best
+        scanPhase = 3;
+        currRSSI = -100;
+        this->emitFrequencyScan();
+      }
+      else {
+        currFreq = scanFineFreq(fineStep);
+        ELECHOUSE_cc1101.setMHZ(currFreq);
+        stepStart = millis();
+        currRSSI = -100;
+      }
+    }
+  }
+  // scanPhase == 3: hold the result on screen until the user ends the scan.
 }
 void Transceiver::endFrequencyScan() {
   if(rxmode == 3) {
     rxmode = 0;
-    if(interruptPin > 0) detachInterrupt(interruptPin); 
+    scanPhase = 0;
+    if(interruptPin > 0) detachInterrupt(interruptPin);
     interruptPin = 0;
     this->config.apply();
     this->emitFrequencyScan();
@@ -438,18 +528,17 @@ void Transceiver::emitFrequencyScan(uint8_t num) {
   JsonSockEvent *json = sockEmit.beginEmit("frequencyScan");
   json->beginObject();
   json->addElem("scanning", rxmode == 3);
+  json->addElem("phase", scanPhase);
+  // Coarse progress is indeterminate (it ends on the first decode); fine progress is stepwise.
+  json->addElem("progress", (uint8_t)(scanPhase < 2 ? 0 : (scanPhase == 2 ? (fineStep * 100) / SCAN_FINE_STEPS : 100)));
   json->addElem("testFreq", currFreq);
   json->addElem("testRSSI", (int32_t)currRSSI);
   json->addElem("frequency", markFreq);
   json->addElem("RSSI", (int32_t)markRSSI);
+  json->addElem("fLow", fineLow);
+  json->addElem("fHigh", fineHigh);
   json->endObject();
   sockEmit.endEmit(num);
-  /*
-  char buf[420];
-  snprintf(buf, sizeof(buf), "{\"scanning\":%s,\"testFreq\":%f,\"testRSSI\":%d,\"frequency\":%f,\"RSSI\":%d}", rxmode == 3 ? "true" : "false", currFreq, currRSSI, markFreq, markRSSI); 
-  if(num >= 255) sockEmit.sendToClients("frequencyScan", buf);
-  else sockEmit.sendToClient(num, "frequencyScan", buf);
-  */
 }
 bool Transceiver::receive(somfy_rx_t *rx) {
     // Check to see if there is anything in the buffer
@@ -958,6 +1047,15 @@ void Transceiver::loop() {
   }
   else {
     somfy.processWaitingFrame();
+    // Idle noise-floor sampling for the RF statistics.  Only while the radio sits in
+    // plain receive with no synchro in progress, so the reading is ambient noise and
+    // not the head of a frame; the register read is a cheap SPI transaction.
+    static uint32_t lastNoiseSample = 0;
+    if(rxmode == 1 && somfy_rx.status == waiting_synchro && somfy_rx.cpt_synchro_hw == 0
+      && millis() - lastNoiseSample > RF_STATS_NOISE_INTERVAL) {
+      lastNoiseSample = millis();
+      rfStats.recordNoise(ELECHOUSE_cc1101.getRssi());
+    }
     // Non-blocking repeat trains: emit at most ONE queued repeat frame per pass so the loop is
     // never held for more than a single ~113ms frame, and rotate through the job slots so that
     // several shades' trains interleave instead of one draining fully before the next starts.
