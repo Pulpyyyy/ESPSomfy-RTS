@@ -30,7 +30,23 @@ def _dst_dir():
 # Minificateurs
 # ──────────────────────────────────────────────
 
+def merge_js_tags(text: str) -> str:
+    # data-dev keeps the app JS as ordered chunks under js/ so the sources stay
+    # editable, while the firmware serves ONE /index.js: collapse the chunk tags
+    # into a single index.js tag here; minify_all() concatenates the chunk files
+    # into the matching index.js.gz.
+    tags = re.findall(r'<script\s+src="js/[^"]+"></script>\s*', text)
+    if not tags:
+        return text
+    m = re.search(r'\?v=([^"]+)"', tags[0])
+    ver = f"?v={m.group(1)}" if m else ""
+    text = text.replace(tags[0], f'<script src="index.js{ver}"></script>\n', 1)
+    for t in tags[1:]:
+        text = text.replace(t, "", 1)
+    return text
+
 def minify_html(text: str) -> str:
+    text = merge_js_tags(text)
     # Stash inline <script>/<pre>/<textarea> blocks: their whitespace is significant
     # (a string literal with 2+ spaces would be corrupted by the collapse below).
     protected = []
@@ -128,6 +144,40 @@ MINIFIERS = {
 # Logique de traitement
 # ──────────────────────────────────────────────
 
+def write_gz(data: bytes, gz_path: str):
+    # Reproducible output: gzip.open() stamps the current time and the member
+    # name into the header, so two builds of an identical source produced two
+    # different .gz files (and therefore a different littlefs.bin).  mtime=0 and
+    # an empty filename remove both.
+    with open(gz_path, "wb") as raw:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=raw,
+                           compresslevel=9, mtime=0) as gz:
+            gz.write(data)
+
+def concat_js_chunks(src_dir: str, dst_dir: str):
+    # The ordered chunks in data-dev/js/ become the single index.js.gz the
+    # firmware serves; one gzip dictionary over the whole app also compresses
+    # better than per-chunk files would.
+    jsdir = os.path.join(src_dir, "js")
+    if not os.path.isdir(jsdir):
+        return
+    parts = []
+    total = 0
+    for fname in sorted(os.listdir(jsdir)):
+        if fname.startswith(".") or not fname.endswith(".js"):
+            continue
+        path = os.path.join(jsdir, fname)
+        total += os.path.getsize(path)
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            parts.append(f.read())
+    if not parts:
+        return
+    gz_path = os.path.join(dst_dir, "index.js.gz")
+    write_gz("".join(parts).encode("utf-8"), gz_path)
+    new_sz = os.path.getsize(gz_path)
+    pct = ((total - new_sz) / total * 100) if total else 0
+    print(f"  {'js/* -> index.js':<30} {total:>7} -> {new_sz:>7} B ({pct:>3.0f}%) [concat+gzip]")
+
 def process_file(src_path: str, dst_path: str):
     ext = os.path.splitext(src_path)[1].lower()
     original_size = os.path.getsize(src_path)
@@ -147,14 +197,7 @@ def process_file(src_path: str, dst_path: str):
             action = "gzip"
 
         gz_path = dst_path + ".gz"
-        # Reproducible output: gzip.open() stamps the current time and the
-        # member name into the header, so two builds of an identical source
-        # produced two different .gz files (and therefore a different
-        # littlefs.bin). mtime=0 and an empty filename remove both.
-        with open(gz_path, "wb") as raw:
-            with gzip.GzipFile(filename="", mode="wb", fileobj=raw,
-                               compresslevel=9, mtime=0) as gz:
-                gz.write(content.encode("utf-8"))
+        write_gz(content.encode("utf-8"), gz_path)
 
         final_size = os.path.getsize(gz_path)
         return action, original_size, final_size
@@ -175,7 +218,11 @@ def minify_all():
 
     print(f"\n[minify] Optimisation des assets : {SRC_DIR_NAME} -> {DST_DIR_NAME}")
 
+    concat_js_chunks(src_dir, dst_dir)
     for root, dirs, files in os.walk(src_dir):
+        # The js/ chunks were already concatenated into index.js.gz above.
+        if root == src_dir:
+            dirs[:] = [d for d in dirs if d != "js"]
         for fname in sorted(files):
             if fname.startswith(".") or fname.endswith("~"): continue
 
