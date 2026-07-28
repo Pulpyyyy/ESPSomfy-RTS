@@ -387,7 +387,7 @@ body[data-auth="false"] .container {
     color: var(--soustxt-color);
 }
 .welcomeBottom-desc {
-    font-size: 0.8em;
+    font-size: var(--fs-xs);
     line-height: 1.6;
     text-align: center;
     max-width: 331px;
@@ -1113,7 +1113,7 @@ display: none;
     align-items: center;
     justify-content: flex-start;
     gap: 0 4px;
-    font-size: 0.8em;
+    font-size: var(--fs-sm);
     font-family: monospace;
 }
 .gpioRadio-item {
