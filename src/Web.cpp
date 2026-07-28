@@ -736,6 +736,8 @@ void Web::beginRadioRoutes() {
   });
   server.on("/getRadio", []() {
     webServer.sendCORSHeaders(server);
+    // Config-level read, same gate as /saveRadio and the scan endpoints.
+    if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
     resp.beginObject();

@@ -133,9 +133,11 @@ const closeOverlay = (div, callback) => {
     div.classList.add('overlay-exit');
     setTimeout(() => div.remove(), 300);
 };
-if (typeof ui !== 'undefined' && ui.waitMessage) {
-    waitLoad = ui.waitMessage(document.body);
-}
+// NOTE: `ui` is declared with `var` in 10-shell.js.  If it ever becomes `const`
+// or `let`, any reference to it from this earlier chunk would throw a TDZ
+// ReferenceError in the concatenated production build.  A dead startup block
+// that read `ui.waitMessage` here relied on exactly that hoisting and was
+// removed; keep early chunks free of `ui` references.
 window.tr = function(id) {
     return (LANG && LANG[id]) ? LANG[id] : id;
 };

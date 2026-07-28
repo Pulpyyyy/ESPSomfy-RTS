@@ -480,8 +480,11 @@ void Transceiver::processFrequencyScan(bool received) {
     }
     bool advance = fineDecodes[fineStep] >= SCAN_STEP_DECODES || millis() - stepStart > SCAN_STEP_TIMEOUT;
     if(advance && somfy_rx.status == waiting_synchro) {
+      // Increment before emitting so the reported progress counts COMPLETED steps
+      // and reaches 100% on the last one instead of stalling at 32/33.
+      fineStep++;
       this->emitFrequencyScan();
-      if(++fineStep >= SCAN_FINE_STEPS) {
+      if(fineStep >= SCAN_FINE_STEPS) {
         // Resolve the plateau: peak over decoded steps, then the outermost steps
         // still within SCAN_EDGE_DROP of it; the recommendation is their midpoint.
         int8_t peak = -128;

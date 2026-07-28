@@ -327,6 +327,9 @@ class Somfy {
     procFrequencyScan(scan) {
         // console.log(scan);
         let div = this.scanFrequency();
+        // During the overlay's 1s closing window scanFrequency() returns undefined;
+        // a late socket event must not dereference it.
+        if (!div) return;
         let spanTestFreq = get('spanTestFreq');
         let spanTestRSSI = get('spanTestRSSI');
         let spanBestFreq = get('spanBestFreq');
@@ -357,8 +360,15 @@ class Somfy {
                 const btn = get('btnCopyFrequency');
                 if (btn) btn.style.display = '';
             }
-            else if (scan.scanning) phaseDiv.textContent = tr('SCANFREQ_PHASE_COARSE');
+            else if (scan.scanning) {
+                // A coarse pass that never decodes sweeps forever: after 30s tell the
+                // user why instead of scanning silently.
+                if (!this.scanCoarseSince) this.scanCoarseSince = Date.now();
+                phaseDiv.textContent = Date.now() - this.scanCoarseSince > 30000
+                    ? tr('SCANFREQ_PHASE_COARSE_LONG') : tr('SCANFREQ_PHASE_COARSE');
+            }
             else phaseDiv.textContent = '';
+            if (scan.phase !== 1 || !scan.scanning) this.scanCoarseSince = null;
         }
         if (scan.RSSI !== -100)
             div.setAttribute('data-frequency', scan.frequency);
