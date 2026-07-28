@@ -1211,12 +1211,10 @@ button:disabled:active {
     }
     .input-label {
         font-size: var(--fs-xs);
+        flex: 0 0 80px;
     }
     .gpio-card .inputAndSelect {
         font-size: var(--fs-xs) !important;
-    }
-    .input-label {
-        flex: 0 0 80px;
     }
     .input-number-custom:has(.step-select-arrow) .inputAndSelect {
         margin-right: -90px !important;

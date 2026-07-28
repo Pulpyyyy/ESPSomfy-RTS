@@ -294,10 +294,7 @@ body[data-auth="false"] .container {
 }
 .welcomeTop {
     text-align: center;
-    display:none;
-}
-.welcomeTop {
-    text-align: center;
+    display: none;
 }
 .welcomeTop svg {
     width: 50px;
