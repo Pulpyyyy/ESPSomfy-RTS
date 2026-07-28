@@ -3,6 +3,8 @@
     --accent-color: #1a5fb4;
     --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 34%);
     --accent-colorUniDark: color-mix(in srgb, var(--accent-color) 20%, var(--unibloc-color));
+    /* Text on an accent surface; flipped by applyAccent() for light accents. */
+    --on-accent: #fff;
     --accent-sucess: #069800;
     /* Layout tokens */
     --topbar-height: 100px;
@@ -175,14 +177,9 @@ button, .buttonUpdate { border-radius: var(--radius-button); }
 .divButton { background: var(--md-secondary-container); border: none; box-shadow: none; }
 .divButton .buttonUpdate { color: var(--md-on-secondary-container); }
 .divButton .uniStatus { opacity: .75; }
-.divButton:hover { background: color-mix(in srgb, var(--md-primary) 8%, var(--md-secondary-container)); border: none; }
 .divButton:active { background: color-mix(in srgb, var(--md-primary) 12%, var(--md-secondary-container)); }
 /* MD3 switch: outlined track when off, primary fill when on. */
-.switch { background: var(--md-surface-container-highest); border-color: var(--md-outline); }
-.switch div { background: var(--md-outline); }
 .switch:has(input:checked) { background: var(--md-primary); border-color: var(--md-primary); }
-.switch input:checked + div { background: var(--md-on-primary); }
-.switch input:checked + div::after { border-color: var(--md-primary); }
 html, body {
     margin: 0;
     padding: 0;

@@ -70,10 +70,10 @@
 }
 .opt-badge.active {
     border-color: var(--accent-color);
-    font-weight: bold;
+    font-weight: 500;
     opacity: 1;
     background: var(--accent-color);
-    color: #fff;
+    color: var(--on-accent);
 }
 .uptime-container {
     display: flex;
@@ -159,7 +159,7 @@ body[data-auth="false"] .container {
 }
 .nav-item.active {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
 }
 .nav-icon {
     width: 25px;
@@ -247,7 +247,7 @@ body[data-auth="false"] .container {
 }
 .subtab-container > span.selected {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
     border-radius: var(--radius-round);
 }
 .subtab-content {
@@ -504,8 +504,8 @@ body[data-auth="false"] .container {
 }
 .credit-link {
     cursor: pointer;
-    font-weight: bold;
-    color: #fff;
+    font-weight: 500;
+    color: var(--on-accent);
     white-space: nowrap;
     background: var(--accent-color);
     border-radius: var(--radius-card);
@@ -966,7 +966,7 @@ display: none;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .btn-prog { background: var(--background-color); color: var(--color); }
-.btn-fav  { background: var(--accent-color); color: white; border: none; }
+.btn-fav  { background: var(--accent-color); color: var(--on-accent); border: none; }
 .switch-group { display: flex; gap: 5px; margin-bottom: 10px; }
 .switch-soleil, .switch-windy { flex: 1; display: flex; }
 .switch-group input { display: none; }
@@ -1007,7 +1007,7 @@ display: none;
 
 .btn-send {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
     border: none;
     border-radius: var(--radius-button);
     padding: 13px;
@@ -1063,7 +1063,7 @@ display: none;
 
 .switch-group input:checked + .toggle-item {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
     border: none;
 }
 /* SVG HANDLING */
@@ -1298,7 +1298,7 @@ display: none;
 }
 .frame-header {
     background: var(--accent-color);
-    color: #fff;;
+    color: var(--on-accent);;
     padding: 10px 0;
     border-radius: 15px 15px 0 0;
 }
@@ -1711,7 +1711,7 @@ div.frame-pulses {
     #divUnauthenticated .welcomeTop { margin-bottom: 8%;}
     #divUnauthenticated .button-container-row { gap: 12px; }
 }
-@media screen and (max-width: 550px) {
+@media screen and (max-width: 640px) {
     .hide550,
     .minMaxFull,
     .divButton .uniStatus {
@@ -1743,3 +1743,19 @@ div.frame-pulses {
         font-size: 0.75em;
     }
 }
+
+/* M3 touch targets: compact icon controls get a centered 44x44 hit area
+   without visual change (same idea as the step-buttons ::after in base.css). */
+.radioBtnPrec, .password-eye, .divEditDelete-svg, .button-my, .button-light,
+.button-sunflag, .nav-arrow, .step-btn, .help-container { position: relative; }
+.radioBtnPrec::after, .password-eye::after, .divEditDelete-svg::after,
+.button-my::after, .button-light::after, .button-sunflag::after,
+.nav-arrow::after, .step-btn::after, .help-container::after {
+    content: "";
+    position: absolute;
+    left: 50%; top: 50%;
+    width: max(100%, 44px); height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+}
+.sub-nav-item { padding: 12px 0; }
+.subtab-container > span { min-height: 36px; align-items: center; }

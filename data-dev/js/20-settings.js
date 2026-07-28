@@ -1,3 +1,17 @@
+// The accent is user-chosen: text drawn ON an accent surface must flip with the
+// accent's luminance (white on dark accents, near-black on light ones).  Both
+// custom properties are set together so no caller can forget one.
+function applyAccent(color) {
+    const r = document.documentElement.style;
+    r.setProperty('--accent-color', color);
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(color).trim());
+    if (m) {
+        const [cr, cg, cb] = [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16) / 255)
+            .map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+        const lum = 0.2126 * cr + 0.7152 * cg + 0.0722 * cb;
+        r.setProperty('--on-accent', lum > 0.18 ? '#1b1b1f' : '#fff');
+    }
+}
 class Security {
     type = 0;
     authenticated = false;
@@ -176,7 +190,7 @@ class General {
         this.applyTheme(savedTheme);
         const savedColor = localStorage.getItem('accentColor');
         if (savedColor) {
-            document.documentElement.style.setProperty('--accent-color', savedColor);
+            applyAccent(savedColor);
         }
         this.setAppVersion();
         this.setTimeZones();
@@ -364,14 +378,14 @@ class General {
                 }
             });
             if (settings.accentColor) {
-                document.documentElement.style.setProperty('--accent-color', settings.accentColor);
+                applyAccent(settings.accentColor);
                 localStorage.setItem('accentColor', settings.accentColor);
 
                 const accentInput = get('fldAccentColor');
                 if (accentInput) {
                     accentInput.value = settings.accentColor;
                     accentInput.addEventListener('input', (e) => {
-                        document.documentElement.style.setProperty('--accent-color', e.target.value);
+                        applyAccent(e.target.value);
                         localStorage.setItem('accentColor', e.target.value);
                     });
                 }

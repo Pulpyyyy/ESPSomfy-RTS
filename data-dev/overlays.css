@@ -514,7 +514,7 @@ div.error-message,
 }
     .step-number {
         background: var(--accent-color);
-        color: white;
+        color: var(--on-accent);
         width: 24px;
         height: 24px;
         border-radius: 50%;
@@ -906,7 +906,7 @@ margin: 0;
     align-items: center;
     justify-content: center;
     transition: transform 0.2s;
-    color: white;
+    color: var(--on-accent);
 }
 .file-icon-btn svg {
     width: 20px;
@@ -1014,7 +1014,7 @@ cursor: pointer;
 }
 .room-pill.active {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
 }
 .empty-state-container {
     display: flex;
@@ -1962,12 +1962,12 @@ div.eth-setting-line label {
         -webkit-overflow-scrolling: touch;
     }
 }
-@media (max-width: 600px) {
+@media (max-width: 640px) {
     .box-image-container {
         height: 140px !important;
     }
 }
-@media screen and (max-width: 550px) {
+@media screen and (max-width: 640px) {
     .somfyShadeCtl {
         width: 100%;
     }
