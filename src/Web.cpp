@@ -313,9 +313,9 @@ void Web::begin() {
   server.on("/shades.cfg", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.cfg", _encoding_text); });
   server.on("/shades.tmp", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.tmp", _encoding_text); });
   server.on("/index.js", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/index.js.gz", "text/javascript"); });
-  server.on("/base.css", []() {  webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/base.css.gz", "text/css"); });
-  server.on("/main.css", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/main.css.gz", "text/css"); });
-  server.on("/overlays.css", []() {  webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/overlays.css.gz", "text/css"); });
+  // base/main/overlays are concatenated into app.css by the build (minify_data.py):
+  // one stylesheet request instead of three on a one-connection-at-a-time server.
+  server.on("/app.css", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/app.css.gz", "text/css"); });
   server.on("/favicon.svg", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/favicon.svg.gz", "image/svg+xml"); });
 
   server.on("/editionWifi.webp", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/editionWifi.webp", "image/webp"); });

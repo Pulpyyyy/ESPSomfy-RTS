@@ -50,8 +50,34 @@ def merge_js_tags(text: str) -> str:
         raise RuntimeError("merge_js_tags: a js/ chunk tag did not match the merge pattern")
     return text
 
+# Stylesheets shipped as ONE app.css: order matters, base holds the tokens the
+# other two build on (the cascade must stay base -> main -> overlays).
+CSS_CHUNKS = ("base.css", "main.css", "overlays.css")
+
+def merge_css_tags(text: str) -> str:
+    # Same idea as merge_js_tags: dev mode keeps three <link> tags, production
+    # collapses them into a single app.css matching the concatenated gzip.
+    tags = []
+    for name in CSS_CHUNKS:
+        m = re.search(r'<link\s+rel="stylesheet"\s+href="%s(\?v=[^"]*)?">\s*' % re.escape(name), text)
+        if m:
+            tags.append(m)
+    if not tags:
+        return text
+    if len(tags) != len(CSS_CHUNKS):
+        raise RuntimeError("merge_css_tags: index.html references only part of %s" % (CSS_CHUNKS,))
+    ver = tags[0].group(1) or ""
+    text = text.replace(tags[0].group(0), '<link rel="stylesheet" href="app.css%s">\n' % ver, 1)
+    for m in tags[1:]:
+        text = text.replace(m.group(0), "", 1)
+    for name in CSS_CHUNKS:
+        if 'href="%s' % name in text:
+            raise RuntimeError("merge_css_tags: a stylesheet tag did not match the merge pattern")
+    return text
+
 def minify_html(text: str) -> str:
     text = merge_js_tags(text)
+    text = merge_css_tags(text)
     # Stash inline <script>/<pre>/<textarea> blocks: their whitespace is significant
     # (a string literal with 2+ spaces would be corrupted by the collapse below).
     protected = []
@@ -185,6 +211,24 @@ def concat_js_chunks(src_dir: str, dst_dir: str):
     pct = ((total - new_sz) / total * 100) if total else 0
     print(f"  {'js/* -> index.js':<30} {total:>7} -> {new_sz:>7} B ({pct:>3.0f}%) [concat+gzip]")
 
+def concat_css_chunks(src_dir: str, dst_dir: str):
+    # base/main/overlays become one app.css.gz: same payload, two fewer TCP
+    # round-trips on the synchronous one-connection-at-a-time server.
+    parts = []
+    total = 0
+    for name in CSS_CHUNKS:
+        path = os.path.join(src_dir, name)
+        if not os.path.isfile(path):
+            return
+        total += os.path.getsize(path)
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            parts.append(minify_css(f.read()))
+    gz_path = os.path.join(dst_dir, "app.css.gz")
+    write_gz("\n".join(parts).encode("utf-8"), gz_path)
+    new_sz = os.path.getsize(gz_path)
+    pct = ((total - new_sz) / total * 100) if total else 0
+    print(f"  {'*.css -> app.css':<30} {total:>7} -> {new_sz:>7} B ({pct:>3.0f}%) [concat+minify+gzip]")
+
 def process_file(src_path: str, dst_path: str):
     ext = os.path.splitext(src_path)[1].lower()
     original_size = os.path.getsize(src_path)
@@ -226,12 +270,15 @@ def minify_all():
     print(f"\n[minify] Optimisation des assets : {SRC_DIR_NAME} -> {DST_DIR_NAME}")
 
     concat_js_chunks(src_dir, dst_dir)
+    concat_css_chunks(src_dir, dst_dir)
     for root, dirs, files in os.walk(src_dir):
         # The js/ chunks were already concatenated into index.js.gz above.
         if root == src_dir:
             dirs[:] = [d for d in dirs if d != "js"]
         for fname in sorted(files):
             if fname.startswith(".") or fname.endswith("~"): continue
+            # The CSS chunks were already concatenated into app.css.gz above.
+            if root == src_dir and fname in CSS_CHUNKS: continue
 
             src_path = os.path.join(root, fname)
             rel_path = os.path.relpath(src_path, src_dir)
