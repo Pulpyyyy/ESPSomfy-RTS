@@ -848,6 +848,17 @@ void Web::beginRadioRoutes() {
     rfStats.clear();
     server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics cleared\"}");
   });
+  server.on("/restoreRfStats", []() {
+    webServer.sendCORSHeaders(server);
+    if(server.method() == HTTP_OPTIONS) return server.send(200);
+    if(!webServer.ensureAuth(server, true)) return;
+    // A full 48-entry export is ~8KB of JSON; the document is transient heap.
+    DynamicJsonDocument doc(16384);
+    if(deserializeJson(doc, server.arg("plain"))) return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON\"}");
+    JsonObject obj = doc.as<JsonObject>();
+    if(!rfStats.restoreJSON(obj)) return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid stats payload\"}");
+    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics restored\"}");
+  });
   server.on("/setGuidedRssi", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) return server.send(200);

@@ -501,11 +501,19 @@ opacity: 0.9;
 .credits-list .special-credit {
     opacity: 0.8;
 }
+/* Chips flow on their own wrapping line with an even gap; a name must never be
+   split across two lines. */
+.credit-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
 .credit-link {
     cursor: pointer;
     font-weight: bold;
     color: #fff;
-    margin-left: 2px;
+    white-space: nowrap;
     background: var(--accent-color);
     border-radius: var(--radius-card);
     padding: 2px 8px;
@@ -1144,6 +1152,9 @@ display: none;
 }
 .gpioRadio-label { color: var(--soustxt-color); }
 .gpioRadio-val { color: var(--accent-color); font-weight: bold; }
+/* A dark user accent (deep blue) is unreadable on the dark surface: lift the
+   GPIO values towards white while keeping the accent hue. */
+:root[data-theme="dark"] .gpioRadio-val { color: color-mix(in srgb, var(--accent-color) 40%, #fff 60%); }
 .gpioRadio-sep { color: var(--soustxt-color); opacity: 0.6; }
 
 .help-container {
@@ -1391,6 +1402,26 @@ div.frame-pulses {
 .rfdiag-badge.fair { color: #ff9800; background: color-mix(in srgb, #ff9800 15%, transparent); }
 .rfdiag-badge.weak { color: #f44336; background: color-mix(in srgb, #f44336 15%, transparent); }
 .rfdiag-alert { color: #ff9800; }
+/* The summary values (frequency, noise floor...) must never wrap under the
+   long descriptions on narrow screens. */
+.rfdiag-value { white-space: nowrap; }
+#divRFDiagnostics .uniRight { flex-shrink: 0; margin-left: 12px; }
+/* Phone layout: the name/badge/RSSI triplet is the useful signal; frames and
+   last-seen live in the tooltip world and give the width back. */
+@media (max-width: 640px) {
+    .rfdiag-log > div.frame-header,
+    .rfdiag-log > div.frame-list { min-width: 0; }
+    .rfdiag-row > span:nth-child(4), .frame-header.rfdiag-row > span:nth-child(4),
+    .rfdiag-row > span:nth-child(5), .frame-header.rfdiag-row > span:nth-child(5) { display: none; }
+    .rfdiag-row > span:nth-child(1), .frame-header.rfdiag-row > span:nth-child(1) { flex: 1 1 55%; }
+    .rfdiag-row > span:nth-child(2), .frame-header.rfdiag-row > span:nth-child(2) { flex: 0 0 88px; }
+    .rfdiag-row > span:nth-child(3), .frame-header.rfdiag-row > span:nth-child(3) { flex: 0 0 92px; }
+}
+/* Merged update state carried by the GitHub button. */
+.buttonUpdate.upd-ok { cursor: default; }
+.buttonUpdate.upd-ok .btnArrowRight { display: none; }
+.buttonUpdate.upd-ok #ghUpdTitle { color: #4caf50; font-weight: 600; }
+.buttonUpdate.upd-available #ghUpdTitle { color: #ff9800; font-weight: 600; }
 /* Security */
 #divPinSecurity { justify-content: center; }
 #divPinSecurity label { margin: 20px; }

@@ -543,9 +543,13 @@ class Firmware {
         if (sp) sp.innerHTML = mem.min.fmt('#,##0 ');
     }
     procFwStatus(rel) {
+        // The GitHub button is the single carrier of the update state: it reports
+        // "up to date" (disabled) or "update available" (call to action) instead of
+        // duplicating the information in a separate banner.
         const divsGlobal = document.querySelectorAll('.firmware-message');
-        const divLocal = get('divSystemStatus');
-        const statusDesc = get('statusDesc');
+        const btn = get('btnUpdateGithub');
+        const ghTitle = get('ghUpdTitle');
+        const ghDesc = get('ghUpdDesc');
 
         if (divsGlobal.length === 0) return;
         divsGlobal.forEach(div => {
@@ -553,6 +557,12 @@ class Firmware {
             div.onclick = null;
             setClickable(div, false);
         });
+        if (btn) {
+            btn.classList.remove('upd-ok', 'upd-available');
+            btn.disabled = false;
+            if (ghTitle) ghTitle.innerHTML = tr('FW_UPDATE_GIT');
+            if (ghDesc) ghDesc.innerHTML = tr('FW_UPDATE_GIT_DESC');
+        }
         if (rel.available && rel.status === 0 && rel.checkForUpdate !== false) {
             divsGlobal.forEach(div => {
                 div.classList.add('procFwStatusshow');
@@ -561,20 +571,14 @@ class Firmware {
                 div.innerHTML = `<span>${tr('FW_UPDATE_AVAILABLE')}</span>`;
                 setClickable(div, true);
             });
-            if (divLocal) {
-                divLocal.className = "error";
-                get('useStatusIcon')?.setAttribute('href', '#svg-error');
-                const st = get('statusTitle');
+            if (btn) {
                 const isBlocked = this.needsUsbFlash();
-
-                if (st) st.innerHTML = tr(isBlocked ? 'FW_UPDATE_REQUIRED_USB' : 'FW_UPDATE_AVAILABLE');
-                statusDesc.innerHTML = isBlocked
-                ? tr('FW_UPDATE_USB_DESC').replace('%1', rel.latest.name)
-                : tr('FW_UPDATE_ACTION_DESC2').replace('%1', rel.latest.name);
-
-                divLocal.style.cursor = 'pointer';
-                divLocal.onclick = () => { firmware.updateGithub(); };
-                setClickable(divLocal, true);
+                btn.classList.add('upd-available');
+                btn.disabled = isBlocked;
+                if (ghTitle) ghTitle.innerHTML = tr(isBlocked ? 'FW_UPDATE_REQUIRED_USB' : 'FW_UPDATE_AVAILABLE');
+                if (ghDesc) ghDesc.innerHTML = (isBlocked
+                    ? tr('FW_UPDATE_USB_DESC')
+                    : tr('FW_UPDATE_ACTION_DESC2')).replace('%1', rel.latest.name);
             }
         }
         else if (rel.status === 4 && rel.error !== 0) {
@@ -584,16 +588,13 @@ class Firmware {
             ui.errorMessage(e.desc);
         }
         else {
-            if (divLocal) {
-                divLocal.className = "success";
-                get('useStatusIcon')?.setAttribute('href', '#svg-info');
-                const st = get('statusTitle');
-                if (st) st.innerHTML = tr('FW_UPDATE_UPTODATE');
-                statusDesc.innerHTML = tr('FW_UPDATE_ACTION_DESC');
-
-                divLocal.style.cursor = '';
-                divLocal.onclick = null;
-                setClickable(divLocal, false);
+            // Up to date: same button, informative state; disabled so a tap cannot
+            // launch a pointless reinstall.
+            if (btn) {
+                btn.classList.add('upd-ok');
+                btn.disabled = true;
+                if (ghTitle) ghTitle.innerHTML = tr('FW_UPDATE_UPTODATE');
+                if (ghDesc) ghDesc.innerHTML = tr('FW_UPDATE_ACTION_DESC');
             }
         }
     }

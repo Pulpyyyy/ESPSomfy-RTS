@@ -285,6 +285,57 @@ void RfStats::clear() {
   transceiver_config_t &cfg = somfy.transceiver.config;
   this->syncEpoch(cfg.frequency, cfg.rxBandwidth, cfg.txPower);
 }
+static void restoreEpoch(rf_epoch_t &ep, JsonObject o) {
+  if(o.isNull()) return;
+  ep.start = o["start"] | 0UL;
+  ep.seconds = o["seconds"] | 0UL;
+  ep.frames = o["frames"] | 0UL;
+  ep.decodeFloor = o["floor"] | 0;
+  float avg = o["noiseAvg"] | 0.0f;
+  ep.noiseAvg = isfinite(avg) ? avg : 0.0f;
+  // The stored mean stays meaningful when sampling resumes only if the count is
+  // plausible; the export does not carry it, so approximate from the duration.
+  ep.noiseCount = ep.noiseAvg != 0.0f ? (ep.seconds / (RF_STATS_NOISE_INTERVAL / 1000UL)) : 0;
+  ep.frequency = o["frequency"] | 0.0f;
+  ep.rxBandwidth = o["rxBandwidth"] | 0.0f;
+  ep.txPower = o["txPower"] | 0;
+}
+bool RfStats::restoreJSON(JsonObject &obj) {
+  // Accepts exactly what /rfStats emits, so a saved export re-injects as-is.
+  if(!obj.containsKey("entries")) return false;
+  this->clear();
+  float v = obj["noise"] | 0.0f;
+  this->noiseEwma = isfinite(v) ? v : 0.0f;
+  v = obj["noiseBaseline"] | 0.0f;
+  this->noiseBaseline = isfinite(v) ? v : 0.0f;
+  this->noiseSamples = obj["noiseSamples"] | 0UL;
+  restoreEpoch(this->epochCur, obj["epoch"]);
+  restoreEpoch(this->epochPrev, obj["epochPrev"]);
+  uint8_t n = 0;
+  for(JsonObject o : obj["entries"].as<JsonArray>()) {
+    if(n >= RF_STATS_MAX_ENTRIES) break;
+    uint32_t addr = o["address"] | 0UL;
+    if(addr == 0) continue;
+    rf_stats_entry_t &e = this->entries[n++];
+    e.clear();
+    e.address = addr;
+    e.proto = o["proto"] | 0;
+    e.frames = o["frames"] | 0UL;
+    e.firstSeen = o["firstSeen"] | 0UL;
+    e.lastSeen = o["lastSeen"] | 0UL;
+    e.rssiLast = o["last"] | 0;
+    e.rssiMin = o["min"] | 0;
+    e.rssiMax = o["max"] | 0;
+    float f = o["avg"] | 0.0f;
+    e.rssiAvg = isfinite(f) ? f : 0.0f;
+    f = o["recent"] | 0.0f;
+    e.rssiEwma = isfinite(f) ? f : 0.0f;
+    e.guidedRssi = o["guided"] | 0;
+    e.guidedAt = o["guidedAt"] | 0UL;
+  }
+  this->dirty = true;
+  return this->save();
+}
 void RfStats::toJSON(JsonFormatter &json) {
   json.addElem("remotes", this->count());
   json.addElem("frames", this->totalFrames());

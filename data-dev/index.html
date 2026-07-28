@@ -381,19 +381,14 @@
                                 </label>
                             </div>
                         </div>
-                        <div id="divSystemStatus" class="success" role="button">
-                            <svg><use id="useStatusIcon" href=#svg-info></use></svg>
-                            <div>
-                                <b id="statusTitle" tr="FW_UPDATE_UPTODATE"></b>
-                                <span id="statusDesc" tr="FW_UPDATE_ACTION_DESC"></span>
-                            </div>
-                        </div>
                         <div class="firmwarblocupdate">
+                            <!-- Single control for the update state: the button both reports
+                                 (up to date / available) and triggers the GitHub update. -->
                             <button id="btnUpdateGithub" onclick="firmware.updateGithub();" class="buttonUpdate" type="button">
                                 <svg><use xlink:href="#svg-github"></use></svg>
                                 <div class="devButtonUpdate">
-                                    <div tr="FW_UPDATE_GIT"></div>
-                                    <div class="uniStatus" tr="FW_UPDATE_GIT_DESC"></div>
+                                    <div id="ghUpdTitle" tr="FW_UPDATE_GIT"></div>
+                                    <div id="ghUpdDesc" class="uniStatus" tr="FW_UPDATE_GIT_DESC"></div>
                                 </div>
                                 <svg class="btnArrowRight"><use href=#svg-arrowRight></use></svg>
                             </button>
@@ -487,13 +482,13 @@
                             <div class="uniRow">
                                 <div class="uniText">
                                     <div class="uniLabel" tr="FW_CREDITS_CONTRIBUTORS"></div>
-                                    <div class="uniStatus">
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/xkain', '_blank')"> xkain</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/glich34', '_blank')"> glich34</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/dirstel', '_blank')"> dirstel</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/cjkas', '_blank')"> cjkas</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/truffshuff', '_blank')"> truffshuff</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/Marc-Berg', '_blank')"> Marc-Berg</span>
+                                    <div class="uniStatus credit-list">
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/xkain', '_blank')">xkain</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/glich34', '_blank')">glich34</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/dirstel', '_blank')">dirstel</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/cjkas', '_blank')">cjkas</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/truffshuff', '_blank')">truffshuff</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/Marc-Berg', '_blank')">Marc-Berg</span>
                                     </div>
                                 </div>
                             </div>

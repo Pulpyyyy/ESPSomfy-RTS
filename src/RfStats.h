@@ -88,6 +88,8 @@ class RfStats {
     bool save();
     bool load();
     void clear();                           // wipe the table and remove the file
+    // Rebuild the whole state from a /rfStats JSON export (backup round-trip).
+    bool restoreJSON(JsonObject &obj);
     void toJSON(JsonFormatter &json);
 };
 #endif
