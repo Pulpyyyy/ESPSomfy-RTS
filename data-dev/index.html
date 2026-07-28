@@ -1842,7 +1842,7 @@
                         <div class="footer-overlay">
                             <button id="btnClearRfStats" type="button" line onclick="rfdiag.clearStats();" tr="BT_CLEAR"></button>
                             <button id="btnRfGuided" type="button" line onclick="rfdiag.startGuided();" tr="RFDIAG_BT_GUIDED"></button>
-                            <button id="btnRefreshRfStats" type="button" onclick="rfdiag.load();" tr="RFDIAG_BT_REFRESH"></button>
+                            <button id="btnRefreshRfStats" line type="button" onclick="rfdiag.load();" tr="RFDIAG_BT_REFRESH"></button>
                         </div>
                     </div>
                     <div id="divFrameLog" class="subtab-content frame-log" style="display:none;">
@@ -1853,7 +1853,7 @@
                         </div>
                         <div class="footer-overlay">
                             <button id="btnClearFrames" type="button" line onclick="document.getElementById('divFrames').innerHTML = ''; somfy.frames = [];" tr="BT_CLEAR"></button>
-                            <button id="btnCopyFrame" type="button"  onclick="somfy.framesToClipboard();" tr="BT_COPY"></button>
+                            <button id="btnCopyFrame" line type="button"  onclick="somfy.framesToClipboard();" tr="BT_COPY"></button>
                         </div>
                     </div>
                 </div>

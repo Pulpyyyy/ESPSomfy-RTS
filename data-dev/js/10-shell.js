@@ -352,10 +352,24 @@ window.addEventListener('popstate', () => navApplyHash());
 // save / discard / cancel. A suppression window swallows the change events that
 // fire while a form loads so they do not count as user edits.
 let _navDirty = false, _navSuppress = false;
+// Save buttons mirror the dirty flag: disabled (M3 38%) until an edit exists,
+// re-disabled once the save went through.  #btnLogin is excluded on purpose.
+const NAV_SAVE_SEL = '[id^="btnSave"], #btnConnectMQTT';
+function navSyncSaveButtons() {
+    document.querySelectorAll(NAV_SAVE_SEL).forEach(b => { b.disabled = !_navDirty; });
+}
 function navSuppress() { _navSuppress = true; setTimeout(() => { _navSuppress = false; }, 900); }
-function navClearDirty() { _navDirty = false; }
-function navMarkDirty() { if (!_navSuppress) _navDirty = true; }
+function navClearDirty() { _navDirty = false; navSyncSaveButtons(); }
+function navMarkDirty() { if (!_navSuppress) { _navDirty = true; navSyncSaveButtons(); } }
 function navGuardSetup() {
+    navSyncSaveButtons();
+    // After a save click, consider the edits persisted unless a validation error
+    // surfaced (same heuristic as the leave-prompt Save path above).
+    document.addEventListener('click', (e) => {
+        const b = e.target && e.target.closest && e.target.closest(NAV_SAVE_SEL);
+        if (!b) return;
+        setTimeout(() => { if (!document.querySelector('.error-message')) navClearDirty(); }, 300);
+    }, true);
     const mark = (e) => {
         if (!e.isTrusted) return;                       // programmatic change events are not user edits
         const t = e.target;
