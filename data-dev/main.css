@@ -197,7 +197,7 @@ body[data-auth="false"] .container {
     cursor: pointer;
 }
 .sub-nav-item:hover, .sub-nav-item.active {
-    color: var(--accent-color, #1a5fb4);
+    color: var(--accent-text);
 }
 .sidebar-footer {
     margin-top: auto;
@@ -302,7 +302,7 @@ body[data-auth="false"] .container {
 .welcomeTop svg {
     width: 50px;
     height: 50px;
-    color: var(--accent-color);
+    color: var(--accent-text);
 }
 .welcomeTop p {
     margin-top: 0;
@@ -310,7 +310,7 @@ body[data-auth="false"] .container {
     font-weight: bold;
 }
 .welcomeMiddle H1 {
-    color: var(--accent-color);
+    color: var(--accent-text);
     max-width: 235px;
     margin: auto;
     padding-bottom: 10%;
@@ -363,7 +363,7 @@ body[data-auth="false"] .container {
     bottom: -15px;
     width: 80px;
     height: 80px;
-    color: var(--accent-color);
+    color: var(--accent-text);
     opacity: 0.12;
     transform: rotate(-10deg);
     transition: all 0.3s ease;
@@ -441,13 +441,6 @@ body[data-auth="false"] .container {
 .minMax550{
     display: none;
 }
-#divSystemStatus {
-transition: transform 0.2s ease-in-out, background 250ms ease, opacity 0.2s ease;
-}
-#divSystemStatus.error:active {
-transform: scale(0.98);
-opacity: 0.9;
-}
 #divFirmware .uniRight { gap: 0; }
 #divFirmware .uniText { max-width: 52%; }
 .show780 {
@@ -523,23 +516,6 @@ opacity: 0.9;
         opacity: 0.8;
     }
 /* Page Network*/
-.wifi-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    padding: 0 12px;
-}
-.wifi-left {
-    display: flex;
-    flex-direction: column;
-}
-.wifi-row {
-    display: flex;
-}
-.wifi-label {
-    margin-right: 4px;
-}
 .wifi-value {
     color: var(--soustxt-color);
     margin-left: 5px;
@@ -583,11 +559,6 @@ div.signal {
 div.signal use.active {
     fill: var(--accent-sucess) !important;
     opacity: 1 !important;
-}
-#svgWifiElement {
-    fill: var(--accent-sucess) !important;
-    display: block !important;
-    overflow: visible;
 }
 #svgWifiElement circle,
 #svgWifiElement path {
@@ -1115,7 +1086,7 @@ display: none;
 .vr-wheel-arrow svg {
     width: 100%;
     height: 100%;
-    color: var(--text-light);
+    color: var(--soustxt-color);
 }
 .vr-button-sunflagL svg,
 .vr-button-sunflagR svg {
@@ -1151,10 +1122,7 @@ display: none;
     white-space: nowrap;
 }
 .gpioRadio-label { color: var(--soustxt-color); }
-.gpioRadio-val { color: var(--accent-color); font-weight: bold; }
-/* A dark user accent (deep blue) is unreadable on the dark surface: lift the
-   GPIO values towards white while keeping the accent hue. */
-:root[data-theme="dark"] .gpioRadio-val { color: color-mix(in srgb, var(--accent-color) 40%, #fff 60%); }
+.gpioRadio-val { color: var(--accent-text); font-weight: bold; }
 .gpioRadio-sep { color: var(--soustxt-color); opacity: 0.6; }
 
 .help-container {
@@ -1170,7 +1138,7 @@ display: none;
     transition: color 0.5s ease;
 }
 .help-container:hover svg {
-    color: var(--accent-color) !important;
+    color: var(--accent-text) !important;
 }
 .tooltip-text {
     display: none;
@@ -1292,7 +1260,7 @@ display: none;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: var(--accent-color);
+    color: var(--accent-text);
     padding: 0;
     transition: all 0.2s ease;
 }
@@ -1398,10 +1366,10 @@ div.frame-pulses {
     font-weight: 600;
 }
 /* Same status hues as .success/.warning/.error so quality reads consistently app-wide. */
-.rfdiag-badge.good { color: #4caf50; background: color-mix(in srgb, #4caf50 15%, transparent); }
-.rfdiag-badge.fair { color: #ff9800; background: color-mix(in srgb, #ff9800 15%, transparent); }
-.rfdiag-badge.weak { color: #f44336; background: color-mix(in srgb, #f44336 15%, transparent); }
-.rfdiag-alert { color: #ff9800; }
+.rfdiag-badge.good { color: var(--status-good); background: color-mix(in srgb, var(--status-good) 15%, transparent); }
+.rfdiag-badge.fair { color: var(--status-warn); background: color-mix(in srgb, var(--status-warn) 15%, transparent); }
+.rfdiag-badge.weak { color: var(--status-bad); background: color-mix(in srgb, var(--status-bad) 15%, transparent); }
+.rfdiag-alert { color: var(--status-warn); }
 /* The summary values (frequency, noise floor...) must never wrap under the
    long descriptions on narrow screens. */
 .rfdiag-value { white-space: nowrap; }
@@ -1420,8 +1388,8 @@ div.frame-pulses {
 /* Merged update state carried by the GitHub button. */
 .buttonUpdate.upd-ok { cursor: default; }
 .buttonUpdate.upd-ok .btnArrowRight { display: none; }
-.buttonUpdate.upd-ok #ghUpdTitle { color: #4caf50; font-weight: 600; }
-.buttonUpdate.upd-available #ghUpdTitle { color: #ff9800; font-weight: 600; }
+.buttonUpdate.upd-ok #ghUpdTitle { color: var(--status-good); font-weight: 600; }
+.buttonUpdate.upd-available #ghUpdTitle { color: var(--status-warn); font-weight: 600; }
 /* Security */
 #divPinSecurity { justify-content: center; }
 #divPinSecurity label { margin: 20px; }
@@ -1512,7 +1480,7 @@ div.frame-pulses {
 }
 #divLoginPassword input:focus + svg,
 #divLoginPassword input:hover + svg {
-    color: var(--accent-color);
+    color: var(--accent-text);
 }
 #divUnauthenticated .button-container-row {
     gap: 45px;
@@ -1719,7 +1687,7 @@ div.frame-pulses {
     }
     .tab-container > span.selected {
         font-weight: bold;
-        color: var(--accent-color);
+        color: var(--accent-text);
         box-shadow: 0px 1px 2px 0 #9c9c9c;
     }
     .subtab-container {

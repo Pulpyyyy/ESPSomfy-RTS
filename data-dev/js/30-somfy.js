@@ -443,7 +443,7 @@ class Somfy {
                     ctx.clearRect(0, 0, w, h);
                     ctx.strokeStyle = 'rgba(255,255,255,0.1)';
                     ctx.setLineDash([5, 5]);
-                    ctx.font = "10px Arial";
+                    ctx.font = "12px Roboto, sans-serif";
                     ctx.fillStyle = "rgba(255,255,255,0.5)";
 
                     [-40, -70, -100].forEach(lv => {
