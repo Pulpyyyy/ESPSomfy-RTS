@@ -10,7 +10,9 @@
 #define RF_STATS_TEMP_FILE "/rfstats.tmp"
 // Persist at most once per hour.  The table lives in RAM and only matters over weeks of
 // observations, so losing up to an hour on a hard reset is fine; a graceful reboot saves
-// through end().
+// through end().  Noise sampling marks the state dirty every 10s, so in practice this IS
+// one write per hour whenever the radio is enabled: ~24 flash writes/day of a ~2KB file,
+// deliberate and far below LittleFS wear-leveled endurance.
 #define RF_STATS_SAVE_INTERVAL 3600000UL
 // Epochs below 2000-01-01 mean the clock has not been NTP-synced; store 0 so consumers
 // can tell "unknown time" from a bogus 1970 date.

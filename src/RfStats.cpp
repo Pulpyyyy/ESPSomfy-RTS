@@ -68,14 +68,23 @@ rf_stats_entry_t *RfStats::findEntry(uint32_t address) {
 }
 rf_stats_entry_t *RfStats::createEntry(uint32_t address) {
   rf_stats_entry_t *evict = nullptr;
+  bool evictGuided = true;
   for(uint8_t i = 0; i < RF_STATS_MAX_ENTRIES; i++) {
     rf_stats_entry_t &e = this->entries[i];
     if(e.address == 0) { evict = &e; break; }
     // Full table: evict the least observed row, oldest last-seen on ties, so a
-    // passing one-off remote cannot displace a well-established one.
+    // passing one-off remote cannot displace a well-established one.  Rows that
+    // carry a guided measurement are a deliberate user action: only evict one
+    // when every row is guided.
+    bool guided = e.guidedRssi != 0;
     if(!evict
-      || e.frames < evict->frames
-      || (e.frames == evict->frames && e.lastSeen < evict->lastSeen)) evict = &e;
+      || (evictGuided && !guided)
+      || (guided == evictGuided
+        && (e.frames < evict->frames
+          || (e.frames == evict->frames && e.lastSeen < evict->lastSeen)))) {
+      evict = &e;
+      evictGuided = guided;
+    }
   }
   if(evict) {
     evict->clear();
@@ -104,6 +113,10 @@ void RfStats::record(const somfy_frame_t &frame) {
     e->rssiEwma += ((float)rssi - e->rssiEwma) / 8.0f;
     e->rssiLast = rssi;
   }
+  // Backfill timestamps recorded before the NTP sync (boot-time frames, epochs
+  // started offline) as soon as the clock becomes valid.
+  if(e->firstSeen == 0 && epoch) e->firstSeen = epoch;
+  if(this->epochCur.start == 0 && epoch) this->epochCur.start = epoch;
   e->proto = static_cast<uint8_t>(frame.proto);
   if(epoch) e->lastSeen = epoch;
   if(e->frames < UINT32_MAX) e->frames++;
@@ -164,6 +177,7 @@ uint32_t RfStats::totalFrames() {
 }
 void RfStats::begin() {
   this->load();
+  LittleFS.remove(RF_STATS_TEMP_FILE);  // leftover from a save interrupted by a crash
   this->lastSave = millis();
   this->lastSecTick = millis();
   // Detect a config that changed while we were offline (NVS restore, manual edit):
@@ -182,6 +196,10 @@ void RfStats::end() {
   if(this->dirty) this->save();
 }
 bool RfStats::save() {
+  // Stamp the attempt time first: a failing filesystem (full, error) must retry
+  // on the next interval, not on every loop pass -- that would hammer the flash
+  // and stall the receive path.
+  this->lastSave = millis();
   File f = LittleFS.open(RF_STATS_TEMP_FILE, "w");
   if(!f) return false;
   // Raw struct dump: only ever read back by the same firmware on the same MCU, and the
@@ -202,10 +220,10 @@ bool RfStats::save() {
     LittleFS.remove(RF_STATS_TEMP_FILE);
     return false;
   }
-  LittleFS.remove(RF_STATS_FILE);
+  // littlefs rename atomically replaces an existing destination; removing it
+  // first would open a power-loss window with no data file at all.
   if(!LittleFS.rename(RF_STATS_TEMP_FILE, RF_STATS_FILE)) return false;
   this->dirty = false;
-  this->lastSave = millis();
   return true;
 }
 bool RfStats::load() {
@@ -227,12 +245,22 @@ bool RfStats::load() {
   if(ok) {
     for(uint8_t i = 0; i < hdr[6]; i++) {
       if(f.read((uint8_t *)&this->entries[i], sizeof(rf_stats_entry_t)) != sizeof(rf_stats_entry_t)) {
-        this->entries[i].clear();
+        ok = false;  // truncated body: distrust the whole file, not just this row
         break;
       }
     }
   }
   f.close();
+  // Flash corruption that keeps the header intact can still poison the floats; a
+  // NaN in an EWMA never recovers and breaks the JSON output (%f prints nan).
+  if(ok) {
+    if(!isfinite(this->noiseEwma) || !isfinite(this->noiseBaseline)) ok = false;
+    if(!isfinite(this->epochCur.noiseAvg) || !isfinite(this->epochPrev.noiseAvg)) ok = false;
+    for(uint8_t i = 0; ok && i < RF_STATS_MAX_ENTRIES; i++) {
+      if(this->entries[i].address == 0) continue;
+      if(!isfinite(this->entries[i].rssiAvg) || !isfinite(this->entries[i].rssiEwma)) ok = false;
+    }
+  }
   if(!ok) {
     // Unknown or stale layout: start fresh rather than trusting partial reads.
     this->noiseEwma = this->noiseBaseline = 0.0f;

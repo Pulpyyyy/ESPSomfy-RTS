@@ -43,6 +43,11 @@ def merge_js_tags(text: str) -> str:
     text = text.replace(tags[0], f'<script src="index.js{ver}"></script>\n', 1)
     for t in tags[1:]:
         text = text.replace(t, "", 1)
+    # Fail the build loudly if any chunk reference survived (an attribute added to a
+    # tag, quoting changed...): the js/ directory is never shipped, so a leftover
+    # tag would 404 in production with no other symptom.
+    if 'src="js/' in text:
+        raise RuntimeError("merge_js_tags: a js/ chunk tag did not match the merge pattern")
     return text
 
 def minify_html(text: str) -> str:
@@ -173,7 +178,9 @@ def concat_js_chunks(src_dir: str, dst_dir: str):
     if not parts:
         return
     gz_path = os.path.join(dst_dir, "index.js.gz")
-    write_gz("".join(parts).encode("utf-8"), gz_path)
+    # Join with a newline: a chunk missing its trailing newline must not glue its
+    # last line (possibly a // comment) onto the first line of the next chunk.
+    write_gz("\n".join(parts).encode("utf-8"), gz_path)
     new_sz = os.path.getsize(gz_path)
     pct = ((total - new_sz) / total * 100) if total else 0
     print(f"  {'js/* -> index.js':<30} {total:>7} -> {new_sz:>7} B ({pct:>3.0f}%) [concat+gzip]")

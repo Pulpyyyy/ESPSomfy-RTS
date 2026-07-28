@@ -515,11 +515,17 @@ void Transceiver::processFrequencyScan(bool received) {
   // scanPhase == 3: hold the result on screen until the user ends the scan.
 }
 void Transceiver::endFrequencyScan() {
-  if(rxmode == 3) {
-    rxmode = 0;
+  // Also runs when a transmission killed the scan (rxmode left 3 via
+  // disableReceive): the state machine must still be reset and the configured
+  // frequency/bandwidth restored, otherwise the radio stays parked on the scan
+  // frequency at 58kHz and the UI stop button does nothing.
+  if(rxmode == 3 || scanPhase != 0) {
+    if(rxmode == 3) {
+      rxmode = 0;
+      if(interruptPin > 0) detachInterrupt(interruptPin);
+      interruptPin = 0;
+    }
     scanPhase = 0;
-    if(interruptPin > 0) detachInterrupt(interruptPin);
-    interruptPin = 0;
     this->config.apply();
     this->emitFrequencyScan();
   }
@@ -1119,6 +1125,10 @@ void Transceiver::loop() {
 somfy_frame_t& Transceiver::lastFrame() { return this->frame; }
 void Transceiver::beginTransmit() {
     if(this->config.enabled) {
+      // A command issued while a frequency scan runs must not go out on the scan
+      // frequency (up to 0.5MHz off, possibly at 58kHz bandwidth).  Abort the scan
+      // cleanly first: config.apply() retunes the radio, the emit tells the UI.
+      if(rxmode == 3) this->endFrequencyScan();
       this->disableReceive();
       pinMode(this->config.TXPin, OUTPUT);
       digitalWrite(this->config.TXPin, 0);

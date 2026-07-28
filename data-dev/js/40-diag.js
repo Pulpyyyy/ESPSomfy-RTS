@@ -24,7 +24,8 @@ class RfDiag {
         if (this.refreshTimer) clearTimeout(this.refreshTimer);
         this.refreshTimer = setTimeout(() => {
             this.refreshTimer = null;
-            this.reload();
+            // The user may have navigated away during the debounce window.
+            if (this.isVisible()) this.reload();
         }, 1500);
     }
     // ---- Guided measurement session ----
@@ -41,6 +42,12 @@ class RfDiag {
         }
         this.guided = { shades, idx: 0, samples: [] };
         let div = get('divRfGuided');
+        // A div caught mid exit-animation is about to be removed: rebuild instead of
+        // writing into a node that disappears 300ms later.
+        if (div && div.classList.contains('overlay-exit')) {
+            div.remove();
+            div = null;
+        }
         if (!div) {
             div = document.createElement('div');
             div.id = 'divRfGuided';
@@ -68,12 +75,14 @@ class RfDiag {
             </div>
             </div>
             </div>`;
-            shOverlay(div);
-            div.querySelector('#btnRfGuidedClose').onclick = () => {
+            // The header X, Escape and the footer button must all tear the wizard
+            // down the same way, or a stray remoteFrame dereferences removed nodes.
+            const terminate = () => {
                 this.guided = null;
-                closeOverlay(div);
                 this.load();
             };
+            shOverlay(div, terminate);
+            div.querySelector('#btnRfGuidedClose').onclick = () => closeOverlay(div, terminate);
         }
         this.guidedShow();
     }
@@ -92,6 +101,12 @@ class RfDiag {
     guidedFrame(frame) {
         const g = this.guided;
         if (!g) return false;
+        // Overlay gone but state left behind (should not happen since every close
+        // path clears it, but a frame in flight must never crash procRemoteFrame).
+        if (!get('divRfGuided')) {
+            this.guided = null;
+            return false;
+        }
         const shade = g.shades[g.idx];
         // Frames from unrelated remotes are ignored but still consumed by the wizard.
         if ((shade.linkedRemotes || []).some((r) => r.remoteAddress === frame.address)) {
@@ -104,6 +119,7 @@ class RfDiag {
     }
     guidedSave() {
         const g = this.guided;
+        if (!g) return;
         // Store against the address that actually produced the burst (a shade can
         // have several linked remotes; the user pressed one of them).
         const counts = {};
@@ -115,7 +131,9 @@ class RfDiag {
         });
     }
     guidedNext() {
+        // The wizard may have been closed while /setGuidedRssi was in flight.
         const g = this.guided;
+        if (!g) return;
         if (++g.idx >= g.shades.length) {
             this.guided = null;
             const div = get('divRfGuided');
@@ -177,10 +195,11 @@ class RfDiag {
         return trf('RFDIAG_AGO_DAYS', Math.floor(secs / 86400));
     }
     epochText(e) {
+        // Under an hour of data a frames/day extrapolation would be noise: show --.
         const perDay = e.seconds >= 3600 ? Math.round(e.frames * 86400 / e.seconds) : null;
         return trf('RFDIAG_EPOCH_LINE',
             e.frequency.toFixed(3),
-            perDay !== null ? perDay : `(${e.frames})`,
+            perDay !== null ? perDay : '--',
             e.floor || '--',
             e.noiseAvg ? e.noiseAvg.toFixed(1) : '--',
             e.start ? this.lastSeenText(e.start) : tr('RFDIAG_EPOCH_THISBOOT'));
