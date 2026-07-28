@@ -1339,10 +1339,6 @@ div.frame-pulses {
     display:none;
 }
 /* RF diagnostics */
-.rfdiag-value {
-    font-weight: 600;
-    font-size: var(--fs-md);
-}
 .rfdiag-log > div.frame-header,
 .rfdiag-log > div.frame-list { min-width: 640px; }
 .rfdiag-log .frame-list { min-height: 0; }
@@ -1372,7 +1368,7 @@ div.frame-pulses {
 .rfdiag-alert { color: var(--status-warn); }
 /* The summary values (frequency, noise floor...) must never wrap under the
    long descriptions on narrow screens. */
-.rfdiag-value { white-space: nowrap; }
+.rfdiag-value { white-space: nowrap; font-weight: 600; font-size: var(--fs-md); }
 #divRFDiagnostics .uniRight { flex-shrink: 0; margin-left: 12px; }
 /* Phone layout: the name/badge/RSSI triplet is the useful signal; frames and
    last-seen live in the tooltip world and give the width back. */

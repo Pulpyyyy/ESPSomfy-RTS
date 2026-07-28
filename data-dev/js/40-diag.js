@@ -938,8 +938,15 @@ class Firmware {
         err = null;
 
         if (!filename) err = (service === '/restore') ? 'ERR_NO_FILE_BACKUP_SELECTED' : (service === '/updateApplication' ? 'ERR_NO_FILE_LITTLEFS_SELECTED' : 'ERR_NO_FILE_FIRMWARE_SELECTED');
-        else if (service === '/updateApplication' && (!filename.includes('.littlefs') || !filename.endsWith('.bin'))) err = 'ERR_INVALID_FILE_LITTLEFS';
-        else if (service === '/updateFirmware' && (!filename.includes('.ino.') || !filename.endsWith('.bin'))) err = 'ERR_INVALID_FILE_FIRMWARE';
+        else if (service === '/updateApplication' || service === '/updateFirmware') {
+            // Validate by CONTENT, not filename: a locally built littlefs.bin is as
+            // valid as the release-named artifact.  LittleFS carries its magic at
+            // offset 8 of the superblock; an ESP32 app image starts with 0xE9.
+            const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+            const isLfs = String.fromCharCode(...head.slice(8, 16)) === 'littlefs';
+            if (service === '/updateApplication' && !isLfs) err = 'ERR_INVALID_FILE_LITTLEFS';
+            else if (service === '/updateFirmware' && (head[0] !== 0xE9 || isLfs)) err = 'ERR_INVALID_FILE_FIRMWARE';
+        }
         else if (service === '/restore') {
             if (file.size > 20480) {
                 ui.errorMessage(title).querySelector('.sub-message').innerHTML = tr('ERR_BACKUP_TOO_LARGE').replace('%s', file.size.fmt("#,##0"));
