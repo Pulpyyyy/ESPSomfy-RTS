@@ -60,8 +60,10 @@ void Web::loop() {
   apiServer.handleClient();
   delay(1);
 }
-void Web::sendCORSHeaders(WebServer &server) { 
-    //server.sendHeader(F("Connection"), F("Keep-Alive")); 
+void Web::sendCORSHeaders(WebServer &server) {
+    // Every handler passes through here first: a cheap place to record UI activity.
+    this->lastActivity = millis();
+    //server.sendHeader(F("Connection"), F("Keep-Alive"));
     //server.sendHeader(F("Keep-Alive"), F("timeout=5, max=1000"));
     //server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
     //server.sendHeader(F("Access-Control-Max-Age"), F("600"));
@@ -115,8 +117,15 @@ void Web::handleStreamFile(WebServer &server, const char *filename, const char *
       server.sendHeader("Content-Encoding", "gzip");
   }
   server.send(200, encoding, "");
-  server.client().write(file); 
-  
+  // Copy through g_content (idle during a file stream) in 4KB chunks instead of
+  // WiFiClient::write(Stream&)'s internal 1360-byte loop: page-aligned LittleFS
+  // reads and fewer socket writes roughly double the asset throughput, which is
+  // what the first cold page load is made of.
+  size_t n;
+  while((n = file.read((uint8_t *)g_content, sizeof(g_content))) > 0) {
+    server.client().write((const uint8_t *)g_content, n);
+    esp_task_wdt_reset();
+  }
   file.close();
  
   esp_task_wdt_reset();

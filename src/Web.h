@@ -13,6 +13,9 @@ private:
   void _loginFailed();
 public:
   bool uploadSuccess = false;
+  // millis() of the last served HTTP request; lets background work that blocks
+  // the loop (the GitHub release check) stay out of the way of an active UI.
+  uint32_t lastActivity = 0;
   // Length-independent comparison, so a wrong secret cannot be narrowed down by timing.
   static bool secureEquals(const char *a, const char *b);
   void handleLang(WebServer &server);
