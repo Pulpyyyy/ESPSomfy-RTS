@@ -957,7 +957,7 @@ display: none;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-panel);
-    font-size: 0.75em;
+    font-size: var(--fs-xs);
     font-weight: bold;
     cursor: pointer;
     transition: transform 0.1s, filter 0.1s;
@@ -1740,7 +1740,7 @@ div.frame-pulses {
         display: inline-block !important;
     }
     .gpioRadio-container {
-        font-size: 0.75em;
+        font-size: var(--fs-xs);
     }
 }
 

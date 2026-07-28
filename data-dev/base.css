@@ -892,7 +892,7 @@ button[line] {
     }
 button[pop] {
     padding: 1px 8px;
-    font-size: 0.85em;
+    font-size: var(--fs-sm);
     border-radius: var(--radius-panel);
     font-weight: 500;
     text-transform: none;
