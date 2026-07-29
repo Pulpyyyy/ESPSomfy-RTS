@@ -337,6 +337,19 @@ class RfDiag {
             noise.classList.toggle('rfdiag-alert', stats.noiseSamples > 360 && stats.noise - stats.noiseBaseline >= 6);
         }
         else noise.textContent = '--';
+        // Board-side WiFi link: from the user's chair a flapping or weak WiFi is
+        // indistinguishable from an RF problem, so it belongs on this page.
+        const wifi = stats.wifi || {};
+        const show = typeof wifi.rssi === 'number' && wifi.rssi < 0;
+        get('rowRfDiagWifi').style.display = show ? '' : 'none';
+        get('hrRfDiagWifi').style.display = show ? '' : 'none';
+        if (show) {
+            const span = get('spanRfDiagWifi');
+            span.textContent = `${wifi.rssi} dBm`
+                + (wifi.reconnects ? ` · ${trf('RFDIAG_WIFI_RECONNECTS', wifi.reconnects)}` : '');
+            span.title = trf('RFDIAG_WIFI_DETAIL', wifi.channel, wifi.reconnects);
+            span.classList.toggle('rfdiag-alert', wifi.rssi <= -80 || wifi.reconnects >= 5);
+        }
         this.setEpochs(stats);
         // A guided measurement (taken at the shade's position) outranks the passive
         // EWMA, which only reflects wherever the remote is usually pressed from.

@@ -839,6 +839,14 @@ void Web::beginRadioRoutes() {
     resp.beginObject();
     resp.addElem("frequency", somfy.transceiver.config.frequency);
     rfStats.toJSON(resp);
+    // The board's own link belongs on the same page: a weak or flapping WiFi
+    // reads exactly like an RF problem from the user's side.
+    resp.beginObject("wifi");
+    resp.addElem("rssi", net.connType == conn_types_t::wifi ? (int32_t)WiFi.RSSI() : (int32_t)0);
+    resp.addElem("channel", (int32_t)net.channel);
+    resp.addElem("reconnects", (uint32_t)net.reconnects);
+    resp.addElem("uptime", (uint32_t)(net.connectedAt > 0 ? (millis() - net.connectedAt) / 1000 : 0));
+    resp.endObject();
     resp.endObject();
     resp.endResponse();
   });
