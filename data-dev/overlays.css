@@ -94,7 +94,7 @@ div.wait-overlay .wait-label {
 }
 /* "Already on this version" note in the GitHub update dialog. */
 .upToDateNote {
-    gap: 8px;
+    gap: var(--sp-8);
     color: var(--accent-sucess);
     font-size: var(--fs-sm);
 }
@@ -106,7 +106,7 @@ div.wait-overlay .wait-label {
 }
 /* Demoted technical line inside service-error dialogs. */
 .error-content .service-detail {
-    margin-top: 12px;
+    margin-top: var(--sp-12);
     font-size: var(--fs-xs);
     opacity: 0.7;
     word-break: break-all;
@@ -246,7 +246,7 @@ div.wait-overlay .wait-label {
 }
     .success-content {
         color: var(--color);
-        gap: 10px;
+        gap: var(--sp-10);
     }
     .success-content svg {
         width: 20px;
@@ -261,7 +261,7 @@ div.wait-overlay .wait-label {
     width:100%;
         top:0px;
     left:0px;
-    padding-right:24px;
+    padding-right:var(--sp-24);
     text-align:right;
     font-size:var(--fs-lg);
 }
@@ -272,7 +272,7 @@ div.wait-overlay .wait-label {
     top: 0; left: 0; right: 0; bottom: 0;
     min-height: 100%;
     max-height: calc(100% - 20px);
-    padding: 20px;
+    padding: var(--sp-20);
     overflow-y: auto;
     color: var(--color);
     background: var(--wait-overlay);
@@ -292,7 +292,7 @@ div.wait-overlay .wait-label {
     border: 1px solid var(--border);
 }
 .overlay-scroll-content {
-    padding-bottom: 20px;
+    padding-bottom: var(--sp-20);
 }
 .expert-only-buttons,
 .button-container-overlay {
@@ -301,13 +301,13 @@ div.wait-overlay .wait-label {
 /*expert mode + button close*/
 .overlay-header {
     justify-content: flex-end;
-    gap: 16px;
+    gap: var(--sp-16);
     margin: 0px -16px 2px auto;
     height: 40px;
     z-index: 10;
 }
 .expert-mode-container {
-    gap: 8px;
+    gap: var(--sp-8);
     user-select: none;
 }
 .expert-label {
@@ -370,7 +370,7 @@ div.wait-overlay .wait-label {
 .error-content {
     max-width: 550px;
     text-align: center;
-    gap: 20px;
+    gap: var(--sp-20);
     padding:30px;
 }
 /* Long content (multi-line errors, notes) must scroll inside the dialog instead of
@@ -398,14 +398,14 @@ div.wait-overlay .wait-label {
 .instructions .sub-message,
 .prompt-message .sub-message {
     font-size: var(--fs-sm);
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-left: var(--sp-10);
+    padding-right: var(--sp-10);
 }
 .prompt-message .prompt-text {
     text-align:center;
     width: 100%;
     font-size: var(--fs-xxl);
-    margin-bottom: 15px;
+    margin-bottom: var(--sp-15);
 }
 .promp-message > .inner-error,
 .error-message > .inner-error {
@@ -413,7 +413,7 @@ div.wait-overlay .wait-label {
 }
 div.prompt-message,
 div.error-message > div {
-    padding:20px;
+    padding:var(--sp-20);
 }
 div.error-message > .sub-message {
     font-size:var(--fs-sm);
@@ -498,7 +498,7 @@ div.error-message,
         height: 24px;
         border-radius: 50%;
         font-size: var(--fs-xs);
-        margin-right: 12px;
+        margin-right: var(--sp-12);
         flex-shrink: 0;
         margin-top: 2px;
     }
@@ -533,7 +533,7 @@ div.error-message,
 .is-expert .expert-only-buttons {
     display: flex !important;
     justify-content: center;
-    margin-top: 20px;
+    margin-top: var(--sp-20);
 }
 .is-expert [data-expert] {
     display: flex !important;
@@ -555,7 +555,7 @@ div.error-message,
     --step-width: calc(100% / var(--steps));
     display: flex;
     justify-content: space-between;
-    margin: 10px 0 10px 0;
+    margin: var(--sp-10) 0 var(--sp-10) 0;
     position: relative;
     width: 100%;
 }
@@ -615,7 +615,7 @@ div.error-message,
 /* Step title */
 .step-title-container {
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-10);
     min-height: 24px;
 }
 .step-title {
@@ -641,7 +641,7 @@ div.error-message,
 .blocsteps-row {
     flex-direction: row;
     width: 100%;
-    margin-top: 15px;
+    margin-top: var(--sp-15);
     background: var(--unibloc-color);
     border-radius: var(--radius-button);
     border: 1px solid var(--border);
@@ -653,7 +653,7 @@ div.error-message,
     color: var(--color);
     text-align:center;
     flex: 1;
-    margin-right: 20px;
+    margin-right: var(--sp-20);
 }
 .LinkGroupSelect,
 #btnSendPairing,
@@ -710,7 +710,7 @@ div.error-message,
     display: none;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--sp-8);
     cursor: pointer;
     z-index: var(--z-banner);
 }
@@ -735,13 +735,13 @@ button[line].fw-sidebar-button:hover,
     font-weight: bold;
     background: #fcfcfc;
     color: var(--txtwarning-color);
-    padding: 2px 12px;
+    padding: 2px var(--sp-12);
     border-radius: var(--radius-bloc);
     border-top: none;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     width: fit-content;
     margin: auto;
-    margin-top: 4px;
+    margin-top: var(--sp-4);
     border: 1px solid var(--txtwarning-color);
 }
 
@@ -786,7 +786,7 @@ button[line].fw-sidebar-button:hover,
 }
 .divGitNoteError {
     text-align:center;
-    padding:15px;
+    padding:var(--sp-15);
     line-height:1.4;
 }
     .gitNoteError {
@@ -797,7 +797,7 @@ button[line].fw-sidebar-button:hover,
         color: var(--soustxt-color);
     }
 #divGitInstall .hrDivFooter {
-    margin: 0 -30px 15px -30px;
+    margin: 0 -30px var(--sp-15) -30px;
 }
 .v-step-item {
     display: flex;
@@ -832,7 +832,7 @@ margin: 0;
 }
 .v-step-right {
     flex: 1;
-    padding-left: 20px;
+    padding-left: var(--sp-20);
     height: 40px;
     min-width: 0;
 }
@@ -843,7 +843,7 @@ margin: 0;
     border-radius: var(--radius-bloc);
     cursor: pointer;
     transition: all 0.2s ease;
-    padding: 5px 7px 5px 15px !important;
+    padding: 5px 7px 5px var(--sp-15)!important;
 }
 
 .custom-file-upload:hover {
@@ -855,7 +855,7 @@ margin: 0;
     color: var(--color);
     flex: 1;
     opacity: 0.6;
-    padding-right: 10px;
+    padding-right: var(--sp-10);
 }
 .file-icon-btn {
     background: var(--accent-color);
@@ -899,7 +899,7 @@ cursor: pointer;
 /*Mardown*/
  .md-code-inline {
     background: rgba(120, 120, 120, 0.2);
-    padding: 2px 4px;
+    padding: 2px var(--sp-4);
     border-radius: var(--radius-chip);
     font-family: monospace;
     font-size: 0.9em; /* intentionally relative: inline code scales with its host text */
@@ -918,7 +918,7 @@ cursor: pointer;
     text-align: left;
 }
 .md-list li {
-    margin-bottom: 4px;
+    margin-bottom: var(--sp-4);
     line-height: 1.4;
     display: list-item;
 }
@@ -941,7 +941,7 @@ cursor: pointer;
     .nav-arrow {
         display: none;
         cursor: pointer;
-        padding: 0 10px;
+        padding: 0 var(--sp-10);
         transition: color 0.2s;
         z-index: 5;
     }
@@ -955,7 +955,7 @@ cursor: pointer;
     }
 .room-pill {
     flex: 0 0 auto !important;
-    padding: 8px 18px;
+    padding: var(--sp-8) 18px;
     background: var(--room-pill);
     border-radius: var(--radius-button);
     color: var(--color);
@@ -970,7 +970,7 @@ cursor: pointer;
 }
 .empty-state-container {
     flex-direction: column;
-    padding: 40px 20px;
+    padding: 40px var(--sp-20);
     color: var(--soustxt-color);
     text-align: center;
     opacity: 0.6;
@@ -978,7 +978,7 @@ cursor: pointer;
 .empty-state-container svg {
     width: 100px;
     height: 100px;
-    margin-bottom: 15px;
+    margin-bottom: var(--sp-15);
     color: var(--barreRoomBg);
 }
 .empty-state-container p {
@@ -993,11 +993,11 @@ cursor: pointer;
 .somfyRepeater,
 .drag-ghost {
     height: 38px;
-    padding: 12px 15px;
+    padding: var(--sp-12) var(--sp-15);
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
     flex-direction: row;
-    gap: 12px;
+    gap: var(--sp-12);
     box-sizing: border-box;
 }
 .room-draggable,
@@ -1053,10 +1053,10 @@ cursor: pointer;
 .somfyShade {
     flex-direction: row;
     width: 100%;
-    padding: 12px 15px;
-    gap: 12px;
+    padding: var(--sp-12) var(--sp-15);
+    gap: var(--sp-12);
     border-radius: var(--radius-bloc);
-    margin-bottom: 8px;
+    margin-bottom: var(--sp-8);
 }
 .room-name,
 .group-name,
@@ -1080,16 +1080,16 @@ cursor: pointer;
 .LinkedList {
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
-    padding: 15px 20px;
-    margin-top: 15px;
+    padding: var(--sp-15) var(--sp-20);
+    margin-top: var(--sp-15);
 }
 .linkedRheader {
     color: var(--soustxt-color);
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-10);
     margin-left: -20px;
     margin-right: -20px;
     margin-top: -15px;
-    padding: 10px 20px;
+    padding: var(--sp-10) var(--sp-20);
     border-bottom: 1px solid var(--background-color);
 }
 .linkedScrollArea {
@@ -1098,10 +1098,10 @@ cursor: pointer;
     padding-right: 5px;
 }
 .somfyLinkedRemote {
-    padding-right: 10px;
+    padding-right: var(--sp-10);
 }
 .linkedWrap {
-    margin-right: 10px;
+    margin-right: var(--sp-10);
 }
     .linkedWrap svg {
         color: var(--buttonMy);
@@ -1212,7 +1212,7 @@ cursor: pointer;
     min-width: 0;
 }
 .shadectl-main-content {
-    padding: 8px;
+    padding: var(--sp-8);
     width: 100%;
     flex-wrap: wrap;
 }
@@ -1229,7 +1229,7 @@ cursor: pointer;
 .somfyShadeCtl .shade-name {
     justify-content: center;
     flex: 1;
-    padding-left: 10px;
+    padding-left: var(--sp-10);
 }
 .somfyShadeCtl .shadectl-buttons {
     flex-direction: row;
@@ -1258,7 +1258,7 @@ cursor: pointer;
         animation: pulse-warning 1.5s infinite;
     }
 .status-group-right{
-    gap: 4px;
+    gap: var(--sp-4);
     justify-content: flex-end;
 }
     .button-my,
@@ -1314,7 +1314,7 @@ cursor: pointer;
 }
 .myShade-badge {
     color: var(--soustxt-color);
-    padding: 2px 8px;
+    padding: 2px var(--sp-8);
     border-radius: var(--radius-card);
     font-size: var(--fs-xs);
     font-weight: bold;
@@ -1328,7 +1328,7 @@ cursor: pointer;
     position:relative;
     height:80px;
     max-width: 964px;
-    padding: 8px;
+    padding: var(--sp-8);
     margin: 19px auto;
     border-radius: var(--radius-bloc);
     border: 1px solid var(--borderShadeCtl);
@@ -1377,7 +1377,7 @@ cursor: pointer;
 }
 .somfyGroupCtl .groupctl-buttons {
     margin-top:0;
-    gap: 4px;
+    gap: var(--sp-4);
 }
 /*Popup openSetMyPosition and openSetPosition*/
 .shade-positioner {
@@ -1403,12 +1403,12 @@ cursor: pointer;
     justify-content: center;
     height: 100%;
     width: 100%;
-    padding: 0 15px;
+    padding: 0 var(--sp-15);
 }
     .popup-actions {
         display:flex;
         justify-content: flex-end;
-        gap: 8px;
+        gap: var(--sp-8);
     }
 .slider-header {
     display: flex;
@@ -1471,31 +1471,31 @@ cursor: pointer;
     height: 110px;
 }
 /* HomeAssistant page */
-.ha-overlay-content { padding: 10px 15px; }
+.ha-overlay-content { padding: var(--sp-10) var(--sp-15); }
 
 .ha-section-title {
     margin-top: 25px;
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-10);
 }
 .ha-install-list {
     margin: 0;
-    padding-left: 24px;
+    padding-left: var(--sp-24);
     line-height: 1.5;
 }
 .ha-install-list li { margin-bottom: 6px; }
 .ha-install-list li:last-child { margin-bottom: 0; }
-.ha-warning-note { margin: 25px 0 15px 0; }
+.ha-warning-note { margin: 25px 0 var(--sp-15) 0; }
 
 .ha-badge-container {
     text-align: center;
-    margin: 25px 0 15px 0;
+    margin: 25px 0 var(--sp-15) 0;
 }
 .ha-badge-button {
     display: inline-flex;
     align-items: center;
     background-color: #03a9f4;
     height: 44px;
-    padding: 0 7px 0 20px;
+    padding: 0 7px 0 var(--sp-20);
     border-radius: var(--radius-button);
     text-decoration: none;
     box-shadow: 0 2px 5px rgba(0,0,0,0.15);
@@ -1518,7 +1518,7 @@ cursor: pointer;
     align-items: center;
     background-color: #e8f4fa;
     height: 32px;
-    padding: 0 10px;
+    padding: 0 var(--sp-10);
     border-radius: var(--radius-button);
 }
 .ha-badge-pill svg {
@@ -1537,18 +1537,18 @@ cursor: pointer;
 .ha-github-link-container {
     font-size: 0.85em;
     opacity: 0.6;
-    margin-top: 12px;
+    margin-top: var(--sp-12);
 }
 /* wifi*/
 .wifiConnectScan {
-    margin-bottom:10px;
+    margin-bottom:var(--sp-10);
 }
 .no-wifi {
-    padding: 20px 10px;
+    padding: var(--sp-20) var(--sp-10);
     text-align: center;
 }
 .no-wifi > div{
-    margin-bottom: 20px;
+    margin-bottom: var(--sp-20);
     color: var(--txtwarning-color);
     font-weight: bold;
     justify-content: center;
@@ -1561,7 +1561,7 @@ cursor: pointer;
     display: flex;
     justify-content: center;
     width: 100%;
-    margin: 15px 0;
+    margin: var(--sp-15) 0;
 }
 div.eth-setting-line {
     font-size:var(--fs-xs);
@@ -1573,14 +1573,14 @@ div.eth-setting-line span {
     color: var(--txtwarning-color);
 }
 div.eth-setting-line label {
-    margin-right: 4px;
+    margin-right: var(--sp-4);
     display:inline-block;
     min-width: 130px;
     text-align:right;
     color: var(--color);
 }
 .safety-checkbox-container {
-    gap:15px;
+    gap:var(--sp-15);
     width:100%;
     margin:0;
     text-align:left;
@@ -1653,10 +1653,10 @@ div.eth-setting-line label {
     font-weight: normal;
 }
 .uniblocrRssiCanvas {
-    padding: 10px;
+    padding: var(--sp-10);
     height: 105px;
     background:#333;
-    margin-top: 15px;
+    margin-top: var(--sp-15);
     border-radius: var(--radius-bloc);
 }
     .uniblocrRssiCanvas canvas {
@@ -1664,20 +1664,20 @@ div.eth-setting-line label {
         height: 100%;
     }
 .scanfreqwhat {
-    padding:15px;
+    padding:var(--sp-15);
     line-height:1.4;
 }
     .scanfreqwhat > div:first-child {
         font-weight:bold;
-        margin-bottom:10px;
+        margin-bottom:var(--sp-10);
         color:var(--accent-text);
     }
     .scanfreqwhat > span {
-        margin-right:8px;
+        margin-right:var(--sp-8);
         font-size:var(--fs-md);
     }
     .scanfreqwhat > p {
-        margin:0 0 8px 0;
+        margin:0 0 var(--sp-8) 0;
         opacity:0.8;
     }
     .scanfreqSignal svg {
@@ -1735,7 +1735,7 @@ div.eth-setting-line label {
         overflow-y: auto;
         overflow-x: hidden;
         width: 100%;
-        padding: 15px;
+        padding: var(--sp-15);
         box-sizing: border-box;
         -webkit-overflow-scrolling: touch;
         margin-bottom: 0;
@@ -1756,16 +1756,16 @@ div.eth-setting-line label {
         min-height: 100dvh;
         max-height: none;
         flex-grow: 1;
-        padding-top: 20px;
+        padding-top: var(--sp-20);
     }
     .ha-overlay-content {
-        padding: 10px 15px;
+        padding: var(--sp-10) var(--sp-15);
     }
     .expert-only-buttons,
     .button-container-overlay {
         flex-shrink: 0;
         width: 100%;
-        padding: 10px;
+        padding: var(--sp-10);
         background: var(--unibloc-color);
         border-top: 1px solid var(--border);
         box-sizing: border-box;
@@ -1800,7 +1800,7 @@ div.eth-setting-line label {
         visibility: hidden;
         transform: translateY(100%);
         background: var(--unibloc-color);
-        padding: 8px 20px;
+        padding: var(--sp-8) var(--sp-20);
         box-shadow: 0 -5px 15px rgba(0,0,0,0.2);
         z-index: 9999;
         margin: 0;
@@ -1825,14 +1825,14 @@ div.eth-setting-line label {
         flex: 1 !important;
         display: flex !important;
         flex-direction: column !important;
-        padding: 20px 20px 0 20px !important;
+        padding: var(--sp-20) var(--sp-20) 0 var(--sp-20)!important;
         overflow: hidden !important;
     }
     .overlay-static-content .release-notes-preview {
         flex: 1 !important;
         max-height: none !important;
         overflow-y: auto !important;
-        margin-top: 10px;
+        margin-top: var(--sp-10);
         -webkit-overflow-scrolling: touch;
     }
 }
@@ -1849,6 +1849,6 @@ div.eth-setting-line label {
         display: none !important;
     }
     .footer-overlay button{
-        padding: 8px;
+        padding: var(--sp-8);
     }
 }

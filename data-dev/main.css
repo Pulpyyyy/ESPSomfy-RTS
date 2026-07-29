@@ -23,7 +23,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 var(--sp-20);
     z-index: var(--z-topbar);
 }
 .site-title {
@@ -31,7 +31,7 @@
     font-size: var(--fs-xl);
 }
 .top-bar-left {
-    gap: 10px;
+    gap: var(--sp-10);
 }
 .top-bar-left svg {
     display: block;
@@ -40,7 +40,7 @@
     height: 64px
 }
 .top-bar-right {
-    gap: 20px;
+    gap: var(--sp-20);
     /* Loading reveal: opacity fade instead of an animated blur (GPU cost). */
     opacity: 0.35;
     transition: opacity 0.5s ease;
@@ -48,18 +48,18 @@
 .status-item {
     display: flex;
     align-items: center;
-    padding-right: 20px;
+    padding-right: var(--sp-20);
     border-right: 1px solid var(--soustxt-color);
     height: 40px;
 }
 .status-options {
     display: inline-flex;
-    margin-left: 10px;
+    margin-left: var(--sp-10);
 }
 .opt-badge {
     font-size: var(--fs-sm);
     color: #ababab;
-    padding: 2px 8px;
+    padding: 2px var(--sp-8);
     border-radius: var(--radius-badge);
     border: 1px solid transparent;
     transition: all 0.3s ease;
@@ -72,7 +72,7 @@
     color: var(--on-accent);
 }
 .uptime-container {
-    gap: 15px;
+    gap: var(--sp-15);
 }
 .uptime-label {
     font-weight: normal;
@@ -86,7 +86,7 @@
 .uptime-values > div {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 8px;
+    gap: var(--sp-8);
     align-items: baseline;
     color: #ababab;
 }
@@ -100,7 +100,7 @@
 .sidebar {
     display: flex;
     flex-direction: column;
-    padding: 15px;
+    padding: var(--sp-15);
     height: calc(100vh - var(--topbar-height));
     height: calc(100dvh - var(--topbar-height));
     overflow-y: auto;
@@ -125,10 +125,10 @@ body[data-auth="false"] .container {
 }
 .sidebar-nav {
     flex-grow: 1;
-    gap: 10px;
+    gap: var(--sp-10);
 }
 .nav-item {
-    padding: 12px 15px;
+    padding: var(--sp-12) var(--sp-15);
     text-decoration: none;
     font-size: var(--fs-lg);
     color: var(--color);
@@ -152,7 +152,7 @@ body[data-auth="false"] .container {
 .nav-icon {
     width: 25px;
     height: 25px;
-    margin-right: 12px;
+    margin-right: var(--sp-12);
     fill: currentColor;
     flex-shrink: 0;
 }
@@ -168,7 +168,7 @@ body[data-auth="false"] .container {
     display: none;
     flex-direction: column;
     padding-left: 45px;
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-10);
 }
 .nav-group.open .submenu {
     display: flex;
@@ -177,7 +177,7 @@ body[data-auth="false"] .container {
     transform: rotate(180deg);
 }
 .sub-nav-item {
-    padding: 8px 0;
+    padding: var(--sp-8) 0;
     font-size: var(--fs-sm);
     color: var(--soustxt-color);
     text-decoration: none;
@@ -189,25 +189,25 @@ body[data-auth="false"] .container {
 }
 .sidebar-footer {
     margin-top: auto;
-    padding-top: 20px;
+    padding-top: var(--sp-20);
     flex-direction: column;
-    gap: 10px;
+    gap: var(--sp-10);
 }
 #barsideRadioDisable {
     background: #e74c3c;
     color: white !important;
-    padding: 2px 8px;
+    padding: 2px var(--sp-8);
     border-radius: var(--radius-badge);
     font-size: var(--fs-xs);
     font-weight: bold;
-    margin-left: 10px;
+    margin-left: var(--sp-10);
     white-space: nowrap;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 .tab-container { display: none; }
 /* Page title injected by syncNavigationState ("Somfy › Volets"). */
 .subtab-content > .panel-title {
-    margin: 8px 0 15px;
+    margin: var(--sp-8) 0 var(--sp-15);
     font-size: var(--fs-lg);
     font-weight: bold;
     color: var(--color);
@@ -222,12 +222,12 @@ body[data-auth="false"] .container {
     background: var(--barreRoomBg);
     overflow: hidden;
     gap: 2px;
-    padding: 10px;
+    padding: var(--sp-10);
 }
 .subtab-container > span {
     display: flex;
     justify-content: center;
-    padding: 4px 8px;
+    padding: var(--sp-4) var(--sp-8);
     font-size: var(--fs-xs);
     cursor: pointer;
 }
@@ -239,7 +239,7 @@ body[data-auth="false"] .container {
 .subtab-content {
     max-width: 900px;
     margin: auto;
-    padding: 15px 25px 25px 25px;
+    padding: var(--sp-15) 25px 25px 25px;
     position: relative;
     flex-grow: 1;
 }
@@ -254,7 +254,7 @@ body[data-auth="false"] .container {
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 0 20px 0 20px;
+    padding: 0 var(--sp-20) 0 var(--sp-20);
     animation: slideUpFade 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) ;
     min-height: calc(100vh - var(--topbar-height));
 }
@@ -304,7 +304,7 @@ body[data-auth="false"] .container {
 .setup-guide {
     display: flex;
     flex-direction: row;
-    gap: 15px;
+    gap: var(--sp-15);
     padding: 0;
     width: 100%;
     margin: 0 auto;
@@ -314,8 +314,8 @@ body[data-auth="false"] .container {
 #divEmptyHomeB {
     display: flex;
     flex-direction: row;
-    gap: 15px;
-    margin-bottom: 15px;
+    gap: var(--sp-15);
+    margin-bottom: var(--sp-15);
 }
 .welcomeCard {
     position: relative;
@@ -475,7 +475,7 @@ body[data-auth="false"] .container {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 4px;
+    margin-top: var(--sp-4);
 }
 .credit-link {
     cursor: pointer;
@@ -484,7 +484,7 @@ body[data-auth="false"] .container {
     white-space: nowrap;
     background: var(--accent-color);
     border-radius: var(--radius-card);
-    padding: 2px 8px;
+    padding: 2px var(--sp-8);
     transition: all 0.2s;
 }
     .credit-link:hover {
@@ -546,7 +546,7 @@ div.signal use.active {
     letter-spacing: 0.5px;
 }
 .no-wifi {
-    padding: 30px 10px;
+    padding: 30px var(--sp-10);
     text-align: center;
     color: var(--soustxt-color);
     font-size: var(--fs-sm);
@@ -561,7 +561,7 @@ div.wifiSignal {
     align-items: center;
     justify-content: space-between;
     height: 44px;
-    padding: 0 10px;
+    padding: 0 var(--sp-10);
     cursor: pointer;
     transition: background 0.2s;
 }
@@ -589,13 +589,13 @@ div.wifiSignal {
 /* Shade, group and repeater page */
 .empty-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: 40px var(--sp-20);
     color: var(--soustxt-color);
 }
 .empty-icon {
     width: 160px;
     height: 160px;
-    margin-bottom: 20px;
+    margin-bottom: var(--sp-20);
     opacity: 0.3;
     fill: currentColor;
 }
@@ -637,8 +637,8 @@ div.wifiSignal {
     overflow-x: auto !important;
     overflow-y: hidden !important;
     width: 100%;
-    padding: 10px 15px;
-    gap: 10px;
+    padding: var(--sp-10) var(--sp-15);
+    gap: var(--sp-10);
     white-space: nowrap;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -688,7 +688,7 @@ div.wifiSignal {
     margin-left: auto;
     margin-right: auto;
     width: fit-content;
-    gap: 10px;
+    gap: var(--sp-10);
 }
     #divSomfyGroupButtons .btn-somfy-svg {
         width: 48px;
@@ -777,21 +777,21 @@ display: none;
     align-content: center;
     flex-direction: column;
     background: var(--unibloc-color);
-    padding: 20px;
+    padding: var(--sp-20);
     border-radius: var(--radius-bloc);
     border: 1px solid var(--borderShadeCtl);
     box-shadow: 0 0 6px 0 var(--shadowShadeCtl);
 }
 .vr-content .unibloc {
     background: var(--background-color);
-    margin: 0 0 15px;
+    margin: 0 0 var(--sp-15);
 }
 .vr-bloctoogle {
     display: flex;
     justify-content: space-between;
     width: 100%;
     padding: 5px;
-    gap: 15px;
+    gap: var(--sp-15);
 }.vr-progFav {
     margin-bottom: 25px;
     margin-top: -25px;
@@ -800,16 +800,16 @@ display: none;
 .vr-block-boutons {
     display: flex;
     align-items: stretch;
-    gap: 15px;
+    gap: var(--sp-15);
     min-height: 60px;
-    margin-bottom: 20px;
+    margin-bottom: var(--sp-20);
     width: 100%;
 }
 .vr-block-center {
     flex: 1;
     gap: 22px;
     justify-content: center;
-    padding: 10px;
+    padding: var(--sp-10);
 }
 .vr-toogle {
     width: 48%;
@@ -891,7 +891,7 @@ display: none;
 }
 .btn-prog { background: var(--background-color); color: var(--color); }
 .btn-fav  { background: var(--accent-color); color: var(--on-accent); border: none; }
-.switch-group { display: flex; gap: 5px; margin-bottom: 10px; }
+.switch-group { display: flex; gap: 5px; margin-bottom: var(--sp-10); }
 .switch-soleil, .switch-windy { flex: 1; display: flex; }
 .switch-group input { display: none; }
 .toggle-item {
@@ -937,8 +937,8 @@ display: none;
     position: relative;
     background: var(--background-color);
     border-radius: var(--radius-bloc);
-    padding: 15px;
-    gap: 10px;
+    padding: var(--sp-15);
+    gap: var(--sp-10);
     width: 100%;
 }
 .vrslidStepSize {
@@ -1023,7 +1023,7 @@ display: none;
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
-    gap: 0 4px;
+    gap: 0 var(--sp-4);
     font-size: var(--fs-sm);
     font-family: monospace;
 }
@@ -1063,7 +1063,7 @@ display: none;
     color: #fff;
     text-align: left;
     border-radius: var(--radius-panel);
-    padding: 10px;
+    padding: var(--sp-10);
     font-size: var(--fs-sm);
     box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
     border: 1px solid var(--borderShadeCtl);
@@ -1103,7 +1103,7 @@ display: none;
 .rssi-left {
     font-size: var(--fs-sm);
     display: flex;
-    gap: 4px;
+    gap: var(--sp-4);
 }
 .rssi-left span:last-child {
     color: var(--soustxt-color);
@@ -1176,7 +1176,7 @@ display: none;
     overflow-y: hidden;
     background: var(--unibloc-color);
     border-radius: var(--radius-panel);
-    margin-top: 15px;
+    margin-top: var(--sp-15);
 }
 .log-global-container > div.frame-header,
 .log-global-container > div.frame-list {
@@ -1192,7 +1192,7 @@ display: none;
 .frame-header {
     background: var(--accent-color);
     color: var(--on-accent);;
-    padding: 10px 0;
+    padding: var(--sp-10) 0;
     border-radius: 15px 15px 0 0;
 }
 .frame-list {
@@ -1215,7 +1215,7 @@ display: none;
 .frame-row {
     background: color-mix(in srgb, var(--unibloc-color), #000 20%);
     border-bottom: 1px solid rgba(255,255,255,0.05);
-    padding: 8px 0;
+    padding: var(--sp-8) 0;
 }
 .frame-list > .frame-row:nth-child(2n) { background: var(--unibloc-color); }
 
@@ -1243,7 +1243,7 @@ div.frame-pulses {
 .rfdiag-unknown .rfdiag-name { color: var(--soustxt-color); font-style: italic; }
 .rfdiag-badge {
     display: inline-block;
-    padding: 2px 10px;
+    padding: 2px var(--sp-10);
     border-radius: var(--radius-badge);
     font-size: var(--fs-xs);
     font-weight: 600;
@@ -1252,20 +1252,23 @@ div.frame-pulses {
 .rfdiag-badge.good { color: var(--status-good); background: color-mix(in srgb, var(--status-good) 15%, transparent); }
 .rfdiag-badge.fair { color: var(--status-warn); background: color-mix(in srgb, var(--status-warn) 15%, transparent); }
 .rfdiag-badge.weak { color: var(--status-bad); background: color-mix(in srgb, var(--status-bad) 15%, transparent); }
-.rfdiag-legend { padding: 6px 10px; font-size: var(--fs-xs); color: var(--soustxt-color); }
-.rfdiag-wiz-step { display: flex; align-items: baseline; gap: 10px; padding: 4px 10px; font-size: var(--fs-sm); }
+.rfdiag-legend { padding: 6px var(--sp-10); font-size: var(--fs-xs); color: var(--soustxt-color); }
+/* Scan button lives in the Wi-Fi card header, sized to its label. */
+.wifi-scan-row button { width: auto; padding: var(--sp-8) 18px; white-space: nowrap; }
+#divAps { margin: var(--sp-10) 0 var(--sp-4); }
+.rfdiag-wiz-step { display: flex; align-items: baseline; gap: var(--sp-10); padding: var(--sp-4) var(--sp-10); font-size: var(--fs-sm); }
 .rfdiag-wiz-step .rfdiag-wiz-mark { color: var(--soustxt-color); }
 .rfdiag-wiz-step.done .rfdiag-wiz-mark { color: var(--status-good); font-weight: 600; }
 .rfdiag-wiz-step.done { color: var(--soustxt-color); }
 /* Recommendation rows: compact inline apply button next to the badge. */
 .rfdiag-reco-row { cursor: default; }
-.rfdiag-reco-row .uniRight { gap: 10px; }
+.rfdiag-reco-row .uniRight { gap: var(--sp-10); }
 .rfdiag-reco-row button { width: auto; padding: 6px 14px; white-space: nowrap; }
 .rfdiag-alert { color: var(--status-warn); }
 /* The summary values (frequency, noise floor...) must never wrap under the
    long descriptions on narrow screens. */
 .rfdiag-value { white-space: nowrap; font-weight: 600; font-size: var(--fs-md); }
-#divRFDiagnostics .uniRight { flex-shrink: 0; margin-left: 12px; }
+#divRFDiagnostics .uniRight { flex-shrink: 0; margin-left: var(--sp-12); }
 /* Phone layout: the name/badge/RSSI triplet is the useful signal; frames and
    last-seen live in the tooltip world and give the width back. */
 @media (max-width: 640px) {
@@ -1284,16 +1287,16 @@ div.frame-pulses {
 .buttonUpdate.upd-available #ghUpdTitle { color: var(--status-warn); font-weight: 600; }
 /* Security */
 #divPinSecurity { justify-content: center; }
-#divPinSecurity label { margin: 20px; }
-#fldPinEntry { margin-top: 20px; }
+#divPinSecurity label { margin: var(--sp-20); }
+#fldPinEntry { margin-top: var(--sp-20); }
 
 #divUnauthenticated {
     flex-direction: column;
     min-height: calc(100vh - var(--topbar-height));
     width: 100%;
-    gap: 20px;
+    gap: var(--sp-20);
     background: var(--background-color);
-    padding: 20px;
+    padding: var(--sp-20);
 }
 /* ConfigOnly 401 flow: the login is shown as a modal on top of the running app
    instead of replacing the whole screen, so the user keeps their context. */
@@ -1315,7 +1318,7 @@ div.frame-pulses {
     font-weight: bold;
 }
 #divLoginPassword {
-    margin-bottom: 15px;
+    margin-bottom: var(--sp-15);
 }
 #divLoginPin label {
     display: block;
@@ -1353,7 +1356,7 @@ div.frame-pulses {
 }
 #divLoginPassword  .LoginPassword-input input {
     width: 100%;
-    padding: 12px 12px 12px 40px;
+    padding: var(--sp-12) var(--sp-12) var(--sp-12) 40px;
     border: 1px solid var(--border);
     border-radius: var(--radius-bloc);
     outline: none;
@@ -1379,7 +1382,7 @@ div.frame-pulses {
         display: grid;
         grid-template-columns: min-content auto min-content auto min-content auto;
         align-items: center;
-        gap: 4px 4px;
+        gap: var(--sp-4) var(--sp-4);
     }
     .gpioRadio-container .help-container {
         grid-row: 1 / span 2;
@@ -1428,12 +1431,12 @@ div.frame-pulses {
     .header {
         display: flex;
         justify-content: space-between;
-        padding: 5px 5px 20px 5px;
+        padding: 5px 5px var(--sp-20) 5px;
     }
     .headerIdentity {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: var(--sp-10);
         visibility: hidden;
     }
     .headerIdentity svg {
@@ -1479,7 +1482,7 @@ div.frame-pulses {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        margin-right: 10px;
+        margin-right: var(--sp-10);
         color: var(--soustxt-color);
         font-size: var(--fs-sm);
         font-weight: bold;
@@ -1494,7 +1497,7 @@ div.frame-pulses {
         background: #5cb85c;
     }
     .subtab-container > span {
-        padding: 10px 12px;
+        padding: var(--sp-10) var(--sp-12);
     }
     #divSystemOptions,
     #divSecurityOptions,
@@ -1540,7 +1543,7 @@ div.frame-pulses {
         cursor: pointer;
         transition: color 0.5s ease;
         background: var(--unibloc-color);
-        margin: 4px;
+        margin: var(--sp-4);
         border-radius: var(--radius-panel);
         padding: 2px;
     }
@@ -1596,7 +1599,7 @@ div.frame-pulses {
         min-height: calc(100dvh - var(--topbar-height));
     }
     #divUnauthenticated .welcomeTop { margin-bottom: 8%;}
-    #divUnauthenticated .button-container-row { gap: 12px; }
+    #divUnauthenticated .button-container-row { gap: var(--sp-12); }
 }
 @media screen and (max-width: 640px) {
     .hide550,
@@ -1618,7 +1621,7 @@ div.frame-pulses {
     }
     .subtab-container > span {
         font-size: var(--fs-xs);
-        padding: 8px 10px;
+        padding: var(--sp-8) var(--sp-10);
     }
     .subtab-NameHide-virtualRemote {
         display: none !important;
@@ -1644,5 +1647,5 @@ div.frame-pulses {
     width: max(100%, 44px); height: max(100%, 44px);
     transform: translate(-50%, -50%);
 }
-.sub-nav-item { padding: 12px 0; }
+.sub-nav-item { padding: var(--sp-12) 0; }
 .subtab-container > span { min-height: 36px; align-items: center; }
