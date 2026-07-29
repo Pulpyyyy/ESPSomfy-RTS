@@ -109,6 +109,12 @@ void Web::beginSystemRoutes() {
       rebootDelay.reboot = true;
       rebootDelay.rebootTime = millis() + 1000;
     }
+    else {
+      // A refused or aborted upload used to fall through without any response:
+      // the client saw a bare connection close and could not tell auth failure
+      // from a network problem.
+      server.send(400, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Restore upload refused or incomplete\"}"));
+    }
     }, []() {
       esp_task_wdt_reset();
       HTTPUpload& upload = server.upload();
