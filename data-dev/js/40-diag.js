@@ -171,6 +171,81 @@ class RfDiag {
             });
         });
     }
+    // Repeats ladder from the signal-to-noise margin. Each extra repeat trades
+    // airtime for reception probability; under 8 dB retries alone rarely save a
+    // link, so the advice string points at the antenna or a repeater instead.
+    recoRepeats(margin) {
+        if (margin >= 30) return 1;
+        if (margin >= 22) return 2;
+        if (margin >= 14) return 3;
+        if (margin >= 8) return 4;
+        return 5;
+    }
+    setReco(stats) {
+        this.lastStats = stats;
+        const div = get('divRfDiagReco');
+        const shades = (somfy.shades || []).filter((s) => (s.linkedRemotes || []).length);
+        const entries = stats.entries || [];
+        if (!shades.length || !entries.length || !(stats.noiseSamples > 0)) { div.style.display = 'none'; return; }
+        // The long-term baseline is the stable reference; the live EWMA dips and
+        // spikes with whatever is on the air right now.
+        const noiseRef = stats.noiseBaseline || stats.noise;
+        const rows = get('divRfDiagRecoRows');
+        div.style.display = '';
+        rows.innerHTML = '';
+        for (const shade of shades) {
+            let best = null;
+            for (const r of shade.linkedRemotes || []) {
+                const e = entries.find((x) => x.address === r.remoteAddress);
+                if (e && (!best || (e.guided || e.recent) > (best.guided || best.recent))) best = e;
+            }
+            const row = document.createElement('label');
+            row.className = 'uniRow rfdiag-reco-row';
+            const text = document.createElement('div');
+            text.className = 'uniText';
+            const right = document.createElement('div');
+            right.className = 'uniRight';
+            let status;
+            if (!best) status = tr('RFDIAG_RECO_NODATA');
+            else {
+                const level = best.guided || best.recent;
+                const margin = level - noiseRef;
+                const reco = this.recoRepeats(margin);
+                const cur = shade.repeats || 1;
+                status = trf('RFDIAG_RECO_MARGIN', margin.toFixed(1));
+                status += best.guided ? ' \u{1F4CD}' : ` — ${tr('RFDIAG_RECO_PASSIVE')}`;
+                if (margin < 8) status += ` — ${tr('RFDIAG_RECO_ADVICE')}`;
+                const badge = document.createElement('span');
+                badge.className = `rfdiag-badge ${margin >= 22 ? 'good' : margin >= 14 ? 'fair' : 'weak'}`;
+                badge.textContent = cur === reco
+                    ? trf('RFDIAG_RECO_OK', cur)
+                    : trf('RFDIAG_RECO_REPEATS', cur, reco);
+                right.appendChild(badge);
+                if (cur !== reco) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.setAttribute('line', '');
+                    btn.textContent = tr('RFDIAG_BT_APPLY');
+                    btn.addEventListener('click', (ev) => { ev.preventDefault(); this.applyReco(shade.shadeId, reco); });
+                    right.appendChild(btn);
+                }
+            }
+            text.innerHTML = `<div class="uniLabel">${esc(shade.name)}</div><div class="uniStatus">${esc(status)}</div>`;
+            row.appendChild(text);
+            row.appendChild(right);
+            rows.appendChild(row);
+        }
+    }
+    applyReco(shadeId, repeats) {
+        putJSONBusy('/saveShade', { shadeId, repeats }, (err) => {
+            if (err) ui.serviceError(err);
+            else {
+                const s = (somfy.shades || []).find((x) => x.shadeId === shadeId);
+                if (s) s.repeats = repeats;
+                if (this.lastStats) this.setReco(this.lastStats);
+            }
+        });
+    }
     // Ranked from the recent (EWMA) level: the remote->ESP path is the only thing RTS
     // lets us observe, so these are relative link-budget classes, not motor guarantees.
     quality(rssi) {
@@ -257,6 +332,9 @@ class RfDiag {
                 + `<span>${esc(this.lastSeenText(e.lastSeen))}</span>`;
             rows.appendChild(row);
         }
+        // The pin only means something once a guided value exists; hide the legend until then.
+        get('divRfDiagLegend').style.display = entries.some((e) => e.guided) ? '' : 'none';
+        this.setReco(stats);
     }
 }
 var rfdiag = new RfDiag();

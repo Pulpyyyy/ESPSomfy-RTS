@@ -1838,6 +1838,16 @@
                         <div id="divRfDiagTable" class="log-global-container rfdiag-log" style="display:none;">
                             <div class="frame-header rfdiag-row"><span tr="RFDIAG_COL_DEVICE"></span><span tr="RFDIAG_COL_QUALITY"></span><span tr="SCANFREQ_RSSI"></span><span tr="RFDIAG_COL_FRAMES"></span><span tr="RFDIAG_COL_LASTSEEN"></span></div>
                             <div id="divRfDiagRows" class="frame-list"></div>
+                            <div id="divRfDiagLegend" class="rfdiag-legend" style="display:none;" tr="RFDIAG_PIN_LEGEND"></div>
+                        </div>
+                        <div id="divRfDiagReco" class="unibloc" style="display:none;">
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_RECO_TITLE"></div>
+                                    <div class="uniStatus" tr="RFDIAG_RECO_DESC"></div>
+                                </div>
+                            </label>
+                            <div id="divRfDiagRecoRows"></div>
                         </div>
                         <div class="footer-overlay">
                             <button id="btnClearRfStats" type="button" line onclick="rfdiag.clearStats();" tr="BT_CLEAR"></button>
