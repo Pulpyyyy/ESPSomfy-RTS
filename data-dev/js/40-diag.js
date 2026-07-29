@@ -171,6 +171,38 @@ class RfDiag {
             });
         });
     }
+    // Live getting-started checklist: derived from the same data as the table,
+    // it retires by itself once the RF map is complete.
+    setWizard(stats) {
+        const div = get('divRfDiagWiz');
+        const shades = (somfy.shades || []).filter((s) => (s.linkedRemotes || []).length);
+        if (!shades.length) { div.style.display = 'none'; return; }
+        const entries = stats.entries || [];
+        const entryFor = (s) => (s.linkedRemotes || [])
+            .map((r) => entries.find((x) => x.address === r.remoteAddress))
+            .find((e) => e);
+        const heard = shades.filter((s) => { const e = entryFor(s); return e && e.frames >= 3; });
+        const guided = shades.filter((s) => { const e = entryFor(s); return e && e.guided; });
+        const noiseOk = stats.noiseSamples > 360;
+        if (heard.length === shades.length && guided.length > 0 && noiseOk) { div.style.display = 'none'; return; }
+        div.style.display = '';
+        const missing = shades.filter((s) => !heard.includes(s)).map((s) => s.name);
+        const steps = [
+            [noiseOk, tr('RFDIAG_WIZ_NOISE')],
+            [heard.length === shades.length,
+                trf('RFDIAG_WIZ_REMOTES', heard.length, shades.length)
+                + (missing.length ? ` — ${trf('RFDIAG_WIZ_MISSING', missing.join(', '))}` : '')],
+            [guided.length > 0, trf('RFDIAG_WIZ_GUIDED', guided.length, shades.length)],
+        ];
+        const rows = get('divRfDiagWizSteps');
+        rows.innerHTML = '';
+        for (const [done, label] of steps) {
+            const row = document.createElement('div');
+            row.className = `rfdiag-wiz-step${done ? ' done' : ''}`;
+            row.innerHTML = `<span class="rfdiag-wiz-mark">${done ? '✓' : '○'}</span><span>${esc(label)}</span>`;
+            rows.appendChild(row);
+        }
+    }
     // Repeats ladder from the signal-to-noise margin. Each extra repeat trades
     // airtime for reception probability; under 8 dB retries alone rarely save a
     // link, so the advice string points at the antenna or a repeater instead.
@@ -322,11 +354,16 @@ class RfDiag {
             const detail = e.guided
                 ? `${tr('RFDIAG_GUIDED_MEASURED')} - ${trf('RFDIAG_RSSI_DETAIL', e.avg.toFixed(1), e.min, e.max)}`
                 : trf('RFDIAG_RSSI_DETAIL', e.avg.toFixed(1), e.min, e.max);
+            // Only a drop matters: a link running well under its own history hints at
+            // a dying remote battery or a new obstacle, before commands start failing.
+            const drift = e.frames >= 5 && (e.recent - e.avg) <= -8;
             const row = document.createElement('div');
             row.className = 'frame-row rfdiag-row';
             if (!names.length) row.classList.add('rfdiag-unknown');
             row.innerHTML = `<span><span class="rfdiag-name">${esc(name)}</span><span class="rfdiag-addr">${esc(e.address)}</span></span>`
-                + `<span><span class="rfdiag-badge ${q.cls}">${esc(tr(q.key))}</span></span>`
+                + `<span><span class="rfdiag-badge ${q.cls}">${esc(tr(q.key))}</span>`
+                + (drift ? `<span class="rfdiag-badge weak" title="${esc(trf('RFDIAG_DRIFT_TITLE', (e.avg - e.recent).toFixed(0)))}">${esc(tr('RFDIAG_DRIFT_BADGE'))}</span>` : '')
+                + '</span>'
                 + `<span title="${esc(detail)}">${esc(Math.round(eff(e)))} dBm${e.guided ? ' \u{1F4CD}' : ''}</span>`
                 + `<span>${esc(e.frames)}</span>`
                 + `<span>${esc(this.lastSeenText(e.lastSeen))}</span>`;
@@ -334,6 +371,7 @@ class RfDiag {
         }
         // The pin only means something once a guided value exists; hide the legend until then.
         get('divRfDiagLegend').style.display = entries.some((e) => e.guided) ? '' : 'none';
+        this.setWizard(stats);
         this.setReco(stats);
     }
 }

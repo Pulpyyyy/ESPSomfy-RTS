@@ -1253,6 +1253,10 @@ div.frame-pulses {
 .rfdiag-badge.fair { color: var(--status-warn); background: color-mix(in srgb, var(--status-warn) 15%, transparent); }
 .rfdiag-badge.weak { color: var(--status-bad); background: color-mix(in srgb, var(--status-bad) 15%, transparent); }
 .rfdiag-legend { padding: 6px 10px; font-size: var(--fs-xs); color: var(--soustxt-color); }
+.rfdiag-wiz-step { display: flex; align-items: baseline; gap: 10px; padding: 4px 10px; font-size: var(--fs-sm); }
+.rfdiag-wiz-step .rfdiag-wiz-mark { color: var(--soustxt-color); }
+.rfdiag-wiz-step.done .rfdiag-wiz-mark { color: var(--status-good); font-weight: 600; }
+.rfdiag-wiz-step.done { color: var(--soustxt-color); }
 /* Recommendation rows: compact inline apply button next to the badge. */
 .rfdiag-reco-row { cursor: default; }
 .rfdiag-reco-row .uniRight { gap: 10px; }
