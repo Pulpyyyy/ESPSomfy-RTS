@@ -39,6 +39,8 @@
    variables; the remaining tokens are component-specific. Do not re-declare a
    variable in a second block: this file is the only place a theme value lives. */
 :root[data-theme="light"] {
+    /* Native widgets (select popup, scrollbars) follow the app theme, not the OS. */
+    color-scheme: light;
     /* MD3 roles */
     --md-primary:#1a5fb4; --md-on-primary:#ffffff;
     --md-primary-container:#d7e3ff; --md-on-primary-container:#001b3f;
@@ -105,6 +107,8 @@
     --shadow: #ababab;
 }
 :root[data-theme="dark"] {
+    /* Native widgets (select popup, scrollbars) follow the app theme, not the OS. */
+    color-scheme: dark;
     /* MD3 roles */
     --md-primary:#adc6ff; --md-on-primary:#002e69;
     --md-primary-container:#004494; --md-on-primary-container:#d7e3ff;
@@ -492,6 +496,11 @@ select.inputAndSelect {
     background-repeat: no-repeat !important;
     background-position: right 0px center !important;
 }
+/* Option list of native select popups: themed surface instead of UA defaults. */
+select.inputAndSelect option {
+    background-color: var(--input);
+    color: var(--color);
+}
 .inputAndSelect::-webkit-outer-spin-button,
 .inputAndSelect::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -759,8 +768,8 @@ input[type="radio"]:hover {
     padding-right: 6px;
 }
 .input-label {
-    font-size: 0.9em;
-    font-weight: bold;
+    font-size: var(--fs-sm);
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     flex: 0 0 100px;
@@ -1079,7 +1088,7 @@ button:disabled:active {
     background: var(--error-color, brown);
 }
 .version-badge {
-    font-size: 0.9em;
+    font-size: var(--fs-xs);
     font-family: monospace;
     opacity: 0.7;
     margin-left: auto;

@@ -606,7 +606,7 @@ div.wifiSignal {
     --unibloc-color: var(--background-color);
 }
 .empty-subtext {
-    font-size: 0.9em;
+    font-size: var(--fs-sm);
     opacity: 0.7;
 }
 .dragtxt {
@@ -958,7 +958,7 @@ display: none;
 }
 .vr-step80Label {
     text-align: center;
-    font-size: 0.9em;
+    font-size: var(--fs-xs);
     position: absolute;
     bottom: 10px;
     left: 0;
@@ -1064,7 +1064,7 @@ display: none;
     text-align: left;
     border-radius: var(--radius-panel);
     padding: 10px;
-    font-size: 0.9em;
+    font-size: var(--fs-sm);
     box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
     border: 1px solid var(--borderShadeCtl);
 }

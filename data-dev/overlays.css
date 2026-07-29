@@ -793,7 +793,7 @@ button[line].fw-sidebar-button:hover,
         font-weight:bold;
     }
     .gitNoteErrorSub {
-        font-size: 0.9em;
+        font-size: var(--fs-sm);
         color: var(--soustxt-color);
     }
 #divGitInstall .hrDivFooter {
@@ -902,7 +902,7 @@ cursor: pointer;
     padding: 2px 4px;
     border-radius: var(--radius-chip);
     font-family: monospace;
-    font-size: 0.9em;
+    font-size: 0.9em; /* intentionally relative: inline code scales with its host text */
 }
 .md-link, .md-link-auto {
     color: var(--accent-text) !important;
@@ -959,7 +959,7 @@ cursor: pointer;
     background: var(--room-pill);
     border-radius: var(--radius-button);
     color: var(--color);
-    font-size: 0.9em;
+    font-size: var(--fs-sm);
     font-weight: 500;
     cursor: pointer;
     user-select: none;
@@ -1423,7 +1423,7 @@ cursor: pointer;
     font-weight: 500;
 }
 .slider-header .val {
-    font-size: 0.9em;
+    font-size: var(--fs-sm);
     font-weight: bold;
     color: var(--soustxt-color);
 }
