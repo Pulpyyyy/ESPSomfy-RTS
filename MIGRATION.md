@@ -39,6 +39,13 @@ slot instead of 1.31 MB), which leaves room for future updates. A
 partition table cannot be changed over the air, hence this single USB
 flash. Every later update is a classic OTA again.
 
+**Easiest — from the browser** (Chrome or Edge): open the
+[flash page](https://pulpyyyy.github.io/ESPSomfy-RTS/), plug the device
+in over USB, pick your board and click Install. Nothing to install on
+the computer.
+
+**Or with esptool:**
+
 1. Download `SomfyController.onboard.esp32.bin` (or the variant
    matching your board) from the
    [releases page](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases).

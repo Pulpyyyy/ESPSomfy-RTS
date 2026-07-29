@@ -35,7 +35,15 @@ jobs:
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
             --pattern 'SomfyController.onboard.*.zip' --dir site/bin
           cd site/bin
-          for z in *.zip; do unzip -o "$z" && rm "$z"; done
+          # Every zip holds a file named SomfyController.onboard.bin (no
+          # variant inside): extract one by one and rename after the zip.
+          for z in SomfyController.onboard.*.bin.zip; do
+            variant="${z#SomfyController.onboard.}"
+            variant="${variant%.bin.zip}"
+            unzip -o -q "$z" -d tmp_extract
+            mv tmp_extract/*.bin "SomfyController.onboard.${variant}.bin"
+            rm -r tmp_extract "$z"
+          done
           ls -la
 
       - name: Generate manifests
@@ -76,7 +84,7 @@ jobs:
         run: cp flasher/index.html site/
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@7071061e2cde01de8bb6c64bc63d5b60f60c0678 # v3
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
           path: site
 

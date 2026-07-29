@@ -42,6 +42,13 @@ pour les évolutions futures. Une table de partitions ne peut pas être
 changée par OTA, d'où cet unique flash USB. Toutes les mises à jour
 suivantes redeviennent des OTA classiques.
 
+**Le plus simple — depuis le navigateur** (Chrome ou Edge) : ouvrez la
+[page de flash](https://pulpyyyy.github.io/ESPSomfy-RTS/), branchez le
+boîtier en USB, choisissez votre carte et cliquez Installer. Rien à
+installer sur l'ordinateur.
+
+**Ou avec esptool :**
+
 1. Téléchargez `SomfyController.onboard.esp32.bin` (ou la variante de
    votre carte) depuis la
    [page des releases](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases).
