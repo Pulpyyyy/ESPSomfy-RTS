@@ -246,7 +246,7 @@ div.wait-overlay .wait-label {
 }
     .success-content {
         color: var(--color);
-        gap: var(--sp-10);
+        gap: var(--sp-12);
     }
     .success-content svg {
         width: 20px;
@@ -398,14 +398,14 @@ div.wait-overlay .wait-label {
 .instructions .sub-message,
 .prompt-message .sub-message {
     font-size: var(--fs-sm);
-    padding-left: var(--sp-10);
-    padding-right: var(--sp-10);
+    padding-left: var(--sp-12);
+    padding-right: var(--sp-12);
 }
 .prompt-message .prompt-text {
     text-align:center;
     width: 100%;
     font-size: var(--fs-xxl);
-    margin-bottom: var(--sp-15);
+    margin-bottom: var(--sp-16);
 }
 .promp-message > .inner-error,
 .error-message > .inner-error {
@@ -555,7 +555,7 @@ div.error-message,
     --step-width: calc(100% / var(--steps));
     display: flex;
     justify-content: space-between;
-    margin: var(--sp-10) 0 var(--sp-10) 0;
+    margin: var(--sp-12) 0 var(--sp-12) 0;
     position: relative;
     width: 100%;
 }
@@ -615,7 +615,7 @@ div.error-message,
 /* Step title */
 .step-title-container {
     text-align: center;
-    margin-bottom: var(--sp-10);
+    margin-bottom: var(--sp-12);
     min-height: 24px;
 }
 .step-title {
@@ -641,7 +641,7 @@ div.error-message,
 .blocsteps-row {
     flex-direction: row;
     width: 100%;
-    margin-top: var(--sp-15);
+    margin-top: var(--sp-16);
     background: var(--unibloc-color);
     border-radius: var(--radius-button);
     border: 1px solid var(--border);
@@ -786,7 +786,7 @@ button[line].fw-sidebar-button:hover,
 }
 .divGitNoteError {
     text-align:center;
-    padding:var(--sp-15);
+    padding:var(--sp-16);
     line-height:1.4;
 }
     .gitNoteError {
@@ -797,7 +797,7 @@ button[line].fw-sidebar-button:hover,
         color: var(--soustxt-color);
     }
 #divGitInstall .hrDivFooter {
-    margin: 0 -30px var(--sp-15) -30px;
+    margin: 0 -30px var(--sp-16) -30px;
 }
 .v-step-item {
     display: flex;
@@ -843,7 +843,7 @@ margin: 0;
     border-radius: var(--radius-bloc);
     cursor: pointer;
     transition: all 0.2s ease;
-    padding: 5px 7px 5px var(--sp-15)!important;
+    padding: 5px 7px 5px var(--sp-16)!important;
 }
 
 .custom-file-upload:hover {
@@ -855,7 +855,7 @@ margin: 0;
     color: var(--color);
     flex: 1;
     opacity: 0.6;
-    padding-right: var(--sp-10);
+    padding-right: var(--sp-12);
 }
 .file-icon-btn {
     background: var(--accent-color);
@@ -941,7 +941,7 @@ cursor: pointer;
     .nav-arrow {
         display: none;
         cursor: pointer;
-        padding: 0 var(--sp-10);
+        padding: 0 var(--sp-12);
         transition: color 0.2s;
         z-index: 5;
     }
@@ -978,7 +978,7 @@ cursor: pointer;
 .empty-state-container svg {
     width: 100px;
     height: 100px;
-    margin-bottom: var(--sp-15);
+    margin-bottom: var(--sp-16);
     color: var(--barreRoomBg);
 }
 .empty-state-container p {
@@ -993,7 +993,7 @@ cursor: pointer;
 .somfyRepeater,
 .drag-ghost {
     height: 38px;
-    padding: var(--sp-12) var(--sp-15);
+    padding: var(--sp-12) var(--sp-16);
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
     flex-direction: row;
@@ -1053,7 +1053,7 @@ cursor: pointer;
 .somfyShade {
     flex-direction: row;
     width: 100%;
-    padding: var(--sp-12) var(--sp-15);
+    padding: var(--sp-12) var(--sp-16);
     gap: var(--sp-12);
     border-radius: var(--radius-bloc);
     margin-bottom: var(--sp-8);
@@ -1080,16 +1080,16 @@ cursor: pointer;
 .LinkedList {
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
-    padding: var(--sp-15) var(--sp-20);
-    margin-top: var(--sp-15);
+    padding: var(--sp-16) var(--sp-20);
+    margin-top: var(--sp-16);
 }
 .linkedRheader {
     color: var(--soustxt-color);
-    margin-bottom: var(--sp-10);
+    margin-bottom: var(--sp-12);
     margin-left: -20px;
     margin-right: -20px;
     margin-top: -15px;
-    padding: var(--sp-10) var(--sp-20);
+    padding: var(--sp-12) var(--sp-20);
     border-bottom: 1px solid var(--background-color);
 }
 .linkedScrollArea {
@@ -1098,10 +1098,10 @@ cursor: pointer;
     padding-right: 5px;
 }
 .somfyLinkedRemote {
-    padding-right: var(--sp-10);
+    padding-right: var(--sp-12);
 }
 .linkedWrap {
-    margin-right: var(--sp-10);
+    margin-right: var(--sp-12);
 }
     .linkedWrap svg {
         color: var(--buttonMy);
@@ -1229,7 +1229,7 @@ cursor: pointer;
 .somfyShadeCtl .shade-name {
     justify-content: center;
     flex: 1;
-    padding-left: var(--sp-10);
+    padding-left: var(--sp-12);
 }
 .somfyShadeCtl .shadectl-buttons {
     flex-direction: row;
@@ -1403,7 +1403,7 @@ cursor: pointer;
     justify-content: center;
     height: 100%;
     width: 100%;
-    padding: 0 var(--sp-15);
+    padding: 0 var(--sp-16);
 }
     .popup-actions {
         display:flex;
@@ -1471,11 +1471,11 @@ cursor: pointer;
     height: 110px;
 }
 /* HomeAssistant page */
-.ha-overlay-content { padding: var(--sp-10) var(--sp-15); }
+.ha-overlay-content { padding: var(--sp-12) var(--sp-16); }
 
 .ha-section-title {
     margin-top: 25px;
-    margin-bottom: var(--sp-10);
+    margin-bottom: var(--sp-12);
 }
 .ha-install-list {
     margin: 0;
@@ -1484,11 +1484,11 @@ cursor: pointer;
 }
 .ha-install-list li { margin-bottom: 6px; }
 .ha-install-list li:last-child { margin-bottom: 0; }
-.ha-warning-note { margin: 25px 0 var(--sp-15) 0; }
+.ha-warning-note { margin: 25px 0 var(--sp-16) 0; }
 
 .ha-badge-container {
     text-align: center;
-    margin: 25px 0 var(--sp-15) 0;
+    margin: 25px 0 var(--sp-16) 0;
 }
 .ha-badge-button {
     display: inline-flex;
@@ -1518,7 +1518,7 @@ cursor: pointer;
     align-items: center;
     background-color: #e8f4fa;
     height: 32px;
-    padding: 0 var(--sp-10);
+    padding: 0 var(--sp-12);
     border-radius: var(--radius-button);
 }
 .ha-badge-pill svg {
@@ -1541,10 +1541,10 @@ cursor: pointer;
 }
 /* wifi*/
 .wifiConnectScan {
-    margin-bottom:var(--sp-10);
+    margin-bottom:var(--sp-12);
 }
 .no-wifi {
-    padding: var(--sp-20) var(--sp-10);
+    padding: var(--sp-20) var(--sp-12);
     text-align: center;
 }
 .no-wifi > div{
@@ -1561,7 +1561,7 @@ cursor: pointer;
     display: flex;
     justify-content: center;
     width: 100%;
-    margin: var(--sp-15) 0;
+    margin: var(--sp-16) 0;
 }
 div.eth-setting-line {
     font-size:var(--fs-xs);
@@ -1580,7 +1580,7 @@ div.eth-setting-line label {
     color: var(--color);
 }
 .safety-checkbox-container {
-    gap:var(--sp-15);
+    gap:var(--sp-16);
     width:100%;
     margin:0;
     text-align:left;
@@ -1653,10 +1653,10 @@ div.eth-setting-line label {
     font-weight: normal;
 }
 .uniblocrRssiCanvas {
-    padding: var(--sp-10);
+    padding: var(--sp-12);
     height: 105px;
     background:#333;
-    margin-top: var(--sp-15);
+    margin-top: var(--sp-16);
     border-radius: var(--radius-bloc);
 }
     .uniblocrRssiCanvas canvas {
@@ -1664,12 +1664,12 @@ div.eth-setting-line label {
         height: 100%;
     }
 .scanfreqwhat {
-    padding:var(--sp-15);
+    padding:var(--sp-16);
     line-height:1.4;
 }
     .scanfreqwhat > div:first-child {
         font-weight:bold;
-        margin-bottom:var(--sp-10);
+        margin-bottom:var(--sp-12);
         color:var(--accent-text);
     }
     .scanfreqwhat > span {
@@ -1735,7 +1735,7 @@ div.eth-setting-line label {
         overflow-y: auto;
         overflow-x: hidden;
         width: 100%;
-        padding: var(--sp-15);
+        padding: var(--sp-16);
         box-sizing: border-box;
         -webkit-overflow-scrolling: touch;
         margin-bottom: 0;
@@ -1759,13 +1759,13 @@ div.eth-setting-line label {
         padding-top: var(--sp-20);
     }
     .ha-overlay-content {
-        padding: var(--sp-10) var(--sp-15);
+        padding: var(--sp-12) var(--sp-16);
     }
     .expert-only-buttons,
     .button-container-overlay {
         flex-shrink: 0;
         width: 100%;
-        padding: var(--sp-10);
+        padding: var(--sp-12);
         background: var(--unibloc-color);
         border-top: 1px solid var(--border);
         box-sizing: border-box;
@@ -1832,7 +1832,7 @@ div.eth-setting-line label {
         flex: 1 !important;
         max-height: none !important;
         overflow-y: auto !important;
-        margin-top: var(--sp-10);
+        margin-top: var(--sp-12);
         -webkit-overflow-scrolling: touch;
     }
 }
