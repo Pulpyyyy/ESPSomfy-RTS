@@ -168,6 +168,171 @@
 }
 /* Typography: prefer Roboto (MD3), fall back to the platform UI font. */
 body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif; }
+
+/* Layout utilities: shared patterns extracted from component rules.
+   Use .u-* directly in new markup; legacy selectors are grouped here. */
+
+.u-row-between,
+.uniRow,
+.buttonUpdate,
+.unibutton,
+.uniGroupButton,
+.bloc80slidStep label,
+.vr-progFav,
+.blocRadioHeader,
+.rssi-row,
+.blocsteps-row,
+.custom-file-upload,
+.somfyShadeCtl .shadectl-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.u-row-center,
+input[type="radio"],
+.step-buttons button,
+div.signal,
+.vr-content,
+.vr-wheel-container,
+.vr-toogle,
+.vr-my-center,
+.vr-wheel-outer,
+.vr-wheel-arrow,
+.segment,
+.btn-prog,
+.btn-fav,
+.toggle-item,
+.vr-button-sunflagL,
+.vr-button-sunflagR,
+.vr-step80-arrow,
+.radioBtnPrec,
+#divUnauthenticated,
+div.wait-overlay,
+[close],
+.modal-overlay,
+.step-number,
+.step-counter,
+.file-icon-btn,
+.gitBackup,
+.empty-state-container,
+.drag-handle,
+.divEditDelete-svg,
+.shadectl-side-handle,
+.indicator,
+.button-my,
+.button-light,
+.button-sunflag,
+.button-remote,
+.box-image-container,
+.wifiConnectScan {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.u-row,
+#calWizResult .calRow,
+.uniRight,
+.input-number-custom,
+.step-buttons-warp,
+.step-buttons,
+.safety-label,
+.warningText,
+.top-bar-left,
+.top-bar-right,
+.uptime-container,
+.nav-item,
+.sidebar-footer,
+.wifi-right,
+.somfy-status-container,
+.vr-step80,
+.blocRadioHeaderTitle,
+.blocRadioSlider,
+.rssi-right,
+.password-eye,
+.upToDateNote,
+.success-content,
+.inst-overlay,
+.overlay-header,
+.expert-mode-container,
+.stepper-item,
+.v-step-right,
+.room-draggable,
+.group-draggable,
+.shade-draggable,
+.somfyRepeater,
+.drag-ghost,
+.somfyRoom,
+.somfyRepeater,
+.somfyGroup,
+.somfyShade,
+.somfyLinkedRemote,
+.linkedWrap,
+.shadectl-main-content,
+.somfyShadeCtl .shadectl-buttons,
+.shadectl-status-left,
+.status-group-right,
+.myShade-badge,
+.somfyGroupCtl,
+.somfyShadeCtl .shade-icon,
+.somfyGroupCtl .groupctl-buttons,
+.safety-checkbox-container,
+.scanfreqwhat > div:first-child {
+    display: flex;
+    align-items: center;
+}
+
+.u-col,
+.firmwarblocupdate,
+.divButton,
+.uniText,
+.uniColumn,
+.gpio-flex-container,
+.uptime-values,
+.sidebar-nav,
+.subtab-content,
+.welcome-container,
+.welcomeCard,
+.devButtonUpdate,
+.somfy-infoPosTilt,
+.vr-block-center,
+.vr-blockLeft,
+.vr-blockRight,
+.vr-upMy,
+.vr-myDown,
+.vr-upDown,
+.vr-all,
+.vrslidStepSize,
+.error-content,
+.message-content,
+.overlay-content,
+.footer-sticky-content,
+.linkedContent,
+.shadectl-right-content,
+.somfyShadeCtl .shade-name,
+.shade-positioner-inner,
+.scanfreqRssiLeft,
+.scanfreqRssiRight {
+    display: flex;
+    flex-direction: column;
+}
+
+.u-ellipsis,
+span.ssid,
+.frame-row > span,
+.frame-header > span,
+div.frame-pulses,
+.file-name-display,
+.name-text,
+.repeater-name,
+.linkedshade-name,
+.somfyGroupCtl .groupctl-name,
+.somfyShadeCtl .shadectl-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 /* Shape + elevation (MD3): rounded, tonally elevated cards; rounded inputs/buttons. */
 .unibloc { border-radius: var(--radius-card); box-shadow: var(--md-elevation-1); }
 .inputAndSelect { border-radius: var(--radius-input); }
@@ -300,8 +465,6 @@ form {
 
 .firmwarblocupdate,
 .divButton {
-    display: flex;
-    flex-direction: column;
     padding: 9px;
     margin: 15px 0 0;
     background: var(--unibloc-color);
@@ -408,7 +571,7 @@ select.inputAndSelect {
 #calWizResult .calFromLabel { display:block; font-weight:600; margin-bottom:4px; }
 #calWizResult select.inputAndSelect { width:100%; margin-bottom:14px; }
 #calWizResult .calList { max-height:34vh; overflow:auto; }
-#calWizResult .calRow { display:flex; align-items:center; gap:12px; padding:8px 2px; cursor:pointer; user-select:none; }
+#calWizResult .calRow { gap:12px; padding:8px 2px; cursor:pointer; user-select:none; }
 #calWizResult .calRow-all { font-weight:600; border-bottom:1px solid var(--md-outline); margin-bottom:4px; }
 #calWizResult .calRow input[type="checkbox"] { display:none; }
 #calWizResult .calRow .custom-checkbox { width:22px; height:22px; border-color: var(--md-outline); border-radius:var(--radius-chip); }
@@ -420,15 +583,10 @@ label.uniRow {
     user-select: none;
 }
 .uniRow {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     border-radius: var(--radius-bloc);
     transition: background 0.2s;
 }
 .uniText {
-    display: flex;
-    flex-direction: column;
     max-width: 80%;
 }
 .uniStatus {
@@ -443,13 +601,9 @@ label.uniRow {
     font-weight: 500;
 }
 .uniRight {
-    display: flex;
-    align-items: center;
     gap: 8px;
 }
 .uniColumn {
-    display: flex;
-    flex-direction: column;
     align-items: flex-end;
     justify-content: center;
 }
@@ -532,9 +686,6 @@ input[type="radio"] {
     border: 2px solid var(--switch-checked);
     border-radius: 50%;
     outline: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all 0.2s cubic-bezier(0.1, 0.1, 0, 1);
     cursor: pointer;
     position: relative;
@@ -571,8 +722,6 @@ input[type="radio"]:hover {
     min-width: 280px;
 }
 .gpio-flex-container {
-    display: flex;
-    flex-direction: column;
     gap: 12px;
 }
 .gpio-card {
@@ -581,8 +730,6 @@ input[type="radio"]:hover {
     box-sizing: border-box;
 }
 .input-number-custom {
-    display: flex;
-    align-items: center;
     background-color: var(--inputNumber);
     border: 1px solid var(--border);
     border-radius: var(--radius-bloc);
@@ -620,9 +767,7 @@ input[type="radio"]:hover {
 }
 .step-buttons-warp {
     flex: 0 0 100px;
-    display: flex;
     justify-content: flex-end;
-    align-items: center;
     box-sizing: border-box;
 }
 .gpio-card .inputAndSelect {
@@ -645,8 +790,6 @@ input[type="radio"]:hover {
     height: 38px;
 }
 .step-buttons {
-    display: flex;
-    align-items: center;
     background-color: var(--input);
     border-radius: var(--radius-button);
     padding: 2px;
@@ -661,9 +804,6 @@ input[type="radio"]:hover {
     width: 28px;
     height: 28px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     border-radius: 50%;
     transition: background 0.2s, color 0.2s;
 }
@@ -734,8 +874,6 @@ input[type="number"] {
     animation: soft-pulse 2s infinite ease-in-out;
 }
 .safety-label {
-    display: flex;
-    align-items: center;
     gap: 12px;
     cursor: pointer;
 }
@@ -918,9 +1056,6 @@ button:disabled:active {
 .buttonUpdate,
 .unibutton,
 .uniGroupButton{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: 10px;
     width: 100%;
     padding: 0 12px;
@@ -1015,8 +1150,6 @@ button:disabled:active {
     flex-shrink:0;
 }
 .warningText {
-    display: flex;
-    align-items: center;
     gap: 8px;
     font-size: var(--fs-xs);
     color: var(--status-warn);
