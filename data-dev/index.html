@@ -498,47 +498,6 @@
                 <div id="divNetworkSettings" style="display:none;">
                     <div class="subtab-container"><span class="selected" data-grpid="divNetAdapter" tr="SUBTAB_CONNECTION"></span><span data-grpid="divDHCP" tr="SUBTAB_DHCP_STATIC" ></span><span data-grpid="divMQTT" tr="MQTT" ></span></div>
                     <div id="divNetAdapter" class="subtab-content">
-                        <div id="divWiFiStrength" class="unibloc">
-                            <div class="uniRow">
-                                <div class="uniText">
-                                    <div class="uniLabel"><span tr="CONNECTION_WIFI_NETWORK"></span><span id="spanNetworkSSID" class="wifi-value">-------------</span></div>
-                                    <div class="uniLabel"><span tr="CONNECTION_WIFI_CHANNEL"></span><span id="spanNetworkChannel" class="wifi-value">--</span></div>
-                                </div>
-                                <div class="wifi-right">
-                                    <span id="spanNetworkStrength" class="wifi-value">---</span><span tr="DBM"> dBm</span>
-                                    <div id="divNetworkStrength">
-                                        <svg width="24" height="24">
-                                            <use id="wifi_0" href=#svg-wifi-0 fill="#ccc" />
-                                            <use id="wifi_1" href=#svg-wifi-1 fill="#ccc" />
-                                            <use id="wifi_2" href=#svg-wifi-2 fill="#ccc" />
-                                            <use id="wifi_3" href=#svg-wifi-3 fill="#ccc" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </div>
-                            <hr>
-                            <div class="uniRow">
-                                <div class="uniText">
-                                    <div class="uniLabel" tr="CONNECTION_MAC_ADRESSE"></div>
-                                </div>
-                                <span class="spanMacAddress">--:--:--:--:--:--</span>
-                            </div>
-                        </div>
-                        <div id="divEthernetStatus" class="unibloc" style="display:none;">
-                            <div class="uniRow">
-                                <div class="uniText">
-                                    <div class="uniLabel"><span tr="CONNECTION_ETH_STATUS"></span></span><span id="spanEthernetStatus" class="wifi-value">-------------</span></div>
-                                    <div class="uniLabel"><span tr="CONNECTION_ETH_SPEED"></span></span><span id="spanEthernetSpeed" class="wifi-value">--</span></div>
-                                </div>
-                            </div>
-                            <hr>
-                            <div class="uniRow">
-                                <div class="uniText">
-                                    <div class="uniLabel" tr="CONNECTION_MAC_ADRESSE"></div>
-                                </div>
-                                <span class="spanMacAddress">--:--:--:--:--:--</span>
-                            </div>
-                        </div>
                         <div class="button-container-row">
                             <div class="unibloc chooseWifiEth">
                                 <label for="radConnWifi" class="unibutton">
@@ -565,6 +524,21 @@
                             <input id="cbHardwired" name="hardwired" type="checkbox" data-bind="ethernet.hardwired" style="display:none;">
                         </div>
                         <div id="divEthernetSection" style="display:none;">
+                        <div id="divEthernetStatus" class="unibloc">
+                            <div class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel"><span tr="CONNECTION_ETH_STATUS"></span><span id="spanEthernetStatus" class="wifi-value">-------------</span></div>
+                                    <div class="uniLabel"><span tr="CONNECTION_ETH_SPEED"></span><span id="spanEthernetSpeed" class="wifi-value">--</span></div>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="CONNECTION_MAC_ADRESSE"></div>
+                                </div>
+                                <span class="spanMacAddress">--:--:--:--:--:--</span>
+                            </div>
+                        </div>
                         <div class="unibloc">
                             <label class="uniRow">
                                 <div class="uniText">
@@ -683,6 +657,32 @@
                         </div>
                         </div>
                         <div id="divWiFiMode">
+                            <div id="divWiFiStrength" class="unibloc">
+                                <div class="uniRow">
+                                    <div class="uniText">
+                                        <div class="uniLabel"><span tr="CONNECTION_WIFI_NETWORK"></span><span id="spanNetworkSSID" class="wifi-value">-------------</span></div>
+                                        <div class="uniLabel"><span tr="CONNECTION_WIFI_CHANNEL"></span><span id="spanNetworkChannel" class="wifi-value">--</span></div>
+                                    </div>
+                                    <div class="wifi-right">
+                                        <span id="spanNetworkStrength" class="wifi-value">---</span><span tr="DBM"> dBm</span>
+                                        <div id="divNetworkStrength">
+                                            <svg width="24" height="24">
+                                                <use id="wifi_0" href=#svg-wifi-0 fill="#ccc" />
+                                                <use id="wifi_1" href=#svg-wifi-1 fill="#ccc" />
+                                                <use id="wifi_2" href=#svg-wifi-2 fill="#ccc" />
+                                                <use id="wifi_3" href=#svg-wifi-3 fill="#ccc" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="uniRow">
+                                    <div class="uniText">
+                                        <div class="uniLabel" tr="CONNECTION_MAC_ADRESSE"></div>
+                                    </div>
+                                    <span class="spanMacAddress">--:--:--:--:--:--</span>
+                                </div>
+                            </div>
                             <form method="post" action="/scan">
                                 <div class="unibloc">
                                     <label class="uniRow wifi-scan-row">

@@ -1191,13 +1191,10 @@ class Wifi {
     }
     procEthernet(ethernet) {
         if(DBG) console.log(ethernet);
+        // Visibility is owned by the per-mode sections; this only fills values.
         const spanStatus = get('spanEthernetStatus');
-        const divStatus = get('divEthernetStatus');
-        const divWifi = get('divWiFiStrength');
         const spanSpeed = get('spanEthernetSpeed');
 
-        divStatus.style.display = ethernet.connected ? '' : 'none';
-        divWifi.style.display = ethernet.connected ? 'none' : '';
         spanStatus.innerHTML = ethernet.connected ? 'Connected' : 'Disconnected';
         spanStatus.style.color = ethernet.connected ? 'var(--accent-sucess)' : '';
         spanSpeed.innerHTML = !ethernet.connected ? '--------' : `${ethernet.speed} Mbps ${ethernet.fullduplex ? 'Full-duplex' : 'Half-duplex'}`;
