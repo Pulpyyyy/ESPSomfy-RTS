@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESPSomfy-RTS — Flash USB</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: Roboto, "Segoe UI", system-ui, sans-serif;
+    max-width: 640px; margin: 0 auto; padding: 24px 16px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 1.4rem; }
+  .card {
+    border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    border-radius: 12px; padding: 16px 20px; margin: 16px 0;
+  }
+  select {
+    font-size: 1rem; padding: 8px 12px; border-radius: 8px; margin-right: 12px;
+  }
+  esp-web-install-button { --esp-tools-button-border-radius: 8px; }
+  .muted { opacity: 0.7; font-size: 0.9rem; }
+  .warn { color: #b26a00; }
+  code { background: color-mix(in srgb, currentColor 10%, transparent); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>ESPSomfy-RTS — installation par le navigateur</h1>
+<p>
+  Flashez l'image <strong>onboard</strong> (firmware + interface + table de
+  partitions v3.x) directement depuis le navigateur, sans esptool.
+  <span class="muted">/ Flash the onboard image straight from the browser, no
+  esptool needed.</span>
+</p>
+<div class="card">
+  <p><strong>1.</strong> Branchez le boîtier en USB. <span class="muted">/ Plug the device in over USB.</span></p>
+  <p><strong>2.</strong> Choisissez votre carte : <span class="muted">/ Pick your board:</span></p>
+  <p>
+    <select id="variant">
+      <option value="esp32" selected>ESP32 (classique / classic)</option>
+      <option value="esp32wrover">ESP32 WROVER</option>
+      <option value="esp32c3">ESP32-C3</option>
+      <option value="esp32s2">ESP32-S2</option>
+      <option value="esp32s3_4mb">ESP32-S3 (4 Mo)</option>
+      <option value="esp32s3_8mb">ESP32-S3 (8 Mo)</option>
+    </select>
+    <esp-web-install-button id="install" manifest="manifests/esp32.json"></esp-web-install-button>
+  </p>
+  <p class="muted" id="version"></p>
+</div>
+<p class="warn">
+  ⚠️ Le flash efface la configuration : faites d'abord une sauvegarde depuis
+  l'interface, vous la restaurerez ensuite (voir le
+  <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/MIGRATION_fr.md">guide de migration</a>).
+  <span class="muted">/ Flashing wipes the configuration: back up first, then
+  restore (see the
+  <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/MIGRATION.md">migration guide</a>).</span>
+</p>
+<p class="muted">
+  Nécessite Chrome ou Edge (WebSerial). Firefox et Safari ne sont pas
+  compatibles. / Requires Chrome or Edge (WebSerial); Firefox and Safari are
+  not supported.
+</p>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<script>
+  const sel = document.getElementById('variant');
+  const btn = document.getElementById('install');
+  sel.addEventListener('change', () => { btn.manifest = `manifests/${sel.value}.json`; });
+  fetch('manifests/esp32.json').then((r) => r.json()).then((m) => {
+    document.getElementById('version').textContent = `Version : ${m.version}`;
+  }).catch(() => {});
+</script>
+</body>
+</html>

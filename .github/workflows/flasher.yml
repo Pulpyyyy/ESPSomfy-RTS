@@ -1,0 +1,100 @@
+name: Flasher page (GitHub Pages)
+
+# Publishes the browser flasher: the static page from flasher/ plus the
+# onboard images and ESP Web Tools manifests generated from the latest
+# release. Release assets have no CORS headers, so the binaries must be
+# served from the Pages origin itself.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Fetch latest release onboard images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p site/bin
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SomfyController.onboard.*.zip' --dir site/bin
+          cd site/bin
+          # Every zip holds a file named SomfyController.onboard.bin (no
+          # variant inside): extract one by one and rename after the zip.
+          for z in SomfyController.onboard.*.bin.zip; do
+            variant="${z#SomfyController.onboard.}"
+            variant="${variant%.bin.zip}"
+            unzip -o -q "$z" -d tmp_extract
+            mv tmp_extract/*.bin "SomfyController.onboard.${variant}.bin"
+            rm -r tmp_extract "$z"
+          done
+          ls -la
+
+      - name: Generate manifests
+        run: |
+          python3 - <<'EOF'
+          import json, os, glob
+          tag = os.environ["RELEASE_TAG"]
+          # chipFamily as ESP Web Tools expects it; wrover is plain ESP32.
+          family = {
+              "esp32": "ESP32", "esp32wrover": "ESP32",
+              "esp32c3": "ESP32-C3", "esp32s2": "ESP32-S2",
+              "esp32s3_4mb": "ESP32-S3", "esp32s3_8mb": "ESP32-S3",
+          }
+          os.makedirs("site/manifests", exist_ok=True)
+          made = []
+          for path in glob.glob("site/bin/SomfyController.onboard.*.bin"):
+              variant = os.path.basename(path).split(".")[2]
+              if variant not in family:
+                  raise SystemExit(f"unknown variant in asset name: {variant}")
+              manifest = {
+                  "name": f"ESPSomfy-RTS ({variant})",
+                  "version": tag,
+                  "new_install_prompt_erase": True,
+                  "builds": [{
+                      "chipFamily": family[variant],
+                      "parts": [{"path": f"../bin/{os.path.basename(path)}", "offset": 0}],
+                  }],
+              }
+              with open(f"site/manifests/{variant}.json", "w") as f:
+                  json.dump(manifest, f, indent=1)
+              made.append(variant)
+          print("manifests:", made)
+          if not made:
+              raise SystemExit("no onboard image found in the release")
+          EOF
+
+      - name: Assemble site
+        run: cp flasher/index.html site/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
