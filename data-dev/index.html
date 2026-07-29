@@ -564,36 +564,15 @@
                             </div>
                             <input id="cbHardwired" name="hardwired" type="checkbox" data-bind="ethernet.hardwired" style="display:none;">
                         </div>
+                        <div id="divEthernetSection" style="display:none;">
                         <div class="unibloc">
-                            <div id="divHiddenSSID">
-                                <label class="uniRow">
-                                    <div class="uniText">
-                                        <div class="uniLabel" tr="CONNECTION_HIDDEN_SSID"></div>
-                                        <div class="uniStatus" tr="CONNECTION_HIDDEN_SSID_DESC"></div>
-                                    </div>
-                                    <div class="uniRight">
-                                        <span class="switch">
-                                            <input id="cbHiddenSSID" type="checkbox" data-bind="wifi.hidden" onclick="wifi.hiddenSSIDClicked();">
-                                            <div></div>
-                                        </span>
-                                    </div>
-                                </label>
-                                <hr>
-                            </div>
-                            <div id="divRoaming">
-                                <label class="uniRow">
-                                    <div class="uniText">
-                                        <div class="uniLabel" tr="CONNECTION_ROAMING"></div>
-                                        <div class="uniStatus" tr="CONNECTION_ROAMING_DESC"></div>
-                                    </div>
-                                    <div class="uniRight">
-                                        <span class="switch">
-                                            <input id="cbRoaming" type="checkbox" name="roaming" data-bind="wifi.roaming" onclick="wifi.hiddenSSIDClicked();">
-                                            <div></div>
-                                        </span>
-                                    </div>
-                                </label>
-                            </div>
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="CONNECTION_ETH_SETTINGS"></div>
+                                    <div class="uniStatus" tr="CONNECTION_ETH_SETTINGS_DESC"></div>
+                                </div>
+                            </label>
+                            <hr>
                             <div id="divFallbackWireless">
                                 <label class="uniRow">
                                     <div class="uniText">
@@ -615,7 +594,7 @@
                                     <select id="selETHBoardType" class="inputAndSelect" name="ethBoardType" placeholder="Type de carte" data-datatype="int" data-bind="ethernet.boardType" onchange="wifi.onETHBoardTypeChanged(this);"></select>
                                 </div>
                             </div>
-                            <div id="divEthernetMode" style="display:none;">
+                            <div id="divEthernetMode">
                                 <div id="divETHSettings">
                                     <div class="gpio-main-wrapper">
                                         <div class="gpio-group-block">
@@ -702,11 +681,21 @@
                                 </div>
                             </div>
                         </div>
+                        </div>
                         <div id="divWiFiMode">
                             <form method="post" action="/scan">
-                                <div id="divAps" class="unibloc" data-lastloaded="0"></div>
-                                <div class="button-container-col"><button id="btnScanAPs" line type="button" onclick="wifi.loadAPs();" tr="BT_SCAN_WIFI" ></button></div>
                                 <div class="unibloc">
+                                    <label class="uniRow wifi-scan-row">
+                                        <div class="uniText">
+                                            <div class="uniLabel" tr="CONNECTION_WIFI_SETTINGS"></div>
+                                            <div class="uniStatus" tr="CONNECTION_WIFI_SETTINGS_DESC"></div>
+                                        </div>
+                                        <div class="uniRight">
+                                            <button id="btnScanAPs" line type="button" onclick="wifi.loadAPs();" tr="BT_SCAN_WIFI"></button>
+                                        </div>
+                                    </label>
+                                    <div id="divAps" data-lastloaded="0" style="display:none;"></div>
+                                    <hr>
                                     <div>
                                         <label class="label" for="fldSsid" tr="CONNECTION_WIFI_SSID"></label>
                                         <input id="fldSsid" class="inputAndSelect" name="ssid" type="text" data-bind="wifi.ssid" autocomplete="new-password" length=32 tr="CONNECTION_WIFI_ENTER_SSID" placeholder="Entrer votre SSID">
@@ -723,6 +712,37 @@
                                     </div>
                                 </div>
                             </form>
+                            <div class="unibloc">
+                                <div id="divHiddenSSID">
+                                    <label class="uniRow">
+                                        <div class="uniText">
+                                            <div class="uniLabel" tr="CONNECTION_HIDDEN_SSID"></div>
+                                            <div class="uniStatus" tr="CONNECTION_HIDDEN_SSID_DESC"></div>
+                                        </div>
+                                        <div class="uniRight">
+                                            <span class="switch">
+                                                <input id="cbHiddenSSID" type="checkbox" data-bind="wifi.hidden" onclick="wifi.hiddenSSIDClicked();">
+                                                <div></div>
+                                            </span>
+                                        </div>
+                                    </label>
+                                    <hr>
+                                </div>
+                                <div id="divRoaming">
+                                    <label class="uniRow">
+                                        <div class="uniText">
+                                            <div class="uniLabel" tr="CONNECTION_ROAMING"></div>
+                                            <div class="uniStatus" tr="CONNECTION_ROAMING_DESC"></div>
+                                        </div>
+                                        <div class="uniRight">
+                                            <span class="switch">
+                                                <input id="cbRoaming" type="checkbox" name="roaming" data-bind="wifi.roaming" onclick="wifi.hiddenSSIDClicked();">
+                                                <div></div>
+                                            </span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <div class="information">
                             <svg><use id="useHotspotIcon" href=#svg-info></use></svg>
@@ -748,7 +768,8 @@
                                 </div>
                                 <span id="spanCurrentIP"></span>
                             </div>
-                            <hr>
+                        </div>
+                        <div class="unibloc">
                             <label class="uniRow">
                                 <div class="uniText">
                                     <div class="uniLabel" tr="ADRESSIP_DHCP"></div>
@@ -761,9 +782,8 @@
                                     </span>
                                 </div>
                             </label>
-                        </div>
-                        <div id="divStaticIP" style="display:none;margin-top: 15px;">
-                            <div class="unibloc">
+                            <div id="divStaticIP" style="display:none;">
+                                <hr>
                                 <div>
                                     <label class="label" for="fldIPAddress" tr="ADRESSIP_STATIC_IP"></label>
                                     <input id="fldIPAddress" class="inputAndSelect" name="staticIP" type="text" data-bind="ip.ip" length=32 tr="ADRESSIP_STATIC_IP_PLH" placeholder="0.0.0.0">

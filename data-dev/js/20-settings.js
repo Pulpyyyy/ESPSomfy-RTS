@@ -896,13 +896,10 @@ class Wifi {
         get('radConnWifi').checked = !isEthernet;
     }
     useEthernetClicked() {
+        // Each mode owns one self-contained section; nothing to toggle inside.
         let useEthernet = get('cbHardwired').checked;
         get('divWiFiMode').style.display = useEthernet ? 'none' : '';
-        get('divEthernetMode').style.display = useEthernet ? '' : 'none';
-        get('divTypeCardMode').style.display = useEthernet ? '' : 'none';
-        get('divFallbackWireless').style.display = useEthernet ? '' : 'none';
-        get('divRoaming').style.display = useEthernet ? 'none' : '';
-        get('divHiddenSSID').style.display = useEthernet ? 'none' : '';
+        get('divEthernetSection').style.display = useEthernet ? '' : 'none';
     }
     hiddenSSIDClicked() {
         let hidden = get('cbHiddenSSID').checked;
@@ -914,6 +911,8 @@ class Wifi {
         const divAps = get('divAps');
 
         if (btnScan.classList.contains('disabled')) return;
+        // The results container only exists while it has something to show.
+        divAps.style.display = '';
         divAps.innerHTML = `<div class="no-wifi"><div class="wifiConnectScan"><div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div><div>${tr("CONNECTION_SCANNING")}</div></div>`;
 
         btnScan.classList.add('disabled');
@@ -961,6 +960,7 @@ class Wifi {
 
         let divAps = get('divAps');
         divAps.setAttribute('data-lastloaded', new Date().getTime());
+        divAps.style.display = '';
         divAps.innerHTML = div;
     }
     cancelScan() {
@@ -968,7 +968,7 @@ class Wifi {
         if (btnScan) btnScan.classList.remove('disabled');
 
         const divAps = get('divAps');
-        if (divAps) divAps.innerHTML = '';
+        if (divAps) { divAps.innerHTML = ''; divAps.style.display = 'none'; }
         if (typeof ui !== 'undefined' && ui.unlock) ui.unlock();
     }
     selectSSID(el) {
