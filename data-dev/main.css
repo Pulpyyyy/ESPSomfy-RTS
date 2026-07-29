@@ -1344,6 +1344,13 @@ div.frame-pulses {
     z-index: 2;
     pointer-events: none;
 }
+/* Field wrapper: the anchor for the eye on every page (login, WiFi, MQTT). */
+.password-container {
+    position: relative;
+}
+.password-container input {
+    padding-right: 44px; /* keep typed text clear of the eye */
+}
 .password-eye {
     position: absolute;
     right: 12px;
@@ -1636,7 +1643,9 @@ div.frame-pulses {
 
 /* M3 touch targets: compact icon controls get a centered 44x44 hit area
    without visual change (same idea as the step-buttons ::after in base.css). */
-.radioBtnPrec, .password-eye, .divEditDelete-svg, .button-my, .button-light,
+/* .password-eye is absent on purpose: it is position:absolute (anchored to the
+   right edge of its field) and absolute boxes already contain their ::after. */
+.radioBtnPrec, .divEditDelete-svg, .button-my, .button-light,
 .button-sunflag, .nav-arrow, .step-btn, .help-container { position: relative; }
 .radioBtnPrec::after, .password-eye::after, .divEditDelete-svg::after,
 .button-my::after, .button-light::after, .button-sunflag::after,
