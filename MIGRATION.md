@@ -54,9 +54,20 @@ The device boots with a blank configuration.
 
 ## Step 3 — First boot and network setup
 
-The device starts its own access point. Connect to it, join your WiFi
-network as on any fresh install, then open the web UI at the device's
-new address.
+With a blank configuration the device starts its own WiFi access
+point:
+
+1. On a phone or laptop, join the network **`ESPSomfyRTS`**
+   (WPA2 password: **`espsomfy`** — fixed and documented on purpose,
+   it only guards joining the AP).
+2. Open **http://192.168.4.1** in a browser.
+3. Enter your home WiFi credentials and save. The device reboots and
+   joins your network; the access point disappears.
+4. Find the device's new address (your router's DHCP client list, or
+   the address you had reserved for it) and open the web UI there.
+
+If you use a PIN or password on the UI, set it now — a fresh install
+starts unsecured.
 
 ## Step 4 — Restore your backup
 

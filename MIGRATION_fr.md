@@ -57,9 +57,21 @@ Le boîtier démarre avec une configuration vierge.
 
 ## Étape 3 — Premier démarrage et réseau
 
-Le boîtier démarre en point d'accès. Connectez-vous-y, associez-le à
-votre WiFi comme pour toute installation neuve, puis ouvrez
-l'interface web à sa nouvelle adresse.
+Avec sa configuration vierge, le boîtier démarre en point d'accès
+WiFi :
+
+1. Depuis un téléphone ou un portable, rejoignez le réseau
+   **`ESPSomfyRTS`** (mot de passe WPA2 : **`espsomfy`** — fixe et
+   documenté à dessein, il ne protège que l'accès au point d'accès).
+2. Ouvrez **http://192.168.4.1** dans un navigateur.
+3. Saisissez les identifiants de votre WiFi et enregistrez. Le boîtier
+   redémarre et rejoint votre réseau ; le point d'accès disparaît.
+4. Retrouvez sa nouvelle adresse (liste des clients DHCP de votre box,
+   ou l'adresse que vous lui aviez réservée) et ouvrez l'interface web.
+
+Si vous protégez l'interface par un PIN ou un mot de passe,
+configurez-le maintenant — une installation neuve démarre sans
+sécurité.
 
 ## Étape 4 — Restaurez votre sauvegarde
 
