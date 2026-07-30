@@ -3,6 +3,8 @@
     --accent-color: #1a5fb4;
     --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 34%);
     --accent-colorUniDark: color-mix(in srgb, var(--accent-color) 20%, var(--unibloc-color));
+    /* Text on an accent surface; flipped by applyAccent() for light accents. */
+    --on-accent: #fff;
     --accent-sucess: #069800;
     /* Layout tokens */
     --topbar-height: 100px;
@@ -15,6 +17,16 @@
     --fs-xl: 1.375rem;   /* 22px — section titles */
     --fs-xxl: 1.75rem;   /* 28px — dialog titles */
     --fs-xxxl: 2rem;     /* 32px — display */
+    /* Spacing scale (M3 4px grid) for padding/margin/gap — geometry (width,
+       height, offsets) stays in raw px. The legacy 10/15px house steps were
+       snapped up to 12/16 (never down): new spacing must use these tokens. */
+    --sp-4: 4px;
+    --sp-8: 8px;
+    --sp-12: 12px;
+    --sp-16: 16px;
+    --sp-20: 20px;
+    --sp-24: 24px;
+    --sp-32: 32px;
     /* Corner radius scale: pick the token matching the component role. */
     --radius-chip: 4px;
     --radius-input: 6px;
@@ -37,6 +49,8 @@
    variables; the remaining tokens are component-specific. Do not re-declare a
    variable in a second block: this file is the only place a theme value lives. */
 :root[data-theme="light"] {
+    /* Native widgets (select popup, scrollbars) follow the app theme, not the OS. */
+    color-scheme: light;
     /* MD3 roles */
     --md-primary:#1a5fb4; --md-on-primary:#ffffff;
     --md-primary-container:#d7e3ff; --md-on-primary-container:#001b3f;
@@ -63,7 +77,15 @@
     --border-lbc:var(--md-outline-variant);
     /* Component-specific tokens */
     --invertxt-color: #e4e3e8;
-    --txtwarning-color: #d9534f;
+    --txtwarning-color: #c62828;
+    /* Readable-accent guard: the accent is user-chosen (any lightness), so text
+       drawn in it is mixed towards the surface's opposite pole. */
+    --accent-text: color-mix(in srgb, var(--accent-color) 60%, #000);
+    /* Status hues, tuned per theme: the vivid #4caf50/#ff9800/#f44336 family
+       fails WCAG on light surfaces (1.8-3.1), so light gets the deep variants. */
+    --status-good: #2e7d32;
+    --status-warn: #b26a00;
+    --status-bad: #c62828;
     --hr-soft: rgba(2, 2, 2, 0.1);
     --switch-border: #cdcdcd;
     --switch-checked: #9c9c9c;
@@ -95,6 +117,8 @@
     --shadow: #ababab;
 }
 :root[data-theme="dark"] {
+    /* Native widgets (select popup, scrollbars) follow the app theme, not the OS. */
+    color-scheme: dark;
     /* MD3 roles */
     --md-primary:#adc6ff; --md-on-primary:#002e69;
     --md-primary-container:#004494; --md-on-primary-container:#d7e3ff;
@@ -121,7 +145,11 @@
     --border-lbc:var(--md-outline-variant);
     /* Component-specific tokens */
     --invertxt-color: #000000;
-    --txtwarning-color: #d9534f;
+    --txtwarning-color: #ef7d78;
+    --accent-text: color-mix(in srgb, var(--accent-color) 40%, #fff);
+    --status-good: #4caf50;
+    --status-warn: #ff9800;
+    --status-bad: #f44336;
     --hr-soft: rgba(255, 255, 255, 0.1);
     --switch-border: #434243;
     --switch-checked: #505050;
@@ -154,6 +182,171 @@
 }
 /* Typography: prefer Roboto (MD3), fall back to the platform UI font. */
 body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif; }
+
+/* Layout utilities: shared patterns extracted from component rules.
+   Use .u-* directly in new markup; legacy selectors are grouped here. */
+
+.u-row-between,
+.uniRow,
+.buttonUpdate,
+.unibutton,
+.uniGroupButton,
+.bloc80slidStep label,
+.vr-progFav,
+.blocRadioHeader,
+.rssi-row,
+.blocsteps-row,
+.custom-file-upload,
+.somfyShadeCtl .shadectl-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.u-row-center,
+input[type="radio"],
+.step-buttons button,
+div.signal,
+.vr-content,
+.vr-wheel-container,
+.vr-toogle,
+.vr-my-center,
+.vr-wheel-outer,
+.vr-wheel-arrow,
+.segment,
+.btn-prog,
+.btn-fav,
+.toggle-item,
+.vr-button-sunflagL,
+.vr-button-sunflagR,
+.vr-step80-arrow,
+.radioBtnPrec,
+#divUnauthenticated,
+div.wait-overlay,
+[close],
+.modal-overlay,
+.step-number,
+.step-counter,
+.file-icon-btn,
+.gitBackup,
+.empty-state-container,
+.drag-handle,
+.divEditDelete-svg,
+.shadectl-side-handle,
+.indicator,
+.button-my,
+.button-light,
+.button-sunflag,
+.button-remote,
+.box-image-container,
+.wifiConnectScan {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.u-row,
+#calWizResult .calRow,
+.uniRight,
+.input-number-custom,
+.step-buttons-warp,
+.step-buttons,
+.safety-label,
+.warningText,
+.top-bar-left,
+.top-bar-right,
+.uptime-container,
+.nav-item,
+.sidebar-footer,
+.wifi-right,
+.somfy-status-container,
+.vr-step80,
+.blocRadioHeaderTitle,
+.blocRadioSlider,
+.rssi-right,
+.password-eye,
+.upToDateNote,
+.success-content,
+.inst-overlay,
+.overlay-header,
+.expert-mode-container,
+.stepper-item,
+.v-step-right,
+.room-draggable,
+.group-draggable,
+.shade-draggable,
+.somfyRepeater,
+.drag-ghost,
+.somfyRoom,
+.somfyRepeater,
+.somfyGroup,
+.somfyShade,
+.somfyLinkedRemote,
+.linkedWrap,
+.shadectl-main-content,
+.somfyShadeCtl .shadectl-buttons,
+.shadectl-status-left,
+.status-group-right,
+.myShade-badge,
+.somfyGroupCtl,
+.somfyShadeCtl .shade-icon,
+.somfyGroupCtl .groupctl-buttons,
+.safety-checkbox-container,
+.scanfreqwhat > div:first-child {
+    display: flex;
+    align-items: center;
+}
+
+.u-col,
+.firmwarblocupdate,
+.divButton,
+.uniText,
+.uniColumn,
+.gpio-flex-container,
+.uptime-values,
+.sidebar-nav,
+.subtab-content,
+.welcome-container,
+.welcomeCard,
+.devButtonUpdate,
+.somfy-infoPosTilt,
+.vr-block-center,
+.vr-blockLeft,
+.vr-blockRight,
+.vr-upMy,
+.vr-myDown,
+.vr-upDown,
+.vr-all,
+.vrslidStepSize,
+.error-content,
+.message-content,
+.overlay-content,
+.footer-sticky-content,
+.linkedContent,
+.shadectl-right-content,
+.somfyShadeCtl .shade-name,
+.shade-positioner-inner,
+.scanfreqRssiLeft,
+.scanfreqRssiRight {
+    display: flex;
+    flex-direction: column;
+}
+
+.u-ellipsis,
+span.ssid,
+.frame-row > span,
+.frame-header > span,
+div.frame-pulses,
+.file-name-display,
+.name-text,
+.repeater-name,
+.linkedshade-name,
+.somfyGroupCtl .groupctl-name,
+.somfyShadeCtl .shadectl-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 /* Shape + elevation (MD3): rounded, tonally elevated cards; rounded inputs/buttons. */
 .unibloc { border-radius: var(--radius-card); box-shadow: var(--md-elevation-1); }
 .inputAndSelect { border-radius: var(--radius-input); }
@@ -163,22 +356,20 @@ button, .buttonUpdate { border-radius: var(--radius-button); }
 .divButton { background: var(--md-secondary-container); border: none; box-shadow: none; }
 .divButton .buttonUpdate { color: var(--md-on-secondary-container); }
 .divButton .uniStatus { opacity: .75; }
-.divButton:hover { background: color-mix(in srgb, var(--md-primary) 8%, var(--md-secondary-container)); border: none; }
 .divButton:active { background: color-mix(in srgb, var(--md-primary) 12%, var(--md-secondary-container)); }
 /* MD3 switch: outlined track when off, primary fill when on. */
-.switch { background: var(--md-surface-container-highest); border-color: var(--md-outline); }
-.switch div { background: var(--md-outline); }
 .switch:has(input:checked) { background: var(--md-primary); border-color: var(--md-primary); }
-.switch input:checked + div { background: var(--md-on-primary); }
-.switch input:checked + div::after { border-color: var(--md-primary); }
 html, body {
     margin: 0;
     padding: 0;
     width: 100%;
-    font-size: var(--fs-sm);
-    font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
     color: var(--color);
 }
+/* The root stays at the browser's 16px: with font-size on html the rem tokens
+   deflated 12.5% below their documented values (--fs-xs rendered 10.5px, under
+   the 11px M3 floor).  body alone carries the default size, and the Roboto
+   stack above is no longer overridden by a later Helvetica declaration. */
+body { font-size: var(--fs-sm); line-height: 1.45; }
 * {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
@@ -193,24 +384,16 @@ svg, svg * {pointer-events: none;}
 }
 .link {
     font-size: var(--fs-xs);
-    color: var(--accent-color);
+    color: var(--accent-text);
 }
 .link:hover {filter: brightness(1.3);}
 
 h1 {
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-12);
     margin-top: 0px;
-    color: var(--accent-color);
+    color: var(--accent-text);
     font-size: var(--fs-xxl);
-}
-.uppercaseText {
-    font-weight: bold;
-    margin-bottom: 10px;
-    font-size: 0.9em;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--color);
 }
 hr {
     display: block;
@@ -221,7 +404,7 @@ hr {
 .hrDivFooter{
     height: 1px;
     background: var(--hr-soft);
-    margin: 15px -30px 15px -30px;
+    margin: var(--sp-16) -30px var(--sp-16) -30px;
 }
 .vr {
     width: 1px;
@@ -239,7 +422,6 @@ input[type="range"]:active {
 form {
     margin-top: 0;
 }
-.marginT { margin-top: 15px !important; }
 .marginB { margin-bottom: 25px !important; }
 
 .unibloc,
@@ -249,9 +431,9 @@ form {
     clear: both;
     position: relative;
     width: 100%;
-    margin-top: 15px;
+    margin-top: var(--sp-16);
     border-radius: var(--radius-bloc);
-    padding: 10px 20px;
+    padding: var(--sp-12) var(--sp-20);
 }
 .unibloc {
     background: var(--unibloc-color);
@@ -259,12 +441,12 @@ form {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .uniblocStep {
-    gap: 15px;
+    gap: var(--sp-16);
 }
 .uniblocRadio {
     display: inline-block;
     width: 100%;
-    margin-top: 15px;
+    margin-top: var(--sp-16);
     vertical-align: top;
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
@@ -297,10 +479,8 @@ form {
 
 .firmwarblocupdate,
 .divButton {
-    display: flex;
-    flex-direction: column;
     padding: 9px;
-    margin: 15px 0 0;
+    margin: var(--sp-16) 0 0;
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
     border: 1px solid var(--border);
@@ -326,6 +506,11 @@ select.inputAndSelect {
     background-repeat: no-repeat !important;
     background-position: right 0px center !important;
 }
+/* Option list of native select popups: themed surface instead of UA defaults. */
+select.inputAndSelect option {
+    background-color: var(--input);
+    color: var(--color);
+}
 .inputAndSelect::-webkit-outer-spin-button,
 .inputAndSelect::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -337,7 +522,7 @@ select.inputAndSelect {
 .mqttSelect {
     width: 100%;
     appearance: none;
-    padding: 8px;
+    padding: var(--sp-8);
     border-radius: var(--radius-panel);
     color: var(--color);
     border: 1px solid #555;
@@ -346,13 +531,13 @@ select.inputAndSelect {
 }
 .input-mqtt {
     clear: both;
-    padding: 4px 0;
+    padding: var(--sp-4) 0;
     position: relative;
-    margin-top: 15px;
+    margin-top: var(--sp-16);
     width: 100%;
 }
 .input-mqtt > span {
-    color: #757575;
+    color: var(--soustxt-color);
     display: inline-block;
     margin: 0 0 5px 0;
     padding: 5px 0 0;
@@ -402,11 +587,11 @@ select.inputAndSelect {
     box-shadow: 0 0 8px var(--txtwarning-color);
 }
 /* Calibration wizard: MD3-consistent copy list (checkbox rows + source select). */
-#calWizResult .calFromLabel { display:block; font-weight:600; margin-bottom:4px; }
+#calWizResult .calFromLabel { display:block; font-weight:600; margin-bottom:var(--sp-4); }
 #calWizResult select.inputAndSelect { width:100%; margin-bottom:14px; }
 #calWizResult .calList { max-height:34vh; overflow:auto; }
-#calWizResult .calRow { display:flex; align-items:center; gap:12px; padding:8px 2px; cursor:pointer; user-select:none; }
-#calWizResult .calRow-all { font-weight:600; border-bottom:1px solid var(--md-outline); margin-bottom:4px; }
+#calWizResult .calRow { gap:var(--sp-12); padding:var(--sp-8) 2px; cursor:pointer; user-select:none; }
+#calWizResult .calRow-all { font-weight:600; border-bottom:1px solid var(--md-outline); margin-bottom:var(--sp-4); }
 #calWizResult .calRow input[type="checkbox"] { display:none; }
 #calWizResult .calRow .custom-checkbox { width:22px; height:22px; border-color: var(--md-outline); border-radius:var(--radius-chip); }
 #calWizResult .calRow input[type="checkbox"]:checked + .custom-checkbox { background: var(--md-primary); border-color: var(--md-primary); }
@@ -417,26 +602,16 @@ label.uniRow {
     user-select: none;
 }
 .uniRow {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     border-radius: var(--radius-bloc);
     transition: background 0.2s;
 }
 .uniText {
-    display: flex;
-    flex-direction: column;
     max-width: 80%;
-}
-.uniTextFull {
-    display: flex;
-    flex-direction: column;
-    max-width: 100%;
 }
 .uniStatus {
     font-size: var(--fs-xs);
     color: var(--soustxt-color);
-    margin-top: 4px;
+    margin-top: var(--sp-4);
     margin-bottom: 2px;
     padding: 0px 0;
 }
@@ -444,18 +619,10 @@ label.uniRow {
     font-size: var(--fs-sm);
     font-weight: 500;
 }
-.uniSwitch .switch {
-    display: flex;
-    align-items: center;
-}
 .uniRight {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    gap: var(--sp-8);
 }
 .uniColumn {
-    display: flex;
-    flex-direction: column;
     align-items: flex-end;
     justify-content: center;
 }
@@ -476,7 +643,7 @@ input[type=text] {
     background: #f0f0f0;
     background-color: transparent;
     border: 1px solid #555;
-    padding: 8px;
+    padding: var(--sp-8);
     border-radius: var(--radius-panel);
 }
 input[type="password"].pin-digit {
@@ -538,9 +705,6 @@ input[type="radio"] {
     border: 2px solid var(--switch-checked);
     border-radius: 50%;
     outline: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all 0.2s cubic-bezier(0.1, 0.1, 0, 1);
     cursor: pointer;
     position: relative;
@@ -569,17 +733,15 @@ input[type="radio"]:hover {
 .gpio-main-wrapper {
     display: flex;
     flex-wrap: wrap;
-    gap: 20px;
-    margin: 15px 0 15px 0;
+    gap: var(--sp-20);
+    margin: var(--sp-16) 0 var(--sp-16) 0;
 }
 .gpio-group-block {
     flex: 1 1 calc(50% - 10px);
     min-width: 280px;
 }
 .gpio-flex-container {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    gap: var(--sp-12);
 }
 .gpio-card {
     flex: 1 1 100%;
@@ -587,12 +749,10 @@ input[type="radio"]:hover {
     box-sizing: border-box;
 }
 .input-number-custom {
-    display: flex;
-    align-items: center;
     background-color: var(--inputNumber);
     border: 1px solid var(--border);
     border-radius: var(--radius-bloc);
-    padding: 4px 6px 4px 16px;
+    padding: var(--sp-4) 6px var(--sp-4) var(--sp-16);
     height: 44px;
     box-sizing: border-box;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -601,7 +761,7 @@ input[type="radio"]:hover {
     border-color: var(--accent-color);
 }
 .input-number-custom:has(.step-select-arrow) {
-    padding-right: 16px;
+    padding-right: var(--sp-16);
 }
 .input-number-custom:has(.step-select-arrow) .inputAndSelect {
     flex: 1;
@@ -618,17 +778,15 @@ input[type="radio"]:hover {
     padding-right: 6px;
 }
 .input-label {
-    font-size: 0.9em;
-    font-weight: bold;
+    font-size: var(--fs-sm);
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     flex: 0 0 100px;
 }
 .step-buttons-warp {
     flex: 0 0 100px;
-    display: flex;
     justify-content: flex-end;
-    align-items: center;
     box-sizing: border-box;
 }
 .gpio-card .inputAndSelect {
@@ -651,8 +809,6 @@ input[type="radio"]:hover {
     height: 38px;
 }
 .step-buttons {
-    display: flex;
-    align-items: center;
     background-color: var(--input);
     border-radius: var(--radius-button);
     padding: 2px;
@@ -667,9 +823,6 @@ input[type="radio"]:hover {
     width: 28px;
     height: 28px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     border-radius: 50%;
     transition: background 0.2s, color 0.2s;
 }
@@ -695,7 +848,7 @@ input[type="number"] {
     width: 28px;
     height: 28px;
     padding: 0;
-    margin-left: 4px;
+    margin-left: var(--sp-4);
     border-radius: 50%;
     transition: background 0.2s ease, color 0.2s ease;
     flex-shrink: 0;
@@ -734,15 +887,13 @@ input[type="number"] {
     padding: 0;
 }
 .manual-safety-block {
-    padding: 0 10px;
+    padding: 0 var(--sp-12);
 }
 .manual-safety-block .switch:has(input:not(:checked)) {
     animation: soft-pulse 2s infinite ease-in-out;
 }
 .safety-label {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    gap: var(--sp-12);
     cursor: pointer;
 }
 .safety-text {
@@ -760,7 +911,7 @@ fieldset {
     border: 1px solid var(--border);
     border-radius: var(--radius-input);
     padding: 25px;
-    margin-top: 20px;
+    margin-top: var(--sp-20);
     position: relative;
 }
 .switch {
@@ -841,11 +992,11 @@ fieldset {
 .button-container-overlay,
 .expert-only-buttons{
     flex-direction: row;
-    gap: 20px;
+    gap: var(--sp-20);
 }
 .button-container-col {
     flex-direction: column;
-    gap: 15px;
+    gap: var(--sp-16);
 }
 .button-container-pair {
     display: flex;
@@ -853,15 +1004,15 @@ fieldset {
     position: relative;
     clear: both;
     width: 100%;
-    gap: 20px;
+    gap: var(--sp-20);
 }
 .footer-overlay {
-    gap: 20px;
+    gap: var(--sp-20);
 }
 button {
     display: inline-block;
     width: 100%;
-    padding: 10px;
+    padding: var(--sp-12);
     text-align: center;
     text-transform: uppercase;
     font-size: var(--fs-sm);
@@ -897,8 +1048,8 @@ button[line] {
         color: white;
     }
 button[pop] {
-    padding: 1px 8px;
-    font-size: 0.85em;
+    padding: 1px var(--sp-8);
+    font-size: var(--fs-sm);
     border-radius: var(--radius-panel);
     font-weight: 500;
     text-transform: none;
@@ -907,29 +1058,26 @@ button[pop] {
 button[srow] {
     width: auto;
 }
+/* MD3 disabled convention: on-surface at 38% over a 12% fill, theme-neutral
+   (the old #555/#aaa slab measured 1.78:1 in light theme). */
 button:disabled {
-    background: #555555 !important;
-    color: #aaaaaa !important;
-    opacity: 0.6 !important;
+    background: color-mix(in srgb, var(--color) 12%, transparent) !important;
+    color: color-mix(in srgb, var(--color) 38%, transparent) !important;
     cursor: not-allowed !important;
     transform: none !important;
     pointer-events: none;
 }
 button:disabled:hover,
 button:disabled:active {
-    background: #555555 !important;
+    background: color-mix(in srgb, var(--color) 12%, transparent) !important;
     transform: none !important;
-    opacity: 0.6 !important;
 }
 .buttonUpdate,
 .unibutton,
 .uniGroupButton{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    gap: var(--sp-12);
     width: 100%;
-    padding: 0 12px;
+    padding: 0 var(--sp-12);
     cursor: pointer;
     border: none;
     background: none;
@@ -950,11 +1098,11 @@ button:disabled:active {
     background: var(--error-color, brown);
 }
 .version-badge {
-    font-size: 0.9em;
+    font-size: var(--fs-xs);
     font-family: monospace;
     opacity: 0.7;
     margin-left: auto;
-    padding-left: 10px;
+    padding-left: var(--sp-12);
     white-space: nowrap;
 }
 .warning,
@@ -964,8 +1112,8 @@ button:disabled:active {
     display: flex;
     align-items: center;
     border-radius: var(--radius-bloc);
-    padding: 8px 12px;
-    margin-top: 15px;
+    padding: var(--sp-8) var(--sp-12);
+    margin-top: var(--sp-16);
 }
 .warning {
     background: rgba(244, 188, 54, 0.1);
@@ -981,7 +1129,7 @@ button:disabled:active {
 }
 .error {
     background: rgba(244, 67, 54, 0.1);
-    border: 1px solid #f443362e;
+    border: 1px solid var(--status-bad)2e;
 }
 .warning b,
 .information b,
@@ -1000,16 +1148,16 @@ button:disabled:active {
     font-size: var(--fs-xs);
     line-height: 1.5;
     display: inline-block;
-    margin-top: 4px;
+    margin-top: var(--sp-4);
 }
 .warning b,
-.warning svg {color:#ff9800;}
+.warning svg {color:var(--status-warn);}
 .information b,
 .information svg {color: var(--accent-color);}
 .success b,
-.success svg {color: #4caf50;}
+.success svg {color: var(--status-good);}
 .error b,
-.error svg {color: #f44336;}
+.error svg {color: var(--status-bad);}
 
 .warning svg,
 .information svg,
@@ -1017,15 +1165,13 @@ button:disabled:active {
 .error svg {
     width:32px;
     height:32px;
-    margin-right:8px;
+    margin-right:var(--sp-8);
     flex-shrink:0;
 }
 .warningText {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    gap: var(--sp-8);
     font-size: var(--fs-xs);
-    color: #ff9800;
+    color: var(--status-warn);
 
 }
 .progress-bar {
@@ -1036,7 +1182,7 @@ button:disabled:active {
     height:2em;
     overflow:hidden;
     position:relative;
-    margin-top: 10px;
+    margin-top: var(--sp-12);
     text-align: center;
     --progress: 0%;
 }
@@ -1066,7 +1212,7 @@ button:disabled:active {
 .progress-bar label {
     font-size:var(--fs-sm);
     display:block;
-    margin-bottom:15px;
+    margin-bottom:var(--sp-16);
 }
 /* SVG : UP - DOWN - MY - TOGGLE*/
 .somfy-shade-icon  {
@@ -1179,9 +1325,6 @@ button:disabled:active {
 .somfyShadeCtl[data-shadetype="10"] .shadectl-mypos {
     display: none;
 }
-.somfyShadeCtl .shadectl-mypos span.my-pos {
-    margin-right:14px;
-}
 .animScale {
     transition: transform 0.2s ease-in-out, opacity 0.1s ease-in-out;
     cursor: pointer;
@@ -1220,12 +1363,10 @@ button:disabled:active {
     }
     .input-label {
         font-size: var(--fs-xs);
+        flex: 0 0 80px;
     }
     .gpio-card .inputAndSelect {
         font-size: var(--fs-xs) !important;
-    }
-    .input-label {
-        flex: 0 0 80px;
     }
     .input-number-custom:has(.step-select-arrow) .inputAndSelect {
         margin-right: -90px !important;

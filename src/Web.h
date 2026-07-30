@@ -13,6 +13,9 @@ private:
   void _loginFailed();
 public:
   bool uploadSuccess = false;
+  // millis() of the last served HTTP request; lets background work that blocks
+  // the loop (the GitHub release check) stay out of the way of an active UI.
+  uint32_t lastActivity = 0;
   // Length-independent comparison, so a wrong secret cannot be narrowed down by timing.
   static bool secureEquals(const char *a, const char *b);
   void handleLang(WebServer &server);
@@ -46,6 +49,13 @@ public:
   void handleReboot(WebServer &server);
   void handleDeserializationError(WebServer &server, DeserializationError &err);
   void begin();
+  // Route registration split by concern; begin() calls these in order.  The shade
+  // and system groups live in WebRoutesShades.cpp / WebRoutesSystem.cpp.
+  void beginApiRoutes();
+  void beginShadeRoutes();
+  void beginSystemRoutes();
+  void beginNetworkRoutes();
+  void beginRadioRoutes();
   void loop();
   void end();
   // Web Handlers
@@ -65,4 +75,17 @@ public:
   //void chunkGroupsResponse(WebServer &server, const char *elem = nullptr);
   //void chunkGroupResponse(WebServer &server, SomfyGroup *, const char *prefix = nullptr);
 };
+// Shared between the Web*.cpp translation units.  One response buffer for the whole
+// (single-threaded) server, and the canonical MIME strings.  handleStreamFile()
+// compares encodings by POINTER (encoding == _encoding_html), so every file must
+// reference these single definitions in Web.cpp -- duplicating the string literals
+// per file would silently break that comparison.
+#define WEB_MAX_RESPONSE 4096
+extern char g_content[WEB_MAX_RESPONSE];
+extern const char _response_404[];
+extern const char _encoding_text[];
+extern const char _encoding_html[];
+extern const char _encoding_json[];
+extern WebServer server;
+extern WebServer apiServer;
 #endif

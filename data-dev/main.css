@@ -23,7 +23,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 var(--sp-20);
     z-index: var(--z-topbar);
 }
 .site-title {
@@ -31,9 +31,7 @@
     font-size: var(--fs-xl);
 }
 .top-bar-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    gap: var(--sp-12);
 }
 .top-bar-left svg {
     display: block;
@@ -42,9 +40,7 @@
     height: 64px
 }
 .top-bar-right {
-    display: flex;
-    align-items: center;
-    gap: 20px;
+    gap: var(--sp-20);
     /* Loading reveal: opacity fade instead of an animated blur (GPU cost). */
     opacity: 0.35;
     transition: opacity 0.5s ease;
@@ -52,41 +48,37 @@
 .status-item {
     display: flex;
     align-items: center;
-    padding-right: 20px;
+    padding-right: var(--sp-20);
     border-right: 1px solid var(--soustxt-color);
     height: 40px;
 }
 .status-options {
     display: inline-flex;
-    margin-left: 10px;
+    margin-left: var(--sp-12);
 }
 .opt-badge {
     font-size: var(--fs-sm);
     color: #ababab;
-    padding: 2px 8px;
+    padding: 2px var(--sp-8);
     border-radius: var(--radius-badge);
     border: 1px solid transparent;
     transition: all 0.3s ease;
 }
 .opt-badge.active {
     border-color: var(--accent-color);
-    font-weight: bold;
+    font-weight: 500;
     opacity: 1;
     background: var(--accent-color);
-    color: #fff;
+    color: var(--on-accent);
 }
 .uptime-container {
-    display: flex;
-    align-items: center;
-    gap: 15px;
+    gap: var(--sp-16);
 }
 .uptime-label {
     font-weight: normal;
     white-space: nowrap;
 }
 .uptime-values {
-    display: flex;
-    flex-direction: column;
     justify-content: center;
     line-height: 1.3;
     font-size: var(--fs-sm);
@@ -94,7 +86,7 @@
 .uptime-values > div {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 8px;
+    gap: var(--sp-8);
     align-items: baseline;
     color: #ababab;
 }
@@ -108,7 +100,7 @@
 .sidebar {
     display: flex;
     flex-direction: column;
-    padding: 15px;
+    padding: var(--sp-16);
     height: calc(100vh - var(--topbar-height));
     height: calc(100dvh - var(--topbar-height));
     overflow-y: auto;
@@ -133,14 +125,10 @@ body[data-auth="false"] .container {
 }
 .sidebar-nav {
     flex-grow: 1;
-    gap: 10px;
-    display: flex;
-    flex-direction: column;
+    gap: var(--sp-12);
 }
 .nav-item {
-    display: flex;
-    align-items: center;
-    padding: 12px 15px;
+    padding: var(--sp-12) var(--sp-16);
     text-decoration: none;
     font-size: var(--fs-lg);
     color: var(--color);
@@ -159,12 +147,12 @@ body[data-auth="false"] .container {
 }
 .nav-item.active {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
 }
 .nav-icon {
     width: 25px;
     height: 25px;
-    margin-right: 12px;
+    margin-right: var(--sp-12);
     fill: currentColor;
     flex-shrink: 0;
 }
@@ -180,7 +168,7 @@ body[data-auth="false"] .container {
     display: none;
     flex-direction: column;
     padding-left: 45px;
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-12);
 }
 .nav-group.open .submenu {
     display: flex;
@@ -189,7 +177,7 @@ body[data-auth="false"] .container {
     transform: rotate(180deg);
 }
 .sub-nav-item {
-    padding: 8px 0;
+    padding: var(--sp-8) 0;
     font-size: var(--fs-sm);
     color: var(--soustxt-color);
     text-decoration: none;
@@ -197,31 +185,29 @@ body[data-auth="false"] .container {
     cursor: pointer;
 }
 .sub-nav-item:hover, .sub-nav-item.active {
-    color: var(--accent-color, #1a5fb4);
+    color: var(--accent-text);
 }
 .sidebar-footer {
     margin-top: auto;
-    padding-top: 20px;
-    display: flex;
+    padding-top: var(--sp-20);
     flex-direction: column;
-    align-items: center;
-    gap: 10px;
+    gap: var(--sp-12);
 }
 #barsideRadioDisable {
     background: #e74c3c;
     color: white !important;
-    padding: 2px 8px;
+    padding: 2px var(--sp-8);
     border-radius: var(--radius-badge);
     font-size: var(--fs-xs);
     font-weight: bold;
-    margin-left: 10px;
+    margin-left: var(--sp-12);
     white-space: nowrap;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 .tab-container { display: none; }
 /* Page title injected by syncNavigationState ("Somfy › Volets"). */
 .subtab-content > .panel-title {
-    margin: 8px 0 15px;
+    margin: var(--sp-8) 0 var(--sp-16);
     font-size: var(--fs-lg);
     font-weight: bold;
     color: var(--color);
@@ -236,27 +222,25 @@ body[data-auth="false"] .container {
     background: var(--barreRoomBg);
     overflow: hidden;
     gap: 2px;
-    padding: 10px;
+    padding: var(--sp-12);
 }
 .subtab-container > span {
     display: flex;
     justify-content: center;
-    padding: 4px 8px;
+    padding: var(--sp-4) var(--sp-8);
     font-size: var(--fs-xs);
     cursor: pointer;
 }
 .subtab-container > span.selected {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
     border-radius: var(--radius-round);
 }
 .subtab-content {
-    display: flex;
     max-width: 900px;
     margin: auto;
-    padding: 15px 25px 25px 25px;
+    padding: var(--sp-16) 25px 25px 25px;
     position: relative;
-    flex-direction: column;
     flex-grow: 1;
 }
 .subtab-NameShow-virtualRemote {
@@ -270,7 +254,7 @@ body[data-auth="false"] .container {
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 0 20px 0 20px;
+    padding: 0 var(--sp-20) 0 var(--sp-20);
     animation: slideUpFade 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) ;
     min-height: calc(100vh - var(--topbar-height));
 }
@@ -285,8 +269,6 @@ body[data-auth="false"] .container {
         }
     }
 .welcome-container {
-    display: flex;
-    flex-direction: column;
     width: 100%;
     max-width: 600px;
     justify-content: space-between;
@@ -294,15 +276,12 @@ body[data-auth="false"] .container {
 }
 .welcomeTop {
     text-align: center;
-    display:none;
-}
-.welcomeTop {
-    text-align: center;
+    display: none;
 }
 .welcomeTop svg {
     width: 50px;
     height: 50px;
-    color: var(--accent-color);
+    color: var(--accent-text);
 }
 .welcomeTop p {
     margin-top: 0;
@@ -310,7 +289,7 @@ body[data-auth="false"] .container {
     font-weight: bold;
 }
 .welcomeMiddle H1 {
-    color: var(--accent-color);
+    color: var(--accent-text);
     max-width: 235px;
     margin: auto;
     padding-bottom: 10%;
@@ -325,7 +304,7 @@ body[data-auth="false"] .container {
 .setup-guide {
     display: flex;
     flex-direction: row;
-    gap: 15px;
+    gap: var(--sp-16);
     padding: 0;
     width: 100%;
     margin: 0 auto;
@@ -335,14 +314,12 @@ body[data-auth="false"] .container {
 #divEmptyHomeB {
     display: flex;
     flex-direction: row;
-    gap: 15px;
-    margin-bottom: 15px;
+    gap: var(--sp-16);
+    margin-bottom: var(--sp-16);
 }
 .welcomeCard {
     position: relative;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
     align-items: flex-start;
     justify-content: flex-start;
     flex: 1;
@@ -363,7 +340,7 @@ body[data-auth="false"] .container {
     bottom: -15px;
     width: 80px;
     height: 80px;
-    color: var(--accent-color);
+    color: var(--accent-text);
     opacity: 0.12;
     transform: rotate(-10deg);
     transition: all 0.3s ease;
@@ -387,7 +364,7 @@ body[data-auth="false"] .container {
     color: var(--soustxt-color);
 }
 .welcomeBottom-desc {
-    font-size: 0.8em;
+    font-size: var(--fs-xs);
     line-height: 1.6;
     text-align: center;
     max-width: 331px;
@@ -441,13 +418,6 @@ body[data-auth="false"] .container {
 .minMax550{
     display: none;
 }
-#divSystemStatus {
-transition: transform 0.2s ease-in-out, background 250ms ease, opacity 0.2s ease;
-}
-#divSystemStatus.error:active {
-transform: scale(0.98);
-opacity: 0.9;
-}
 #divFirmware .uniRight { gap: 0; }
 #divFirmware .uniText { max-width: 52%; }
 .show780 {
@@ -456,8 +426,6 @@ opacity: 0.9;
 #svg-clear{fill: var(--color) ;}
 
 .devButtonUpdate {
-    display:flex;
-    flex-direction:column;
     text-align:left;
     flex-grow: 1;
 }
@@ -501,44 +469,33 @@ opacity: 0.9;
 .credits-list .special-credit {
     opacity: 0.8;
 }
+/* Chips flow on their own wrapping line with an even gap; a name must never be
+   split across two lines. */
+.credit-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: var(--sp-4);
+}
 .credit-link {
     cursor: pointer;
-    font-weight: bold;
-    color: #fff;
-    margin-left: 2px;
+    font-weight: 500;
+    color: var(--on-accent);
+    white-space: nowrap;
     background: var(--accent-color);
     border-radius: var(--radius-card);
-    padding: 2px 8px;
+    padding: 2px var(--sp-8);
     transition: all 0.2s;
 }
     .credit-link:hover {
         opacity: 0.8;
     }
 /* Page Network*/
-.wifi-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    padding: 0 12px;
-}
-.wifi-left {
-    display: flex;
-    flex-direction: column;
-}
-.wifi-row {
-    display: flex;
-}
-.wifi-label {
-    margin-right: 4px;
-}
 .wifi-value {
     color: var(--soustxt-color);
     margin-left: 5px;
 }
 .wifi-right {
-    display: flex;
-    align-items: center;
     gap: 2px;
 }
     .wifi-right div {
@@ -554,15 +511,9 @@ opacity: 0.9;
 span.ssid {
     font-size: var(--fs-sm);
     margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 /* SVG ICONS AND SIGNALS */
 div.signal {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 32px;
     height: 32px;
 }
@@ -575,11 +526,6 @@ div.signal {
 div.signal use.active {
     fill: var(--accent-sucess) !important;
     opacity: 1 !important;
-}
-#svgWifiElement {
-    fill: var(--accent-sucess) !important;
-    display: block !important;
-    overflow: visible;
 }
 #svgWifiElement circle,
 #svgWifiElement path {
@@ -600,7 +546,7 @@ div.signal use.active {
     letter-spacing: 0.5px;
 }
 .no-wifi {
-    padding: 30px 10px;
+    padding: 30px var(--sp-12);
     text-align: center;
     color: var(--soustxt-color);
     font-size: var(--fs-sm);
@@ -615,7 +561,7 @@ div.wifiSignal {
     align-items: center;
     justify-content: space-between;
     height: 44px;
-    padding: 0 10px;
+    padding: 0 var(--sp-12);
     cursor: pointer;
     transition: background 0.2s;
 }
@@ -643,13 +589,13 @@ div.wifiSignal {
 /* Shade, group and repeater page */
 .empty-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: 40px var(--sp-20);
     color: var(--soustxt-color);
 }
 .empty-icon {
     width: 160px;
     height: 160px;
-    margin-bottom: 20px;
+    margin-bottom: var(--sp-20);
     opacity: 0.3;
     fill: currentColor;
 }
@@ -660,7 +606,7 @@ div.wifiSignal {
     --unibloc-color: var(--background-color);
 }
 .empty-subtext {
-    font-size: 0.9em;
+    font-size: var(--fs-sm);
     opacity: 0.7;
 }
 .dragtxt {
@@ -691,8 +637,8 @@ div.wifiSignal {
     overflow-x: auto !important;
     overflow-y: hidden !important;
     width: 100%;
-    padding: 10px 15px;
-    gap: 10px;
+    padding: var(--sp-12) var(--sp-16);
+    gap: var(--sp-12);
     white-space: nowrap;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -727,9 +673,6 @@ div.wifiSignal {
     width:100%;
 }
 .bloc80slidStep label {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
     font-size:1em;
     margin-top:0px;
     padding:0 7px;
@@ -745,7 +688,7 @@ div.wifiSignal {
     margin-left: auto;
     margin-right: auto;
     width: fit-content;
-    gap: 10px;
+    gap: var(--sp-12);
 }
     #divSomfyGroupButtons .btn-somfy-svg {
         width: 48px;
@@ -762,13 +705,9 @@ div.wifiSignal {
     pointer-events: none !important;
 }
 .somfy-status-container {
-    display: flex;
-    align-items: center;
     gap: 1px;
 }
 .somfy-infoPosTilt {
-    display: flex;
-    flex-direction: column;
     justify-content: center;
     font-family: sans-serif;
     color: var(--soustxt-color);
@@ -835,37 +774,25 @@ display: none;
     max-width: 380px;
     width: 100%;
     margin: 0 auto;
-    justify-content: center;
     align-content: center;
-    display: flex;
     flex-direction: column;
-    align-items: center;
     background: var(--unibloc-color);
-    padding: 20px;
+    padding: var(--sp-20);
     border-radius: var(--radius-bloc);
     border: 1px solid var(--borderShadeCtl);
     box-shadow: 0 0 6px 0 var(--shadowShadeCtl);
 }
 .vr-content .unibloc {
     background: var(--background-color);
-    margin: 0 0 15px;
+    margin: 0 0 var(--sp-16);
 }
 .vr-bloctoogle {
     display: flex;
     justify-content: space-between;
     width: 100%;
     padding: 5px;
-    gap: 15px;
-}
-.vr-wheel-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-.vr-progFav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    gap: var(--sp-16);
+}.vr-progFav {
     margin-bottom: 25px;
     margin-top: -25px;
     width: 100%;
@@ -873,18 +800,16 @@ display: none;
 .vr-block-boutons {
     display: flex;
     align-items: stretch;
-    gap: 15px;
+    gap: var(--sp-16);
     min-height: 60px;
-    margin-bottom: 20px;
+    margin-bottom: var(--sp-20);
     width: 100%;
 }
 .vr-block-center {
     flex: 1;
-    display: flex;
-    flex-direction: column;
     gap: 22px;
     justify-content: center;
-    padding: 10px;
+    padding: var(--sp-12);
 }
 .vr-toogle {
     width: 48%;
@@ -892,9 +817,6 @@ display: none;
     height: 52px;
     background: var(--accent-color);
     border-radius: var(--radius-round);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: pointer;
     transition: transform 0.1s;
     border: none;
@@ -908,9 +830,6 @@ display: none;
     height: 90px;
     background: var(--accent-color);
     border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-weight: bold;
     font-size: var(--fs-xxl);
     cursor: pointer;
@@ -924,9 +843,6 @@ display: none;
     height: 210px;
     background: var(--background-color);
     border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     border: 1px solid var(--border);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -935,23 +851,16 @@ display: none;
     width: 44px;
     height: 44px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: transform 0.1s;
     color: var(--soustxt-color);
 }
 .vr-arrow-up    { top: 10px;  left: 50%; transform: translateX(-50%); }
 .vr-arrow-down  { bottom: 10px; left: 50%; transform: translateX(-50%); }
 .vr-blockLeft, .vr-blockRight {
-    display: flex;
-    flex-direction: column;
     width: 20%;
 }
 .vr-upMy, .vr-myDown, .vr-upDown, .vr-all {
     background: var(--background-color);
-    display: flex;
-    flex-direction: column;
     cursor: pointer;
     transition: transform 0.1s;
     min-height: 110px;
@@ -966,19 +875,13 @@ display: none;
 .vr-myDown, .vr-all { border-radius: 0 0 35px 35px; }
 .segment {
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-size: var(--fs-xl);
 }
 .btn-prog, .btn-fav {
     width: 76px;
     height: 35px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     border-radius: var(--radius-panel);
-    font-size: 0.75em;
+    font-size: var(--fs-xs);
     font-weight: bold;
     cursor: pointer;
     transition: transform 0.1s, filter 0.1s;
@@ -987,16 +890,13 @@ display: none;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .btn-prog { background: var(--background-color); color: var(--color); }
-.btn-fav  { background: var(--accent-color); color: white; border: none; }
-.switch-group { display: flex; gap: 5px; margin-bottom: 10px; }
+.btn-fav  { background: var(--accent-color); color: var(--on-accent); border: none; }
+.switch-group { display: flex; gap: 5px; margin-bottom: var(--sp-12); }
 .switch-soleil, .switch-windy { flex: 1; display: flex; }
 .switch-group input { display: none; }
 .toggle-item {
     flex: 1;
     height: 42px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: pointer;
     font-size: 1em;
     font-weight: bold;
@@ -1017,9 +917,6 @@ display: none;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .vr-button-sunflagL, .vr-button-sunflagR {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     overflow: hidden;
     cursor: pointer;
 }
@@ -1028,7 +925,7 @@ display: none;
 
 .btn-send {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
     border: none;
     border-radius: var(--radius-button);
     padding: 13px;
@@ -1040,16 +937,12 @@ display: none;
     position: relative;
     background: var(--background-color);
     border-radius: var(--radius-bloc);
-    padding: 15px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    padding: var(--sp-16);
+    gap: var(--sp-12);
     width: 100%;
 }
 .vrslidStepSize {
     flex: 1;
-    display: flex;
-    flex-direction: column;
 }
 .vrslidStepSize input {
     width: 100%;
@@ -1059,16 +952,13 @@ display: none;
 .vr-step80-arrow {
     width: 46px;
     height: 46px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: pointer;
     transition: transform 0.1s;
     flex-shrink: 0;
 }
 .vr-step80Label {
     text-align: center;
-    font-size: 0.9em;
+    font-size: var(--fs-xs);
     position: absolute;
     bottom: 10px;
     left: 0;
@@ -1084,7 +974,7 @@ display: none;
 
 .switch-group input:checked + .toggle-item {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
     border: none;
 }
 /* SVG HANDLING */
@@ -1107,7 +997,7 @@ display: none;
 .vr-wheel-arrow svg {
     width: 100%;
     height: 100%;
-    color: var(--text-light);
+    color: var(--soustxt-color);
 }
 .vr-button-sunflagL svg,
 .vr-button-sunflagR svg {
@@ -1133,8 +1023,8 @@ display: none;
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
-    gap: 0 4px;
-    font-size: 0.8em;
+    gap: 0 var(--sp-4);
+    font-size: var(--fs-sm);
     font-family: monospace;
 }
 .gpioRadio-item {
@@ -1143,7 +1033,7 @@ display: none;
     white-space: nowrap;
 }
 .gpioRadio-label { color: var(--soustxt-color); }
-.gpioRadio-val { color: var(--accent-color); font-weight: bold; }
+.gpioRadio-val { color: var(--accent-text); font-weight: bold; }
 .gpioRadio-sep { color: var(--soustxt-color); opacity: 0.6; }
 
 .help-container {
@@ -1159,7 +1049,7 @@ display: none;
     transition: color 0.5s ease;
 }
 .help-container:hover svg {
-    color: var(--accent-color) !important;
+    color: var(--accent-text) !important;
 }
 .tooltip-text {
     display: none;
@@ -1173,8 +1063,8 @@ display: none;
     color: #fff;
     text-align: left;
     border-radius: var(--radius-panel);
-    padding: 10px;
-    font-size: 0.9em;
+    padding: var(--sp-12);
+    font-size: var(--fs-sm);
     box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
     border: 1px solid var(--borderShadeCtl);
 }
@@ -1187,15 +1077,7 @@ display: none;
         border-width: 5px;
         border-style: solid;
         border-color: #333 transparent transparent transparent;
-    }
-.blocRadioHeader {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-.blocRadioHeaderTitle {
-    display:flex;
-    align-items:center;
+    }.blocRadioHeaderTitle {
     gap:3px;
 }
 .blocRadioHeaderTitle label {
@@ -1204,8 +1086,6 @@ display: none;
 }
 
 .blocRadioSlider {
-    display:flex;
-    align-items:center;
     gap:5px;
     margin:5px 0;
 }
@@ -1217,25 +1097,20 @@ display: none;
     gap:5px;
 }
 .rssi-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     padding: 0 14px;
     width: 100%;
 }
 .rssi-left {
     font-size: var(--fs-sm);
     display: flex;
-    gap: 4px;
+    gap: var(--sp-4);
 }
 .rssi-left span:last-child {
     color: var(--soustxt-color);
 }
 .rssi-right {
     font-size: var(--fs-xxxl);
-    display: flex;
     gap: 6px;
-    align-items: center;
 }
 .rssi-unit {
     font-size: var(--fs-md);
@@ -1277,11 +1152,8 @@ display: none;
     border-radius: var(--radius-bloc);
     width: 30px;
     height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: pointer;
-    color: var(--accent-color);
+    color: var(--accent-text);
     padding: 0;
     transition: all 0.2s ease;
 }
@@ -1304,7 +1176,7 @@ display: none;
     overflow-y: hidden;
     background: var(--unibloc-color);
     border-radius: var(--radius-panel);
-    margin-top: 15px;
+    margin-top: var(--sp-16);
 }
 .log-global-container > div.frame-header,
 .log-global-container > div.frame-list {
@@ -1319,8 +1191,8 @@ display: none;
 }
 .frame-header {
     background: var(--accent-color);
-    color: #fff;;
-    padding: 10px 0;
+    color: var(--on-accent);;
+    padding: var(--sp-12) 0;
     border-radius: 15px 15px 0 0;
 }
 .frame-list {
@@ -1331,9 +1203,6 @@ display: none;
 .frame-row > span,
 .frame-header > span {
     padding: 0 14px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     flex-shrink: 0;
 }
 .frame-row > span:nth-child(1), .frame-header > span:nth-child(1) { flex: 0 0 60px; text-align: center; }
@@ -1346,7 +1215,7 @@ display: none;
 .frame-row {
     background: color-mix(in srgb, var(--unibloc-color), #000 20%);
     border-bottom: 1px solid rgba(255,255,255,0.05);
-    padding: 8px 0;
+    padding: var(--sp-8) 0;
 }
 .frame-list > .frame-row:nth-child(2n) { background: var(--unibloc-color); }
 
@@ -1354,26 +1223,80 @@ div.frame-pulses {
     width:100%;
     padding-left:7px;
     padding-right:7px;
-    overflow:hidden;
-    white-space:nowrap;
-    text-overflow:ellipsis;
     display:none;
 }
+/* RF diagnostics */
+.rfdiag-log > div.frame-header,
+.rfdiag-log > div.frame-list { min-width: 640px; }
+.rfdiag-log .frame-list { min-height: 0; }
+.rfdiag-row > span:nth-child(1), .frame-header.rfdiag-row > span:nth-child(1) { flex: 1 1 200px; text-align: left; }
+.rfdiag-row > span:nth-child(2), .frame-header.rfdiag-row > span:nth-child(2) { flex: 0 0 110px; text-align: center; }
+.rfdiag-row > span:nth-child(3), .frame-header.rfdiag-row > span:nth-child(3) { flex: 0 0 110px; text-align: center; }
+.rfdiag-row > span:nth-child(4), .frame-header.rfdiag-row > span:nth-child(4) { flex: 0 0 90px; text-align: center; }
+.rfdiag-row > span:nth-child(5), .frame-header.rfdiag-row > span:nth-child(5) { flex: 1 0 120px; text-align: center; }
+.rfdiag-name { display: block; overflow: hidden; text-overflow: ellipsis; }
+.rfdiag-addr {
+    display: block;
+    color: var(--soustxt-color);
+    font-size: var(--fs-xs);
+}
+.rfdiag-unknown .rfdiag-name { color: var(--soustxt-color); font-style: italic; }
+.rfdiag-badge {
+    display: inline-block;
+    padding: 2px var(--sp-12);
+    border-radius: var(--radius-badge);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+}
+/* Same status hues as .success/.warning/.error so quality reads consistently app-wide. */
+.rfdiag-badge.good { color: var(--status-good); background: color-mix(in srgb, var(--status-good) 15%, transparent); }
+.rfdiag-badge.fair { color: var(--status-warn); background: color-mix(in srgb, var(--status-warn) 15%, transparent); }
+.rfdiag-badge.weak { color: var(--status-bad); background: color-mix(in srgb, var(--status-bad) 15%, transparent); }
+.rfdiag-legend { padding: 6px var(--sp-12); font-size: var(--fs-xs); color: var(--soustxt-color); }
+/* Scan button lives in the Wi-Fi card header, sized to its label. */
+.wifi-scan-row button { width: auto; padding: var(--sp-8) 18px; white-space: nowrap; }
+#divAps { margin: var(--sp-12) 0 var(--sp-4); }
+.rfdiag-wiz-step { display: flex; align-items: baseline; gap: var(--sp-12); padding: var(--sp-4) var(--sp-12); font-size: var(--fs-sm); }
+.rfdiag-wiz-step .rfdiag-wiz-mark { color: var(--soustxt-color); }
+.rfdiag-wiz-step.done .rfdiag-wiz-mark { color: var(--status-good); font-weight: 600; }
+.rfdiag-wiz-step.done { color: var(--soustxt-color); }
+/* Recommendation rows: compact inline apply button next to the badge. */
+.rfdiag-reco-row { cursor: default; }
+.rfdiag-reco-row .uniRight { gap: var(--sp-12); }
+.rfdiag-reco-row button { width: auto; padding: 6px 14px; white-space: nowrap; }
+.rfdiag-alert { color: var(--status-warn); }
+/* The summary values (frequency, noise floor...) must never wrap under the
+   long descriptions on narrow screens. */
+.rfdiag-value { white-space: nowrap; font-weight: 600; font-size: var(--fs-md); }
+#divRFDiagnostics .uniRight { flex-shrink: 0; margin-left: var(--sp-12); }
+/* Phone layout: the name/badge/RSSI triplet is the useful signal; frames and
+   last-seen live in the tooltip world and give the width back. */
+@media (max-width: 640px) {
+    .rfdiag-log > div.frame-header,
+    .rfdiag-log > div.frame-list { min-width: 0; }
+    .rfdiag-row > span:nth-child(4), .frame-header.rfdiag-row > span:nth-child(4),
+    .rfdiag-row > span:nth-child(5), .frame-header.rfdiag-row > span:nth-child(5) { display: none; }
+    .rfdiag-row > span:nth-child(1), .frame-header.rfdiag-row > span:nth-child(1) { flex: 1 1 55%; }
+    .rfdiag-row > span:nth-child(2), .frame-header.rfdiag-row > span:nth-child(2) { flex: 0 0 88px; }
+    .rfdiag-row > span:nth-child(3), .frame-header.rfdiag-row > span:nth-child(3) { flex: 0 0 92px; }
+}
+/* Merged update state carried by the GitHub button. */
+.buttonUpdate.upd-ok { cursor: default; }
+.buttonUpdate.upd-ok .btnArrowRight { display: none; }
+.buttonUpdate.upd-ok #ghUpdTitle { color: var(--status-good); font-weight: 600; }
+.buttonUpdate.upd-available #ghUpdTitle { color: var(--status-warn); font-weight: 600; }
 /* Security */
 #divPinSecurity { justify-content: center; }
-#divPinSecurity label { margin: 20px; }
-#fldPinEntry { margin-top: 20px; }
+#divPinSecurity label { margin: var(--sp-20); }
+#fldPinEntry { margin-top: var(--sp-20); }
 
 #divUnauthenticated {
-    display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
     min-height: calc(100vh - var(--topbar-height));
     width: 100%;
-    gap: 20px;
+    gap: var(--sp-20);
     background: var(--background-color);
-    padding: 20px;
+    padding: var(--sp-20);
 }
 /* ConfigOnly 401 flow: the login is shown as a modal on top of the running app
    instead of replacing the whole screen, so the user keeps their context. */
@@ -1395,7 +1318,7 @@ div.frame-pulses {
     font-weight: bold;
 }
 #divLoginPassword {
-    margin-bottom: 15px;
+    margin-bottom: var(--sp-16);
 }
 #divLoginPin label {
     display: block;
@@ -1421,6 +1344,13 @@ div.frame-pulses {
     z-index: 2;
     pointer-events: none;
 }
+/* Field wrapper: the anchor for the eye on every page (login, WiFi, MQTT). */
+.password-container {
+    position: relative;
+}
+.password-container input {
+    padding-right: 44px; /* keep typed text clear of the eye */
+}
 .password-eye {
     position: absolute;
     right: 12px;
@@ -1428,14 +1358,12 @@ div.frame-pulses {
     transform: translateY(-50%);
     cursor: pointer;
     z-index: 3;
-    display: flex;
-    align-items: center;
     padding: 5px;
     opacity: 0.6;
 }
 #divLoginPassword  .LoginPassword-input input {
     width: 100%;
-    padding: 12px 12px 12px 40px;
+    padding: var(--sp-12) var(--sp-12) var(--sp-12) 40px;
     border: 1px solid var(--border);
     border-radius: var(--radius-bloc);
     outline: none;
@@ -1449,7 +1377,7 @@ div.frame-pulses {
 }
 #divLoginPassword input:focus + svg,
 #divLoginPassword input:hover + svg {
-    color: var(--accent-color);
+    color: var(--accent-text);
 }
 #divUnauthenticated .button-container-row {
     gap: 45px;
@@ -1461,7 +1389,7 @@ div.frame-pulses {
         display: grid;
         grid-template-columns: min-content auto min-content auto min-content auto;
         align-items: center;
-        gap: 4px 4px;
+        gap: var(--sp-4) var(--sp-4);
     }
     .gpioRadio-container .help-container {
         grid-row: 1 / span 2;
@@ -1510,12 +1438,12 @@ div.frame-pulses {
     .header {
         display: flex;
         justify-content: space-between;
-        padding: 5px 5px 20px 5px;
+        padding: 5px 5px var(--sp-20) 5px;
     }
     .headerIdentity {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: var(--sp-12);
         visibility: hidden;
     }
     .headerIdentity svg {
@@ -1561,7 +1489,7 @@ div.frame-pulses {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        margin-right: 10px;
+        margin-right: var(--sp-12);
         color: var(--soustxt-color);
         font-size: var(--fs-sm);
         font-weight: bold;
@@ -1576,7 +1504,7 @@ div.frame-pulses {
         background: #5cb85c;
     }
     .subtab-container > span {
-        padding: 10px 12px;
+        padding: var(--sp-12) var(--sp-12);
     }
     #divSystemOptions,
     #divSecurityOptions,
@@ -1622,7 +1550,7 @@ div.frame-pulses {
         cursor: pointer;
         transition: color 0.5s ease;
         background: var(--unibloc-color);
-        margin: 4px;
+        margin: var(--sp-4);
         border-radius: var(--radius-panel);
         padding: 2px;
     }
@@ -1656,7 +1584,7 @@ div.frame-pulses {
     }
     .tab-container > span.selected {
         font-weight: bold;
-        color: var(--accent-color);
+        color: var(--accent-text);
         box-shadow: 0px 1px 2px 0 #9c9c9c;
     }
     .subtab-container {
@@ -1678,9 +1606,9 @@ div.frame-pulses {
         min-height: calc(100dvh - var(--topbar-height));
     }
     #divUnauthenticated .welcomeTop { margin-bottom: 8%;}
-    #divUnauthenticated .button-container-row { gap: 12px; }
+    #divUnauthenticated .button-container-row { gap: var(--sp-12); }
 }
-@media screen and (max-width: 550px) {
+@media screen and (max-width: 640px) {
     .hide550,
     .minMaxFull,
     .divButton .uniStatus {
@@ -1700,7 +1628,7 @@ div.frame-pulses {
     }
     .subtab-container > span {
         font-size: var(--fs-xs);
-        padding: 8px 10px;
+        padding: var(--sp-8) var(--sp-12);
     }
     .subtab-NameHide-virtualRemote {
         display: none !important;
@@ -1709,6 +1637,24 @@ div.frame-pulses {
         display: inline-block !important;
     }
     .gpioRadio-container {
-        font-size: 0.75em;
+        font-size: var(--fs-xs);
     }
 }
+
+/* M3 touch targets: compact icon controls get a centered 44x44 hit area
+   without visual change (same idea as the step-buttons ::after in base.css). */
+/* .password-eye is absent on purpose: it is position:absolute (anchored to the
+   right edge of its field) and absolute boxes already contain their ::after. */
+.radioBtnPrec, .divEditDelete-svg, .button-my, .button-light,
+.button-sunflag, .nav-arrow, .step-btn, .help-container { position: relative; }
+.radioBtnPrec::after, .password-eye::after, .divEditDelete-svg::after,
+.button-my::after, .button-light::after, .button-sunflag::after,
+.nav-arrow::after, .step-btn::after, .help-container::after {
+    content: "";
+    position: absolute;
+    left: 50%; top: 50%;
+    width: max(100%, 44px); height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+}
+.sub-nav-item { padding: var(--sp-12) 0; }
+.subtab-container > span { min-height: 36px; align-items: center; }

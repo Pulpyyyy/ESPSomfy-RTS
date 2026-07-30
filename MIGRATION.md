@@ -1,17 +1,24 @@
 # Migrating from ESPSomfy-RTS v2.x (rstrouse / xkain)
 
 This guide walks you through moving an existing ESPSomfy-RTS v2.x device
-(original project by rstrouse, or the xkain fork) to this firmware. The
+(original project by rstrouse, xkain fork or cjkas fork) to this
+firmware. The
 whole point of the procedure is that **you keep everything**: shades,
 rooms, groups, remote addresses and — critically — **rolling codes**, so
 your shades never need to be re-paired.
 
 The backup format is versioned field by field since the original
 project. Restoring an old backup on this firmware has been **verified
-end-to-end with a real v2.5.6-format backup**: every field is read
-back exactly, and the fields introduced by this fork get neutral
-defaults (`liftTime` 0 = disabled, `curveGain` 0 = no correction).
-Backups from any 2.x release are accepted.
+end-to-end with real xkain 2.5.6 and cjkas format backups**: every
+field is read back exactly, and the fields introduced by this fork get
+neutral defaults (`liftTime` 0 = disabled, `curveGain` 0 = no
+correction). Backups from any 2.x release are accepted.
+
+> **Coming from the cjkas fork**: its radio record uses a different
+> layout under the same version number; the firmware detects this and
+> keeps the current radio settings instead of restoring corrupted
+> values. Reconfigure the radio manually if needed — everything else
+> (shades, rooms, rolling codes) restores normally.
 
 ## Before you start
 

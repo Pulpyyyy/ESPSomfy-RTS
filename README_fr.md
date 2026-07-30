@@ -66,6 +66,7 @@ Si vous migrez depuis **rstrouse/ESPSomfy-RTS** ou si vous mettez à niveau une 
 #### Mise à niveau vers la v3.x (nouvelle table de partitions)
 * **Mise à jour OTA :** La mise à jour depuis la v2.5.x via l'interface web ou l'updater GitHub continue de fonctionner. Le firmware v3.x remplit environ 97 % de l'ancien slot applicatif de 1,31 Mo ; si une future version ne tenait plus, le garde-fou intégré refuse la mise à jour au lieu de corrompre le boîtier.
 * **Recommandé — un flash USB :** La v3.0.0 introduit une nouvelle table de partitions avec des slots applicatifs de 1,69 Mo et de la marge pour la suite. Une table de partitions ne peut pas être changée par OTA : sauvegardez votre configuration, flashez une fois l'image **onboard** v3.x par USB, puis restaurez votre sauvegarde. Toutes les mises à jour suivantes redeviennent des OTA classiques.
+* **Guide pas à pas :** voir [MIGRATION_fr.md](MIGRATION_fr.md) — la procédure complète, vérifiée de bout en bout avec une vraie sauvegarde v2.5.6 (volets, rolling codes et pièces conservés, aucun ré-appairage).
 
 > [!TIP]
 > Après une mise à jour réussie vers la v2.5.0, nous vous recommandons de créer immédiatement une **nouvelle sauvegarde**. Ce nouveau fichier inclura la cartographie GPIO mise à jour et ne déclenchera plus aucun avertissement à l'avenir.

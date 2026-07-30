@@ -9,6 +9,7 @@
 #include "Utils.h"
 #include "SSDP.h"
 #include "Somfy.h"
+#include "RfStats.h"
 #include "WResp.h"
 #include "Web.h"
 #include "MQTT.h"
@@ -24,30 +25,21 @@ extern Web webServer;
 extern MQTTClass mqtt;
 extern GitUpdater git;
 extern Network net;
+extern RfStats rfStats;
 
-//#define WEB_MAX_RESPONSE 34768
-#define WEB_MAX_RESPONSE 4096
-static char g_content[WEB_MAX_RESPONSE];
+// WEB_MAX_RESPONSE and the extern declarations for these live in Web.h.
+char g_content[WEB_MAX_RESPONSE];
 
-// Set at UPLOAD_FILE_START by the upload lambdas; the server is single-threaded so one
-// flag is enough to make every later chunk of an unauthenticated upload a no-op.
-static bool g_uploadAuthorized = false;
 
-// Cumulative bytes of the current config upload, reset at UPLOAD_FILE_START. Only one
-// upload runs at a time (single-threaded server) so a single counter is sufficient.
-static size_t g_uploadBytes = 0;
-// Generous caps: shades backups are a few KB. Anything larger is treated as an attempt
-// to fill the filesystem and is aborted. Firmware image endpoints are not capped here.
-#define RESTORE_MAX_UPLOAD (128 * 1024)
-#define SHADECFG_MAX_UPLOAD (64 * 1024)
-
-// General responses
-static const char _response_404[] = "404: Service Not Found";
+// General responses.  extern on the definitions: a namespace-scope const array
+// otherwise has internal linkage and the other Web*.cpp files must see THESE
+// objects (pointer identity matters, see Web.h).
+extern const char _response_404[] = "404: Service Not Found";
 
 // Encodings
-static const char _encoding_text[] = "text/plain";
-static const char _encoding_html[] = "text/html";
-static const char _encoding_json[] = "application/json";
+extern const char _encoding_text[] = "text/plain";
+extern const char _encoding_html[] = "text/html";
+extern const char _encoding_json[] = "application/json";
 
 
 WebServer apiServer(8081);
@@ -68,8 +60,10 @@ void Web::loop() {
   apiServer.handleClient();
   delay(1);
 }
-void Web::sendCORSHeaders(WebServer &server) { 
-    //server.sendHeader(F("Connection"), F("Keep-Alive")); 
+void Web::sendCORSHeaders(WebServer &server) {
+    // Every handler passes through here first: a cheap place to record UI activity.
+    this->lastActivity = millis();
+    //server.sendHeader(F("Connection"), F("Keep-Alive"));
     //server.sendHeader(F("Keep-Alive"), F("timeout=5, max=1000"));
     //server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
     //server.sendHeader(F("Access-Control-Max-Age"), F("600"));
@@ -81,343 +75,6 @@ void Web::sendCacheHeaders(uint32_t seconds) {
 }
 void Web::end() {
   //server.end();
-}
-void Web::handleDeserializationError(WebServer &server, DeserializationError &err) {
-    switch (err.code()) {
-    case DeserializationError::InvalidInput:
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid JSON payload\"}"));
-      break;
-    case DeserializationError::NoMemory:
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Out of memory parsing JSON\"}"));
-      break;
-    default:
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"General JSON Deserialization failed\"}"));
-      break;
-    }
-}
-bool Web::secureEquals(const char *a, const char *b) {
-  if(a == nullptr || b == nullptr) return false;
-  size_t la = strlen(a), lb = strlen(b);
-  size_t n = la > lb ? la : lb;
-  uint8_t diff = static_cast<uint8_t>(la ^ lb);
-  for(size_t i = 0; i < n; i++)
-    diff |= static_cast<uint8_t>((i < la ? a[i] : 0) ^ (i < lb ? b[i] : 0));
-  return diff == 0;
-}
-bool Web::_loginLocked() {
-  if(this->_lockoutUntil == 0) return false;
-  if((int32_t)(millis() - this->_lockoutUntil) >= 0) { this->_lockoutUntil = 0; return false; }
-  return true;
-}
-void Web::_loginFailed() {
-  if(this->_failedLogins < 255) this->_failedLogins++;
-  // Let a few fat-finger attempts through, then back off: 5s, 10s, ... capped at 60s.
-  if(this->_failedLogins >= 5) {
-    uint32_t backoff = (uint32_t)(this->_failedLogins - 4) * 5000;
-    if(backoff > 60000) backoff = 60000;
-    this->_lockoutUntil = millis() + backoff;
-    if(this->_lockoutUntil == 0) this->_lockoutUntil = 1; // never the "unlocked" sentinel
-  }
-}
-// Pure check: never sends a response.  Upload lambdas call this while the request body is
-// still being parsed, so the outer handler (or ensureAuth) owns the 401.
-bool Web::isAuthenticated(WebServer &server, bool cfg) {
-  if(settings.Security.type == security_types::None) return true;
-  else if(!cfg && (settings.Security.permissions & static_cast<uint8_t>(security_permissions::ConfigOnly)) == 0x01) return true;
-  else if(server.hasHeader("apikey")) {
-    // Api key was supplied.
-    char token[65];
-    memset(token, 0x00, sizeof(token));
-    this->createAPIToken(server.client().remoteIP(), token);
-    // Compare the tokens.
-    if(!Web::secureEquals(token, server.header("apikey").c_str())) return false;
-    server.sendHeader("apikey", token);
-    return true;
-  }
-  Serial.println("Not authenticated...");
-  return false;
-}
-// Auth gate for mutating/config endpoints.  Sends the 401 itself so callers can simply return.
-bool Web::ensureAuth(WebServer &server, bool cfg) {
-  // Same-origin is enforced before authentication so it also covers Security::None
-  // devices, where isAuthenticated() always returns true: the anti-rebinding host
-  // check is then the only barrier against a remote site driving these endpoints.
-  if(!this->sameOriginOK(server)) return false;
-  if(this->isAuthenticated(server, cfg)) return true;
-  server.send(401, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Not authenticated\"}"));
-  return false;
-}
-// --- CSRF / DNS-rebinding protection --------------------------------------
-// Extract the bare host from a Host/Origin/Referer value, dropping any scheme,
-// path and port.  Handles bracketed IPv6 literals ("[::1]:80" -> "::1").
-static String csrfExtractHost(String v) {
-  v.trim();
-  int scheme = v.indexOf("://");
-  if(scheme >= 0) v = v.substring(scheme + 3);    // strip "http://" (Origin/Referer)
-  int slash = v.indexOf('/');
-  if(slash >= 0) v = v.substring(0, slash);        // strip "/path" (Referer)
-  if(v.length() && v[0] == '[') {                  // bracketed IPv6 literal
-    int close = v.indexOf(']');
-    if(close > 0) return v.substring(1, close);
-    return v;
-  }
-  int first = v.indexOf(':');
-  int last = v.lastIndexOf(':');
-  if(first >= 0 && first == last) v = v.substring(0, first); // single ':' -> host:port
-  // Several colons and no brackets means a bare IPv6 literal: keep it verbatim.
-  return v;
-}
-// True when the host is an IP literal (v4 or v6).  DNS-rebinding needs a real
-// DNS name, so any literal address (including the 192.168.4.1 recovery AP) is safe.
-static bool csrfIsIpLiteral(const String &h) {
-  if(h.length() == 0) return false;
-  if(h.indexOf(':') >= 0) {                         // candidate IPv6 literal
-    for(size_t i = 0; i < h.length(); i++) {
-      char c = h.charAt(i);
-      if(c != ':' && !isxdigit((int)c)) return false;
-    }
-    return true;
-  }
-  IPAddress ip;
-  return ip.fromString(h);                           // strict IPv4 parse
-}
-// True when the host matches the configured device hostname, with or without
-// the mDNS ".local" suffix (case-insensitive).
-static bool csrfIsConfiguredHost(const String &h) {
-  String hn = String(settings.hostname);
-  if(hn.length() == 0) return false;
-  hn.toLowerCase();
-  String lh = h; lh.toLowerCase();
-  return lh == hn || lh == hn + ".local";
-}
-// Pure predicate for the CSRF / DNS-rebinding check; sends nothing so it can be
-// called during an upload (UPLOAD_FILE_START) where no response may be emitted yet.
-// Home Assistant talks to the dedicated API port (apiServer) with token auth and
-// is not browser-driven, so the check is skipped there to avoid breaking it.
-bool Web::isSameOrigin(WebServer &server) {
-  if(&server == &apiServer) return true;
-  String host = csrfExtractHost(server.hostHeader());
-  // (a) Anti DNS-rebinding: the Host must be an IP literal or our own hostname.
-  //     An absent Host cannot carry a rebinding attack, so it is allowed through.
-  if(host.length() != 0 && !csrfIsIpLiteral(host) && !csrfIsConfiguredHost(host)) return false;
-  // (b) If the browser sent an Origin or Referer, its host must equal the Host
-  //     header; a cross-site page driving this API would carry a foreign origin.
-  String src = server.header("Origin");
-  if(src.length() == 0) src = server.header("Referer");
-  if(src.length() != 0 && host.length() != 0) {
-    String srcHost = csrfExtractHost(src);
-    srcHost.toLowerCase();
-    String lh = host; lh.toLowerCase();
-    if(srcHost != lh) return false;
-  }
-  return true;
-}
-// Reject cross-site and DNS-rebinding requests on the browser-facing server,
-// sending the 403 itself so callers can simply return.
-bool Web::sameOriginOK(WebServer &server) {
-  if(this->isSameOrigin(server)) return true;
-  server.send(403, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Cross-origin or forbidden host\"}"));
-  return false;
-}
-void sendJsonError(const char* detail = "") {
-  String msg = F("JSON Err: ");
-  msg += detail;
-  server.send(400, "text/html", msg);
-}
-bool Web::createAPIPinToken(const IPAddress ipAddress, const char *pin, char *token) {
-  return this->createAPIToken((String(pin) + ":" + ipAddress.toString()).c_str(), token);
-}
-bool Web::createAPIPasswordToken(const IPAddress ipAddress, const char *username, const char *password, char *token) {
-  return this->createAPIToken((String(username) + ":" + String(password) + ":" + ipAddress.toString()).c_str(), token);
-}
-bool Web::createAPIToken(const char *payload, char *token) {
-    byte hmacResult[32];
-    mbedtls_md_context_t ctx;
-    mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
-    // md_setup() with hmac=1 heap-allocates the digest and HMAC contexts; they must be
-    // released or every token computation leaks.  /login computes one before checking any
-    // credential, so an anonymous request loop would otherwise exhaust the heap.
-    mbedtls_md_init(&ctx);
-    if(mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1) != 0) {
-      mbedtls_md_free(&ctx);
-      token[0] = '\0';
-      return false;
-    }
-    // Key the HMAC with the private random secret, not the public/weak serverId.
-    mbedtls_md_hmac_starts(&ctx, (const unsigned char *)settings.apiSecret, sizeof(settings.apiSecret));
-    mbedtls_md_hmac_update(&ctx, (const unsigned char *)payload, strlen(payload)); 
-    mbedtls_md_hmac_finish(&ctx, hmacResult);
-    mbedtls_md_free(&ctx);
-    token[0] = '\0';
-    for(int i = 0; i < sizeof(hmacResult); i++){
-        char str[3];
-        sprintf(str, "%02x", (int)hmacResult[i]);
-        strcat(token, str);
-    }
-    return true;
-}
-bool Web::createAPIToken(const IPAddress ipAddress, char *token) {
-    String payload;
-    if(settings.Security.type == security_types::Password) createAPIPasswordToken(ipAddress, settings.Security.username, settings.Security.password, token);
-    else if(settings.Security.type == security_types::PinEntry) createAPIPinToken(ipAddress, settings.Security.pin, token);
-    else createAPIToken(ipAddress.toString().c_str(), token);
-    return true;
-}
-void Web::handleLang(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if (server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-
-    String filename = "/locale/en.json.gz"; // Par défaut en .gz
-
-    // On définit le fichier selon le réglage
-    if (settings.language == 0) filename = "/locale/en.json.gz";
-    else if (settings.language == 1) filename = "/locale/fr.json.gz";
-    else if (settings.language == 2) filename = "/locale/de.json.gz";
-    else if (settings.language == 3) filename = "/locale/es.json.gz";
-
-    if (LittleFS.exists(filename)) {
-        File file = LittleFS.open(filename, "r");
-        
-        // --- MÉTHODE D'ENVOI MANUELLE (Identique à handleStreamFile) ---
-        server.setContentLength(file.size());
-        server.sendHeader("Content-Encoding", "gzip");
-        
-        // On envoie le Type MIME JSON
-        server.send(200, "application/json", ""); 
-        
-        // Envoi du binaire compressé
-        server.client().write(file);
-        
-        file.close();
-    } else {
-        Serial.print("Lang file not found: ");
-        Serial.println(filename);
-        server.send(404, "text/plain", "Lang file not found");
-    }
-}
-void Web::handleSetLang(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) {
-      server.send(200, "OK");
-      return;
-    }
-
-    if(!server.hasArg("lang")) {
-      server.send(400, _encoding_json, "{\"error\":\"missing lang\"}");
-      return;
-    }
-
-    String lang = server.arg("lang");
-    uint8_t language;
-    if(lang == "en") language = 0;
-    else if(lang == "fr") language = 1;
-    else if(lang == "de") language = 2;
-    else if(lang == "es") language = 3;
-    else {
-      server.send(400, _encoding_json, "{\"error\":\"unsupported lang\"}");
-      return;
-    }
-    // This endpoint is reachable before login, since the language selector sits on the
-    // login screen. Only touch NVS when the value actually changes, so repeated calls
-    // cannot be used to wear out the flash.
-    if(settings.language != language) {
-      settings.language = language;
-      settings.save();
-    }
-    server.send(200, _encoding_json, "{\"status\":\"ok\"}");
-}
-void Web::handleLogout(WebServer &server) {
-  Serial.println("Logging out of webserver");
-  server.sendHeader("Location", "/");
-  server.sendHeader("Cache-Control", "no-cache");
-  server.sendHeader("Set-Cookie", "ESPSOMFYID=0");
-  server.send(301);
-}
-void Web::handleLogin(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    StaticJsonDocument<256> doc;
-    JsonObject obj = doc.to<JsonObject>();
-    char token[65];
-    memset(&token, 0x00, sizeof(token));
-    this->createAPIToken(server.client().remoteIP(), token);
-    obj["type"] = static_cast<uint8_t>(settings.Security.type);
-    if(settings.Security.type == security_types::None) {
-      obj["apiKey"] = token;
-      obj["msg"] = "Success";
-      obj["success"] = true;
-      serializeJson(doc, g_content);
-      server.send(200, _encoding_json, g_content);
-      return;
-    }
-    Serial.println("Web logging in...");
-    char username[33] = "";
-    char password[33] = "";
-    char pin[5] = "";
-    memset(username, 0x00, sizeof(username));
-    memset(password, 0x00, sizeof(password));
-    memset(pin, 0x00, sizeof(pin));
-    if(server.hasArg("plain")) {
-      DynamicJsonDocument docin(512);
-      DeserializationError err = deserializeJson(docin, server.arg("plain"));
-      if (err) {
-        this->handleDeserializationError(server, err);
-        return;
-      }
-      else {
-          JsonObject objin = docin.as<JsonObject>();
-          if(objin.containsKey("username") && objin["username"]) strlcpy(username, objin["username"], sizeof(username));
-          if(objin.containsKey("password") && objin["password"]) strlcpy(password, objin["password"], sizeof(password));
-          if(objin.containsKey("pin") && objin["pin"]) strlcpy(pin, objin["pin"], sizeof(pin));
-      }
-    }
-    else {
-      if(server.hasArg("username")) strlcpy(username, server.arg("username").c_str(), sizeof(username));
-      if(server.hasArg("password")) strlcpy(password, server.arg("password").c_str(), sizeof(password));
-      if(server.hasArg("pin")) strlcpy(pin, server.arg("pin").c_str(), sizeof(pin));
-    }
-    // At this point we should have all the data we need to login.
-    if(this->_loginLocked()) {
-      obj["success"] = false;
-      obj["msg"] = "Too many attempts, try again shortly";
-      serializeJson(doc, g_content);
-      server.send(429, _encoding_json, g_content);
-      return;
-    }
-    if(settings.Security.type == security_types::PinEntry) {
-      Serial.println("Validating pin");
-      if(strlen(pin) == 0 || !Web::secureEquals(pin, settings.Security.pin)) {
-        this->_loginFailed();
-        obj["success"] = false;
-        obj["msg"] = "Invalid Pin Entry";
-      }
-      else {
-        this->_failedLogins = 0;
-        this->_lockoutUntil = 0;
-        obj["success"] = true;
-        obj["msg"] = "Login successful";
-        obj["apiKey"] = token;
-      }
-    }
-    else if(settings.Security.type == security_types::Password) {
-      if(strlen(username) == 0 || strlen(password) == 0
-        || !Web::secureEquals(username, settings.Security.username)
-        || !Web::secureEquals(password, settings.Security.password)) {
-        this->_loginFailed();
-        obj["success"] = false;
-        obj["msg"] = "Invalid username or password";
-      }
-      else {
-        this->_failedLogins = 0;
-        this->_lockoutUntil = 0;
-        obj["success"] = true;
-        obj["msg"] = "Login successful";
-        obj["apiKey"] = token;
-      }
-    }
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
-    return;
 }
 void Web::handleStreamFile(WebServer &server, const char *filename, const char *encoding) {
   if(git.lockFS) {
@@ -460,8 +117,15 @@ void Web::handleStreamFile(WebServer &server, const char *filename, const char *
       server.sendHeader("Content-Encoding", "gzip");
   }
   server.send(200, encoding, "");
-  server.client().write(file); 
-  
+  // Copy through g_content (idle during a file stream) in 4KB chunks instead of
+  // WiFiClient::write(Stream&)'s internal 1360-byte loop: page-aligned LittleFS
+  // reads and fewer socket writes roughly double the asset throughput, which is
+  // what the first cold page load is made of.
+  size_t n;
+  while((n = file.read((uint8_t *)g_content, sizeof(g_content))) > 0) {
+    server.client().write((const uint8_t *)g_content, n);
+    esp_task_wdt_reset();
+  }
   file.close();
  
   esp_task_wdt_reset();
@@ -508,609 +172,6 @@ void Web::handleController(WebServer &server) {
   }
   else server.send(404, _encoding_text, _response_404);
 }
-void Web::handleLoginContext(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    JsonResponse resp;
-    resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("type", static_cast<uint8_t>(settings.Security.type));
-    resp.addElem("permissions", settings.Security.permissions);
-    resp.addElem("serverId", settings.serverId);
-    resp.addElem("version", settings.fwVersion.name);
-    resp.addElem("model", "ESPSomfyRTS");
-    resp.addElem("hostname", settings.hostname);
-    if (net.connType == conn_types_t::ethernet) {
-      resp.addElem("mac", ETH.macAddress().c_str());
-    } else {
-      resp.addElem("mac", WiFi.macAddress().c_str());
-    }
-    resp.addElem("uptime", (uint32_t)(millis() / 1000));
-    uint32_t netUptime = 0;
-    if(net.connectedAt > 0) {
-      netUptime = (millis() - net.connectedAt) / 1000;
-    }
-    resp.addElem("netUptime", netUptime);
-    resp.addElem("cpuFreq", ESP.getCpuFreqMHz());
-    resp.addElem("cores", ESP.getChipCores());
-    resp.addElem("flashSize", (uint32_t)(ESP.getFlashChipSize() / 1024 / 1024));
-    size_t total = LittleFS.totalBytes();
-    size_t used = LittleFS.usedBytes();
-    resp.addElem("fsTotal", (uint32_t)(total / 1024)); // En Ko
-    resp.addElem("fsUsed", (uint32_t)(used / 1024));   // En Ko
-    // Size of the inactive OTA app slot: the UI uses it to allow/deny a GitHub
-    // update based on the real partition layout instead of the version number
-    // (an old small-partition table cannot hold the enlarged-layout images).
-    resp.addElem("otaSize", (uint32_t)ESP.getFreeSketchSpace());
-    resp.addElem("flashSpeed", (uint32_t)(ESP.getFlashChipSpeed() / 1000000)); // En MHz
-    resp.endObject();
-    resp.endResponse();
-}
-void Web::handleGetRepeaters(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    HTTPMethod method = server.method();
-    if (method == HTTP_POST || method == HTTP_GET) {
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginArray();
-      somfy.toJSONRepeaters(resp);
-      resp.endArray();
-      resp.endResponse();
-      server.client().stop();
-    }
-    else server.send(404, _encoding_text, _response_404);
-}
-void Web::handleGetRooms(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!this->ensureAuth(server, false)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_POST || method == HTTP_GET) {
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginArray();
-      somfy.toJSONRooms(resp);
-      resp.endArray();
-      resp.endResponse();
-      server.client().stop();
-    }
-    else server.send(404, _encoding_text, _response_404);
-}
-void Web::handleGetShades(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!this->ensureAuth(server, false)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_POST || method == HTTP_GET) {
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginArray();
-      somfy.toJSONShades(resp, this->isAuthenticated(server, true));
-      resp.endArray();
-      resp.endResponse();
-      server.client().stop();
-    }
-    else server.send(404, _encoding_text, _response_404);
-}
-void Web::handleGetGroups(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!this->ensureAuth(server, false)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_POST || method == HTTP_GET) {
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginArray();
-      somfy.toJSONGroups(resp, this->isAuthenticated(server, true));
-      resp.endArray();
-      resp.endResponse();
-      server.client().stop();
-    }
-    else server.send(404, _encoding_text, _response_404);
-}
-void Web::handleShadeCommand(WebServer& server) {
-  webServer.sendCORSHeaders(server);
-  if (server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->ensureAuth(server, false)) return;
-  HTTPMethod method = server.method();
-  uint8_t shadeId = 255;
-  uint8_t target = 255;
-  uint8_t stepSize = 0;
-  int8_t repeat = -1;
-  somfy_commands command = somfy_commands::My;
-  if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-    if (server.hasArg("shadeId")) {
-      shadeId = atoi(server.arg("shadeId").c_str());
-      if (server.hasArg("command")) command = translateSomfyCommand(server.arg("command"));
-      else if (server.hasArg("target")) target = atoi(server.arg("target").c_str());
-      if (server.hasArg("repeat")) repeat = atoi(server.arg("repeat").c_str());
-      if(server.hasArg("stepSize")) stepSize = atoi(server.arg("stepSize").c_str());
-    }
-    else if (server.hasArg("plain")) {
-      Serial.println("Sending Shade Command");
-      DynamicJsonDocument doc(512);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        this->handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-        else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-        if (obj.containsKey("command")) {
-            String scmd = obj["command"];
-            command = translateSomfyCommand(scmd);
-        }
-        else if (obj.containsKey("target")) {
-            target = obj["target"].as<uint8_t>();
-        }
-        if (obj.containsKey("repeat")) repeat = obj["repeat"].as<uint8_t>();
-        if(obj.containsKey("stepSize")) stepSize = obj["stepSize"].as<uint8_t>();
-      }
-    }
-    else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}"));
-    SomfyShade* shade = somfy.getShadeById(shadeId);
-    if (shade) {
-      Serial.print("Received:");
-      Serial.println(server.arg("plain"));
-      // Send the command to the shade.
-      if (target <= 100)
-          shade->moveToTarget(shade->transformPosition(target));
-      else
-          shade->sendCommand(command, repeat > 0 ? repeat : shade->repeats, stepSize);
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      shade->toJSONRef(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
-    }
-  }
-  else
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
-}
-void Web::handleRepeatCommand(WebServer& server) {
-  webServer.sendCORSHeaders(server);
-  HTTPMethod method = server.method();
-  if (method == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->ensureAuth(server, false)) return;
-  uint8_t shadeId = 255;
-  uint8_t groupId = 255;
-  uint8_t stepSize = 0;
-  int8_t repeat = -1;
-  somfy_commands command = somfy_commands::My;
-  if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-    if(server.hasArg("shadeId")) shadeId = atoi(server.arg("shadeId").c_str());
-    else if(server.hasArg("groupId")) groupId = atoi(server.arg("groupId").c_str());
-    if(server.hasArg("command")) command = translateSomfyCommand(server.arg("command"));
-    if(server.hasArg("repeat")) repeat = atoi(server.arg("repeat").c_str());
-    if(server.hasArg("stepSize")) stepSize = atoi(server.arg("stepSize").c_str());
-    if(shadeId == 255 && groupId == 255 && server.hasArg("plain")) {
-      DynamicJsonDocument doc(512);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        this->handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-        if(obj.containsKey("groupId")) groupId = obj["groupId"];
-        if(obj.containsKey("stepSize")) stepSize = obj["stepSize"];
-        if (obj.containsKey("command")) {
-            String scmd = obj["command"];
-            command = translateSomfyCommand(scmd);
-        }
-        if (obj.containsKey("repeat")) repeat = obj["repeat"].as<uint8_t>();
-      }
-    }
-    //DynamicJsonDocument sdoc(512);
-    //JsonObject sobj = sdoc.to<JsonObject>();
-    if(shadeId != 255) {
-      SomfyShade *shade = somfy.getShadeById(shadeId);
-      if(!shade) {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade reference could not be found.\"}"));
-        return;        
-      }
-      if(shade->shadeType == shade_types::garage1 && command == somfy_commands::Prog) command = somfy_commands::Toggle;
-      if(!shade->isLastCommand(command)) {
-        // We are going to send this as a new command.
-        shade->sendCommand(command, repeat >= 0 ? repeat : shade->repeats, stepSize);
-      }
-      else {
-        shade->repeatFrame(repeat >= 0 ? repeat : shade->repeats);
-      }
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginArray();
-      shade->toJSONRef(resp);
-      resp.endArray();
-      resp.endResponse();
-    }
-    else if(groupId != 255) {
-      SomfyGroup * group = somfy.getGroupById(groupId);
-      if(!group) {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group reference could not be found.\"}"));
-        return;        
-      }
-      if(!group->isLastCommand(command)) {
-        // We are going to send this as a new command.
-        group->sendCommand(command, repeat >= 0 ? repeat : group->repeats, stepSize);
-      }
-      else
-        group->repeatFrame(repeat >= 0 ? repeat : group->repeats);
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      group->toJSONRef(resp);
-      resp.endObject();
-      resp.endResponse();
-        
-      //group->toJSON(sobj);
-      //serializeJson(sdoc, g_content);
-      //server.send(200, _encoding_json, g_content);
-    }
-  }
-  else {
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
-  }
-}
-void Web::handleGroupCommand(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->ensureAuth(server, false)) return;
-  HTTPMethod method = server.method();
-  uint8_t groupId = 255;
-  uint8_t stepSize = 0;
-  int8_t repeat = -1;
-  somfy_commands command = somfy_commands::My;
-  if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-    if (server.hasArg("groupId")) {
-      groupId = atoi(server.arg("groupId").c_str());
-      if (server.hasArg("command")) command = translateSomfyCommand(server.arg("command"));
-      if(server.hasArg("repeat")) repeat = atoi(server.arg("repeat").c_str());
-      if(server.hasArg("stepSize")) stepSize = atoi(server.arg("stepSize").c_str());
-    }
-    else if (server.hasArg("plain")) {
-      Serial.println("Sending Group Command");
-      DynamicJsonDocument doc(256);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        this->handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("groupId")) groupId = obj["groupId"];
-        else {
-          server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group id was supplied.\"}"));
-          return;
-        }
-        if (obj.containsKey("command")) {
-          String scmd = obj["command"];
-          command = translateSomfyCommand(scmd);
-        }
-        if(obj.containsKey("repeat")) repeat = obj["repeat"].as<uint8_t>();
-        if(obj.containsKey("stepSize")) stepSize = obj["stepSize"].as<uint8_t>();
-      }
-    }
-    else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group object supplied.\"}"));
-    SomfyGroup * group = somfy.getGroupById(groupId);
-    if (group) {
-      Serial.print("Received:");
-      Serial.println(server.arg("plain"));
-      // Send the command to the group.
-      group->sendCommand(command, repeat >= 0 ? repeat : group->repeats, stepSize);
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      group->toJSONRef(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group with the specified id not found.\"}"));
-    }
-  }
-  else
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
-}
-void Web::handleTiltCommand(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->ensureAuth(server, false)) return;
-  HTTPMethod method = server.method();
-  uint8_t shadeId = 255;
-  uint8_t target = 255;
-  somfy_commands command = somfy_commands::My;
-  if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-    if (server.hasArg("shadeId")) {
-      shadeId = atoi(server.arg("shadeId").c_str());
-      if (server.hasArg("command")) command = translateSomfyCommand(server.arg("command"));
-      else if(server.hasArg("target")) target = atoi(server.arg("target").c_str());
-    }
-    else if (server.hasArg("plain")) {
-      Serial.println("Sending Shade Tilt Command");
-      DynamicJsonDocument doc(256);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        this->handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-        else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-        if (obj.containsKey("command")) {
-          String scmd = obj["command"];
-          command = translateSomfyCommand(scmd);
-        }
-        else if(obj.containsKey("target")) {
-          target = obj["target"].as<uint8_t>();
-        }
-      }
-    }
-    else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}"));
-    SomfyShade* shade = somfy.getShadeById(shadeId);
-    if (shade) {
-      Serial.print("Received:");
-      Serial.println(server.arg("plain"));
-      // Send the command to the shade.
-      if(target <= 100)
-        shade->moveToTiltTarget(shade->transformPosition(target));
-      else
-        shade->sendTiltCommand(command);
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      shade->toJSONRef(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
-    }  
-  }
-  else
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
-}
-void Web::handleRoom(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  HTTPMethod method = server.method();
-  if (method == HTTP_GET) {
-    if (server.hasArg("roomId")) {
-      int roomId = atoi(server.arg("roomId").c_str());
-      SomfyRoom* room = somfy.getRoomById(roomId);
-      if (room) {
-        JsonResponse resp;
-        resp.beginResponse(&server, g_content, sizeof(g_content));
-        resp.beginObject();
-        room->toJSON(resp);
-        resp.endObject();
-        resp.endResponse();
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Room Id not found.\"}"));
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid room id.\"}"));
-    }
-  }
-  else if (method == HTTP_PUT || method == HTTP_POST) {
-    // We are updating an existing room.
-    if(!this->ensureAuth(server, true)) return;
-    if (server.hasArg("plain")) {
-      Serial.println("Updating a room");
-      DynamicJsonDocument doc(512);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        this->handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("roomId")) {
-          SomfyRoom* room = somfy.getRoomById(obj["roomId"]);
-          if (room) {
-            uint8_t err = room->fromJSON(obj);
-            if(err == 0) {
-              room->save();
-              JsonResponse resp;
-              resp.beginResponse(&server, g_content, sizeof(g_content));
-              resp.beginObject();
-              room->toJSON(resp);
-              resp.endObject();
-              resp.endResponse();
-            }
-            else {
-              snprintf(g_content, sizeof(g_content), "{\"status\":\"DATA\",\"desc\":\"Data Error.\", \"code\":%d}", err);
-              server.send(500, _encoding_json, g_content);
-            }
-          }
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Room Id not found.\"}"));
-        }
-        else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No room id was supplied.\"}"));
-      }
-    }
-    else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No room object supplied.\"}"));
-  }
-  else
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
-}
-void Web::handleShade(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  HTTPMethod method = server.method();
-  if (method == HTTP_GET) {
-    if (server.hasArg("shadeId")) {
-      int shadeId = atoi(server.arg("shadeId").c_str());
-      SomfyShade* shade = somfy.getShadeById(shadeId);
-      if (shade) {
-        JsonResponse resp;
-        resp.beginResponse(&server, g_content, sizeof(g_content));
-        resp.beginObject();
-        shade->toJSON(resp, this->isAuthenticated(server, true));
-        resp.endObject();
-        resp.endResponse();
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade Id not found.\"}"));
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid shade id.\"}"));
-    }
-  }
-  else if (method == HTTP_PUT || method == HTTP_POST) {
-    // We are updating an existing shade.
-    if(!this->ensureAuth(server, true)) return;
-    if (server.hasArg("plain")) {
-      Serial.println("Updating a shade");
-      DynamicJsonDocument doc(512);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        this->handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("shadeId")) {
-          SomfyShade* shade = somfy.getShadeById(obj["shadeId"]);
-          if (shade) {
-            uint8_t err = shade->fromJSON(obj);
-            if(err == 0) {
-              shade->save();
-              JsonResponse resp;
-              resp.beginResponse(&server, g_content, sizeof(g_content));
-              resp.beginObject();
-              shade->toJSON(resp);
-              resp.endObject();
-              resp.endResponse();
-            }
-            else {
-              snprintf(g_content, sizeof(g_content), "{\"status\":\"DATA\",\"desc\":\"Data Error.\", \"code\":%d}", err);
-              server.send(500, _encoding_json, g_content);
-            }
-          }
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade Id not found.\"}"));
-        }
-        else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-      }
-    }
-    else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}"));
-  }
-  else
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
-}
-void Web::handleGroup(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  HTTPMethod method = server.method();
-  if (method == HTTP_GET) {
-    if (server.hasArg("groupId")) {
-      int groupId = atoi(server.arg("groupId").c_str());
-      SomfyGroup* group = somfy.getGroupById(groupId);
-      if (group) {
-        JsonResponse resp;
-        resp.beginResponse(&server, g_content, sizeof(g_content));
-        resp.beginObject();
-        group->toJSON(resp, this->isAuthenticated(server, true));
-        resp.endObject();
-        resp.endResponse();
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group Id not found.\"}"));
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid shade id.\"}"));
-    }
-  }
-  else if (method == HTTP_PUT || method == HTTP_POST) {
-    // We are updating an existing group.
-    if(!this->ensureAuth(server, true)) return;
-    if (server.hasArg("plain")) {
-      Serial.println("Updating a group");
-      DynamicJsonDocument doc(512);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        this->handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("groupId")) {
-          SomfyGroup* group = somfy.getGroupById(obj["groupId"]);
-          if (group) {
-            group->fromJSON(obj);
-            group->save();
-            JsonResponse resp;
-            resp.beginResponse(&server, g_content, sizeof(g_content));
-            resp.beginObject();
-            group->toJSON(resp);
-            resp.endObject();
-            resp.endResponse();
-          }
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group Id not found.\"}"));
-        }
-        else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group id was supplied.\"}"));
-      }
-    }
-    else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group object supplied.\"}"));
-  }
-  else
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
-}
-void Web::handleDiscovery(WebServer &server) {
-  HTTPMethod method = apiServer.method();
-  if (method == HTTP_POST || method == HTTP_GET) {
-    Serial.println("Discovery Requested");
-    char connType[10] = "Unknown";
-    if(net.connType == conn_types_t::ethernet) strcpy(connType, "Ethernet");
-    else if(net.connType == conn_types_t::wifi) strcpy(connType, "Wifi");
-
-    JsonResponse resp;
-    resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("serverId", settings.serverId);
-    resp.addElem("version", settings.fwVersion.name);
-    resp.addElem("latest", git.latest.name);
-    resp.addElem("model", "ESPSomfyRTS");
-    resp.addElem("hostname", settings.hostname);
-    resp.addElem("authType", static_cast<uint8_t>(settings.Security.type));
-    resp.addElem("permissions", settings.Security.permissions);
-    resp.addElem("chipModel", settings.chipModel);
-    resp.addElem("connType", connType);
-    resp.addElem("checkForUpdate", settings.checkForUpdate);
-    resp.beginObject("memory");
-    resp.addElem("max", ESP.getMaxAllocHeap());
-    resp.addElem("free", ESP.getFreeHeap());
-    resp.addElem("min", ESP.getMinFreeHeap());
-    resp.addElem("total", ESP.getHeapSize());
-    resp.endObject();
-    // Identity fields above stay open so discovery/config-flow can find the device;
-    // the room/shade/group names below are private and only served once authenticated
-    // (passthrough for None/ConfigOnly, hidden in full-auth mode without a token).
-    if(this->isAuthenticated(server, false)) {
-      resp.beginArray("rooms");
-      somfy.toJSONRooms(resp);
-      resp.endArray();
-      resp.beginArray("shades");
-      somfy.toJSONShades(resp, this->isAuthenticated(server, true));
-      resp.endArray();
-      resp.beginArray("groups");
-      somfy.toJSONGroups(resp, this->isAuthenticated(server, true));
-      resp.endArray();
-    }
-    resp.endObject();
-    resp.endResponse();
-    server.client().stop();
-    net.needsBroadcast = true;
-  }
-  else
-    server.send(500, _encoding_text, "Invalid http method");
-}
 void Web::handleBackup(WebServer &server, bool attach) {
   webServer.sendCORSHeaders(server);
   // A backup writes to LittleFS; refuse while a filesystem update is in progress
@@ -1145,117 +206,6 @@ void Web::handleBackup(WebServer &server, bool attach) {
   }
   server.streamFile(file, _encoding_text);
   file.close();
-}
-void Web::handleSetPositions(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->ensureAuth(server, false)) return;
-  uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
-  int8_t pos = (server.hasArg("position")) ? atoi(server.arg("position").c_str()) : -1;
-  int8_t tiltPos = (server.hasArg("tiltPosition")) ? atoi(server.arg("tiltPosition").c_str()) : -1;
-  if(server.hasArg("plain")) {
-    DynamicJsonDocument doc(512);
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      this->handleDeserializationError(server, err);
-      return;
-    }
-    else {
-      JsonObject obj = doc.as<JsonObject>();
-      if(obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-      if(obj.containsKey("position")) pos = obj["position"];
-      if(obj.containsKey("tiltPosition")) tiltPos = obj["tiltPosition"];
-    }
-  }
-  if(shadeId != 255) {
-    SomfyShade *shade = somfy.getShadeById(shadeId);
-    if(shade) {
-      if(pos >= 0) shade->target = shade->currentPos = pos;
-      if(tiltPos >= 0 && shade->tiltType != tilt_types::none) shade->tiltTarget = shade->currentTiltPos = tiltPos;
-      shade->emitState();
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      shade->toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"An invalid shadeId was provided\"}"));
-  }
-  else {
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"shadeId was not provided\"}"));
-  }
-}
-void Web::handleSetSensor(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->ensureAuth(server, false)) return;
-  uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
-  uint8_t groupId = (server.hasArg("groupId")) ? atoi(server.arg("groupId").c_str()) : 255;
-  int8_t sunny = (server.hasArg("sunny")) ? toBoolean(server.arg("sunny").c_str(), false) ? 1 : 0 : -1;
-  int8_t windy = (server.hasArg("windy")) ? atoi(server.arg("windy").c_str()) : -1;
-  int8_t repeat = (server.hasArg("repeat")) ? atoi(server.arg("repeat").c_str()) : -1;
-  if(server.hasArg("plain")) {
-    DynamicJsonDocument doc(512);
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      this->handleDeserializationError(server, err);
-      return;
-    }
-    else {
-      JsonObject obj = doc.as<JsonObject>();
-      if(obj.containsKey("shadeId")) shadeId = obj["shadeId"].as<uint8_t>();
-      if(obj.containsKey("groupId")) groupId = obj["groupId"].as<uint8_t>();
-      if(obj.containsKey("sunny")) {
-        if(obj["sunny"].is<bool>())
-          sunny = obj["sunny"].as<bool>() ? 1 : 0;
-        else
-          sunny = obj["sunny"].as<int8_t>();
-      }
-      if(obj.containsKey("windy")) {
-        if(obj["windy"].is<bool>())
-          windy = obj["windy"].as<bool>() ? 1 : 0;
-        else
-          windy = obj["windy"].as<int8_t>();
-      }
-      if(obj.containsKey("repeat")) repeat = obj["repeat"].as<uint8_t>();
-    }
-  }
-  if(shadeId != 255) {
-    SomfyShade *shade = somfy.getShadeById(shadeId);
-    if(shade) {
-      shade->sendSensorCommand(windy, sunny, repeat >= 0 ? (uint8_t)repeat : shade->repeats);
-      shade->emitState();
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      shade->toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"An invalid shadeId was provided\"}"));
-      
-  }
-  else if(groupId != 255) {
-    SomfyGroup *group = somfy.getGroupById(groupId);
-    if(group) {
-      group->sendSensorCommand(windy, sunny, repeat >= 0 ? (uint8_t)repeat : group->repeats);
-      group->emitState();
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      group->toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"An invalid groupId was provided\"}"));
-  }
-  else {
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"shadeId was not provided\"}"));
-  }
 }
 void Web::handleDownloadFirmware(WebServer &server) {
   webServer.sendCORSHeaders(server);
@@ -1345,6 +295,42 @@ void Web::begin() {
   server.collectHeaders(keys, keyCount);
   // API Server Handlers
   apiServer.collectHeaders(keys, keyCount);
+  this->beginApiRoutes();
+  server.on("/lang", HTTP_GET, [this]() { this->handleLang(server); });
+  server.on("/setLang", HTTP_GET, [this]() { this->handleSetLang(server); });
+
+  server.on("/tiltCommand", []() { webServer.handleTiltCommand(server); });
+  server.on("/repeatCommand", []() { webServer.handleRepeatCommand(server); });
+  server.on("/shadeCommand", []() { webServer.handleShadeCommand(server); });
+  server.on("/groupCommand", []() { webServer.handleGroupCommand(server); });
+  server.on("/setPositions", []() { webServer.handleSetPositions(server); });
+  server.on("/setSensor", []() { webServer.handleSetSensor(server); });
+  server.on("/upnp.xml", []() { SSDP.schema(server.client()); });
+  server.on("/", []() { webServer.handleStreamFile(server, "/index.html.gz", _encoding_html); });
+  server.on("/login", []() { webServer.handleLogin(server); });
+  server.on("/loginContext", []() { webServer.handleLoginContext(server); });
+  // The raw shade config exposes remote addresses and rolling codes.
+  server.on("/shades.cfg", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.cfg", _encoding_text); });
+  server.on("/shades.tmp", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.tmp", _encoding_text); });
+  server.on("/index.js", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/index.js.gz", "text/javascript"); });
+  // base/main/overlays are concatenated into app.css by the build (minify_data.py):
+  // one stylesheet request instead of three on a one-connection-at-a-time server.
+  server.on("/app.css", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/app.css.gz", "text/css"); });
+  server.on("/favicon.svg", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/favicon.svg.gz", "image/svg+xml"); });
+
+  server.on("/editionWifi.webp", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/editionWifi.webp", "image/webp"); });
+  server.on("/editionEthernet.webp", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/editionEthernet.webp", "image/webp"); });
+
+  server.onNotFound([]() { webServer.handleNotFound(server); });
+  this->beginShadeRoutes();
+  this->beginSystemRoutes();
+  this->beginNetworkRoutes();
+  this->beginRadioRoutes();
+  server.begin();
+  apiServer.begin();
+}
+
+void Web::beginApiRoutes() {
   apiServer.on("/discovery", []() { webServer.handleDiscovery(apiServer); });
   apiServer.on("/rooms", []() {webServer.handleGetRooms(apiServer); });
   apiServer.on("/shades", []() { webServer.handleGetShades(apiServer); });
@@ -1364,1205 +350,8 @@ void Web::begin() {
   apiServer.on("/downloadFirmware", []() { webServer.handleDownloadFirmware(apiServer); });
   apiServer.on("/backup", []() { webServer.handleBackup(apiServer); });
   apiServer.on("/reboot", []() { webServer.handleReboot(apiServer); });
-  
-  server.on("/lang", HTTP_GET, [this]() { this->handleLang(server); });
-  server.on("/setLang", HTTP_GET, [this]() { this->handleSetLang(server); });
-
-  server.on("/tiltCommand", []() { webServer.handleTiltCommand(server); });
-  server.on("/repeatCommand", []() { webServer.handleRepeatCommand(server); });
-  server.on("/shadeCommand", []() { webServer.handleShadeCommand(server); });
-  server.on("/groupCommand", []() { webServer.handleGroupCommand(server); });
-  server.on("/setPositions", []() { webServer.handleSetPositions(server); });
-  server.on("/setSensor", []() { webServer.handleSetSensor(server); });
-  server.on("/upnp.xml", []() { SSDP.schema(server.client()); });
-  server.on("/", []() { webServer.handleStreamFile(server, "/index.html.gz", _encoding_html); });
-  server.on("/login", []() { webServer.handleLogin(server); });
-  server.on("/loginContext", []() { webServer.handleLoginContext(server); });
-  // The raw shade config exposes remote addresses and rolling codes.
-  server.on("/shades.cfg", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.cfg", _encoding_text); });
-  server.on("/shades.tmp", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.tmp", _encoding_text); });
-  server.on("/getReleases", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    // Gate this behind auth: it triggers a blocking TLS call out to GitHub, so
-    // an anonymous client could hang the loop. Passthrough when security is off.
-    if(!webServer.ensureAuth(server, false)) return;
-    // Refuse while a shade is moving; the blocking GitHub fetch would stall the
-    // motion timing loop.
-    if(!somfy.allIdle()) {
-      server.send(503, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Busy: a shade is moving\"}"));
-      return;
-    }
-    GitRepo repo;
-    repo.getReleases();
-    git.setCurrentRelease(repo);
-    JsonResponse resp;
-    resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    repo.toJSON(resp);
-    resp.endObject();
-    resp.endResponse();
-  });
-  server.on("/downloadFirmware", []() { webServer.handleDownloadFirmware(server); });
-  server.on("/cancelFirmware", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    // If we are currently downloading the filesystem we cannot cancel.
-    if(!git.lockFS) {
-      git.status = GIT_UPDATE_CANCELLING;
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      git.toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-      git.cancelled = true;
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Cannot cancel during filesystem update.\"}"));
-    }
-  });
-  server.on("/backup", []() { webServer.handleBackup(server, true); });
-  server.on("/restore", HTTP_POST, []() {
-    webServer.sendCORSHeaders(server);
-    server.sendHeader("Connection", "close");
-    if(!webServer.ensureAuth(server, true)) return;
-    if(webServer.uploadSuccess) {
-      server.send(200, _encoding_json, "{\"status\":\"Success\",\"desc\":\"Restoring Shade settings\"}");
-      restore_options_t opts;
-      if(server.hasArg("data")) {
-        Serial.println(server.arg("data"));
-        StaticJsonDocument<256> doc;
-        DeserializationError err = deserializeJson(doc, server.arg("data"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          opts.fromJSON(obj);
-        }
-      }
-      else {
-        Serial.println("No restore options sent.  Using defaults...");
-        opts.shades = true;
-      }
-      ShadeConfigFile::restore(&somfy, "/shades.tmp", opts);
-      Serial.println("Rebooting ESP for restored settings...");
-      rebootDelay.reboot = true;
-      rebootDelay.rebootTime = millis() + 1000;
-    }
-    }, []() {
-      esp_task_wdt_reset();
-      HTTPUpload& upload = server.upload();
-      // Headers are already parsed when the upload starts, so auth can be checked here.
-      // Refuse to touch the filesystem for unauthenticated uploads; the outer handler sends the 401.
-      if (upload.status == UPLOAD_FILE_START) {
-        webServer.uploadSuccess = false;
-        g_uploadAuthorized = webServer.isSameOrigin(server) && webServer.isAuthenticated(server, true);
-        g_uploadBytes = 0;
-      }
-      if (!g_uploadAuthorized) return;
-      if (upload.status == UPLOAD_FILE_START) {
-        Serial.printf("Restore: %s\n", upload.filename.c_str());
-        // Begin by opening a new temporary file.
-        File fup = LittleFS.open("/shades.tmp", "w");
-        fup.close();
-      }
-      else if (upload.status == UPLOAD_FILE_WRITE) {
-        // Cap the cumulative size so a large repeated upload cannot fill the filesystem.
-        g_uploadBytes += upload.currentSize;
-        if (g_uploadBytes > RESTORE_MAX_UPLOAD) {
-          webServer.uploadSuccess = false;
-          g_uploadAuthorized = false; // make every later chunk (and END) a no-op
-          Serial.printf("Restore aborted: upload exceeds %u bytes\n", (unsigned)RESTORE_MAX_UPLOAD);
-          return;
-        }
-        File fup = LittleFS.open("/shades.tmp", "a");
-        //upload.buf[upload.currentSize] = 0x00;
-        //Serial.print((char *)upload.buf);
-        fup.write(upload.buf, upload.currentSize);
-        fup.close();
-      }
-      else if (upload.status == UPLOAD_FILE_END) {
-        webServer.uploadSuccess = true;
-      }
-
-    });
-  server.on("/index.js", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/index.js.gz", "text/javascript"); });
-  server.on("/base.css", []() {  webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/base.css.gz", "text/css"); });
-  server.on("/main.css", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/main.css.gz", "text/css"); });
-  server.on("/overlays.css", []() {  webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/overlays.css.gz", "text/css"); });
-  server.on("/favicon.svg", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/favicon.svg.gz", "image/svg+xml"); });
-
-  server.on("/editionWifi.webp", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/editionWifi.webp", "image/webp"); });
-  server.on("/editionEthernet.webp", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/editionEthernet.webp", "image/webp"); });
-
-  server.onNotFound([]() { webServer.handleNotFound(server); });
-  server.on("/controller", []() { webServer.handleController(server); });
-  server.on("/rooms", []() { webServer.handleGetRooms(server); });
-  server.on("/shades", []() { webServer.handleGetShades(server); });
-  server.on("/groups", []() { webServer.handleGetGroups(server); });
-  server.on("/room", []() { webServer.handleRoom(server); });
-  server.on("/shade", []() { webServer.handleShade(server); });
-  server.on("/group", []() { webServer.handleGroup(server); });
-  server.on("/getNextRoom", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    JsonResponse resp;
-    resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("roomId", somfy.getNextRoomId());
-    resp.endObject();
-    resp.endResponse();
-  });
-  server.on("/getNextShade", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    uint8_t shadeId = somfy.getNextShadeId();
-    JsonResponse resp;
-    resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("shadeId", shadeId);
-    resp.addElem("remoteAddress", (uint32_t)somfy.getNextRemoteAddress(shadeId));
-    resp.addElem("bitLength", somfy.transceiver.config.type);
-    resp.addElem("stepSize", (uint8_t)100);
-    resp.addElem("proto", static_cast<uint8_t>(somfy.transceiver.config.proto));
-    resp.endObject();
-    resp.endResponse();
-    });
-  server.on("/getNextGroup", []() {
-    webServer.sendCORSHeaders(server);
-    uint8_t groupId = somfy.getNextGroupId();
-    JsonResponse resp;
-    resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("groupId", groupId);
-    resp.addElem("remoteAddress", (uint32_t)somfy.getNextRemoteAddress(groupId));
-    resp.addElem("bitLength", somfy.transceiver.config.type);
-    resp.addElem("proto", static_cast<uint8_t>(somfy.transceiver.config.proto));
-    resp.endObject();
-    resp.endResponse();
-    });
-  server.on("/addRoom", []() {
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    SomfyRoom * room = nullptr;
-    if (method == HTTP_POST || method == HTTP_PUT) {
-      Serial.println("Adding a room");
-      DynamicJsonDocument doc(512);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        webServer.handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        Serial.println("Counting rooms");
-        if (somfy.roomCount() > SOMFY_MAX_ROOMS) {
-          server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Maximum number of rooms exceeded.\"}"));
-          return;
-        }
-        else {
-          Serial.println("Adding room");
-          room = somfy.addRoom(obj);
-          if (!room) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Error adding room.\"}"));
-            return;
-          }
-        }
-      }
-    }
-    if (room) {
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      room->toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Error saving Somfy Room.\"}"));
-    }
-    });
-  server.on("/addShade", []() {
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    SomfyShade* shade = nullptr;
-    if (method == HTTP_POST || method == HTTP_PUT) {
-      Serial.println("Adding a shade");
-      DynamicJsonDocument doc(1024);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        webServer.handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        Serial.println("Counting shades");
-        if (somfy.shadeCount() > SOMFY_MAX_SHADES) {
-          server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Maximum number of shades exceeded.\"}"));
-          return;
-        }
-        else {
-          Serial.println("Adding shade");
-          shade = somfy.addShade(obj);
-          if (!shade) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Error adding shade.\"}"));
-            return;
-          }
-        }
-      }
-    }
-    if (shade) {
-      //Serial.println("Serializing shade");
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      shade->toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Error saving Somfy Shade.\"}"));
-    }
-    });
-  server.on("/addGroup", []() {
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    SomfyGroup * group = nullptr;
-    if (method == HTTP_POST || method == HTTP_PUT) {
-      Serial.println("Adding a group");
-      DynamicJsonDocument doc(512);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if (err) {
-        webServer.handleDeserializationError(server, err);
-        return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        Serial.println("Counting shades");
-        if (somfy.groupCount() > SOMFY_MAX_GROUPS) {
-          server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Maximum number of groups exceeded.\"}"));
-          return;
-        }
-        else {
-          Serial.println("Adding group");
-          group = somfy.addGroup(obj);
-          if (!group) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Error adding group.\"}"));
-            return;
-          }
-        }
-      }
-    }
-    if (group) {
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      group->toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Error saving Somfy Group.\"}"));
-    }
-    });
-  server.on("/groupOptions", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    HTTPMethod method = server.method();
-    if (method == HTTP_GET || method == HTTP_POST) {
-      if (server.hasArg("groupId")) {
-        int groupId = atoi(server.arg("groupId").c_str());
-        SomfyGroup* group = somfy.getGroupById(groupId);
-        if (group) {
-          JsonResponse resp;
-          resp.beginResponse(&server, g_content, sizeof(g_content));
-          resp.beginObject();
-          group->toJSON(resp);
-          resp.beginArray("availShades");
-          for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
-            SomfyShade *shade = &somfy.shades[i];
-            if(shade->getShadeId() != 255) {
-              bool isLinked = false;
-              for(uint8_t j = 0; j < SOMFY_MAX_GROUPED_SHADES; j++) {
-                if(group->linkedShades[j] == shade->getShadeId()) {
-                  isLinked = true;
-                  break;
-                }
-              }
-              if(!isLinked) {
-                resp.beginObject();
-                shade->toJSONRef(resp);
-                resp.endObject();
-              }
-            }
-          }
-          resp.endArray();
-          resp.endObject();
-          resp.endResponse();
-        }
-        else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group Id not found.\"}"));
-      }
-      else {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid group id.\"}"));
-      }
-    }
-    
-    });
-  server.on("/saveRoom", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      // We are updating an existing room.
-      if (server.hasArg("plain")) {
-        Serial.println("Updating a room");
-        DynamicJsonDocument doc(512);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("roomId")) {
-            SomfyRoom* room = somfy.getRoomById(obj["roomId"]);
-            if (room) {
-              room->fromJSON(obj);
-              room->save();
-              JsonResponse resp;
-              resp.beginResponse(&server, g_content, sizeof(g_content));
-              resp.beginObject();
-              room->toJSON(resp);
-              resp.endObject();
-              resp.endResponse();
-            }
-            else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Room Id not found.\"}"));
-          }
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No room id was supplied.\"}"));
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No room object supplied.\"}"));
-    }
-  });
-
-  server.on("/saveShade", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      // We are updating an existing shade.
-      if (server.hasArg("plain")) {
-        Serial.println("Updating a shade");
-        DynamicJsonDocument doc(1024);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("shadeId")) {
-            SomfyShade* shade = somfy.getShadeById(obj["shadeId"]);
-            if (shade) {
-              int8_t err = shade->fromJSON(obj);
-              if(err == 0) {
-                shade->save();
-                JsonResponse resp;
-                resp.beginResponse(&server, g_content, sizeof(g_content));
-                resp.beginObject();
-                shade->toJSON(resp);
-                resp.endObject();
-                resp.endResponse();
-              }
-              else {
-                snprintf(g_content, sizeof(g_content), "{\"status\":\"DATA\",\"desc\":\"Data Error.\", \"code\":%d}", err);
-                server.send(500, _encoding_json, g_content);
-              }
-            }
-            else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade Id not found.\"}"));
-          }
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}"));
-    }
-  });
-  server.on("/saveGroup", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      // We are updating an existing shade.
-      if (server.hasArg("plain")) {
-        Serial.println("Updating a group");
-        DynamicJsonDocument doc(512);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("groupId")) {
-            SomfyGroup* group = somfy.getGroupById(obj["groupId"]);
-            if (group) {
-              group->fromJSON(obj);
-              group->save();
-              JsonResponse resp;
-              resp.beginResponse(&server, g_content, sizeof(g_content));
-              resp.beginObject();
-              group->toJSON(resp);
-              resp.endObject();
-              resp.endResponse();
-            }
-            else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group Id not found.\"}"));
-          }
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group id was supplied.\"}"));
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group object supplied.\"}"));
-    }
-    });
-  server.on("/setMyPosition", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    uint8_t shadeId = 255;
-    int8_t pos = -1;
-    int8_t tilt = -1;
-    if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-      if (server.hasArg("shadeId")) {
-        shadeId = atoi(server.arg("shadeId").c_str());
-        if(server.hasArg("pos")) pos = atoi(server.arg("pos").c_str());
-        if(server.hasArg("tilt")) tilt = atoi(server.arg("tilt").c_str());
-      }
-      else if (server.hasArg("plain")) {
-        DynamicJsonDocument doc(256);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-          if(obj.containsKey("pos")) pos = obj["pos"].as<int8_t>();
-          if(obj.containsKey("tilt")) tilt = obj["tilt"].as<int8_t>();
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}"));
-      SomfyShade* shade = somfy.getShadeById(shadeId);
-      if (shade) {
-        // Send the command to the shade.
-        if(tilt < 0) tilt = shade->myPos;
-        if(shade->tiltType == tilt_types::none) tilt = -1;
-        if(pos >= 0 && pos <= 100)
-          shade->setMyPosition(shade->transformPosition(pos), shade->transformPosition(tilt));
-          JsonResponse resp;
-          resp.beginResponse(&server, g_content, sizeof(g_content));
-          resp.beginObject();
-          shade->toJSONRef(resp);
-          resp.endObject();
-          resp.endResponse();
-      }
-      else {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
-      }
-    }
-    else 
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
-    });
-  server.on("/setRollingCode", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      uint8_t shadeId = 255;
-      uint16_t rollingCode = 0;
-      if (server.hasArg("plain")) {
-        // Its coming in the body.
-        StaticJsonDocument<129> doc;
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-          if(obj.containsKey("rollingCode")) rollingCode = obj["rollingCode"];
-        }
-      }
-      else if (server.hasArg("shadeId")) {
-        shadeId = atoi(server.arg("shadeId").c_str());
-        rollingCode = atoi(server.arg("rollingCode").c_str());
-      }
-      SomfyShade* shade = nullptr;
-      if (shadeId != 255) shade = somfy.getShadeById(shadeId);
-      if (!shade) {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade not found to set rolling code\"}"));
-      }
-      else {
-        shade->setRollingCode(rollingCode);
-        JsonResponse resp;
-        resp.beginResponse(&server, g_content, sizeof(g_content));
-        resp.beginObject();
-        shade->toJSON(resp);
-        resp.endObject();
-        resp.endResponse();
-      }
-    }
-  });
-  server.on("/setPaired", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    uint8_t shadeId = 255;
-    bool paired = false;
-    if(server.hasArg("plain")) {
-      DynamicJsonDocument doc(512);
-      DeserializationError err = deserializeJson(doc, server.arg("plain"));
-      if(err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-      }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-        if(obj.containsKey("paired")) paired = obj["paired"];
-      }
-    }
-    else if (server.hasArg("shadeId"))
-      shadeId = atoi(server.arg("shadeId").c_str());
-    if(server.hasArg("paired"))
-      paired = toBoolean(server.arg("paired").c_str(), false);
-    SomfyShade* shade = nullptr;
-    if (shadeId != 255) shade = somfy.getShadeById(shadeId);
-    if (!shade) {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade not found to pair\"}"));
-    }
-    else {
-      shade->paired = paired;
-      shade->save();
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      shade->toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-  });
-  server.on("/unpairShade", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      uint8_t shadeId = 255;
-      if (server.hasArg("plain")) {
-        // Its coming in the body.
-        DynamicJsonDocument doc(512);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-        }
-      }
-      else if (server.hasArg("shadeId"))
-        shadeId = atoi(server.arg("shadeId").c_str());
-      SomfyShade* shade = nullptr;
-      if (shadeId != 255) shade = somfy.getShadeById(shadeId);
-      if (!shade) {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade not found to unpair\"}"));
-      }
-      else {
-        if(shade->bitLength == 56)
-          shade->sendCommand(somfy_commands::Prog, 7);
-        else
-          shade->sendCommand(somfy_commands::Prog, 1);
-        shade->paired = false;
-        shade->save();
-        JsonResponse resp;
-        resp.beginResponse(&server, g_content, sizeof(g_content));
-        resp.beginObject();
-        shade->toJSON(resp);
-        resp.endObject();
-        resp.endResponse();
-      }
-    }
-    });
-  server.on("/linkRepeater", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      // We are adding a linked repeater.
-      uint32_t address = 0;
-      if (server.hasArg("plain")) {
-        Serial.println("Linking a repeater");
-        DynamicJsonDocument doc(512);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("address")) address = obj["address"];
-          else if(obj.containsKey("remoteAddress")) address = obj["remoteAddress"];
-        }
-      }
-      else if(server.hasArg("address"))
-        address = atoi(server.arg("address").c_str());
-      if(address == 0)
-          server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No repeater address was supplied.\"}"));
-      else {
-        somfy.linkRepeater(address);
-        JsonResponse resp;
-        resp.beginResponse(&server, g_content, sizeof(g_content));
-        resp.beginArray();
-        somfy.toJSONRepeaters(resp);
-        resp.endArray();
-        resp.endResponse();
-      }
-    }
-  });
-  server.on("/unlinkRepeater", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      // We are adding a linked repeater.
-      uint32_t address = 0;
-      if (server.hasArg("plain")) {
-        Serial.println("Unlinking a repeater");
-        DynamicJsonDocument doc(512);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("address")) address = obj["address"];
-          else if(obj.containsKey("remoteAddress")) address = obj["remoteAddress"];
-        }
-      }
-      else if(server.hasArg("address"))
-        address = atoi(server.arg("address").c_str());
-      if(address == 0)
-          server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No repeater address was supplied.\"}"));
-      else {
-        somfy.unlinkRepeater(address);
-        JsonResponse resp;
-        resp.beginResponse(&server, g_content, sizeof(g_content));
-        resp.beginArray();
-        somfy.toJSONRepeaters(resp);
-        resp.endArray();
-        resp.endResponse();
-      }
-    }
-  });
-  server.on("/unlinkRemote", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      // We are updating an existing shade by adding a linked remote.
-      if (server.hasArg("plain")) {
-        DynamicJsonDocument doc(512);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("shadeId")) {
-            SomfyShade* shade = somfy.getShadeById(obj["shadeId"]);
-            if (shade) {
-              if (obj.containsKey("remoteAddress")) {
-                shade->unlinkRemote(obj["remoteAddress"]);
-              }
-              else {
-                server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Remote address not provided.\"}"));
-              }
-              JsonResponse resp;
-              resp.beginResponse(&server, g_content, sizeof(g_content));
-              resp.beginObject();
-              shade->toJSON(resp);
-              resp.endObject();
-              resp.endResponse();
-            }
-            else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade Id not found.\"}"));
-          }
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No remote object supplied.\"}"));
-    }
-    });
-  server.on("/linkRemote", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      // We are updating an existing shade by adding a linked remote.
-      if (server.hasArg("plain")) {
-        Serial.println("Linking a remote");
-        DynamicJsonDocument doc(512);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("shadeId")) {
-            SomfyShade* shade = somfy.getShadeById(obj["shadeId"]);
-            if (shade) {
-              if (obj.containsKey("remoteAddress")) {
-                if (obj.containsKey("rollingCode")) shade->linkRemote(obj["remoteAddress"], obj["rollingCode"]);
-                else shade->linkRemote(obj["remoteAddress"]);
-              }
-              else {
-                server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Remote address not provided.\"}"));
-              }
-              JsonResponse resp;
-              resp.beginResponse(&server, g_content, sizeof(g_content));
-              resp.beginObject();
-              shade->toJSON(resp);
-              resp.endObject();
-              resp.endResponse();
-            }
-            else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade Id not found.\"}"));
-          }
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No remote object supplied.\"}"));
-    }
-    });
-  server.on("/linkToGroup", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      if (server.hasArg("plain")) {
-        Serial.println("Linking a shade to a group");
-        DynamicJsonDocument doc(512);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          uint8_t shadeId = obj.containsKey("shadeId") ? obj["shadeId"] : 0;
-          uint8_t groupId = obj.containsKey("groupId") ? obj["groupId"] : 0;
-          if(groupId == 0) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group id not provided.\"}"));
-            return;
-          }
-          if(shadeId == 0) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade id not provided.\"}"));
-            return;
-          }
-          SomfyGroup * group = somfy.getGroupById(groupId);
-          if(!group) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group id not found.\"}"));
-            return;
-          }
-          SomfyShade * shade = somfy.getShadeById(shadeId);
-          if(!shade) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade id not found.\"}"));
-            return;
-          }
-          group->linkShade(shadeId);
-          JsonResponse resp;
-          resp.beginResponse(&server, g_content, sizeof(g_content));
-          resp.beginObject();
-          group->toJSON(resp);
-          resp.endObject();
-          resp.endResponse();
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No linking object supplied.\"}"));
-    }
-  });
-  server.on("/unlinkFromGroup", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_PUT || method == HTTP_POST) {
-      if (server.hasArg("plain")) {
-        Serial.println("Unlinking a shade from a group");
-        DynamicJsonDocument doc(512);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          switch (err.code()) {
-          case DeserializationError::InvalidInput:
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid JSON payload\"}"));
-            break;
-          case DeserializationError::NoMemory:
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Out of memory parsing JSON\"}"));
-            break;
-          default:
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"General JSON Deserialization failed\"}"));
-            break;
-          }
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          uint8_t shadeId = obj.containsKey("shadeId") ? obj["shadeId"] : 0;
-          uint8_t groupId = obj.containsKey("groupId") ? obj["groupId"] : 0;
-          if(groupId == 0) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group id not provided.\"}"));
-            return;
-          }
-          if(shadeId == 0) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade id not provided.\"}"));
-            return;
-          }
-          SomfyGroup * group = somfy.getGroupById(groupId);
-          if(!group) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group id not found.\"}"));
-            return;
-          }
-          SomfyShade * shade = somfy.getShadeById(shadeId);
-          if(!shade) {
-            server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade id not found.\"}"));
-            return;
-          }
-          group->unlinkShade(shadeId);
-          JsonResponse resp;
-          resp.beginResponse(&server, g_content, sizeof(g_content));
-          resp.beginObject();
-          group->toJSON(resp);
-          resp.endObject();
-          resp.endResponse();
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No unlinking object supplied.\"}"));
-    }
-  });
-  server.on("/deleteRoom", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    uint8_t roomId = 0;
-    if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-      if (server.hasArg("roomId")) {
-        roomId = atoi(server.arg("roomId").c_str());
-      }
-      else if (server.hasArg("plain")) {
-        Serial.println("Deleting a Room");
-        DynamicJsonDocument doc(256);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("roomId")) roomId = obj["roomId"];
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No room id was supplied.\"}"));
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No room object supplied.\"}"));
-    }
-    SomfyRoom* room = somfy.getRoomById(roomId);
-    if (!room) server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Room with the specified id not found.\"}"));
-    else {
-      somfy.deleteRoom(roomId);
-      server.send(200, _encoding_json, F("{\"status\":\"SUCCESS\",\"desc\":\"Room deleted.\"}"));
-    }
-    });
-  server.on("/deleteShade", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    uint8_t shadeId = 255;
-    if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-      if (server.hasArg("shadeId")) {
-        shadeId = atoi(server.arg("shadeId").c_str());
-      }
-      else if (server.hasArg("plain")) {
-        Serial.println("Deleting a shade");
-        DynamicJsonDocument doc(256);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}"));
-    }
-    SomfyShade* shade = somfy.getShadeById(shadeId);
-    if (!shade) server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
-    else if(shade->isInGroup()) {
-      server.send(400, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"This shade is a member of a group and cannot be deleted.\"}"));
-    }
-    else {
-      somfy.deleteShade(shadeId);
-      server.send(200, _encoding_json, F("{\"status\":\"SUCCESS\",\"desc\":\"Shade deleted.\"}"));
-    }
-    });
-  server.on("/deleteGroup", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    uint8_t groupId = 255;
-    if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-      if (server.hasArg("groupId")) {
-        groupId = atoi(server.arg("groupId").c_str());
-      }
-      else if (server.hasArg("plain")) {
-        Serial.println("Deleting a group");
-        DynamicJsonDocument doc(256);
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          if (obj.containsKey("groupId")) groupId = obj["groupId"];
-          else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group id was supplied.\"}"));
-        }
-      }
-      else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group object supplied.\"}"));
-    }
-    SomfyGroup * group = somfy.getGroupById(groupId);
-    if (!group) server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group with the specified id not found.\"}"));
-    else {
-      somfy.deleteGroup(groupId);
-      server.send(200, _encoding_json, F("{\"status\":\"SUCCESS\",\"desc\":\"Group deleted.\"}"));
-    }
-    });
-  server.on("/updateFirmware", HTTP_POST, []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    // An unauthenticated upload wrote nothing to flash; make sure it cannot reboot either.
-    if(!webServer.ensureAuth(server, true)) return;
-    if (Update.hasError())
-      server.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Error updating firmware: \"}");
-    else
-      server.send(200, _encoding_json, "{\"status\":\"SUCCESS\",\"desc\":\"Successfully updated firmware\"}");
-    rebootDelay.reboot = true;
-    rebootDelay.rebootTime = millis() + 500;
-    }, []() {
-      HTTPUpload& upload = server.upload();
-      // Headers are already parsed at UPLOAD_FILE_START so auth can be checked before
-      // any flash write; unauthenticated chunks are dropped and the outer handler 401s.
-      if (upload.status == UPLOAD_FILE_START) {
-        webServer.uploadSuccess = false;
-        g_uploadAuthorized = webServer.isSameOrigin(server) && webServer.isAuthenticated(server, true);
-      }
-      if (!g_uploadAuthorized) { esp_task_wdt_reset(); return; }
-      if (upload.status == UPLOAD_FILE_START) {
-        Serial.printf("Update: %s - %d\n", upload.filename.c_str(), upload.totalSize);
-        //if(!Update.begin(upload.totalSize, U_SPIFFS)) {
-        if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
-          Update.printError(Serial);
-        }
-        else {
-          somfy.transceiver.end(); // Shut down the radio so we do not get any interrupts during this process.
-          mqtt.end();
-        }
-      }
-      else if(upload.status == UPLOAD_FILE_ABORTED) {
-        Serial.printf("Upload of %s aborted\n", upload.filename.c_str());
-        Update.abort();
-      }
-      else if (upload.status == UPLOAD_FILE_WRITE) {
-        /* flashing firmware to ESP*/
-        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-          Update.printError(Serial);
-          Serial.printf("Upload of %s aborted invalid size %d\n", upload.filename.c_str(), upload.currentSize);
-          Update.abort();
-        }
-      }
-      else if (upload.status == UPLOAD_FILE_END) {
-        if (Update.end(true)) { //true to set the size to the current progress
-          Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-          webServer.uploadSuccess = true;
-          OTARollback::markPending(); // The application partition has been flashed.
-        }
-        else {
-          Update.printError(Serial);
-        }
-      }
-      esp_task_wdt_reset();
-    });
-  server.on("/updateShadeConfig", HTTP_POST, []() {
-    if(git.lockFS) {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}"));
-      return;
-    }
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    server.sendHeader("Connection", "close");
-    server.send(200, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Updating Shade Config: \"}");
-    }, []() {
-      HTTPUpload& upload = server.upload();
-      // Check auth before touching the filesystem; the outer handler sends the 401.
-      if (upload.status == UPLOAD_FILE_START) {
-        g_uploadAuthorized = webServer.isSameOrigin(server) && webServer.isAuthenticated(server, true);
-        g_uploadBytes = 0;
-      }
-      if (!g_uploadAuthorized) return;
-      if (upload.status == UPLOAD_FILE_START) {
-        Serial.printf("Update: shades.cfg\n");
-        File fup = LittleFS.open("/shades.tmp", "w");
-        fup.close();
-      }
-      else if (upload.status == UPLOAD_FILE_WRITE) {
-        // A shade config is an ordinary LittleFS file. Update.write() used to be
-        // called here as a "does this look valid" probe: it tells us nothing
-        // about the content and, whenever an OTA session happened to be open, it
-        // pushed the uploaded bytes straight into the flash partition and skipped
-        // the file write entirely. Sniff the header instead and only ever append.
-        if (g_uploadBytes == 0 && upload.currentSize > 0) {
-          // Every config file starts with the header version written by
-          // writeUInt8(): three space padded digits then the ',' separator.
-          bool looksValid = upload.currentSize >= 4 && upload.buf[3] == ',';
-          for (uint8_t i = 0; looksValid && i < 3; i++) {
-            char c = (char)upload.buf[i];
-            if (c != ' ' && (c < '0' || c > '9')) looksValid = false;
-          }
-          if (!looksValid) {
-            g_uploadAuthorized = false;
-            Serial.println("Update aborted: not a shade configuration file");
-            LittleFS.remove("/shades.tmp");
-            return;
-          }
-        }
-        // Cap the cumulative size so a large repeated upload cannot fill the filesystem.
-        g_uploadBytes += upload.currentSize;
-        if (g_uploadBytes > SHADECFG_MAX_UPLOAD) {
-          g_uploadAuthorized = false; // make every later chunk (and END) a no-op
-          Serial.printf("Update aborted: upload exceeds %u bytes\n", (unsigned)SHADECFG_MAX_UPLOAD);
-          LittleFS.remove("/shades.tmp");
-          return;
-        }
-        File fup = LittleFS.open("/shades.tmp", "a");
-        if (!fup) {
-          g_uploadAuthorized = false;
-          Serial.println("Update aborted: cannot open /shades.tmp");
-          return;
-        }
-        if (fup.write(upload.buf, upload.currentSize) != upload.currentSize) {
-          g_uploadAuthorized = false;
-          Serial.println("Update aborted: write error on /shades.tmp");
-        }
-        fup.close();
-      }
-      else if (upload.status == UPLOAD_FILE_ABORTED) {
-        g_uploadAuthorized = false;
-        LittleFS.remove("/shades.tmp");
-      }
-      else if (upload.status == UPLOAD_FILE_END) {
-        if (g_uploadBytes == 0) {
-          Serial.println("Update aborted: empty shade configuration upload");
-          LittleFS.remove("/shades.tmp");
-          return;
-        }
-        // loadShadesFile() runs validate() first, so a truncated or forged file
-        // is rejected before any of it reaches the shade/room/group arrays.
-        if (!somfy.loadShadesFile("/shades.tmp"))
-          Serial.println("Shade configuration upload rejected as invalid");
-      }
-    });
-  server.on("/updateApplication", HTTP_POST, []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    // An unauthenticated upload wrote nothing to flash; make sure it cannot reboot either.
-    if(!webServer.ensureAuth(server, true)) return;
-    server.sendHeader("Connection", "close");
-    if (Update.hasError())
-      server.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Error updating application: \"}");
-    else
-      server.send(200, _encoding_json, "{\"status\":\"SUCCESS\",\"desc\":\"Successfully updated application\"}");
-    rebootDelay.reboot = true;
-    rebootDelay.rebootTime = millis() + 500;
-    }, []() {
-      HTTPUpload& upload = server.upload();
-      // Check auth before any flash write; unauthenticated chunks are dropped.
-      if (upload.status == UPLOAD_FILE_START) {
-        webServer.uploadSuccess = false;
-        g_uploadAuthorized = webServer.isSameOrigin(server) && webServer.isAuthenticated(server, true);
-      }
-      if (!g_uploadAuthorized) { esp_task_wdt_reset(); return; }
-      if (upload.status == UPLOAD_FILE_START) {
-        Serial.printf("Update: %s %d\n", upload.filename.c_str(), upload.totalSize);
-        //if(!Update.begin(upload.totalSize, U_SPIFFS)) {
-        if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS)) { //start with max available size and tell it we are updating the file system.
-          Update.printError(Serial);
-        }
-        else {
-          somfy.transceiver.end(); // Shut down the radio so we do not get any interrupts during this process.
-          mqtt.end();
-        }
-      }
-      else if(upload.status == UPLOAD_FILE_ABORTED) {
-        Serial.printf("Upload of %s aborted\n", upload.filename.c_str());
-        Update.abort();
-        somfy.commit();
-      }
-      else if (upload.status == UPLOAD_FILE_WRITE) {
-        /* flashing littlefs to ESP*/
-        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-          Update.printError(Serial);
-          Serial.printf("Upload of %s aborted invalid size %d\n", upload.filename.c_str(), upload.currentSize);
-          Update.abort();
-        }
-      }
-      else if (upload.status == UPLOAD_FILE_END) {
-        if (Update.end(true)) { //true to set the size to the current progress
-          webServer.uploadSuccess = true;
-          Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-          somfy.commit();
-        }
-        else {
-          somfy.commit();
-          Update.printError(Serial);
-        }
-      }
-      esp_task_wdt_reset();
-    });
+}
+void Web::beginNetworkRoutes() {
   server.on("/scanaps", []() {
     webServer.sendCORSHeaders(server);
     esp_task_wdt_reset();
@@ -2601,7 +390,6 @@ void Web::begin() {
     resp.endObject();
     resp.endResponse();
     });
-  server.on("/reboot", []() { webServer.handleReboot(server);});
   server.on("/saveSecurity", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) return server.send(200);
@@ -2640,79 +428,6 @@ void Web::begin() {
     server.send(200, _encoding_json, g_content);
     });
 
-  server.on("/saveRadio", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) return server.send(200);
-    if(!webServer.ensureAuth(server, true)) return;
-
-    StaticJsonDocument<512> doc; // Réduit de 1024 à 768 si tes réglages radio sont simples
-    if (deserializeJson(doc, server.arg("plain"))) return server.send(400, "text/plain", F("J-Err"));
-
-    if (server.method() == HTTP_POST || server.method() == HTTP_PUT) {
-      JsonObject obj = doc.as<JsonObject>();
-      somfy.transceiver.fromJSON(obj);
-      somfy.transceiver.save();
-
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      somfy.transceiver.toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-    } else {
-      server.send(405, _encoding_json, F("{\"s\":\"ERR\"}"));
-    }
-  });
-  server.on("/getRadio", []() {
-    webServer.sendCORSHeaders(server);
-    JsonResponse resp;
-    resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    somfy.transceiver.toJSON(resp);
-    resp.endObject();
-    resp.endResponse();
-    });
-  server.on("/sendRemoteCommand", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-      somfy_frame_t frame;
-      uint8_t repeats = 0;
-      if (server.hasArg("address")) {
-        frame.remoteAddress = atoi(server.arg("address").c_str());
-        if (server.hasArg("encKey")) frame.encKey = atoi(server.arg("encKey").c_str());
-        if (server.hasArg("command")) frame.cmd = translateSomfyCommand(server.arg("command"));
-        if (server.hasArg("rcode")) frame.rollingCode = atoi(server.arg("rcode").c_str());
-        if (server.hasArg("repeats")) repeats = atoi(server.arg("repeats").c_str());
-      }
-      else if (server.hasArg("plain")) {
-        StaticJsonDocument<128> doc;
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          String scmd;
-          if (obj.containsKey("address")) frame.remoteAddress = obj["address"];
-          if (obj.containsKey("command")) scmd = obj["command"].as<String>();
-          if (obj.containsKey("repeats")) repeats = obj["repeats"];
-          if (obj.containsKey("rcode")) frame.rollingCode = obj["rcode"];
-          if (obj.containsKey("encKey")) frame.encKey = obj["encKey"];
-          frame.cmd = translateSomfyCommand(scmd.c_str());
-        }
-      }
-      if (frame.remoteAddress > 0 && frame.rollingCode > 0) {
-        somfy.sendFrame(frame, repeats);
-        server.send(200, _encoding_json, F("{\"status\":\"SUCCESS\",\"desc\":\"Command Sent\"}"));
-      }
-      else
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No address or rolling code provided\"}"));
-    }
-    });
   server.on("/setgeneral", []() {
     webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
@@ -3000,102 +715,86 @@ void Web::begin() {
     server.send(200, _encoding_json, g_content);
     */
     });
-  server.on("/roomSortOrder", []() {
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+}
+void Web::beginRadioRoutes() {
+  server.on("/saveRadio", []() {
+    webServer.sendCORSHeaders(server);
+    if(server.method() == HTTP_OPTIONS) return server.send(200);
     if(!webServer.ensureAuth(server, true)) return;
-    DynamicJsonDocument doc(512);
-    Serial.print("Plain: ");
-    Serial.print(server.method());
-    Serial.println(server.arg("plain"));
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      webServer.handleDeserializationError(server, err);
-      return;
-    }
-    else {
-      JsonArray arr = doc.as<JsonArray>();
-      HTTPMethod method = server.method();
-      if (method == HTTP_POST || method == HTTP_PUT) {
-        // Parse out all the inputs.
-        uint8_t order = 0;
-        for(JsonVariant v : arr) {
-          uint8_t roomId = v.as<uint8_t>();
-          if (roomId != 0) {
-            SomfyRoom *room = somfy.getRoomById(roomId);
-            if(room) room->sortOrder = order++;
-          }
-        }
-        server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully set room order\"}");
-      }
-      else {
-        server.send(201, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
-      }
+
+    StaticJsonDocument<512> doc; // Réduit de 1024 à 768 si tes réglages radio sont simples
+    if (deserializeJson(doc, server.arg("plain"))) return server.send(400, "text/plain", F("J-Err"));
+
+    if (server.method() == HTTP_POST || server.method() == HTTP_PUT) {
+      JsonObject obj = doc.as<JsonObject>();
+      somfy.transceiver.fromJSON(obj);
+      somfy.transceiver.save();
+      // Roll the RF-stats epoch so KPIs accumulated under the old radio settings are
+      // frozen for the before/after comparison; no-op when nothing relevant changed.
+      rfStats.syncEpoch(somfy.transceiver.config.frequency, somfy.transceiver.config.rxBandwidth, somfy.transceiver.config.txPower);
+
+      JsonResponse resp;
+      resp.beginResponse(&server, g_content, sizeof(g_content));
+      resp.beginObject();
+      somfy.transceiver.toJSON(resp);
+      resp.endObject();
+      resp.endResponse();
+    } else {
+      server.send(405, _encoding_json, F("{\"s\":\"ERR\"}"));
     }
   });
-  server.on("/shadeSortOrder", []() {
+  server.on("/getRadio", []() {
+    webServer.sendCORSHeaders(server);
+    // Config-level read, same gate as /saveRadio and the scan endpoints.
+    if(!webServer.ensureAuth(server, true)) return;
+    JsonResponse resp;
+    resp.beginResponse(&server, g_content, sizeof(g_content));
+    resp.beginObject();
+    somfy.transceiver.toJSON(resp);
+    resp.endObject();
+    resp.endResponse();
+    });
+  server.on("/sendRemoteCommand", []() {
+    webServer.sendCORSHeaders(server);
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
     if(!webServer.ensureAuth(server, true)) return;
-    DynamicJsonDocument doc(512);
-    Serial.print("Plain: ");
-    Serial.print(server.method());
-    Serial.println(server.arg("plain"));
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      webServer.handleDeserializationError(server, err);
-      return;
-    }
-    else {
-      JsonArray arr = doc.as<JsonArray>();
-      HTTPMethod method = server.method();
-      if (method == HTTP_POST || method == HTTP_PUT) {
-        // Parse out all the inputs.
-        uint8_t order = 0;
-        for(JsonVariant v : arr) {
-          uint8_t shadeId = v.as<uint8_t>();
-          if (shadeId != 255) {
-            SomfyShade *shade = somfy.getShadeById(shadeId);
-            if(shade) shade->sortOrder = order++;
-          }
+    HTTPMethod method = server.method();
+    if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
+      somfy_frame_t frame;
+      uint8_t repeats = 0;
+      if (server.hasArg("address")) {
+        frame.remoteAddress = atoi(server.arg("address").c_str());
+        if (server.hasArg("encKey")) frame.encKey = atoi(server.arg("encKey").c_str());
+        if (server.hasArg("command")) frame.cmd = translateSomfyCommand(server.arg("command"));
+        if (server.hasArg("rcode")) frame.rollingCode = atoi(server.arg("rcode").c_str());
+        if (server.hasArg("repeats")) repeats = atoi(server.arg("repeats").c_str());
+      }
+      else if (server.hasArg("plain")) {
+        StaticJsonDocument<128> doc;
+        DeserializationError err = deserializeJson(doc, server.arg("plain"));
+        if (err) {
+          webServer.handleDeserializationError(server, err);
+          return;
         }
-        server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully set shade order\"}");
-      }
-      else {
-        server.send(201, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
-      }
-    }
-  });
-  server.on("/groupSortOrder", []() {
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    DynamicJsonDocument doc(512);
-    Serial.print("Plain: ");
-    Serial.print(server.method());
-    Serial.println(server.arg("plain"));
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      webServer.handleDeserializationError(server, err);
-      return;
-    }
-    else {
-      JsonArray arr = doc.as<JsonArray>();
-      HTTPMethod method = server.method();
-      if (method == HTTP_POST || method == HTTP_PUT) {
-        // Parse out all the inputs.
-        uint8_t order = 0;
-        for(JsonVariant v : arr) {
-          uint8_t groupId = v.as<uint8_t>();
-          if (groupId != 255) {
-            SomfyGroup *group = somfy.getGroupById(groupId);
-            if(group) group->sortOrder = order++;
-          }
+        else {
+          JsonObject obj = doc.as<JsonObject>();
+          String scmd;
+          if (obj.containsKey("address")) frame.remoteAddress = obj["address"];
+          if (obj.containsKey("command")) scmd = obj["command"].as<String>();
+          if (obj.containsKey("repeats")) repeats = obj["repeats"];
+          if (obj.containsKey("rcode")) frame.rollingCode = obj["rcode"];
+          if (obj.containsKey("encKey")) frame.encKey = obj["encKey"];
+          frame.cmd = translateSomfyCommand(scmd.c_str());
         }
-        server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully set group order\"}");
       }
-      else {
-        server.send(201, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
+      if (frame.remoteAddress > 0 && frame.rollingCode > 0) {
+        somfy.sendFrame(frame, repeats);
+        server.send(200, _encoding_json, F("{\"status\":\"SUCCESS\",\"desc\":\"Command Sent\"}"));
       }
+      else
+        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No address or rolling code provided\"}"));
     }
-  });  
+    });
   server.on("/beginFrequencyScan", []() {
     webServer.sendCORSHeaders(server);
     if(!webServer.ensureAuth(server, true)) return;
@@ -3132,19 +831,52 @@ void Web::begin() {
     server.send(200, _encoding_json, g_content);
     */
   });
-  server.on("/recoverFilesystem", [] () {
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+  server.on("/rfStats", []() {
     webServer.sendCORSHeaders(server);
     if(!webServer.ensureAuth(server, true)) return;
-    if(git.status == GIT_UPDATING)
-      server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Filesystem is updating.  Please wait!!!\"}");
-    else if(git.status != GIT_STATUS_READY)
-      server.send(200, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Cannot recover file system at this time.\"}");
-    else {
-      git.recoverFilesystem();
-      server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Recovering filesystem from github please wait!!!\"}");
-    }
+    JsonResponse resp;
+    resp.beginResponse(&server, g_content, sizeof(g_content));
+    resp.beginObject();
+    resp.addElem("frequency", somfy.transceiver.config.frequency);
+    rfStats.toJSON(resp);
+    // The board's own link belongs on the same page: a weak or flapping WiFi
+    // reads exactly like an RF problem from the user's side.
+    resp.beginObject("wifi");
+    resp.addElem("rssi", net.connType == conn_types_t::wifi ? (int32_t)WiFi.RSSI() : (int32_t)0);
+    resp.addElem("channel", (int32_t)net.channel);
+    resp.addElem("reconnects", (uint32_t)net.reconnects);
+    resp.addElem("uptime", (uint32_t)(net.connectedAt > 0 ? (millis() - net.connectedAt) / 1000 : 0));
+    resp.endObject();
+    resp.endObject();
+    resp.endResponse();
   });
-  server.begin();
-  apiServer.begin();
+  server.on("/clearRfStats", []() {
+    webServer.sendCORSHeaders(server);
+    if(!webServer.ensureAuth(server, true)) return;
+    rfStats.clear();
+    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics cleared\"}");
+  });
+  server.on("/restoreRfStats", []() {
+    webServer.sendCORSHeaders(server);
+    if(server.method() == HTTP_OPTIONS) return server.send(200);
+    if(!webServer.ensureAuth(server, true)) return;
+    // A full 48-entry export is ~8KB of JSON; the document is transient heap.
+    DynamicJsonDocument doc(16384);
+    if(deserializeJson(doc, server.arg("plain"))) return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON\"}");
+    JsonObject obj = doc.as<JsonObject>();
+    if(!rfStats.restoreJSON(obj)) return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid stats payload\"}");
+    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics restored\"}");
+  });
+  server.on("/setGuidedRssi", []() {
+    webServer.sendCORSHeaders(server);
+    if(server.method() == HTTP_OPTIONS) return server.send(200);
+    if(!webServer.ensureAuth(server, true)) return;
+    StaticJsonDocument<128> doc;
+    if(deserializeJson(doc, server.arg("plain"))) return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON\"}");
+    JsonObject obj = doc.as<JsonObject>();
+    if(!obj.containsKey("address") || !obj.containsKey("rssi")
+      || !rfStats.setGuided(obj["address"], obj["rssi"]))
+      return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid address or RSSI\"}");
+    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Guided measurement stored\"}");
+  });
 }

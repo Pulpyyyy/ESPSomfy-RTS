@@ -7,16 +7,6 @@
     transform: scaleX(-1);
 }
 /* rotate */
-i[class*="icss-"].rot10 { transform: rotate(10deg); }
-i[class*="icss-"].rot-10 { transform: rotate(-10deg); }
-i[class*="icss-"].rot20 { transform: rotate(20deg); }
-i[class*="icss-"].rot-20 { transform: rotate(-20deg); }
-i[class*="icss-"].rot45 { transform: rotate(45deg); }
-i[class*="icss-"].rot-45 { transform: rotate(-45deg); }
-i[class*="icss-"].rot90 { transform: rotate(90deg); }
-i[class*="icss-"].rot-90 { transform: rotate(-90deg); }
-i[class*="icss-"].rot180 { transform: rotate(180deg); }
-i[class*="icss-"].rot-180 { transform: rotate(-180deg); }
 
 /* force animation */
 i.icss-anim,
@@ -25,30 +15,8 @@ i.icss-anim:after {
     transition: all 1s;
 }
 /* Spin */
-.icss-spin { animation: spin 2s infinite linear; }
-.icss-pulse { animation: spin 1s infinite steps(8); }
-.icss-spin-hover:hover { animation: spin 2s infinite linear; }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(359deg); }
-}
 /* BELL */
-@keyframes ring {
-    0% { transform: rotate(-15deg) }
-    2% { transform: rotate(15deg) }
-    4% { transform: rotate(-18deg)}
-    6% { transform: rotate(18deg) }
-    8% { transform: rotate(-22deg) }
-    10% { transform: rotate(22deg) }
-    12% { transform: rotate(-18deg) }
-    14% { transform: rotate(18deg) }
-    16% { transform: rotate(-12deg) }
-    18% { transform: rotate(12deg) }
-    20%,100% { transform: rotate(0deg) }
-}
-.icss-ring { animation: ring 2s infinite ease; }
-.icss-ring-hover:hover { animation: ring 2s infinite ease; }
 /* VERTICAL */
 @keyframes bounce-alert {
     0%   { transform: translateY(0); }
@@ -71,12 +39,6 @@ i.icss-anim:after {
     animation: pulse-warning 1.5s infinite;
 }
 /* Reverse animation */
-.icss-reverse {
-    animation-direction: reverse;
-}
-[class*="-hover"].icss-reverse:hover {
-    animation-direction: reverse;
-}
 @keyframes slideUpFooter {
     to {
         visibility: visible;
@@ -84,23 +46,10 @@ i.icss-anim:after {
     }
 }
 /*Slide button*/
-@keyframes slideUp {
-    from {
-        transform: translateY(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
 div.wait-overlay {
     width: 100%;
     height: 100%;
     position: fixed;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     top: 0;
     left: 0;
     z-index: var(--z-overlay);
@@ -145,9 +94,7 @@ div.wait-overlay .wait-label {
 }
 /* "Already on this version" note in the GitHub update dialog. */
 .upToDateNote {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    gap: var(--sp-8);
     color: var(--accent-sucess);
     font-size: var(--fs-sm);
 }
@@ -159,8 +106,8 @@ div.wait-overlay .wait-label {
 }
 /* Demoted technical line inside service-error dialogs. */
 .error-content .service-detail {
-    margin-top: 12px;
-    font-size: 0.8em;
+    margin-top: var(--sp-12);
+    font-size: var(--fs-xs);
     opacity: 0.7;
     word-break: break-all;
 }
@@ -244,10 +191,6 @@ div.wait-overlay .wait-label {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-@keyframes fadeOut {
-    from { opacity: 1; transform: scale(1); }
-    to { opacity: 0; transform: scale(0.95); }
-}
 /* Pulse hard*/
 @keyframes ui-pulse-focus {
     0% { box-shadow: 0 0 0 0 var(--pulse-color, var(--accent-color)); }
@@ -274,10 +217,6 @@ div.wait-overlay .wait-label {
         transform: translate(-50%, 0);
         opacity: 1;
     }
-}
-@keyframes toastPulse {
-    0%, 100% { transform: translate(-50%, 0) scale(1); }
-    50% { transform: translate(-50%, 0) scale(1.02); }
 }
 @keyframes toastOut {
     0% {
@@ -306,10 +245,8 @@ div.wait-overlay .wait-label {
     toastPulse 1.5s ease-in-out 0.5s infinite;
 }
     .success-content {
-        display: flex;
-        align-items: center;
-        color: var(--txt-color);
-        gap: 10px;
+        color: var(--color);
+        gap: var(--sp-12);
     }
     .success-content svg {
         width: 20px;
@@ -324,20 +261,18 @@ div.wait-overlay .wait-label {
     width:100%;
         top:0px;
     left:0px;
-    padding-right:24px;
+    padding-right:var(--sp-24);
     text-align:right;
     font-size:var(--fs-lg);
 }
 .inst-overlay {
-    display: flex;
     flex-direction: column;
-    align-items: center;
     align-content: flex-start;
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     min-height: 100%;
     max-height: calc(100% - 20px);
-    padding: 20px;
+    padding: var(--sp-20);
     overflow-y: auto;
     color: var(--color);
     background: var(--wait-overlay);
@@ -357,7 +292,7 @@ div.wait-overlay .wait-label {
     border: 1px solid var(--border);
 }
 .overlay-scroll-content {
-    padding-bottom: 20px;
+    padding-bottom: var(--sp-20);
 }
 .expert-only-buttons,
 .button-container-overlay {
@@ -365,18 +300,14 @@ div.wait-overlay .wait-label {
 }
 /*expert mode + button close*/
 .overlay-header {
-    display: flex;
-    align-items: center;
     justify-content: flex-end;
-    gap: 16px;
+    gap: var(--sp-16);
     margin: 0px -16px 2px auto;
     height: 40px;
     z-index: 10;
 }
 .expert-mode-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    gap: var(--sp-8);
     user-select: none;
 }
 .expert-label {
@@ -392,9 +323,6 @@ div.wait-overlay .wait-label {
     height: 44px;
     cursor: pointer;
     opacity: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all 0.2s ease;
     border-radius: 50%;
 }
@@ -424,9 +352,6 @@ div.wait-overlay .wait-label {
     top: 0;
     width: 100%;
     height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     z-index: var(--z-modal);
     animation: fadeInBlur 0.2s ease-out forwards;
 }
@@ -436,8 +361,6 @@ div.wait-overlay .wait-label {
     position: relative;
     width: 90%;
     padding: 5px 30px 30px 30px;
-    display: flex;
-    flex-direction: column;
     color: var(--color);
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
@@ -447,13 +370,8 @@ div.wait-overlay .wait-label {
 .error-content {
     max-width: 550px;
     text-align: center;
-    gap: 20px;
+    gap: var(--sp-20);
     padding:30px;
-}
-.release-notes-modal .message-content {
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
 }
 /* Long content (multi-line errors, notes) must scroll inside the dialog instead of
    pushing the action buttons off-screen. */
@@ -463,11 +381,6 @@ div.wait-overlay .wait-label {
     max-height: 85vh;
     max-height: 85dvh;
     overflow-y: auto;
-}
-.release-notes-modal .info-text {
-    overflow-y: auto;
-    flex-grow: 1;
-    padding-right: 10px;
 }
 .overlay-content {
     max-width: 600px;
@@ -485,14 +398,14 @@ div.wait-overlay .wait-label {
 .instructions .sub-message,
 .prompt-message .sub-message {
     font-size: var(--fs-sm);
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-left: var(--sp-12);
+    padding-right: var(--sp-12);
 }
 .prompt-message .prompt-text {
     text-align:center;
     width: 100%;
     font-size: var(--fs-xxl);
-    margin-bottom: 15px;
+    margin-bottom: var(--sp-16);
 }
 .promp-message > .inner-error,
 .error-message > .inner-error {
@@ -500,7 +413,7 @@ div.wait-overlay .wait-label {
 }
 div.prompt-message,
 div.error-message > div {
-    padding:20px;
+    padding:var(--sp-20);
 }
 div.error-message > .sub-message {
     font-size:var(--fs-sm);
@@ -509,13 +422,6 @@ div.error-message > .sub-message {
 div.error-message,
 .prompt-message > .button-container {
     text-align:center;
-}
-.prompt-message > .button-container > button {
-    /* Keep a >=24px gap between Yes/No so a destructive confirm is hard to fat-finger. */
-    width: calc(50% - 30px);
-    margin-left:12px;
-    margin-right:12px;
-    display:inline-block;
 }
 .instructions-header {
     position: relative;
@@ -587,15 +493,12 @@ div.error-message,
 }
     .step-number {
         background: var(--accent-color);
-        color: white;
+        color: var(--on-accent);
         width: 24px;
         height: 24px;
         border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         font-size: var(--fs-xs);
-        margin-right: 12px;
+        margin-right: var(--sp-12);
         flex-shrink: 0;
         margin-top: 2px;
     }
@@ -605,12 +508,12 @@ div.error-message,
             color: var(--color);
         }
 .uniblocRollingCode label {
-    color: var(--accent-color);
+    color: var(--accent-text);
 }
 .uniblocRollingCode input {
     text-align:center;
     font-size: var(--fs-xxxl) !important;
-    color: var(--accent-color) !important;
+    color: var(--accent-text) !important;
 }
 .wizard-step p {
     font-size:var(--fs-sm);
@@ -630,7 +533,7 @@ div.error-message,
 .is-expert .expert-only-buttons {
     display: flex !important;
     justify-content: center;
-    margin-top: 20px;
+    margin-top: var(--sp-20);
 }
 .is-expert [data-expert] {
     display: flex !important;
@@ -652,7 +555,7 @@ div.error-message,
     --step-width: calc(100% / var(--steps));
     display: flex;
     justify-content: space-between;
-    margin: 10px 0 10px 0;
+    margin: var(--sp-12) 0 var(--sp-12) 0;
     position: relative;
     width: 100%;
 }
@@ -685,9 +588,7 @@ div.error-message,
 
 .stepper-item {
     flex: 1;
-    display: flex;
     flex-direction: column;
-    align-items: center;
     position: relative;
     z-index: 1;
 }
@@ -697,20 +598,11 @@ div.error-message,
     border-radius: 50%;
     background: #444;
     color: #ccc;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     font-weight: bold;
     border: 4px solid var(--unibloc-color);
     z-index: 2;
     position: relative;
     margin-bottom: 3px;
-}
-.step-name {
-    font-size: var(--fs-xs);
-    color: var(--help);
-    margin-top: 8px;
-    text-transform: uppercase;
 }
 /* Active states */
 .wizard[data-stepid="1"] .stepper-item[data-stepid="1"] .step-counter { background: var(--accent-color); color: white; }
@@ -723,7 +615,7 @@ div.error-message,
 /* Step title */
 .step-title-container {
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-12);
     min-height: 24px;
 }
 .step-title {
@@ -747,12 +639,9 @@ div.error-message,
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .blocsteps-row {
-    display: flex;
     flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
     width: 100%;
-    margin-top: 15px;
+    margin-top: var(--sp-16);
     background: var(--unibloc-color);
     border-radius: var(--radius-button);
     border: 1px solid var(--border);
@@ -764,7 +653,7 @@ div.error-message,
     color: var(--color);
     text-align:center;
     flex: 1;
-    margin-right: 20px;
+    margin-right: var(--sp-20);
 }
 .LinkGroupSelect,
 #btnSendPairing,
@@ -817,22 +706,11 @@ div.error-message,
     background: transparent;
     color: var(--color);
 }
-.procFwSvg {
-    width:16px;
-    height:16px;
-    margin:0;
-    fill:var(--txtwarning-color);
-    flex-shrink:0;
-}
-.procFwSpan {
-    color:var(--txtwarning-color);
-    font-weight:bold;
-}
 .firmware-message {
     display: none;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--sp-8);
     cursor: pointer;
     z-index: var(--z-banner);
 }
@@ -857,13 +735,13 @@ button[line].fw-sidebar-button:hover,
     font-weight: bold;
     background: #fcfcfc;
     color: var(--txtwarning-color);
-    padding: 2px 12px;
+    padding: 2px var(--sp-12);
     border-radius: var(--radius-bloc);
     border-top: none;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     width: fit-content;
     margin: auto;
-    margin-top: 4px;
+    margin-top: var(--sp-4);
     border: 1px solid var(--txtwarning-color);
 }
 
@@ -872,14 +750,6 @@ button[line].fw-sidebar-button:hover,
 
 .firmware-message svg{
     --update-icon-color: #000;
-}
-.firmwarMem {
-    display: inline-block;
-    padding: 8px 17px;
-    width: 100%;
-    margin-bottom: 10px;
-    background: var(--unibloc-color);
-    border-radius: var(--radius-bloc);
 }
 /*github page*/
 .labelgrey {
@@ -890,7 +760,7 @@ button[line].fw-sidebar-button:hover,
 .selectCompac {
     background: transparent;
     border: none;
-    color: var(--accent-color);
+    color: var(--accent-text);
     font-weight: bold;
     font-family: monospace;
     cursor: pointer;
@@ -916,24 +786,18 @@ button[line].fw-sidebar-button:hover,
 }
 .divGitNoteError {
     text-align:center;
-    padding:15px;
+    padding:var(--sp-16);
     line-height:1.4;
 }
     .gitNoteError {
         font-weight:bold;
     }
     .gitNoteErrorSub {
-        font-size: 0.9em;
+        font-size: var(--fs-sm);
         color: var(--soustxt-color);
     }
 #divGitInstall .hrDivFooter {
-    margin: 0 -30px 15px -30px;
-}
-.v-step-container {
-    display: flex;
-    flex-direction: column;
-    margin: 25px 0;
-    padding-left: 5px;
+    margin: 0 -30px var(--sp-16) -30px;
 }
 .v-step-item {
     display: flex;
@@ -968,9 +832,7 @@ margin: 0;
 }
 .v-step-right {
     flex: 1;
-    padding-left: 20px;
-    display: flex;
-    align-items: center;
+    padding-left: var(--sp-20);
     height: 40px;
     min-width: 0;
 }
@@ -981,10 +843,7 @@ margin: 0;
     border-radius: var(--radius-bloc);
     cursor: pointer;
     transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 5px 7px 5px 15px !important;
+    padding: 5px 7px 5px var(--sp-16)!important;
 }
 
 .custom-file-upload:hover {
@@ -995,22 +854,16 @@ margin: 0;
     font-size: var(--fs-sm);
     color: var(--color);
     flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     opacity: 0.6;
-    padding-right: 10px;
+    padding-right: var(--sp-12);
 }
 .file-icon-btn {
     background: var(--accent-color);
     border-radius: 50%;
     width: 32px;
     height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: transform 0.2s;
-    color: white;
+    color: var(--on-accent);
 }
 .file-icon-btn svg {
     width: 20px;
@@ -1022,13 +875,8 @@ margin: 0;
 /*footer*/
 .footer-sticky-content {
     width: 100%;
-    display: flex;
-    flex-direction: column;
 }
 .gitBackup {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -1040,7 +888,7 @@ margin: 0;
 .gitBackup svg {
     width: 20px;
     height: 20px;
-    fill: var(--accent-color);
+    fill: var(--accent-text);
 }
 #btnBackupCfg {
 cursor: pointer;
@@ -1051,19 +899,13 @@ cursor: pointer;
 /*Mardown*/
  .md-code-inline {
     background: rgba(120, 120, 120, 0.2);
-    padding: 2px 4px;
+    padding: 2px var(--sp-4);
     border-radius: var(--radius-chip);
     font-family: monospace;
-    font-size: 0.9em;
-}
-.md-img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-    margin: 5px 0;
+    font-size: 0.9em; /* intentionally relative: inline code scales with its host text */
 }
 .md-link, .md-link-auto {
-    color: var(--accent-color) !important;
+    color: var(--accent-text) !important;
     text-decoration: underline;
 }
 .md-link {
@@ -1076,7 +918,7 @@ cursor: pointer;
     text-align: left;
 }
 .md-list li {
-    margin-bottom: 4px;
+    margin-bottom: var(--sp-4);
     line-height: 1.4;
     display: list-item;
 }
@@ -1094,17 +936,17 @@ cursor: pointer;
         color: var(--soustxt-color);
     }
     .room-nav-container .icon-svg:hover {
-        color: var(--accent-color);
+        color: var(--accent-text);
     }
     .nav-arrow {
         display: none;
         cursor: pointer;
-        padding: 0 10px;
+        padding: 0 var(--sp-12);
         transition: color 0.2s;
         z-index: 5;
     }
         .nav-arrow:hover {
-            color: var(--accent-color);
+            color: var(--accent-text);
         }
     .nav-arrow .icon-svg {
         width: 24px;
@@ -1113,25 +955,22 @@ cursor: pointer;
     }
 .room-pill {
     flex: 0 0 auto !important;
-    padding: 8px 18px;
+    padding: var(--sp-8) 18px;
     background: var(--room-pill);
     border-radius: var(--radius-button);
     color: var(--color);
-    font-size: 0.9em;
+    font-size: var(--fs-sm);
     font-weight: 500;
     cursor: pointer;
     user-select: none;
 }
 .room-pill.active {
     background: var(--accent-color);
-    color: white;
+    color: var(--on-accent);
 }
 .empty-state-container {
-    display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
+    padding: 40px var(--sp-20);
     color: var(--soustxt-color);
     text-align: center;
     opacity: 0.6;
@@ -1139,7 +978,7 @@ cursor: pointer;
 .empty-state-container svg {
     width: 100px;
     height: 100px;
-    margin-bottom: 15px;
+    margin-bottom: var(--sp-16);
     color: var(--barreRoomBg);
 }
 .empty-state-container p {
@@ -1154,13 +993,11 @@ cursor: pointer;
 .somfyRepeater,
 .drag-ghost {
     height: 38px;
-    padding: 12px 15px;
+    padding: var(--sp-12) var(--sp-16);
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
-    display: flex;
     flex-direction: row;
-    align-items: center;
-    gap: 12px;
+    gap: var(--sp-12);
     box-sizing: border-box;
 }
 .room-draggable,
@@ -1198,9 +1035,6 @@ cursor: pointer;
 .drag-handle {
     width: 40px;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     touch-action: none;
     cursor: grab;
     pointer-events: auto;
@@ -1210,21 +1044,19 @@ cursor: pointer;
         transition: all 0.2s ease-in-out;
     }
     .drag-handle:hover svg {
-        color: var(--accent-color);
+        color: var(--accent-text);
         transform: scale(1.5);
     }
 .somfyRoom,
 .somfyRepeater,
 .somfyGroup,
 .somfyShade {
-    display: flex;
     flex-direction: row;
-    align-items: center;
     width: 100%;
-    padding: 12px 15px;
-    gap: 12px;
+    padding: var(--sp-12) var(--sp-16);
+    gap: var(--sp-12);
     border-radius: var(--radius-bloc);
-    margin-bottom: 8px;
+    margin-bottom: var(--sp-8);
 }
 .room-name,
 .group-name,
@@ -1248,16 +1080,16 @@ cursor: pointer;
 .LinkedList {
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
-    padding: 15px 20px;
-    margin-top: 15px;
+    padding: var(--sp-16) var(--sp-20);
+    margin-top: var(--sp-16);
 }
 .linkedRheader {
     color: var(--soustxt-color);
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-12);
     margin-left: -20px;
     margin-right: -20px;
     margin-top: -15px;
-    padding: 10px 20px;
+    padding: var(--sp-12) var(--sp-20);
     border-bottom: 1px solid var(--background-color);
 }
 .linkedScrollArea {
@@ -1266,22 +1098,16 @@ cursor: pointer;
     padding-right: 5px;
 }
 .somfyLinkedRemote {
-    display: flex;
-    align-items: center;
-    padding-right: 10px;
+    padding-right: var(--sp-12);
 }
 .linkedWrap {
-    margin-right: 10px;
-    display: flex;
-    align-items: center;
+    margin-right: var(--sp-12);
 }
     .linkedWrap svg {
         color: var(--buttonMy);
     }
 .linkedContent {
     flex-grow: 1;
-    display: flex;
-    flex-direction: column;
 }
 .svgDelete {
     cursor: pointer;
@@ -1298,13 +1124,9 @@ cursor: pointer;
     flex-grow: 1;
 }
 /*somfyLinkedRemote*/
-.addr-group {
-    margin-left: 0;
-    flex: 1;
-}
 .AddrId-label {
     opacity: 0.6;
-    font-size: 0.75em;
+    font-size: var(--fs-xs);
     font-weight: bold;
     text-transform: uppercase;
     display: inline-block;
@@ -1312,9 +1134,6 @@ cursor: pointer;
     padding: 0;
 }
 .name-text, .repeater-name, .linkedshade-name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     font-family: monospace;
     margin: 0;
     /* Primary content of the device list: must read comfortably. */
@@ -1325,26 +1144,17 @@ cursor: pointer;
 .linkedremote-address,
 .linkedremote-code {
     font-family: monospace;
-    font-size: 0.9em;
+    font-size: var(--fs-sm);
     display: inline-block;
     margin: 0;
 }
 .divEditDelete-svg {
     flex-shrink: 0;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: opacity 0.2s;
 }
 .divEditDelete-svg:hover {
     opacity: 0.7;
-}
-.repeater-name-wrapper {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    min-width: 0;
 }
 #divShadeControls {
     display: flex;
@@ -1379,9 +1189,6 @@ cursor: pointer;
 .shadectl-side-handle {
     width: 16px;
     background: var(--side-handle);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
     align-self: stretch;
@@ -1402,16 +1209,12 @@ cursor: pointer;
 }
 .shadectl-right-content {
     flex: 1;
-    display: flex;
-    flex-direction: column;
     min-width: 0;
 }
 .shadectl-main-content {
-    padding: 8px;
+    padding: var(--sp-8);
     width: 100%;
-    display: flex;
     flex-wrap: wrap;
-    align-items: center;
 }
 .shadectl-header-row {
     flex: 0 0 100%;
@@ -1424,38 +1227,23 @@ cursor: pointer;
     margin-left: -16px;
 }
 .somfyShadeCtl .shade-name {
-    display: flex;
-    flex-direction: column;
     justify-content: center;
     flex: 1;
-    padding-left: 10px;
+    padding-left: var(--sp-12);
 }
 .somfyShadeCtl .shadectl-buttons {
-    display: flex;
     flex-direction: row;
-    align-items: center;
     margin-left: auto;
     gap: 7px;
 }
 .somfyShadeCtl .shadectl-status-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     width: 100%;
     padding: 5px 5px 0 5px;
 }
     .shadectl-status-left {
-        display: flex;
         gap: 5px;
         color: var(--soustxt-color);
-        align-items: center;
-    }
-.indicator {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-    .indicator-wind { color: #ff4500; }
+    }    .indicator-wind { color: #ff4500; }
     .indicator-sun { color: darkorange; }
     .indicator-wind svg,
     .indicator-sun svg { width:18px; height:18px; }
@@ -1470,9 +1258,7 @@ cursor: pointer;
         animation: pulse-warning 1.5s infinite;
     }
 .status-group-right{
-    display: flex;
-    gap: 4px;
-    align-items: center;
+    gap: var(--sp-4);
     justify-content: flex-end;
 }
     .button-my,
@@ -1482,9 +1268,6 @@ cursor: pointer;
         cursor: pointer;
         width: 32px;
         height: 32px;
-        display: flex ;
-        align-items: center;
-        justify-content: center;
     }
     .button-my svg,
     .button-light svg,
@@ -1518,7 +1301,7 @@ cursor: pointer;
 .somfyShadeCtl .shadectl-room {
     margin: 0;
     line-height: 1.2;
-    color: var(--accent-color);
+    color: var(--accent-text);
 }
 .somfyShadeCtl .shadectl-mypos {
     display: flex;
@@ -1531,33 +1314,27 @@ cursor: pointer;
 }
 .myShade-badge {
     color: var(--soustxt-color);
-    padding: 2px 8px;
+    padding: 2px var(--sp-8);
     border-radius: var(--radius-card);
     font-size: var(--fs-xs);
     font-weight: bold;
     border: 1px solid var(--button2-color);
     white-space: nowrap;
-    display: flex;
-    align-items: center;
     height: 16px;
 }
 .somfyGroupCtl {
-    display:flex;
     flex-direction:row;
     vertical-align:middle;
-    align-items:center;
     position:relative;
     height:80px;
     max-width: 964px;
-    padding: 8px;
+    padding: var(--sp-8);
     margin: 19px auto;
     border-radius: var(--radius-bloc);
     border: 1px solid var(--borderShadeCtl);
     background: var(--unibloc-color);
 }
 .somfyShadeCtl .shade-icon {
-    display: flex;
-    align-items: center;
     flex-shrink: 0;
 }
 .somfyGroupCtl .button-sunflag {
@@ -1579,11 +1356,8 @@ cursor: pointer;
 .somfyGroupCtl .groupctl-name,
 .somfyShadeCtl .shadectl-name {
     font-size: 1.37em;
-    text-overflow: ellipsis;
-    overflow: hidden;
     color: var(--color);
     display: block;
-    white-space: nowrap;
     width: 100%;
 }
 .somfyGroupCtl label,
@@ -1601,17 +1375,9 @@ cursor: pointer;
 .somfyShadeCtl[data-roomid="0"] .shadectl-room {
     display:none;
 }
-.somfyGroupCtl .groupctl-mypos{
-    white-space: nowrap;
-    font-size: var(--fs-xs);
-    display:block;
-    margin-top:-3px;
-}
 .somfyGroupCtl .groupctl-buttons {
     margin-top:0;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    gap: var(--sp-4);
 }
 /*Popup openSetMyPosition and openSetPosition*/
 .shade-positioner {
@@ -1634,17 +1400,15 @@ cursor: pointer;
     background: var(--unibloc-color);
 }
 .shade-positioner-inner {
-    display: flex;
-    flex-direction: column;
     justify-content: center;
     height: 100%;
     width: 100%;
-    padding: 0 15px;
+    padding: 0 var(--sp-16);
 }
     .popup-actions {
         display:flex;
         justify-content: flex-end;
-        gap: 8px;
+        gap: var(--sp-8);
     }
 .slider-header {
     display: flex;
@@ -1659,7 +1423,7 @@ cursor: pointer;
     font-weight: 500;
 }
 .slider-header .val {
-    font-size: 0.9em;
+    font-size: var(--fs-sm);
     font-weight: bold;
     color: var(--soustxt-color);
 }
@@ -1698,86 +1462,40 @@ cursor: pointer;
     from { opacity: 0; }
     to { opacity: 1; }
 }
-.modal-backdrop {
-    animation: fadeInOverlay 0.3s ease;
-    backdrop-filter: blur(2px);
-}
 .popup-slide-out {
     animation: slideToLeft 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
 }
 /*leboncoin*/
-#divLBCConfig .unibloc{
-    padding: 0;
-}
-.lbc-responsive-card .unibutton {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    cursor: pointer;
-    text-align: center;
-    gap: 12px;
-    height: 100%;
-}
-.lbc-responsive-card span {
-    font-weight: bold;
-    font-size: var(--fs-xs);
-}
 .box-image-container{
     width: 100%;
     height: 110px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.box-image-container img {
-    max-width: 95%;
-    max-height: 100%;
-    object-fit: contain;
-    border-radius: var(--radius-badge);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-}
-.divInfoLine {
-    padding: 15px;
-    line-height: 1.5;
-}
-.InfoLine {
-    border-left: 3px solid var(--accent-color);
-    padding: 12px;
-    margin-bottom: 20px;
-    border-radius: 0 4px 4px 0;
-}
-.InfoLine p {
-    font-size: 0.9em;
-    margin: 0;
 }
 /* HomeAssistant page */
-.ha-overlay-content { padding: 10px 15px; }
+.ha-overlay-content { padding: var(--sp-12) var(--sp-16); }
 
 .ha-section-title {
     margin-top: 25px;
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-12);
 }
 .ha-install-list {
     margin: 0;
-    padding-left: 24px;
+    padding-left: var(--sp-24);
     line-height: 1.5;
 }
 .ha-install-list li { margin-bottom: 6px; }
 .ha-install-list li:last-child { margin-bottom: 0; }
-.ha-warning-note { margin: 25px 0 15px 0; }
+.ha-warning-note { margin: 25px 0 var(--sp-16) 0; }
 
 .ha-badge-container {
     text-align: center;
-    margin: 25px 0 15px 0;
+    margin: 25px 0 var(--sp-16) 0;
 }
 .ha-badge-button {
     display: inline-flex;
     align-items: center;
     background-color: #03a9f4;
     height: 44px;
-    padding: 0 7px 0 20px;
+    padding: 0 7px 0 var(--sp-20);
     border-radius: var(--radius-button);
     text-decoration: none;
     box-shadow: 0 2px 5px rgba(0,0,0,0.15);
@@ -1800,7 +1518,7 @@ cursor: pointer;
     align-items: center;
     background-color: #e8f4fa;
     height: 32px;
-    padding: 0 10px;
+    padding: 0 var(--sp-12);
     border-radius: var(--radius-button);
 }
 .ha-badge-pill svg {
@@ -1819,23 +1537,18 @@ cursor: pointer;
 .ha-github-link-container {
     font-size: 0.85em;
     opacity: 0.6;
-    margin-top: 12px;
+    margin-top: var(--sp-12);
 }
-.ha-github-link { color: var(--accent-color); }
-.ha-github-link:hover { filter: brightness(1.3); }
 /* wifi*/
 .wifiConnectScan {
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    margin-bottom:10px;
+    margin-bottom:var(--sp-12);
 }
 .no-wifi {
-    padding: 20px 10px;
+    padding: var(--sp-20) var(--sp-12);
     text-align: center;
 }
 .no-wifi > div{
-    margin-bottom: 20px;
+    margin-bottom: var(--sp-20);
     color: var(--txtwarning-color);
     font-weight: bold;
     justify-content: center;
@@ -1848,11 +1561,7 @@ cursor: pointer;
     display: flex;
     justify-content: center;
     width: 100%;
-    margin: 15px 0;
-}
-.bloc-eth-setting-line {
-    text-align: left;
-    display: inline-block;
+    margin: var(--sp-16) 0;
 }
 div.eth-setting-line {
     font-size:var(--fs-xs);
@@ -1864,16 +1573,14 @@ div.eth-setting-line span {
     color: var(--txtwarning-color);
 }
 div.eth-setting-line label {
-    margin-right: 4px;
+    margin-right: var(--sp-4);
     display:inline-block;
     min-width: 130px;
     text-align:right;
     color: var(--color);
 }
 .safety-checkbox-container {
-    display:flex;
-    align-items:center;
-    gap:15px;
+    gap:var(--sp-16);
     width:100%;
     margin:0;
     text-align:left;
@@ -1887,24 +1594,9 @@ div.eth-setting-line label {
 .safety-checkbox-container input[type="checkbox"]:checked + .custom-checkbox::after {
     transform: rotate(45deg) scale(1);
 }
-.saveEthDisabled {
-    background:#ccc;
-    cursor:not-allowed;
-}
 /* Update*/
 #selVersion.inputAndSelect {
     font-size: var(--fs-md);
-}
-#divGitInstall .unibloc .boutonLine {
-    text-align: left;
-    border: none;
-    padding: 10px 0;
-}
-#divGitInstall .unibloc .boutonLine:hover {
-    text-align: left;
-    border: none;
-    background: transparent;
-    color: var(--color);
 }
 #jsHeadFirmware .instructions-headerLogo,
 #jsHeadLittlefs .instructions-headerLogo {
@@ -1930,18 +1622,7 @@ div.eth-setting-line label {
     margin: 2px 0;
 }
 /* Netwook*/
-#jsHeadLan .instructions-headerLogo {
-    right: -13px;
-    bottom: -16px;
-    transform: rotate(15deg);
-}
-/* scanFrequency*/
-.scanfreqRssiLeft,
-.scanfreqRssiRight {
-    display: flex;
-    flex-direction: column;
-}
-.scanfreqRssiLeft {align-items: flex-start;}
+/* scanFrequency*/.scanfreqRssiLeft {align-items: flex-start;}
 .scanfreqRssiRight {align-items: flex-end;}
 
 .scanfreqRssiLeft .uniLabel,
@@ -1964,7 +1645,7 @@ div.eth-setting-line label {
     font-family: monospace;
     font-weight: bold;
 }
-.scanfreqValueColor span {color:var(--accent-color)}
+.scanfreqValueColor span {color:var(--accent-text)}
 
 .scanfreqValue span:last-child,
 .scanfreqValueColor span:last-child {
@@ -1972,10 +1653,10 @@ div.eth-setting-line label {
     font-weight: normal;
 }
 .uniblocrRssiCanvas {
-    padding: 10px;
+    padding: var(--sp-12);
     height: 105px;
     background:#333;
-    margin-top: 15px;
+    margin-top: var(--sp-16);
     border-radius: var(--radius-bloc);
 }
     .uniblocrRssiCanvas canvas {
@@ -1983,22 +1664,20 @@ div.eth-setting-line label {
         height: 100%;
     }
 .scanfreqwhat {
-    padding:15px;
+    padding:var(--sp-16);
     line-height:1.4;
 }
     .scanfreqwhat > div:first-child {
         font-weight:bold;
-        margin-bottom:10px;
-        color:var(--accent-color);
-        display:flex;
-        align-items:center;
+        margin-bottom:var(--sp-12);
+        color:var(--accent-text);
     }
     .scanfreqwhat > span {
-        margin-right:8px;
+        margin-right:var(--sp-8);
         font-size:var(--fs-md);
     }
     .scanfreqwhat > p {
-        margin:0 0 8px 0;
+        margin:0 0 var(--sp-8) 0;
         opacity:0.8;
     }
     .scanfreqSignal svg {
@@ -2056,7 +1735,7 @@ div.eth-setting-line label {
         overflow-y: auto;
         overflow-x: hidden;
         width: 100%;
-        padding: 15px;
+        padding: var(--sp-16);
         box-sizing: border-box;
         -webkit-overflow-scrolling: touch;
         margin-bottom: 0;
@@ -2066,10 +1745,6 @@ div.eth-setting-line label {
     }
     .expert-label {
         display: none;
-    }
-    .header-controls {
-        gap: 8px;
-        margin: -13px 0 4px auto;
     }
     .overlay-content {
         width: 100%;
@@ -2081,16 +1756,16 @@ div.eth-setting-line label {
         min-height: 100dvh;
         max-height: none;
         flex-grow: 1;
-        padding-top: 20px;
+        padding-top: var(--sp-20);
     }
     .ha-overlay-content {
-        padding: 10px 15px;
+        padding: var(--sp-12) var(--sp-16);
     }
     .expert-only-buttons,
     .button-container-overlay {
         flex-shrink: 0;
         width: 100%;
-        padding: 10px;
+        padding: var(--sp-12);
         background: var(--unibloc-color);
         border-top: 1px solid var(--border);
         box-sizing: border-box;
@@ -2125,7 +1800,7 @@ div.eth-setting-line label {
         visibility: hidden;
         transform: translateY(100%);
         background: var(--unibloc-color);
-        padding: 8px 20px;
+        padding: var(--sp-8) var(--sp-20);
         box-shadow: 0 -5px 15px rgba(0,0,0,0.2);
         z-index: 9999;
         margin: 0;
@@ -2150,30 +1825,23 @@ div.eth-setting-line label {
         flex: 1 !important;
         display: flex !important;
         flex-direction: column !important;
-        padding: 20px 20px 0 20px !important;
+        padding: var(--sp-20) var(--sp-20) 0 var(--sp-20)!important;
         overflow: hidden !important;
     }
     .overlay-static-content .release-notes-preview {
         flex: 1 !important;
         max-height: none !important;
         overflow-y: auto !important;
-        margin-top: 10px;
+        margin-top: var(--sp-12);
         -webkit-overflow-scrolling: touch;
     }
 }
-@media (max-width: 600px) {
-    .lbc-responsive-container {
-        flex-direction: column !important;
-    }
-    .lbc-responsive-card {
-        width: 100% !important;
-        flex: none !important;
-    }
+@media (max-width: 640px) {
     .box-image-container {
         height: 140px !important;
     }
 }
-@media screen and (max-width: 550px) {
+@media screen and (max-width: 640px) {
     .somfyShadeCtl {
         width: 100%;
     }
@@ -2181,6 +1849,6 @@ div.eth-setting-line label {
         display: none !important;
     }
     .footer-overlay button{
-        padding: 8px;
+        padding: var(--sp-8);
     }
 }

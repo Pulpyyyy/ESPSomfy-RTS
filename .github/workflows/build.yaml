@@ -2,7 +2,7 @@ name: ESPSomfy-RTS Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, "beta/**"]
   pull_request:
   release:
     types: [published]
@@ -76,15 +76,17 @@ jobs:
           # sed exits 0 when its pattern matches nothing, so a renamed variable or a
           # reformatted line would silently ship a release advertising the previous
           # version. Every substitution below is therefore verified.
-          sed -i "s/appVersion = 'v[0-9][^']*'/appVersion = '${TAG}'/" data-dev/index.js
-          if ! grep -qF "appVersion = '${TAG}'" data-dev/index.js; then
-            echo "::error file=data-dev/index.js::appVersion injection failed - the 'appVersion = ...' pattern no longer matches"
+          sed -i "s/appVersion = 'v[0-9][^']*'/appVersion = '${TAG}'/" data-dev/js/20-settings.js
+          if ! grep -qF "appVersion = '${TAG}'" data-dev/js/20-settings.js; then
+            echo "::error file=data-dev/js/20-settings.js::appVersion injection failed - the 'appVersion = ...' pattern no longer matches"
             exit 1
           fi
           # Cache-buster on the CSS/JS refs must track the release so browsers reload
-          # the new UI instead of serving a stale index.js/css from cache.
+          # the new UI instead of serving a stale index.js/css from cache.  The js/
+          # chunk tags collapse into a single index.js tag at build time
+          # (minify_data.py), which inherits the stamped ?v= from the first chunk.
           sed -i "s/?v=[0-9][^\"']*/?v=${TAG#v}/g" data-dev/index.html
-          if ! grep -qF "index.js?v=${TAG#v}" data-dev/index.html; then
+          if ! grep -qF "js/00-core.js?v=${TAG#v}" data-dev/index.html; then
             echo "::error file=data-dev/index.html::cache-buster injection failed - the '?v=' pattern no longer matches"
             exit 1
           fi
@@ -95,8 +97,8 @@ jobs:
             grep -oE '\?v=[^"'"'"']*' data-dev/index.html | sort -u
             exit 1
           fi
-          grep -n "appVersion = " data-dev/index.js | head -1
-          grep -o "index.js?v=[^\"']*" data-dev/index.html | head -1
+          grep -n "appVersion = " data-dev/js/20-settings.js | head -1
+          grep -o "js/00-core.js?v=[^\"']*" data-dev/index.html | head -1
           cat data-dev/appversion
 
       - name: Build LittleFS image (générique via esp32dev)

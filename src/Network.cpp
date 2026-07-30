@@ -243,6 +243,8 @@ void Network::setConnected(conn_types_t connType) {
   this->connType = connType;
   this->connectTime = this->connectedAt = millis();
   connectRetries = 0;
+  if(this->everConnected) this->reconnects++;
+  this->everConnected = true;
 
   Serial.println(F("Net: Connected")); // Version courte
 

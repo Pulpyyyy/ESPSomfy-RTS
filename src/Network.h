@@ -47,6 +47,10 @@ public:
   int strength;
   int disconnected = 0;
   int connectAttempts = 0;
+  // Link-health telemetry for the diagnostics page: how many times the
+  // connection had to be re-established since boot (first join not counted).
+  uint16_t reconnects = 0;
+  bool everConnected = false;
   uint32_t disconnectTime = 0;
   uint32_t connectStart = 0;
   uint32_t connectTime = 0;

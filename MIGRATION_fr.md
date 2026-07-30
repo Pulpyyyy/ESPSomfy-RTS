@@ -1,18 +1,25 @@
 # Migrer depuis ESPSomfy-RTS v2.x (rstrouse / xkain)
 
 Ce guide décrit la migration d'un boîtier ESPSomfy-RTS v2.x existant
-(projet original de rstrouse, ou fork xkain) vers ce firmware. Tout
+(projet original de rstrouse, fork xkain ou fork cjkas) vers ce
+firmware. Tout
 l'intérêt de la procédure est que **vous conservez tout** : volets,
 pièces, groupes, adresses des télécommandes et — point crucial — les
 **rolling codes**, donc aucun volet n'a besoin d'être ré-appairé.
 
 Le format de sauvegarde est versionné champ par champ depuis le projet
 d'origine. La restauration d'une ancienne sauvegarde sur ce firmware a
-été **vérifiée de bout en bout avec une vraie sauvegarde au format
-v2.5.6** : chaque champ est relu à l'identique, et les champs ajoutés
-par ce fork prennent des valeurs neutres (`liftTime` 0 = désactivé,
-`curveGain` 0 = pas de correction). Les sauvegardes de toutes les
-versions 2.x sont acceptées.
+été **vérifiée de bout en bout avec de vraies sauvegardes aux formats
+xkain 2.5.6 et cjkas** : chaque champ est relu à l'identique, et les
+champs ajoutés par ce fork prennent des valeurs neutres (`liftTime`
+0 = désactivé, `curveGain` 0 = pas de correction). Les sauvegardes de
+toutes les versions 2.x sont acceptées.
+
+> **Venant du fork cjkas** : son enregistrement radio a un format
+> différent sous le même numéro de version ; le firmware le détecte et
+> conserve alors les réglages radio actuels au lieu de restaurer des
+> valeurs corrompues. Reconfigurez la radio à la main si nécessaire —
+> tout le reste (volets, pièces, rolling codes) se restaure normalement.
 
 ## Avant de commencer
 

@@ -15,12 +15,18 @@
       if(l)document.documentElement.lang=l;
     })();
     </script>
-    <link rel="stylesheet" href="base.css?v=3.1.0">
-    <link rel="stylesheet" href="main.css?v=3.1.0">
-    <link rel="stylesheet" href="overlays.css?v=3.1.0">
+    <link rel="stylesheet" href="base.css?v=3.5.0-beta.1">
+    <link rel="stylesheet" href="main.css?v=3.5.0-beta.1">
+    <link rel="stylesheet" href="overlays.css?v=3.5.0-beta.1">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
-    <script src="index.js?v=3.1.0"></script>
+    <!-- Ordered app chunks: the build concatenates them into the single index.js
+         the firmware serves; opening this file straight from disk loads them all. -->
+    <script src="js/00-core.js?v=3.5.0-beta.1"></script>
+    <script src="js/10-shell.js?v=3.5.0-beta.1"></script>
+    <script src="js/20-settings.js?v=3.5.0-beta.1"></script>
+    <script src="js/30-somfy.js?v=3.5.0-beta.1"></script>
+    <script src="js/40-diag.js?v=3.5.0-beta.1"></script>
 </head>
 <body data-auth="false">
     <header class="top-bar">
@@ -105,6 +111,7 @@
                 </a>
                 <div class="submenu" style="display:none;">
                     <a class="sub-nav-item" data-grpid="divTransceiverSettings" tr="SUBTAB_TRANSCEIVER">Émetteur</a>
+                    <a class="sub-nav-item" data-grpid="divRFDiagnostics" tr="SUBTAB_RFDIAG">Diagnostic RF</a>
                     <a class="sub-nav-item" data-grpid="divFrameLog" tr="SUBTAB_LOGS">Journaux</a>
                 </div>
             </div>
@@ -374,19 +381,14 @@
                                 </label>
                             </div>
                         </div>
-                        <div id="divSystemStatus" class="success" role="button">
-                            <svg><use id="useStatusIcon" href=#svg-info></use></svg>
-                            <div>
-                                <b id="statusTitle" tr="FW_UPDATE_UPTODATE"></b>
-                                <span id="statusDesc" tr="FW_UPDATE_ACTION_DESC"></span>
-                            </div>
-                        </div>
                         <div class="firmwarblocupdate">
+                            <!-- Single control for the update state: the button both reports
+                                 (up to date / available) and triggers the GitHub update. -->
                             <button id="btnUpdateGithub" onclick="firmware.updateGithub();" class="buttonUpdate" type="button">
                                 <svg><use xlink:href="#svg-github"></use></svg>
                                 <div class="devButtonUpdate">
-                                    <div tr="FW_UPDATE_GIT"></div>
-                                    <div class="uniStatus" tr="FW_UPDATE_GIT_DESC"></div>
+                                    <div id="ghUpdTitle" tr="FW_UPDATE_GIT"></div>
+                                    <div id="ghUpdDesc" class="uniStatus" tr="FW_UPDATE_GIT_DESC"></div>
                                 </div>
                                 <svg class="btnArrowRight"><use href=#svg-arrowRight></use></svg>
                             </button>
@@ -480,13 +482,13 @@
                             <div class="uniRow">
                                 <div class="uniText">
                                     <div class="uniLabel" tr="FW_CREDITS_CONTRIBUTORS"></div>
-                                    <div class="uniStatus">
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/xkain', '_blank')"> xkain</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/glich34', '_blank')"> glich34</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/dirstel', '_blank')"> dirstel</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/cjkas', '_blank')"> cjkas</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/truffshuff', '_blank')"> truffshuff</span>
-                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/Marc-Berg', '_blank')"> Marc-Berg</span>
+                                    <div class="uniStatus credit-list">
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/xkain', '_blank')">xkain</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/glich34', '_blank')">glich34</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/dirstel', '_blank')">dirstel</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/cjkas', '_blank')">cjkas</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/truffshuff', '_blank')">truffshuff</span>
+                                        <span class="credit-link" role="button" tabindex="0" onclick="window.open('https://github.com/Marc-Berg', '_blank')">Marc-Berg</span>
                                     </div>
                                 </div>
                             </div>
@@ -496,47 +498,6 @@
                 <div id="divNetworkSettings" style="display:none;">
                     <div class="subtab-container"><span class="selected" data-grpid="divNetAdapter" tr="SUBTAB_CONNECTION"></span><span data-grpid="divDHCP" tr="SUBTAB_DHCP_STATIC" ></span><span data-grpid="divMQTT" tr="MQTT" ></span></div>
                     <div id="divNetAdapter" class="subtab-content">
-                        <div id="divWiFiStrength" class="unibloc">
-                            <div class="uniRow">
-                                <div class="uniText">
-                                    <div class="uniLabel"><span tr="CONNECTION_WIFI_NETWORK"></span><span id="spanNetworkSSID" class="wifi-value">-------------</span></div>
-                                    <div class="uniLabel"><span tr="CONNECTION_WIFI_CHANNEL"></span><span id="spanNetworkChannel" class="wifi-value">--</span></div>
-                                </div>
-                                <div class="wifi-right">
-                                    <span id="spanNetworkStrength" class="wifi-value">---</span><span tr="DBM"> dBm</span>
-                                    <div id="divNetworkStrength">
-                                        <svg width="24" height="24">
-                                            <use id="wifi_0" href=#svg-wifi-0 fill="#ccc" />
-                                            <use id="wifi_1" href=#svg-wifi-1 fill="#ccc" />
-                                            <use id="wifi_2" href=#svg-wifi-2 fill="#ccc" />
-                                            <use id="wifi_3" href=#svg-wifi-3 fill="#ccc" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </div>
-                            <hr>
-                            <div class="uniRow">
-                                <div class="uniText">
-                                    <div class="uniLabel" tr="CONNECTION_MAC_ADRESSE"></div>
-                                </div>
-                                <span class="spanMacAddress">--:--:--:--:--:--</span>
-                            </div>
-                        </div>
-                        <div id="divEthernetStatus" class="unibloc" style="display:none;">
-                            <div class="uniRow">
-                                <div class="uniText">
-                                    <div class="uniLabel"><span tr="CONNECTION_ETH_STATUS"></span></span><span id="spanEthernetStatus" class="wifi-value">-------------</span></div>
-                                    <div class="uniLabel"><span tr="CONNECTION_ETH_SPEED"></span></span><span id="spanEthernetSpeed" class="wifi-value">--</span></div>
-                                </div>
-                            </div>
-                            <hr>
-                            <div class="uniRow">
-                                <div class="uniText">
-                                    <div class="uniLabel" tr="CONNECTION_MAC_ADRESSE"></div>
-                                </div>
-                                <span class="spanMacAddress">--:--:--:--:--:--</span>
-                            </div>
-                        </div>
                         <div class="button-container-row">
                             <div class="unibloc chooseWifiEth">
                                 <label for="radConnWifi" class="unibutton">
@@ -562,36 +523,30 @@
                             </div>
                             <input id="cbHardwired" name="hardwired" type="checkbox" data-bind="ethernet.hardwired" style="display:none;">
                         </div>
+                        <div id="divEthernetSection" style="display:none;">
+                        <div id="divEthernetStatus" class="unibloc">
+                            <div class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel"><span tr="CONNECTION_ETH_STATUS"></span><span id="spanEthernetStatus" class="wifi-value">-------------</span></div>
+                                    <div class="uniLabel"><span tr="CONNECTION_ETH_SPEED"></span><span id="spanEthernetSpeed" class="wifi-value">--</span></div>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="CONNECTION_MAC_ADRESSE"></div>
+                                </div>
+                                <span class="spanMacAddress">--:--:--:--:--:--</span>
+                            </div>
+                        </div>
                         <div class="unibloc">
-                            <div id="divHiddenSSID">
-                                <label class="uniRow">
-                                    <div class="uniText">
-                                        <div class="uniLabel" tr="CONNECTION_HIDDEN_SSID"></div>
-                                        <div class="uniStatus" tr="CONNECTION_HIDDEN_SSID_DESC"></div>
-                                    </div>
-                                    <div class="uniRight">
-                                        <span class="switch">
-                                            <input id="cbHiddenSSID" type="checkbox" data-bind="wifi.hidden" onclick="wifi.hiddenSSIDClicked();">
-                                            <div></div>
-                                        </span>
-                                    </div>
-                                </label>
-                                <hr>
-                            </div>
-                            <div id="divRoaming">
-                                <label class="uniRow">
-                                    <div class="uniText">
-                                        <div class="uniLabel" tr="CONNECTION_ROAMING"></div>
-                                        <div class="uniStatus" tr="CONNECTION_ROAMING_DESC"></div>
-                                    </div>
-                                    <div class="uniRight">
-                                        <span class="switch">
-                                            <input id="cbRoaming" type="checkbox" name="roaming" data-bind="wifi.roaming" onclick="wifi.hiddenSSIDClicked();">
-                                            <div></div>
-                                        </span>
-                                    </div>
-                                </label>
-                            </div>
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="CONNECTION_ETH_SETTINGS"></div>
+                                    <div class="uniStatus" tr="CONNECTION_ETH_SETTINGS_DESC"></div>
+                                </div>
+                            </label>
+                            <hr>
                             <div id="divFallbackWireless">
                                 <label class="uniRow">
                                     <div class="uniText">
@@ -613,7 +568,7 @@
                                     <select id="selETHBoardType" class="inputAndSelect" name="ethBoardType" placeholder="Type de carte" data-datatype="int" data-bind="ethernet.boardType" onchange="wifi.onETHBoardTypeChanged(this);"></select>
                                 </div>
                             </div>
-                            <div id="divEthernetMode" style="display:none;">
+                            <div id="divEthernetMode">
                                 <div id="divETHSettings">
                                     <div class="gpio-main-wrapper">
                                         <div class="gpio-group-block">
@@ -700,11 +655,47 @@
                                 </div>
                             </div>
                         </div>
+                        </div>
                         <div id="divWiFiMode">
+                            <div id="divWiFiStrength" class="unibloc">
+                                <div class="uniRow">
+                                    <div class="uniText">
+                                        <div class="uniLabel"><span tr="CONNECTION_WIFI_NETWORK"></span><span id="spanNetworkSSID" class="wifi-value">-------------</span></div>
+                                        <div class="uniLabel"><span tr="CONNECTION_WIFI_CHANNEL"></span><span id="spanNetworkChannel" class="wifi-value">--</span></div>
+                                    </div>
+                                    <div class="wifi-right">
+                                        <span id="spanNetworkStrength" class="wifi-value">---</span><span tr="DBM"> dBm</span>
+                                        <div id="divNetworkStrength">
+                                            <svg width="24" height="24">
+                                                <use id="wifi_0" href=#svg-wifi-0 fill="#ccc" />
+                                                <use id="wifi_1" href=#svg-wifi-1 fill="#ccc" />
+                                                <use id="wifi_2" href=#svg-wifi-2 fill="#ccc" />
+                                                <use id="wifi_3" href=#svg-wifi-3 fill="#ccc" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="uniRow">
+                                    <div class="uniText">
+                                        <div class="uniLabel" tr="CONNECTION_MAC_ADRESSE"></div>
+                                    </div>
+                                    <span class="spanMacAddress">--:--:--:--:--:--</span>
+                                </div>
+                            </div>
                             <form method="post" action="/scan">
-                                <div id="divAps" class="unibloc" data-lastloaded="0"></div>
-                                <div class="button-container-col"><button id="btnScanAPs" line type="button" onclick="wifi.loadAPs();" tr="BT_SCAN_WIFI" ></button></div>
                                 <div class="unibloc">
+                                    <label class="uniRow wifi-scan-row">
+                                        <div class="uniText">
+                                            <div class="uniLabel" tr="CONNECTION_WIFI_SETTINGS"></div>
+                                            <div class="uniStatus" tr="CONNECTION_WIFI_SETTINGS_DESC"></div>
+                                        </div>
+                                        <div class="uniRight">
+                                            <button id="btnScanAPs" line type="button" onclick="wifi.loadAPs();" tr="BT_SCAN_WIFI"></button>
+                                        </div>
+                                    </label>
+                                    <div id="divAps" data-lastloaded="0" style="display:none;"></div>
+                                    <hr>
                                     <div>
                                         <label class="label" for="fldSsid" tr="CONNECTION_WIFI_SSID"></label>
                                         <input id="fldSsid" class="inputAndSelect" name="ssid" type="text" data-bind="wifi.ssid" autocomplete="new-password" length=32 tr="CONNECTION_WIFI_ENTER_SSID" placeholder="Entrer votre SSID">
@@ -721,6 +712,37 @@
                                     </div>
                                 </div>
                             </form>
+                            <div class="unibloc">
+                                <div id="divHiddenSSID">
+                                    <label class="uniRow">
+                                        <div class="uniText">
+                                            <div class="uniLabel" tr="CONNECTION_HIDDEN_SSID"></div>
+                                            <div class="uniStatus" tr="CONNECTION_HIDDEN_SSID_DESC"></div>
+                                        </div>
+                                        <div class="uniRight">
+                                            <span class="switch">
+                                                <input id="cbHiddenSSID" type="checkbox" data-bind="wifi.hidden" onclick="wifi.hiddenSSIDClicked();">
+                                                <div></div>
+                                            </span>
+                                        </div>
+                                    </label>
+                                    <hr>
+                                </div>
+                                <div id="divRoaming">
+                                    <label class="uniRow">
+                                        <div class="uniText">
+                                            <div class="uniLabel" tr="CONNECTION_ROAMING"></div>
+                                            <div class="uniStatus" tr="CONNECTION_ROAMING_DESC"></div>
+                                        </div>
+                                        <div class="uniRight">
+                                            <span class="switch">
+                                                <input id="cbRoaming" type="checkbox" name="roaming" data-bind="wifi.roaming" onclick="wifi.hiddenSSIDClicked();">
+                                                <div></div>
+                                            </span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <div class="information">
                             <svg><use id="useHotspotIcon" href=#svg-info></use></svg>
@@ -746,7 +768,8 @@
                                 </div>
                                 <span id="spanCurrentIP"></span>
                             </div>
-                            <hr>
+                        </div>
+                        <div class="unibloc">
                             <label class="uniRow">
                                 <div class="uniText">
                                     <div class="uniLabel" tr="ADRESSIP_DHCP"></div>
@@ -759,9 +782,8 @@
                                     </span>
                                 </div>
                             </label>
-                        </div>
-                        <div id="divStaticIP" style="display:none;margin-top: 15px;">
-                            <div class="unibloc">
+                            <div id="divStaticIP" style="display:none;">
+                                <hr>
                                 <div>
                                     <label class="label" for="fldIPAddress" tr="ADRESSIP_STATIC_IP"></label>
                                     <input id="fldIPAddress" class="inputAndSelect" name="staticIP" type="text" data-bind="ip.ip" length=32 tr="ADRESSIP_STATIC_IP_PLH" placeholder="0.0.0.0">
@@ -1486,6 +1508,7 @@
                 <div id="divRadioSettings" style="display:none;">
                     <div class="subtab-container">
                         <span class="selected" data-grpid="divTransceiverSettings" tr="SUBTAB_TRANSCEIVER"></span>
+                        <span data-grpid="divRFDiagnostics" tr="SUBTAB_RFDIAG"></span>
                         <span data-grpid="divFrameLog" tr="SUBTAB_LOGS"></span>
                     </div>
                     <div id="divTransceiverSettings" class="subtab-content">
@@ -1788,6 +1811,87 @@
                             <button id="btnSaveRadio"  type="button"  onclick="somfy.saveRadio();" tr="BT_SAVE"></button>
                         </div>
                     </div>
+                    <div id="divRFDiagnostics" class="subtab-content" style="display:none;">
+                        <div class="unibloc">
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_FREQUENCY"></div>
+                                    <div class="uniStatus" tr="RFDIAG_FREQUENCY_DESC"></div>
+                                </div>
+                                <div class="uniRight"><span id="spanRfDiagFreq" class="rfdiag-value">--</span></div>
+                            </label>
+                            <hr>
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_REMOTES"></div>
+                                    <div class="uniStatus" tr="RFDIAG_REMOTES_DESC"></div>
+                                </div>
+                                <div class="uniRight"><span id="spanRfDiagRemotes" class="rfdiag-value">0</span></div>
+                            </label>
+                            <hr>
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_FRAMES"></div>
+                                    <div class="uniStatus" tr="RFDIAG_FRAMES_DESC"></div>
+                                </div>
+                                <div class="uniRight"><span id="spanRfDiagFrames" class="rfdiag-value">0</span></div>
+                            </label>
+                            <hr>
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_NOISE"></div>
+                                    <div class="uniStatus" tr="RFDIAG_NOISE_DESC"></div>
+                                </div>
+                                <div class="uniRight"><span id="spanRfDiagNoise" class="rfdiag-value">--</span></div>
+                            </label>
+                            <hr id="hrRfDiagWifi" style="display:none;">
+                            <label class="uniRow" id="rowRfDiagWifi" style="display:none;">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_WIFI"></div>
+                                    <div class="uniStatus" tr="RFDIAG_WIFI_DESC"></div>
+                                </div>
+                                <div class="uniRight"><span id="spanRfDiagWifi" class="rfdiag-value">--</span></div>
+                            </label>
+                        </div>
+                        <div id="divRfDiagEpochs" class="unibloc" style="display:none;">
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_EPOCH_TITLE"></div>
+                                    <div id="divRfDiagEpochCur" class="uniStatus"></div>
+                                    <div id="divRfDiagEpochPrev" class="uniStatus" style="display:none;"></div>
+                                </div>
+                            </label>
+                        </div>
+                        <div id="divRfDiagWiz" class="unibloc" style="display:none;">
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_WIZ_TITLE"></div>
+                                    <div class="uniStatus" tr="RFDIAG_WIZ_DESC"></div>
+                                </div>
+                            </label>
+                            <div id="divRfDiagWizSteps"></div>
+                        </div>
+                        <div id="divRfDiagEmpty" class="empty-state" style="display:none;" tr="RFDIAG_EMPTY"></div>
+                        <div id="divRfDiagTable" class="log-global-container rfdiag-log" style="display:none;">
+                            <div class="frame-header rfdiag-row"><span tr="RFDIAG_COL_DEVICE"></span><span tr="RFDIAG_COL_QUALITY"></span><span tr="SCANFREQ_RSSI"></span><span tr="RFDIAG_COL_FRAMES"></span><span tr="RFDIAG_COL_LASTSEEN"></span></div>
+                            <div id="divRfDiagRows" class="frame-list"></div>
+                            <div id="divRfDiagLegend" class="rfdiag-legend" style="display:none;" tr="RFDIAG_PIN_LEGEND"></div>
+                        </div>
+                        <div id="divRfDiagReco" class="unibloc" style="display:none;">
+                            <label class="uniRow">
+                                <div class="uniText">
+                                    <div class="uniLabel" tr="RFDIAG_RECO_TITLE"></div>
+                                    <div class="uniStatus" tr="RFDIAG_RECO_DESC"></div>
+                                </div>
+                            </label>
+                            <div id="divRfDiagRecoRows"></div>
+                        </div>
+                        <div class="footer-overlay">
+                            <button id="btnClearRfStats" type="button" line onclick="rfdiag.clearStats();" tr="BT_CLEAR"></button>
+                            <button id="btnRfGuided" type="button" line onclick="rfdiag.startGuided();" tr="RFDIAG_BT_GUIDED"></button>
+                            <button id="btnRefreshRfStats" line type="button" onclick="rfdiag.load();" tr="RFDIAG_BT_REFRESH"></button>
+                        </div>
+                    </div>
                     <div id="divFrameLog" class="subtab-content frame-log" style="display:none;">
                         <div class="log-global-container">
                             <div class="frame-header"><span tr="RADIO_KEY"></span><span tr="RADIO_ADRESS"></span><span tr="RADIO_COMMAND"></span><span tr="RADIO_CODE"></span><span tr="SCANFREQ_RSSI"></span><span tr="RADIO_BITS"></span><span tr="RADIO_TIME"></span></div>
@@ -1796,7 +1900,7 @@
                         </div>
                         <div class="footer-overlay">
                             <button id="btnClearFrames" type="button" line onclick="document.getElementById('divFrames').innerHTML = ''; somfy.frames = [];" tr="BT_CLEAR"></button>
-                            <button id="btnCopyFrame" type="button"  onclick="somfy.framesToClipboard();" tr="BT_COPY"></button>
+                            <button id="btnCopyFrame" line type="button"  onclick="somfy.framesToClipboard();" tr="BT_COPY"></button>
                         </div>
                     </div>
                 </div>

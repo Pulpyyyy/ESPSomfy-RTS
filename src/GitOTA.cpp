@@ -268,8 +268,13 @@ void GitUpdater::loop() {
     // Subtractive comparisons so the one-minute grace and the daily cadence stay correct
     // across the millis() rollover (the old `t + interval < millis()` form broke at wrap).
     if(settings.checkForUpdate &&
-      ((uint32_t)(millis() - net.connectTime) >= 60000) && // Wait a minute after connection.
+      // Five minutes after connection: the old one-minute grace landed exactly in the
+      // post-boot login rush, and the blocking TLS handshake (seconds) froze the very
+      // first pages the user opened.
+      ((uint32_t)(millis() - net.connectTime) >= 300000) &&
       (this->lastCheck == 0 || (uint32_t)(millis() - this->lastCheck) >= 86400000) && !rebootDelay.reboot && // 1 day
+      // Same reason: stay away while someone is actively using the web UI.
+      ((uint32_t)(millis() - webServer.lastActivity) >= 15000) &&
       somfy.allIdle()) { // The check does a blocking TLS handshake (seconds); running it while
                          // a shade travels would delay its STOP and overshoot. Retry next loop.
         this->checkForUpdate();
