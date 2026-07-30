@@ -77,6 +77,7 @@ public:
   void emitLoginContext(JsonResponse &resp);
   void emitRfStats(JsonResponse &resp);
   void emitModuleSettings(JsonResponse &resp);
+  void emitController(JsonResponse &resp, bool includeSecrets);
   void emitNetworkSettings(JsonResponse &resp);
   void emitMqttSettings(JsonResponse &resp);
   void emitRadio(JsonResponse &resp);

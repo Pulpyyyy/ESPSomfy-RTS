@@ -195,35 +195,39 @@ void Web::handleController(WebServer &server) {
   if (method == HTTP_POST || method == HTTP_GET) {
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("maxRooms", (uint8_t)SOMFY_MAX_ROOMS);
-    resp.addElem("maxShades", (uint8_t)SOMFY_MAX_SHADES);
-    resp.addElem("maxGroups", (uint8_t)SOMFY_MAX_GROUPS);
-    resp.addElem("maxGroupedShades", (uint8_t)SOMFY_MAX_GROUPED_SHADES);
-    resp.addElem("maxLinkedRemotes", (uint8_t)SOMFY_MAX_LINKED_REMOTES);
-    resp.addElem("startingAddress", (uint32_t)somfy.startingAddress);
-    resp.beginObject("transceiver");
-    somfy.transceiver.toJSON(resp);
-    resp.endObject();
-    resp.beginObject("version");
-    git.toJSON(resp);
-    resp.endObject();
-    resp.beginArray("rooms");
-    somfy.toJSONRooms(resp);
-    resp.endArray();
-    resp.beginArray("shades");
-    somfy.toJSONShades(resp, this->isAuthenticated(server, true));
-    resp.endArray();
-    resp.beginArray("groups");
-    somfy.toJSONGroups(resp, this->isAuthenticated(server, true));
-    resp.endArray();
-    resp.beginArray("repeaters");
-    somfy.toJSONRepeaters(resp);
-    resp.endArray();
-    resp.endObject();
+    this->emitController(resp, this->isAuthenticated(server, true));
     resp.endResponse();
   }
   else server.send(404, _encoding_text, _response_404);
+}
+// Body shared by the sync and async transports.
+void Web::emitController(JsonResponse &resp, bool includeSecrets) {
+  resp.beginObject();
+  resp.addElem("maxRooms", (uint8_t)SOMFY_MAX_ROOMS);
+  resp.addElem("maxShades", (uint8_t)SOMFY_MAX_SHADES);
+  resp.addElem("maxGroups", (uint8_t)SOMFY_MAX_GROUPS);
+  resp.addElem("maxGroupedShades", (uint8_t)SOMFY_MAX_GROUPED_SHADES);
+  resp.addElem("maxLinkedRemotes", (uint8_t)SOMFY_MAX_LINKED_REMOTES);
+  resp.addElem("startingAddress", (uint32_t)somfy.startingAddress);
+  resp.beginObject("transceiver");
+  somfy.transceiver.toJSON(resp);
+  resp.endObject();
+  resp.beginObject("version");
+  git.toJSON(resp);
+  resp.endObject();
+  resp.beginArray("rooms");
+  somfy.toJSONRooms(resp);
+  resp.endArray();
+  resp.beginArray("shades");
+  somfy.toJSONShades(resp, includeSecrets);
+  resp.endArray();
+  resp.beginArray("groups");
+  somfy.toJSONGroups(resp, includeSecrets);
+  resp.endArray();
+  resp.beginArray("repeaters");
+  somfy.toJSONRepeaters(resp);
+  resp.endArray();
+  resp.endObject();
 }
 void Web::handleBackup(WebServer &server, bool attach) {
   webServer.sendCORSHeaders(server);

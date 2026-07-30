@@ -233,6 +233,189 @@ void WebAsync::begin() {
     }
     request->send(200, "application/json", g_asyncContent);
   });
+  // Shades world: same gates and same secret-masking flags as the sync twins.
+  asyncServer.on("/controller", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!webAsync.ensureAuth(request, false)) return;
+    bool secrets = webAsync.isAuthenticated(request, true);
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      webServer.emitController(resp, secrets);
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  asyncServer.on("/rooms", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!webAsync.ensureAuth(request, false)) return;
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      resp.beginArray();
+      somfy.toJSONRooms(resp);
+      resp.endArray();
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  asyncServer.on("/groups", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!webAsync.ensureAuth(request, false)) return;
+    bool secrets = webAsync.isAuthenticated(request, true);
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      resp.beginArray();
+      somfy.toJSONGroups(resp, secrets);
+      resp.endArray();
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  // The single-entity reads and the id allocators are unauthenticated on the
+  // sync server (secrets are masked by the flag): strict parity here.
+  asyncServer.on("/shade", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!request->hasParam("shadeId")) {
+      request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid shade id.\"}"));
+      return;
+    }
+    bool secrets = webAsync.isAuthenticated(request, true);
+    int shadeId = atoi(request->getParam("shadeId")->value().c_str());
+    AsyncResponseStream *stream = nullptr;
+    {
+      SomfyGuard guard;
+      SomfyShade *shade = somfy.getShadeById(shadeId);
+      if(shade) {
+        stream = request->beginResponseStream("application/json");
+        JsonAsyncResponse resp;
+        resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+        resp.beginObject();
+        shade->toJSON(resp, secrets);
+        resp.endObject();
+        resp.endResponse();
+      }
+    }
+    if(stream) request->send(stream);
+    else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade Id not found.\"}"));
+  });
+  asyncServer.on("/group", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!request->hasParam("groupId")) {
+      request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid shade id.\"}"));
+      return;
+    }
+    bool secrets = webAsync.isAuthenticated(request, true);
+    int groupId = atoi(request->getParam("groupId")->value().c_str());
+    AsyncResponseStream *stream = nullptr;
+    {
+      SomfyGuard guard;
+      SomfyGroup *group = somfy.getGroupById(groupId);
+      if(group) {
+        stream = request->beginResponseStream("application/json");
+        JsonAsyncResponse resp;
+        resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+        resp.beginObject();
+        group->toJSON(resp, secrets);
+        resp.endObject();
+        resp.endResponse();
+      }
+    }
+    if(stream) request->send(stream);
+    else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Group Id not found.\"}"));
+  });
+  asyncServer.on("/room", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!request->hasParam("roomId")) {
+      request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid room id.\"}"));
+      return;
+    }
+    int roomId = atoi(request->getParam("roomId")->value().c_str());
+    AsyncResponseStream *stream = nullptr;
+    {
+      SomfyGuard guard;
+      SomfyRoom *room = somfy.getRoomById(roomId);
+      if(room) {
+        stream = request->beginResponseStream("application/json");
+        JsonAsyncResponse resp;
+        resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+        resp.beginObject();
+        room->toJSON(resp);
+        resp.endObject();
+        resp.endResponse();
+      }
+    }
+    if(stream) request->send(stream);
+    else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Room Id not found.\"}"));
+  });
+  asyncServer.on("/getNextShade", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      uint8_t shadeId = somfy.getNextShadeId();
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      resp.beginObject();
+      resp.addElem("shadeId", shadeId);
+      resp.addElem("remoteAddress", (uint32_t)somfy.getNextRemoteAddress(shadeId));
+      resp.addElem("bitLength", somfy.transceiver.config.type);
+      resp.addElem("stepSize", (uint8_t)100);
+      resp.addElem("proto", static_cast<uint8_t>(somfy.transceiver.config.proto));
+      resp.endObject();
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  asyncServer.on("/getNextGroup", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      uint8_t groupId = somfy.getNextGroupId();
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      resp.beginObject();
+      resp.addElem("groupId", groupId);
+      resp.addElem("remoteAddress", (uint32_t)somfy.getNextRemoteAddress(groupId));
+      resp.addElem("bitLength", somfy.transceiver.config.type);
+      resp.addElem("proto", static_cast<uint8_t>(somfy.transceiver.config.proto));
+      resp.endObject();
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  asyncServer.on("/getNextRoom", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      resp.beginObject();
+      resp.addElem("roomId", somfy.getNextRoomId());
+      resp.endObject();
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  asyncServer.on("/lang", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    const char *file = settings.language == 1 ? "/locale/fr.json"
+      : settings.language == 2 ? "/locale/de.json"
+      : settings.language == 3 ? "/locale/es.json" : "/locale/en.json";
+    // send(fs, path) picks up the .gz variant and sets Content-Encoding itself.
+    AsyncWebServerResponse *response = request->beginResponse(LittleFS, file, "application/json");
+    if(!response) request->send(404, "text/plain", "Lang file not found");
+    else request->send(response);
+  });
   asyncServer.onNotFound([](AsyncWebServerRequest *request) {
     request->send(404, "text/plain", "Not found");
   });
