@@ -14,6 +14,7 @@
 #include "Rollback.h"
 #include "SSDP.h"
 #include "ConfigFile.h"
+#include "Network.h"
 #include "WebAsync.h"
 
 extern ConfigSettings settings;
@@ -22,6 +23,7 @@ extern Web webServer;
 extern MQTTClass mqtt;
 extern SSDPClass SSDP;
 extern rebootDelay_t rebootDelay;
+extern Network net;
 
 // Async upload gate, mirroring the sync WebRoutesSystem statics: the async_tcp
 // task runs one upload at a time, so a single flag pair is enough. Set at the
@@ -969,6 +971,106 @@ void WebAsync::begin() {
     [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
       asyncRestoreUpload(request, index, data, len, final);
     });
+  // ---- Phase 5: blocking network long-ops, run inline in async_tcp (see the
+  // stack bump in platformio.ini). git ops claim git.status so git.loop() will
+  // not launch its own concurrent check; the big GitRepo lives on the heap to
+  // spare the task stack for the TLS session. -----------------------------
+  asyncServer.on("/scanaps", ASYNC_HTTP_ANY, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(request->method() == ASYNC_HTTP_OPTIONS) { request->send(200, "text/plain", "OK"); return; }
+    // The response echoes the current WiFi passphrase's SSID and details.
+    if(!webAsync.ensureAuth(request, true)) return;
+    if(net.softAPOpened) WiFi.disconnect(false);
+    int n = WiFi.scanNetworks(false, true); // blocking (~seconds) in async_tcp
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+    resp.beginObject();
+    resp.beginObject("connected");
+    resp.addElem("name", settings.WIFI.ssid);
+    resp.addElem("strength", (int32_t)WiFi.RSSI());
+    resp.addElem("channel", (int32_t)WiFi.channel());
+    resp.endObject();
+    resp.beginArray("accessPoints");
+    for(int i = 0; i < n; ++i) {
+      if(WiFi.SSID(i).length() == 0 || WiFi.RSSI(i) < -95) continue; // hidden/too weak to join
+      resp.beginObject();
+      resp.addElem("name", WiFi.SSID(i).c_str());
+      resp.addElem("channel", (int32_t)WiFi.channel(i));
+      resp.addElem("strength", (int32_t)WiFi.RSSI(i));
+      resp.addElem("macAddress", WiFi.BSSIDstr(i).c_str());
+      resp.endObject();
+    }
+    resp.endArray();
+    resp.endObject();
+    resp.endResponse();
+    request->send(stream);
+  });
+  asyncServer.on("/getReleases", ASYNC_HTTP_ANY, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(request->method() == ASYNC_HTTP_OPTIONS) { request->send(200, "text/plain", "OK"); return; }
+    if(!webAsync.ensureAuth(request, false)) return;
+    // A blocking GitHub fetch would delay a shade's STOP if one is travelling.
+    bool idle;
+    { SomfyGuard guard; idle = somfy.allIdle(); }
+    if(!idle) { request->send(503, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Busy: a shade is moving\"}")); return; }
+    // Claim the git state machine so git.loop() skips its own check for now.
+    git.status = GIT_STATUS_CHECK;
+    GitRepo *repo = new GitRepo();
+    repo->getReleases();
+    git.setCurrentRelease(*repo);
+    git.status = GIT_STATUS_READY;
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+    resp.beginObject();
+    repo->toJSON(resp);
+    resp.endObject();
+    resp.endResponse();
+    delete repo;
+    request->send(stream);
+  });
+  asyncServer.on("/downloadFirmware", ASYNC_HTTP_ANY, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(request->method() == ASYNC_HTTP_OPTIONS) { request->send(200, "text/plain", "OK"); return; }
+    if(!webAsync.ensureAuth(request, true)) return;
+    git.status = GIT_STATUS_CHECK;
+    GitRepo *repo = new GitRepo();
+    GitRelease *rel = nullptr;
+    int8_t err = repo->getReleases();
+    if(err == 0) {
+      if(request->hasParam("ver")) {
+        String ver = request->getParam("ver")->value();
+        if(ver == "latest") rel = &repo->releases[0];
+        else if(ver == "main") rel = &repo->releases[GIT_MAX_RELEASES];
+        else {
+          for(uint8_t i = 0; i < GIT_MAX_RELEASES; i++) {
+            if(repo->releases[i].id == 0) continue;
+            if(strcmp(repo->releases[i].name, ver.c_str()) == 0 ||
+               strcmp(repo->releases[i].version.name, ver.c_str()) == 0) rel = &repo->releases[i];
+          }
+        }
+        if(rel) {
+          AsyncResponseStream *stream = request->beginResponseStream("application/json");
+          JsonAsyncResponse resp;
+          resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+          resp.beginObject();
+          rel->toJSON(resp);
+          resp.endObject();
+          resp.endResponse();
+          strcpy(git.targetRelease, rel->version.name[0] ? rel->version.name : rel->name);
+          // Hand the actual download to git.loop() (the flash write stays in
+          // the loop task); leaving READY here would let the check re-fire.
+          git.status = GIT_AWAITING_UPDATE;
+          request->send(stream);
+        }
+        else { git.status = GIT_STATUS_READY; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Release not found in repo.\"}")); }
+      }
+      else { git.status = GIT_STATUS_READY; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Release version not supplied.\"}")); }
+    }
+    else { git.status = GIT_STATUS_READY; request->send(err, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Error communicating with Github.\"}")); }
+    delete repo;
+  });
   // Twin of the sync handleNotFound: same OPTIONS shortcut, same 404 text.
   asyncServer.onNotFound([](AsyncWebServerRequest *request) {
     if(request->method() == ASYNC_HTTP_OPTIONS) {
