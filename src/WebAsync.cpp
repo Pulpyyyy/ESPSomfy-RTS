@@ -83,6 +83,61 @@ static void asyncDeserializationError(AsyncWebServerRequest *request, Deserializ
   }
 }
 
+// ---- WebRequest bound to an async request. --------------------------------
+HTTPMethod WebAsyncRequest::method() {
+  switch(this->_request->method()) {
+    case ASYNC_HTTP_GET: return HTTP_GET;
+    case ASYNC_HTTP_POST: return HTTP_POST;
+    case ASYNC_HTTP_PUT: return HTTP_PUT;
+    case ASYNC_HTTP_DELETE: return HTTP_DELETE;
+    case ASYNC_HTTP_PATCH: return HTTP_PATCH;
+    case ASYNC_HTTP_HEAD: return HTTP_HEAD;
+    case ASYNC_HTTP_OPTIONS: return HTTP_OPTIONS;
+    default: return HTTP_ANY;
+  }
+}
+bool WebAsyncRequest::hasParam(const char *name) { return this->_request->hasParam(name); }
+String WebAsyncRequest::param(const char *name) {
+  const AsyncWebParameter *p = this->_request->getParam(name);
+  return p ? p->value() : String();
+}
+bool WebAsyncRequest::hasBody() { return this->_request->_tempObject != nullptr; }
+const char *WebAsyncRequest::body() {
+  // Never nullptr: an absent body must behave like the sync server's empty
+  // arg("plain") when fed to deserializeJson.
+  return this->_request->_tempObject ? (const char *)this->_request->_tempObject : "";
+}
+void WebAsyncRequest::send(int code, const char *contentType, const char *content) {
+  if(this->_sent) return;
+  if(this->_stream) { delete this->_stream; this->_stream = nullptr; }
+  this->_sent = true;
+  this->_request->send(code, contentType, content);
+}
+bool WebAsyncRequest::ensureAuth(bool cfg) {
+  bool ok = webAsync.ensureAuth(this->_request, cfg);
+  if(!ok) this->_sent = true;  // ensureAuth answered 403/401 itself
+  return ok;
+}
+JsonResponse &WebAsyncRequest::beginJson() {
+  if(!this->_stream) this->_stream = this->_request->beginResponseStream("application/json");
+  this->_resp.beginResponse(this->_stream, g_asyncContent, sizeof(g_asyncContent));
+  return this->_resp;
+}
+void WebAsyncRequest::endJson() {
+  if(!this->_stream) return;
+  this->_resp.endResponse();
+  if(this->_sent) { delete this->_stream; }  // an error already went out first
+  else { this->_sent = true; this->_request->send(this->_stream); }
+  this->_stream = nullptr;
+}
+void WebAsyncRequest::finish() {
+  if(this->_sent) return;
+  if(this->_stream) { delete this->_stream; this->_stream = nullptr; }
+  // The sync server closes without a response on these paths; do the same
+  // rather than leaving the request open until the client gives up.
+  this->_request->client()->close();
+}
+
 bool WebAsync::isAuthenticated(AsyncWebServerRequest *request, bool cfg) {
   if(settings.Security.type == security_types::None) return true;
   else if(!cfg && (settings.Security.permissions & static_cast<uint8_t>(security_permissions::ConfigOnly)) == 0x01) return true;
@@ -572,6 +627,45 @@ void WebAsync::begin() {
       default: request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No shade or group id supplied.\"}")); break;
     }
   }, nullptr, asyncBufferBody);
+  // ---- Phase 3 batch B: entity mutations through the shared WebRequest ----
+  // cores (WebRoutesShades.cpp / WebShades.cpp / Web.cpp). ANY method mask for
+  // parity with the sync server.on(path, fn) registrations; the cores do their
+  // own method filtering. The guard covers parsing and the somfy work alike.
+  #define ASYNC_SHARED_ROUTE(path, corefn) \
+    asyncServer.on(path, ASYNC_HTTP_ANY, [](AsyncWebServerRequest *request) { \
+      webServer.lastActivity = millis(); \
+      WebAsyncRequest req(request); \
+      { SomfyGuard guard; webServer.corefn(req); } \
+      req.finish(); \
+    }, nullptr, asyncBufferBody)
+  ASYNC_SHARED_ROUTE("/addRoom", handleAddRoom);
+  ASYNC_SHARED_ROUTE("/addShade", handleAddShade);
+  ASYNC_SHARED_ROUTE("/addGroup", handleAddGroup);
+  ASYNC_SHARED_ROUTE("/groupOptions", handleGroupOptions);
+  ASYNC_SHARED_ROUTE("/saveRoom", handleSaveRoom);
+  ASYNC_SHARED_ROUTE("/saveShade", handleSaveShade);
+  ASYNC_SHARED_ROUTE("/saveGroup", handleSaveGroup);
+  ASYNC_SHARED_ROUTE("/setMyPosition", handleSetMyPosition);
+  ASYNC_SHARED_ROUTE("/setRollingCode", handleSetRollingCode);
+  ASYNC_SHARED_ROUTE("/setPaired", handleSetPaired);
+  ASYNC_SHARED_ROUTE("/unpairShade", handleUnpairShade);
+  ASYNC_SHARED_ROUTE("/linkRepeater", handleLinkRepeater);
+  ASYNC_SHARED_ROUTE("/unlinkRepeater", handleUnlinkRepeater);
+  ASYNC_SHARED_ROUTE("/unlinkRemote", handleUnlinkRemote);
+  ASYNC_SHARED_ROUTE("/linkRemote", handleLinkRemote);
+  ASYNC_SHARED_ROUTE("/linkToGroup", handleLinkToGroup);
+  ASYNC_SHARED_ROUTE("/unlinkFromGroup", handleUnlinkFromGroup);
+  ASYNC_SHARED_ROUTE("/deleteRoom", handleDeleteRoom);
+  ASYNC_SHARED_ROUTE("/deleteShade", handleDeleteShade);
+  ASYNC_SHARED_ROUTE("/deleteGroup", handleDeleteGroup);
+  ASYNC_SHARED_ROUTE("/roomSortOrder", handleRoomSortOrder);
+  ASYNC_SHARED_ROUTE("/shadeSortOrder", handleShadeSortOrder);
+  ASYNC_SHARED_ROUTE("/groupSortOrder", handleGroupSortOrder);
+  ASYNC_SHARED_ROUTE("/setPositions", handleSetPositions);
+  ASYNC_SHARED_ROUTE("/setSensor", handleSetSensor);
+  ASYNC_SHARED_ROUTE("/sendRemoteCommand", handleSendRemoteCommand);
+  ASYNC_SHARED_ROUTE("/netDiag", handleNetDiag);
+  #undef ASYNC_SHARED_ROUTE
   asyncServer.onNotFound([](AsyncWebServerRequest *request) {
     request->send(404, "text/plain", "Not found");
   });

@@ -15,6 +15,9 @@
 #define ASYNC_HTTP_POST    0b00000010
 #define ASYNC_HTTP_DELETE  0b00000100
 #define ASYNC_HTTP_PUT     0b00001000
+#define ASYNC_HTTP_PATCH   0b00010000
+#define ASYNC_HTTP_HEAD    0b00100000
+#define ASYNC_HTTP_OPTIONS 0b01000000
 #define ASYNC_HTTP_ANY     0b01111111
 
 // JsonResponse twin bound to an async response stream. Inheriting JsonResponse
@@ -41,6 +44,31 @@ class SomfyGuard {
     ~SomfyGuard() { xSemaphoreGiveRecursive(g_somfyLock); }
 };
 
+// WebRequest bound to an async request. The shared handlers run in the
+// async_tcp task under the SomfyGuard taken by the registration shim. First
+// response wins: a later beginJson/endJson after an error send is discarded,
+// and finish() closes the connection when a handler falls through silently
+// (parity with the sync server's close-without-response paths).
+class WebAsyncRequest : public WebRequest {
+  protected:
+    AsyncWebServerRequest *_request;
+    AsyncResponseStream *_stream = nullptr;
+    JsonAsyncResponse _resp;
+    bool _sent = false;
+  public:
+    WebAsyncRequest(AsyncWebServerRequest *request) : _request(request) {}
+    ~WebAsyncRequest() { if(this->_stream) delete this->_stream; }
+    HTTPMethod method() override;
+    bool hasParam(const char *name) override;
+    String param(const char *name) override;
+    bool hasBody() override;
+    const char *body() override;
+    void send(int code, const char *contentType, const char *content) override;
+    bool ensureAuth(bool cfg = false) override;
+    JsonResponse &beginJson() override;
+    void endJson() override;
+    void finish();
+};
 class WebAsync {
   public:
     // Development port: the synchronous server keeps port 80 fully functional

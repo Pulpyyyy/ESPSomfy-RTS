@@ -528,18 +528,19 @@ void Web::handleDiscovery(WebServer &server) {
     server.send(500, _encoding_text, "Invalid http method");
 }
 
-void Web::handleSetPositions(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->ensureAuth(server, false)) return;
-  uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
-  int8_t pos = (server.hasArg("position")) ? atoi(server.arg("position").c_str()) : -1;
-  int8_t tiltPos = (server.hasArg("tiltPosition")) ? atoi(server.arg("tiltPosition").c_str()) : -1;
-  if(server.hasArg("plain")) {
+void Web::handleSetPositions(WebServer &server) { WebSyncRequest req(server); this->handleSetPositions(req); }
+void Web::handleSetPositions(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(false)) return;
+  uint8_t shadeId = (req.hasParam("shadeId")) ? atoi(req.param("shadeId").c_str()) : 255;
+  int8_t pos = (req.hasParam("position")) ? atoi(req.param("position").c_str()) : -1;
+  int8_t tiltPos = (req.hasParam("tiltPosition")) ? atoi(req.param("tiltPosition").c_str()) : -1;
+  if(req.hasBody()) {
     DynamicJsonDocument doc(512);
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
+    DeserializationError err = deserializeJson(doc, req.body());
     if (err) {
-      this->handleDeserializationError(server, err);
+      this->sendDeserializationError(req, err);
       return;
     }
     else {
@@ -555,34 +556,34 @@ void Web::handleSetPositions(WebServer &server) {
       if(pos >= 0) shade->target = shade->currentPos = pos;
       if(tiltPos >= 0 && shade->tiltType != tilt_types::none) shade->tiltTarget = shade->currentTiltPos = tiltPos;
       shade->emitState();
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
+      JsonResponse &resp = req.beginJson();
       resp.beginObject();
       shade->toJSON(resp);
       resp.endObject();
-      resp.endResponse();
+      req.endJson();
     }
     else
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"An invalid shadeId was provided\"}"));
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"An invalid shadeId was provided\"}");
   }
   else {
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"shadeId was not provided\"}"));
+    req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"shadeId was not provided\"}");
   }
 }
-void Web::handleSetSensor(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->ensureAuth(server, false)) return;
-  uint8_t shadeId = (server.hasArg("shadeId")) ? atoi(server.arg("shadeId").c_str()) : 255;
-  uint8_t groupId = (server.hasArg("groupId")) ? atoi(server.arg("groupId").c_str()) : 255;
-  int8_t sunny = (server.hasArg("sunny")) ? toBoolean(server.arg("sunny").c_str(), false) ? 1 : 0 : -1;
-  int8_t windy = (server.hasArg("windy")) ? atoi(server.arg("windy").c_str()) : -1;
-  int8_t repeat = (server.hasArg("repeat")) ? atoi(server.arg("repeat").c_str()) : -1;
-  if(server.hasArg("plain")) {
+void Web::handleSetSensor(WebServer &server) { WebSyncRequest req(server); this->handleSetSensor(req); }
+void Web::handleSetSensor(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(false)) return;
+  uint8_t shadeId = (req.hasParam("shadeId")) ? atoi(req.param("shadeId").c_str()) : 255;
+  uint8_t groupId = (req.hasParam("groupId")) ? atoi(req.param("groupId").c_str()) : 255;
+  int8_t sunny = (req.hasParam("sunny")) ? toBoolean(req.param("sunny").c_str(), false) ? 1 : 0 : -1;
+  int8_t windy = (req.hasParam("windy")) ? atoi(req.param("windy").c_str()) : -1;
+  int8_t repeat = (req.hasParam("repeat")) ? atoi(req.param("repeat").c_str()) : -1;
+  if(req.hasBody()) {
     DynamicJsonDocument doc(512);
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
+    DeserializationError err = deserializeJson(doc, req.body());
     if (err) {
-      this->handleDeserializationError(server, err);
+      this->sendDeserializationError(req, err);
       return;
     }
     else {
@@ -609,33 +610,30 @@ void Web::handleSetSensor(WebServer &server) {
     if(shade) {
       shade->sendSensorCommand(windy, sunny, repeat >= 0 ? (uint8_t)repeat : shade->repeats);
       shade->emitState();
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
+      JsonResponse &resp = req.beginJson();
       resp.beginObject();
       shade->toJSON(resp);
       resp.endObject();
-      resp.endResponse();
+      req.endJson();
     }
     else
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"An invalid shadeId was provided\"}"));
-      
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"An invalid shadeId was provided\"}");
   }
   else if(groupId != 255) {
     SomfyGroup *group = somfy.getGroupById(groupId);
     if(group) {
       group->sendSensorCommand(windy, sunny, repeat >= 0 ? (uint8_t)repeat : group->repeats);
       group->emitState();
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
+      JsonResponse &resp = req.beginJson();
       resp.beginObject();
       group->toJSON(resp);
       resp.endObject();
-      resp.endResponse();
+      req.endJson();
     }
     else
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"An invalid groupId was provided\"}"));
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"An invalid groupId was provided\"}");
   }
   else {
-    server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"shadeId was not provided\"}"));
+    req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"shadeId was not provided\"}");
   }
 }

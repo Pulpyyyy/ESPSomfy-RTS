@@ -1,7 +1,29 @@
 #include <WebServer.h>
 #include "Somfy.h"
+#include "WResp.h"
 #ifndef webserver_h
 #define webserver_h
+// WebRequest bound to the sync WebServer (port 80 UI server or port 8081 API
+// server). Methods are defined in Web.cpp; the JSON stream uses the shared
+// g_content buffer like every sync handler.
+class WebSyncRequest : public WebRequest {
+  protected:
+    WebServer &_server;
+    String _body;
+    bool _bodyLoaded = false;
+    JsonResponse _resp;
+  public:
+    WebSyncRequest(WebServer &server) : _server(server) {}
+    HTTPMethod method() override;
+    bool hasParam(const char *name) override;
+    String param(const char *name) override;
+    bool hasBody() override;
+    const char *body() override;
+    void send(int code, const char *contentType, const char *content) override;
+    bool ensureAuth(bool cfg = false) override;
+    JsonResponse &beginJson() override;
+    void endJson() override;
+};
 // One parsed command payload for the shade/group/tilt/repeat routes, shared by
 // the sync and async transports; each transport only differs in how it fills it.
 struct somfy_cmd_req_t {
@@ -100,6 +122,38 @@ public:
   void emitNetworkSettings(JsonResponse &resp);
   void emitMqttSettings(JsonResponse &resp);
   void emitRadio(JsonResponse &resp);
+  // Transport-neutral handlers on the WebRequest facade: the SAME body serves
+  // the sync and async servers, so behavior parity is structural. The sync
+  // registrations wrap them in a WebSyncRequest; WebAsync.cpp wraps them in a
+  // WebAsyncRequest under the somfy lock.
+  void sendDeserializationError(WebRequest &req, DeserializationError &err);
+  void handleAddRoom(WebRequest &req);
+  void handleAddShade(WebRequest &req);
+  void handleAddGroup(WebRequest &req);
+  void handleGroupOptions(WebRequest &req);
+  void handleSaveRoom(WebRequest &req);
+  void handleSaveShade(WebRequest &req);
+  void handleSaveGroup(WebRequest &req);
+  void handleSetMyPosition(WebRequest &req);
+  void handleSetRollingCode(WebRequest &req);
+  void handleSetPaired(WebRequest &req);
+  void handleUnpairShade(WebRequest &req);
+  void handleLinkRepeater(WebRequest &req);
+  void handleUnlinkRepeater(WebRequest &req);
+  void handleLinkRemote(WebRequest &req);
+  void handleUnlinkRemote(WebRequest &req);
+  void handleLinkToGroup(WebRequest &req);
+  void handleUnlinkFromGroup(WebRequest &req);
+  void handleDeleteRoom(WebRequest &req);
+  void handleDeleteShade(WebRequest &req);
+  void handleDeleteGroup(WebRequest &req);
+  void handleRoomSortOrder(WebRequest &req);
+  void handleShadeSortOrder(WebRequest &req);
+  void handleGroupSortOrder(WebRequest &req);
+  void handleSetPositions(WebRequest &req);
+  void handleSetSensor(WebRequest &req);
+  void handleSendRemoteCommand(WebRequest &req);
+  void handleNetDiag(WebRequest &req);
   // Serialized into buff (the security payload goes through ArduinoJson, not
   // the streaming formatter); returns the JSON text length.
   size_t buildSecurityJson(char *buff, size_t size);

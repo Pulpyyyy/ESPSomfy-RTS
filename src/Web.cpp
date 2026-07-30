@@ -16,6 +16,9 @@
 #include "GitOTA.h"
 #include "Rollback.h"
 #include "Network.h"
+// LWIP internals for /netDiag: the TCP PCB lists, to watch for socket-pool
+// exhaustion (the wedge symptom: ping alive, every accept dead).
+#include "lwip/priv/tcp_priv.h"
 
 extern ConfigSettings settings;
 extern SSDPClass SSDP;
@@ -44,6 +47,41 @@ extern const char _encoding_json[] = "application/json";
 
 WebServer apiServer(8081);
 WebServer server(80);
+// ---- WebRequest bound to the sync WebServer. ------------------------------
+HTTPMethod WebSyncRequest::method() { return this->_server.method(); }
+bool WebSyncRequest::hasParam(const char *name) { return this->_server.hasArg(name); }
+String WebSyncRequest::param(const char *name) { return this->_server.arg(name); }
+bool WebSyncRequest::hasBody() { return this->_server.hasArg("plain"); }
+const char *WebSyncRequest::body() {
+  if(!this->_bodyLoaded) {
+    this->_body = this->_server.arg("plain");
+    this->_bodyLoaded = true;
+  }
+  return this->_body.c_str();
+}
+void WebSyncRequest::send(int code, const char *contentType, const char *content) {
+  this->_server.send(code, contentType, content);
+}
+bool WebSyncRequest::ensureAuth(bool cfg) { return webServer.ensureAuth(this->_server, cfg); }
+JsonResponse &WebSyncRequest::beginJson() {
+  this->_resp.beginResponse(&this->_server, g_content, sizeof(g_content));
+  return this->_resp;
+}
+void WebSyncRequest::endJson() { this->_resp.endResponse(); }
+// Twin of handleDeserializationError for the facade: same texts.
+void Web::sendDeserializationError(WebRequest &req, DeserializationError &err) {
+  switch (err.code()) {
+    case DeserializationError::InvalidInput:
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON payload\"}");
+      break;
+    case DeserializationError::NoMemory:
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Out of memory parsing JSON\"}");
+      break;
+    default:
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"General JSON Deserialization failed\"}");
+      break;
+  }
+}
 void Web::startup() {
   Serial.println("Launching web server...");
 
@@ -106,6 +144,82 @@ void Web::emitRfStats(JsonResponse &resp) {
   resp.addElem("uptime", (uint32_t)(net.connectedAt > 0 ? (millis() - net.connectedAt) / 1000 : 0));
   resp.endObject();
   resp.endObject();
+}
+void Web::handleSendRemoteCommand(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  HTTPMethod method = req.method();
+  if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
+    somfy_frame_t frame;
+    uint8_t repeats = 0;
+    if (req.hasParam("address")) {
+      frame.remoteAddress = atoi(req.param("address").c_str());
+      if (req.hasParam("encKey")) frame.encKey = atoi(req.param("encKey").c_str());
+      if (req.hasParam("command")) frame.cmd = translateSomfyCommand(req.param("command"));
+      if (req.hasParam("rcode")) frame.rollingCode = atoi(req.param("rcode").c_str());
+      if (req.hasParam("repeats")) repeats = atoi(req.param("repeats").c_str());
+    }
+    else if (req.hasBody()) {
+      StaticJsonDocument<128> doc;
+      DeserializationError err = deserializeJson(doc, req.body());
+      if (err) {
+        this->sendDeserializationError(req, err);
+        return;
+      }
+      else {
+        JsonObject obj = doc.as<JsonObject>();
+        String scmd;
+        if (obj.containsKey("address")) frame.remoteAddress = obj["address"];
+        if (obj.containsKey("command")) scmd = obj["command"].as<String>();
+        if (obj.containsKey("repeats")) repeats = obj["repeats"];
+        if (obj.containsKey("rcode")) frame.rollingCode = obj["rcode"];
+        if (obj.containsKey("encKey")) frame.encKey = obj["encKey"];
+        frame.cmd = translateSomfyCommand(scmd.c_str());
+      }
+    }
+    if (frame.remoteAddress > 0 && frame.rollingCode > 0) {
+      somfy.sendFrame(frame, repeats);
+      req.send(200, _encoding_json, "{\"status\":\"SUCCESS\",\"desc\":\"Command Sent\"}");
+    }
+    else
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"No address or rolling code provided\"}");
+  }
+}
+// Diagnostic snapshot of the heap and the LWIP TCP PCB pools. The pools are
+// tiny (16 active PCBs by default): a slow leak of connections wedges every
+// listener while ICMP keeps answering. Walking the lists without the tcpip
+// lock is racy but read-only over pool-allocated nodes, and the walk is
+// bounded; good enough for a diagnostic.
+void Web::handleNetDiag(WebRequest &req) {
+  if(!req.ensureAuth(true)) return;
+  uint16_t active = 0, closeWait = 0, established = 0, timeWait = 0, bound = 0, listening = 0;
+  for(struct tcp_pcb *p = tcp_active_pcbs; p && active < 99; p = p->next) {
+    active++;
+    if(p->state == CLOSE_WAIT) closeWait++;
+    else if(p->state == ESTABLISHED) established++;
+  }
+  for(struct tcp_pcb *p = tcp_tw_pcbs; p && timeWait < 99; p = p->next) timeWait++;
+  for(struct tcp_pcb *p = tcp_bound_pcbs; p && bound < 99; p = p->next) bound++;
+  for(struct tcp_pcb_listen *p = tcp_listen_pcbs.listen_pcbs; p && listening < 99; p = (struct tcp_pcb_listen *)p->next) listening++;
+  JsonResponse &resp = req.beginJson();
+  resp.beginObject();
+  resp.addElem("uptime", (uint32_t)(millis() / 1000));
+  resp.beginObject("heap");
+  resp.addElem("free", (uint32_t)ESP.getFreeHeap());
+  resp.addElem("min", (uint32_t)ESP.getMinFreeHeap());
+  resp.addElem("maxAlloc", (uint32_t)ESP.getMaxAllocHeap());
+  resp.endObject();
+  resp.beginObject("tcp");
+  resp.addElem("active", (uint32_t)active);
+  resp.addElem("established", (uint32_t)established);
+  resp.addElem("closeWait", (uint32_t)closeWait);
+  resp.addElem("timeWait", (uint32_t)timeWait);
+  resp.addElem("bound", (uint32_t)bound);
+  resp.addElem("listen", (uint32_t)listening);
+  resp.endObject();
+  resp.endObject();
+  req.endJson();
 }
 void Web::loop() {
   server.handleClient();
@@ -754,47 +868,8 @@ void Web::beginRadioRoutes() {
     webServer.emitRadio(resp);
     resp.endResponse();
     });
-  server.on("/sendRemoteCommand", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-      somfy_frame_t frame;
-      uint8_t repeats = 0;
-      if (server.hasArg("address")) {
-        frame.remoteAddress = atoi(server.arg("address").c_str());
-        if (server.hasArg("encKey")) frame.encKey = atoi(server.arg("encKey").c_str());
-        if (server.hasArg("command")) frame.cmd = translateSomfyCommand(server.arg("command"));
-        if (server.hasArg("rcode")) frame.rollingCode = atoi(server.arg("rcode").c_str());
-        if (server.hasArg("repeats")) repeats = atoi(server.arg("repeats").c_str());
-      }
-      else if (server.hasArg("plain")) {
-        StaticJsonDocument<128> doc;
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          String scmd;
-          if (obj.containsKey("address")) frame.remoteAddress = obj["address"];
-          if (obj.containsKey("command")) scmd = obj["command"].as<String>();
-          if (obj.containsKey("repeats")) repeats = obj["repeats"];
-          if (obj.containsKey("rcode")) frame.rollingCode = obj["rcode"];
-          if (obj.containsKey("encKey")) frame.encKey = obj["encKey"];
-          frame.cmd = translateSomfyCommand(scmd.c_str());
-        }
-      }
-      if (frame.remoteAddress > 0 && frame.rollingCode > 0) {
-        somfy.sendFrame(frame, repeats);
-        server.send(200, _encoding_json, F("{\"status\":\"SUCCESS\",\"desc\":\"Command Sent\"}"));
-      }
-      else
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No address or rolling code provided\"}"));
-    }
-    });
+  server.on("/sendRemoteCommand", []() { WebSyncRequest req(server); webServer.handleSendRemoteCommand(req); });
+  server.on("/netDiag", []() { WebSyncRequest req(server); webServer.handleNetDiag(req); });
   server.on("/beginFrequencyScan", []() {
     webServer.sendCORSHeaders(server);
     if(!webServer.ensureAuth(server, true)) return;
