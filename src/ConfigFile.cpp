@@ -581,6 +581,24 @@ bool ShadeConfigFile::restoreFile(SomfyShadeController *s, const char *filename,
     if(opened) this->end();
     return false;
   }
+  // Version numbers are shared across sibling forks, so a foreign file can
+  // declare a version this reader knows with a layout it does not; the
+  // declared record size is the fingerprint. Enforce the sizes this lineage
+  // wrote from v24 on (24/25: 276, 26: +liftTime, 27: +curveGain) and refuse
+  // anything newer than this reader - both would restore as garbage fields.
+  if(this->header.version > SHADE_HDR_VER) {
+    Serial.printf("Restore file version %u is newer than this firmware (%u)\n", this->header.version, SHADE_HDR_VER);
+    if(opened) this->end();
+    return false;
+  }
+  uint16_t expectedShadeRec = this->header.version >= 27 ? SHADE_REC_SIZE
+    : this->header.version == 26 ? 287 : 276;
+  if(this->header.version >= 24 && this->header.shadeRecordSize != expectedShadeRec) {
+    Serial.printf("Foreign v%u shade record: %u bytes declared, %u expected\n",
+      this->header.version, this->header.shadeRecordSize, expectedShadeRec);
+    if(opened) this->end();
+    return false;
+  }
   if(opts.shades) {
     Serial.println("Restoring Rooms...");
     for(uint8_t i = 0; i < this->header.roomRecords && i < SOMFY_MAX_ROOMS; i++) {
@@ -656,8 +674,17 @@ bool ShadeConfigFile::restoreFile(SomfyShadeController *s, const char *filename,
   if(opts.shades) s->commit();
   if(opts.transceiver)
   {
-    this->readTransRecord(s->transceiver.config);
-    s->transceiver.save();
+    // Sibling forks reuse version numbers with different layouts: cjkas v24
+    // ships an 80-byte transceiver record (no radioBoardType, adds
+    // noiseDetection) where the rstrouse lineage has 78. Parsing it here would
+    // silently corrupt the radio settings, so only a record of the exact size
+    // this reader expects is restored; anything else keeps the live config.
+    if(this->header.transRecordSize == TRANS_REC_SIZE) {
+      this->readTransRecord(s->transceiver.config);
+      s->transceiver.save();
+    }
+    else
+      Serial.printf("Foreign transceiver record (%u bytes): keeping the current radio settings\n", this->header.transRecordSize);
   }
   if(opts.settings || opts.network) settings.save();
   if(opts.settings) settings.NTP.save();
