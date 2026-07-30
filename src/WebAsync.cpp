@@ -222,6 +222,17 @@ static void serveIndex(AsyncWebServerRequest *request) {
   request->send(response);
 }
 
+// Captures SSDP.schema()'s raw-HTTP output into a String so the XML body can
+// be split from its embedded header block.
+class SchemaCapture : public Print {
+  public:
+    String out;
+    size_t write(uint8_t c) override { this->out += (char)c; return 1; }
+    size_t write(const uint8_t *buf, size_t len) override {
+      for(size_t i = 0; i < len; i++) this->out += (char)buf[i];
+      return len;
+    }
+};
 // Shared firmware/filesystem flash chunk handler. isApp selects the SPIFFS
 // (LittleFS) partition and its commit()/no-rollback behavior; otherwise the
 // application partition with an OTA-rollback pending marker. Mirrors the sync
@@ -841,20 +852,28 @@ void WebAsync::begin() {
     webServer.lastActivity = millis();
     if(git.lockFS) { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}")); return; }
     if(!webAsync.ensureAuth(request, true)) return;
+    // handleStreamFile answers a 500 "Error opening file" on a missing file, not
+    // send(fs, path)'s 404; match it for parity.
+    if(!LittleFS.exists("/shades.cfg")) { request->send(500, "text/plain", "Error opening file"); return; }
     request->send(LittleFS, "/shades.cfg", "text/plain");
   });
   asyncServer.on("/shades.tmp", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(git.lockFS) { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}")); return; }
     if(!webAsync.ensureAuth(request, true)) return;
+    if(!LittleFS.exists("/shades.tmp")) { request->send(500, "text/plain", "Error opening file"); return; }
     request->send(LittleFS, "/shades.tmp", "text/plain");
   });
-  // Discovery document: unauthenticated on the sync server too.
+  // Discovery document: unauthenticated on the sync server too. SSDP.schema()
+  // emits a whole raw HTTP response (status line + headers + XML) meant for the
+  // socket; capture it, strip the header block, and send just the XML so the
+  // async framework does not double-wrap the headers.
   asyncServer.on("/upnp.xml", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
-    AsyncResponseStream *stream = request->beginResponseStream("text/xml");
-    SSDP.schema(*stream);
-    request->send(stream);
+    SchemaCapture cap;
+    SSDP.schema(cap);
+    int sep = cap.out.indexOf("\r\n\r\n");
+    request->send(200, "text/xml", sep >= 0 ? cap.out.substring(sep + 4) : cap.out);
   });
   // Config backup: writes /controller.backup then streams it. The file holds
   // the WiFi passphrase by design, so it is config-gated.
