@@ -7,6 +7,16 @@
 #ifndef webasync_h
 #define webasync_h
 
+// In WebServer.h-compat mode the async library does not emit its method
+// bitmask enum: the HTTP_* names resolve to the sync HTTPMethod values, where
+// HTTP_PUT(4) collides with the async DELETE bit. These are the library's
+// actual WebRequestMethodComposite wire values - use them for every on().
+#define ASYNC_HTTP_GET     0b00000001
+#define ASYNC_HTTP_POST    0b00000010
+#define ASYNC_HTTP_DELETE  0b00000100
+#define ASYNC_HTTP_PUT     0b00001000
+#define ASYNC_HTTP_ANY     0b01111111
+
 // JsonResponse twin bound to an async response stream. Inheriting JsonResponse
 // keeps every existing toJSON(JsonResponse&) serializer usable untouched; only
 // the flush target changes.

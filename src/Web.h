@@ -2,6 +2,16 @@
 #include "Somfy.h"
 #ifndef webserver_h
 #define webserver_h
+// One parsed command payload for the shade/group/tilt/repeat routes, shared by
+// the sync and async transports; each transport only differs in how it fills it.
+struct somfy_cmd_req_t {
+  uint8_t shadeId = 255;
+  uint8_t groupId = 255;
+  uint8_t target = 255;
+  uint8_t stepSize = 0;
+  int8_t repeat = -1;
+  somfy_commands command = somfy_commands::My;
+};
 class Web {
 private:
   // Failed /login attempts, and the millis() deadline until which logins are refused.
@@ -78,6 +88,15 @@ public:
   void emitRfStats(JsonResponse &resp);
   void emitModuleSettings(JsonResponse &resp);
   void emitController(JsonResponse &resp, bool includeSecrets);
+  // Command cores shared by the transports: they only write into resp when the
+  // target exists (headers go out at the first flush), so the shells can still
+  // answer the exact legacy error texts otherwise.
+  void parseCommandJson(JsonObject &obj, somfy_cmd_req_t &cmd);
+  bool execShadeCommand(somfy_cmd_req_t &cmd, JsonResponse &resp);
+  bool execTiltCommand(somfy_cmd_req_t &cmd, JsonResponse &resp);
+  bool execGroupCommand(somfy_cmd_req_t &cmd, JsonResponse &resp);
+  // 0 = sent, 1 = shade missing, 2 = group missing, 3 = no id supplied.
+  uint8_t execRepeatCommand(somfy_cmd_req_t &cmd, JsonResponse &resp);
   void emitNetworkSettings(JsonResponse &resp);
   void emitMqttSettings(JsonResponse &resp);
   void emitRadio(JsonResponse &resp);

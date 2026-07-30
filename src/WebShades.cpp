@@ -81,67 +81,111 @@ void Web::handleGetGroups(WebServer &server) {
     }
     else server.send(404, _encoding_text, _response_404);
 }
+// ---- Command cores shared by the sync and async transports. --------------
+void Web::parseCommandJson(JsonObject &obj, somfy_cmd_req_t &cmd) {
+  if (obj.containsKey("shadeId")) cmd.shadeId = obj["shadeId"];
+  if (obj.containsKey("groupId")) cmd.groupId = obj["groupId"];
+  if (obj.containsKey("command")) {
+    String scmd = obj["command"];
+    cmd.command = translateSomfyCommand(scmd);
+  }
+  else if (obj.containsKey("target")) cmd.target = obj["target"].as<uint8_t>();
+  if (obj.containsKey("repeat")) cmd.repeat = obj["repeat"].as<uint8_t>();
+  if (obj.containsKey("stepSize")) cmd.stepSize = obj["stepSize"].as<uint8_t>();
+}
+bool Web::execShadeCommand(somfy_cmd_req_t &cmd, JsonResponse &resp) {
+  SomfyShade *shade = somfy.getShadeById(cmd.shadeId);
+  if (!shade) return false;
+  if (cmd.target <= 100)
+    shade->moveToTarget(shade->transformPosition(cmd.target));
+  else
+    shade->sendCommand(cmd.command, cmd.repeat > 0 ? cmd.repeat : shade->repeats, cmd.stepSize);
+  resp.beginObject();
+  shade->toJSONRef(resp);
+  resp.endObject();
+  return true;
+}
+bool Web::execTiltCommand(somfy_cmd_req_t &cmd, JsonResponse &resp) {
+  SomfyShade *shade = somfy.getShadeById(cmd.shadeId);
+  if (!shade) return false;
+  if (cmd.target <= 100)
+    shade->moveToTiltTarget(shade->transformPosition(cmd.target));
+  else
+    shade->sendTiltCommand(cmd.command);
+  resp.beginObject();
+  shade->toJSONRef(resp);
+  resp.endObject();
+  return true;
+}
+bool Web::execGroupCommand(somfy_cmd_req_t &cmd, JsonResponse &resp) {
+  SomfyGroup *group = somfy.getGroupById(cmd.groupId);
+  if (!group) return false;
+  group->sendCommand(cmd.command, cmd.repeat >= 0 ? cmd.repeat : group->repeats, cmd.stepSize);
+  resp.beginObject();
+  group->toJSONRef(resp);
+  resp.endObject();
+  return true;
+}
+uint8_t Web::execRepeatCommand(somfy_cmd_req_t &cmd, JsonResponse &resp) {
+  if (cmd.shadeId != 255) {
+    SomfyShade *shade = somfy.getShadeById(cmd.shadeId);
+    if (!shade) return 1;
+    somfy_commands command = cmd.command;
+    if (shade->shadeType == shade_types::garage1 && command == somfy_commands::Prog) command = somfy_commands::Toggle;
+    if (!shade->isLastCommand(command))
+      shade->sendCommand(command, cmd.repeat >= 0 ? cmd.repeat : shade->repeats, cmd.stepSize);
+    else
+      shade->repeatFrame(cmd.repeat >= 0 ? cmd.repeat : shade->repeats);
+    // Historical quirk kept as-is: the shade branch answers an array wrapper.
+    resp.beginArray();
+    shade->toJSONRef(resp);
+    resp.endArray();
+    return 0;
+  }
+  if (cmd.groupId != 255) {
+    SomfyGroup *group = somfy.getGroupById(cmd.groupId);
+    if (!group) return 2;
+    if (!group->isLastCommand(cmd.command))
+      group->sendCommand(cmd.command, cmd.repeat >= 0 ? cmd.repeat : group->repeats, cmd.stepSize);
+    else
+      group->repeatFrame(cmd.repeat >= 0 ? cmd.repeat : group->repeats);
+    resp.beginObject();
+    group->toJSONRef(resp);
+    resp.endObject();
+    return 0;
+  }
+  return 3;
+}
 void Web::handleShadeCommand(WebServer& server) {
   webServer.sendCORSHeaders(server);
   if (server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
   if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
-  uint8_t shadeId = 255;
-  uint8_t target = 255;
-  uint8_t stepSize = 0;
-  int8_t repeat = -1;
-  somfy_commands command = somfy_commands::My;
+  somfy_cmd_req_t cmd;
   if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
     if (server.hasArg("shadeId")) {
-      shadeId = atoi(server.arg("shadeId").c_str());
-      if (server.hasArg("command")) command = translateSomfyCommand(server.arg("command"));
-      else if (server.hasArg("target")) target = atoi(server.arg("target").c_str());
-      if (server.hasArg("repeat")) repeat = atoi(server.arg("repeat").c_str());
-      if(server.hasArg("stepSize")) stepSize = atoi(server.arg("stepSize").c_str());
+      cmd.shadeId = atoi(server.arg("shadeId").c_str());
+      if (server.hasArg("command")) cmd.command = translateSomfyCommand(server.arg("command"));
+      else if (server.hasArg("target")) cmd.target = atoi(server.arg("target").c_str());
+      if (server.hasArg("repeat")) cmd.repeat = atoi(server.arg("repeat").c_str());
+      if(server.hasArg("stepSize")) cmd.stepSize = atoi(server.arg("stepSize").c_str());
     }
     else if (server.hasArg("plain")) {
-      Serial.println("Sending Shade Command");
       DynamicJsonDocument doc(512);
       DeserializationError err = deserializeJson(doc, server.arg("plain"));
       if (err) {
         this->handleDeserializationError(server, err);
         return;
       }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-        else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-        if (obj.containsKey("command")) {
-            String scmd = obj["command"];
-            command = translateSomfyCommand(scmd);
-        }
-        else if (obj.containsKey("target")) {
-            target = obj["target"].as<uint8_t>();
-        }
-        if (obj.containsKey("repeat")) repeat = obj["repeat"].as<uint8_t>();
-        if(obj.containsKey("stepSize")) stepSize = obj["stepSize"].as<uint8_t>();
-      }
+      JsonObject obj = doc.as<JsonObject>();
+      if (!obj.containsKey("shadeId")) server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
+      this->parseCommandJson(obj, cmd);
     }
     else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}"));
-    SomfyShade* shade = somfy.getShadeById(shadeId);
-    if (shade) {
-      Serial.print("Received:");
-      Serial.println(server.arg("plain"));
-      // Send the command to the shade.
-      if (target <= 100)
-          shade->moveToTarget(shade->transformPosition(target));
-      else
-          shade->sendCommand(command, repeat > 0 ? repeat : shade->repeats, stepSize);
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      shade->toJSONRef(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
-    }
+    JsonResponse resp;
+    resp.beginResponse(&server, g_content, sizeof(g_content));
+    if (this->execShadeCommand(cmd, resp)) resp.endResponse();
+    else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
   }
   else
     server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
@@ -151,81 +195,32 @@ void Web::handleRepeatCommand(WebServer& server) {
   HTTPMethod method = server.method();
   if (method == HTTP_OPTIONS) { server.send(200, "OK"); return; }
   if(!this->ensureAuth(server, false)) return;
-  uint8_t shadeId = 255;
-  uint8_t groupId = 255;
-  uint8_t stepSize = 0;
-  int8_t repeat = -1;
-  somfy_commands command = somfy_commands::My;
+  somfy_cmd_req_t cmd;
   if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-    if(server.hasArg("shadeId")) shadeId = atoi(server.arg("shadeId").c_str());
-    else if(server.hasArg("groupId")) groupId = atoi(server.arg("groupId").c_str());
-    if(server.hasArg("command")) command = translateSomfyCommand(server.arg("command"));
-    if(server.hasArg("repeat")) repeat = atoi(server.arg("repeat").c_str());
-    if(server.hasArg("stepSize")) stepSize = atoi(server.arg("stepSize").c_str());
-    if(shadeId == 255 && groupId == 255 && server.hasArg("plain")) {
+    if(server.hasArg("shadeId")) cmd.shadeId = atoi(server.arg("shadeId").c_str());
+    else if(server.hasArg("groupId")) cmd.groupId = atoi(server.arg("groupId").c_str());
+    if(server.hasArg("command")) cmd.command = translateSomfyCommand(server.arg("command"));
+    if(server.hasArg("repeat")) cmd.repeat = atoi(server.arg("repeat").c_str());
+    if(server.hasArg("stepSize")) cmd.stepSize = atoi(server.arg("stepSize").c_str());
+    if(cmd.shadeId == 255 && cmd.groupId == 255 && server.hasArg("plain")) {
       DynamicJsonDocument doc(512);
       DeserializationError err = deserializeJson(doc, server.arg("plain"));
       if (err) {
         this->handleDeserializationError(server, err);
         return;
       }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-        if(obj.containsKey("groupId")) groupId = obj["groupId"];
-        if(obj.containsKey("stepSize")) stepSize = obj["stepSize"];
-        if (obj.containsKey("command")) {
-            String scmd = obj["command"];
-            command = translateSomfyCommand(scmd);
-        }
-        if (obj.containsKey("repeat")) repeat = obj["repeat"].as<uint8_t>();
-      }
+      JsonObject obj = doc.as<JsonObject>();
+      this->parseCommandJson(obj, cmd);
     }
-    //DynamicJsonDocument sdoc(512);
-    //JsonObject sobj = sdoc.to<JsonObject>();
-    if(shadeId != 255) {
-      SomfyShade *shade = somfy.getShadeById(shadeId);
-      if(!shade) {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade reference could not be found.\"}"));
-        return;        
-      }
-      if(shade->shadeType == shade_types::garage1 && command == somfy_commands::Prog) command = somfy_commands::Toggle;
-      if(!shade->isLastCommand(command)) {
-        // We are going to send this as a new command.
-        shade->sendCommand(command, repeat >= 0 ? repeat : shade->repeats, stepSize);
-      }
-      else {
-        shade->repeatFrame(repeat >= 0 ? repeat : shade->repeats);
-      }
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginArray();
-      shade->toJSONRef(resp);
-      resp.endArray();
-      resp.endResponse();
-    }
-    else if(groupId != 255) {
-      SomfyGroup * group = somfy.getGroupById(groupId);
-      if(!group) {
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group reference could not be found.\"}"));
-        return;        
-      }
-      if(!group->isLastCommand(command)) {
-        // We are going to send this as a new command.
-        group->sendCommand(command, repeat >= 0 ? repeat : group->repeats, stepSize);
-      }
-      else
-        group->repeatFrame(repeat >= 0 ? repeat : group->repeats);
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      group->toJSONRef(resp);
-      resp.endObject();
-      resp.endResponse();
-        
-      //group->toJSON(sobj);
-      //serializeJson(sdoc, g_content);
-      //server.send(200, _encoding_json, g_content);
+    JsonResponse resp;
+    resp.beginResponse(&server, g_content, sizeof(g_content));
+    switch(this->execRepeatCommand(cmd, resp)) {
+      case 0: resp.endResponse(); break;
+      case 1: server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade reference could not be found.\"}")); break;
+      case 2: server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group reference could not be found.\"}")); break;
+      // Used to fall through without any response; an explicit error replaces
+      // the bare connection close (same fix as /restore).
+      default: server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade or group id supplied.\"}")); break;
     }
   }
   else {
@@ -237,57 +232,33 @@ void Web::handleGroupCommand(WebServer &server) {
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
   if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
-  uint8_t groupId = 255;
-  uint8_t stepSize = 0;
-  int8_t repeat = -1;
-  somfy_commands command = somfy_commands::My;
+  somfy_cmd_req_t cmd;
   if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
     if (server.hasArg("groupId")) {
-      groupId = atoi(server.arg("groupId").c_str());
-      if (server.hasArg("command")) command = translateSomfyCommand(server.arg("command"));
-      if(server.hasArg("repeat")) repeat = atoi(server.arg("repeat").c_str());
-      if(server.hasArg("stepSize")) stepSize = atoi(server.arg("stepSize").c_str());
+      cmd.groupId = atoi(server.arg("groupId").c_str());
+      if (server.hasArg("command")) cmd.command = translateSomfyCommand(server.arg("command"));
+      if(server.hasArg("repeat")) cmd.repeat = atoi(server.arg("repeat").c_str());
+      if(server.hasArg("stepSize")) cmd.stepSize = atoi(server.arg("stepSize").c_str());
     }
     else if (server.hasArg("plain")) {
-      Serial.println("Sending Group Command");
       DynamicJsonDocument doc(256);
       DeserializationError err = deserializeJson(doc, server.arg("plain"));
       if (err) {
         this->handleDeserializationError(server, err);
         return;
       }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("groupId")) groupId = obj["groupId"];
-        else {
-          server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group id was supplied.\"}"));
-          return;
-        }
-        if (obj.containsKey("command")) {
-          String scmd = obj["command"];
-          command = translateSomfyCommand(scmd);
-        }
-        if(obj.containsKey("repeat")) repeat = obj["repeat"].as<uint8_t>();
-        if(obj.containsKey("stepSize")) stepSize = obj["stepSize"].as<uint8_t>();
+      JsonObject obj = doc.as<JsonObject>();
+      if (!obj.containsKey("groupId")) {
+        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group id was supplied.\"}"));
+        return;
       }
+      this->parseCommandJson(obj, cmd);
     }
     else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No group object supplied.\"}"));
-    SomfyGroup * group = somfy.getGroupById(groupId);
-    if (group) {
-      Serial.print("Received:");
-      Serial.println(server.arg("plain"));
-      // Send the command to the group.
-      group->sendCommand(command, repeat >= 0 ? repeat : group->repeats, stepSize);
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      group->toJSONRef(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group with the specified id not found.\"}"));
-    }
+    JsonResponse resp;
+    resp.beginResponse(&server, g_content, sizeof(g_content));
+    if (this->execGroupCommand(cmd, resp)) resp.endResponse();
+    else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Group with the specified id not found.\"}"));
   }
   else
     server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
@@ -297,56 +268,29 @@ void Web::handleTiltCommand(WebServer &server) {
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
   if(!this->ensureAuth(server, false)) return;
   HTTPMethod method = server.method();
-  uint8_t shadeId = 255;
-  uint8_t target = 255;
-  somfy_commands command = somfy_commands::My;
+  somfy_cmd_req_t cmd;
   if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
     if (server.hasArg("shadeId")) {
-      shadeId = atoi(server.arg("shadeId").c_str());
-      if (server.hasArg("command")) command = translateSomfyCommand(server.arg("command"));
-      else if(server.hasArg("target")) target = atoi(server.arg("target").c_str());
+      cmd.shadeId = atoi(server.arg("shadeId").c_str());
+      if (server.hasArg("command")) cmd.command = translateSomfyCommand(server.arg("command"));
+      else if(server.hasArg("target")) cmd.target = atoi(server.arg("target").c_str());
     }
     else if (server.hasArg("plain")) {
-      Serial.println("Sending Shade Tilt Command");
       DynamicJsonDocument doc(256);
       DeserializationError err = deserializeJson(doc, server.arg("plain"));
       if (err) {
         this->handleDeserializationError(server, err);
         return;
       }
-      else {
-        JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-        else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
-        if (obj.containsKey("command")) {
-          String scmd = obj["command"];
-          command = translateSomfyCommand(scmd);
-        }
-        else if(obj.containsKey("target")) {
-          target = obj["target"].as<uint8_t>();
-        }
-      }
+      JsonObject obj = doc.as<JsonObject>();
+      if (!obj.containsKey("shadeId")) server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}"));
+      this->parseCommandJson(obj, cmd);
     }
     else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}"));
-    SomfyShade* shade = somfy.getShadeById(shadeId);
-    if (shade) {
-      Serial.print("Received:");
-      Serial.println(server.arg("plain"));
-      // Send the command to the shade.
-      if(target <= 100)
-        shade->moveToTiltTarget(shade->transformPosition(target));
-      else
-        shade->sendTiltCommand(command);
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      shade->toJSONRef(resp);
-      resp.endObject();
-      resp.endResponse();
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
-    }  
+    JsonResponse resp;
+    resp.beginResponse(&server, g_content, sizeof(g_content));
+    if (this->execTiltCommand(cmd, resp)) resp.endResponse();
+    else server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
   }
   else
     server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));

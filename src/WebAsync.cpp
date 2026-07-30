@@ -54,6 +54,35 @@ void JsonAsyncResponse::endResponse() {
   }
 }
 
+// Accumulates a JSON request body into request->_tempObject (freed by the
+// request destructor), mirroring the sync server's arg("plain"). Bodies over
+// the cap are dropped: no mutation payload comes close to it.
+static void asyncBufferBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+  if(total == 0 || total > 8192) return;
+  if(index == 0 && request->_tempObject == nullptr) request->_tempObject = malloc(total + 1);
+  if(request->_tempObject != nullptr) {
+    memcpy((uint8_t *)request->_tempObject + index, data, len);
+    if(index + len == total) ((char *)request->_tempObject)[total] = '\0';
+  }
+}
+static const char *asyncBody(AsyncWebServerRequest *request) {
+  return (const char *)request->_tempObject;
+}
+// Same responses as Web::handleDeserializationError, for the async transport.
+static void asyncDeserializationError(AsyncWebServerRequest *request, DeserializationError &err) {
+  switch (err.code()) {
+    case DeserializationError::InvalidInput:
+      request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Invalid JSON payload\"}"));
+      break;
+    case DeserializationError::NoMemory:
+      request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Out of memory parsing JSON\"}"));
+      break;
+    default:
+      request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"General JSON Deserialization failed\"}"));
+      break;
+  }
+}
+
 bool WebAsync::isAuthenticated(AsyncWebServerRequest *request, bool cfg) {
   if(settings.Security.type == security_types::None) return true;
   else if(!cfg && (settings.Security.permissions & static_cast<uint8_t>(security_permissions::ConfigOnly)) == 0x01) return true;
@@ -116,8 +145,8 @@ static void serveIndex(AsyncWebServerRequest *request) {
 
 void WebAsync::begin() {
   if(!g_somfyLock) g_somfyLock = xSemaphoreCreateRecursiveMutex();
-  asyncServer.on("/", HTTP_GET, serveIndex);
-  asyncServer.on("/index.html", HTTP_GET, serveIndex);
+  asyncServer.on("/", ASYNC_HTTP_GET, serveIndex);
+  asyncServer.on("/index.html", ASYNC_HTTP_GET, serveIndex);
   // Every other asset straight from LittleFS: the handler only claims paths
   // that exist as files (or file.gz), so future API routes are unaffected.
   asyncServer.serveStatic("/", LittleFS, "/")
@@ -127,7 +156,7 @@ void WebAsync::begin() {
       return !git.lockFS;
     });
   // ---- Phase 2 pilot GET routes: shared emitters, per-transport shells. ----
-  asyncServer.on("/loginContext", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/loginContext", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     // Deliberately unauthenticated, like the sync twin: it feeds the login page.
     webServer.lastActivity = millis();
     AsyncResponseStream *stream = request->beginResponseStream("application/json");
@@ -140,7 +169,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/rfStats", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/rfStats", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, true)) return;
     AsyncResponseStream *stream = request->beginResponseStream("application/json");
@@ -153,7 +182,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/shades", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/shades", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, false)) return;
     AsyncResponseStream *stream = request->beginResponseStream("application/json");
@@ -169,7 +198,7 @@ void WebAsync::begin() {
     request->send(stream);
   });
   // Settings family: same auth gates as the sync twins.
-  asyncServer.on("/modulesettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/modulesettings", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     // Public on the sync server too: general module info without secrets.
     webServer.lastActivity = millis();
     AsyncResponseStream *stream = request->beginResponseStream("application/json");
@@ -182,7 +211,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/networksettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/networksettings", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     // The response contains the WiFi passphrase.
     if(!webAsync.ensureAuth(request, true)) return;
@@ -196,7 +225,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/mqttsettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/mqttsettings", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     // The response contains the MQTT password.
     if(!webAsync.ensureAuth(request, true)) return;
@@ -210,7 +239,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/getRadio", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/getRadio", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, true)) return;
     AsyncResponseStream *stream = request->beginResponseStream("application/json");
@@ -223,7 +252,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/getSecurity", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/getSecurity", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     // The response contains the password and pin in clear text.
     if(!webAsync.ensureAuth(request, true)) return;
@@ -234,7 +263,7 @@ void WebAsync::begin() {
     request->send(200, "application/json", g_asyncContent);
   });
   // Shades world: same gates and same secret-masking flags as the sync twins.
-  asyncServer.on("/controller", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/controller", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, false)) return;
     bool secrets = webAsync.isAuthenticated(request, true);
@@ -248,7 +277,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/rooms", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/rooms", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, false)) return;
     AsyncResponseStream *stream = request->beginResponseStream("application/json");
@@ -263,7 +292,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/groups", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/groups", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, false)) return;
     bool secrets = webAsync.isAuthenticated(request, true);
@@ -281,7 +310,7 @@ void WebAsync::begin() {
   });
   // The single-entity reads and the id allocators are unauthenticated on the
   // sync server (secrets are masked by the flag): strict parity here.
-  asyncServer.on("/shade", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/shade", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!request->hasParam("shadeId")) {
       request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid shade id.\"}"));
@@ -306,7 +335,7 @@ void WebAsync::begin() {
     if(stream) request->send(stream);
     else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade Id not found.\"}"));
   });
-  asyncServer.on("/group", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/group", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!request->hasParam("groupId")) {
       request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid shade id.\"}"));
@@ -331,7 +360,7 @@ void WebAsync::begin() {
     if(stream) request->send(stream);
     else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Group Id not found.\"}"));
   });
-  asyncServer.on("/room", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/room", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!request->hasParam("roomId")) {
       request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"You must supply a valid room id.\"}"));
@@ -355,7 +384,7 @@ void WebAsync::begin() {
     if(stream) request->send(stream);
     else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Room Id not found.\"}"));
   });
-  asyncServer.on("/getNextShade", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/getNextShade", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     AsyncResponseStream *stream = request->beginResponseStream("application/json");
     JsonAsyncResponse resp;
@@ -374,7 +403,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/getNextGroup", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/getNextGroup", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     AsyncResponseStream *stream = request->beginResponseStream("application/json");
     JsonAsyncResponse resp;
@@ -392,7 +421,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/getNextRoom", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/getNextRoom", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     AsyncResponseStream *stream = request->beginResponseStream("application/json");
     JsonAsyncResponse resp;
@@ -406,7 +435,7 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
-  asyncServer.on("/lang", HTTP_GET, [](AsyncWebServerRequest *request) {
+  asyncServer.on("/lang", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     const char *file = settings.language == 1 ? "/locale/fr.json"
       : settings.language == 2 ? "/locale/de.json"
@@ -416,6 +445,133 @@ void WebAsync::begin() {
     if(!response) request->send(404, "text/plain", "Lang file not found");
     else request->send(response);
   });
+  // ---- Phase 3: shade/group commands (the HA-critical mutations). ---------
+  asyncServer.on("/shadeCommand", ASYNC_HTTP_GET | ASYNC_HTTP_PUT | ASYNC_HTTP_POST, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!webAsync.ensureAuth(request, false)) return;
+    somfy_cmd_req_t cmd;
+    if(request->hasParam("shadeId")) {
+      cmd.shadeId = atoi(request->getParam("shadeId")->value().c_str());
+      if(request->hasParam("command")) cmd.command = translateSomfyCommand(request->getParam("command")->value());
+      else if(request->hasParam("target")) cmd.target = atoi(request->getParam("target")->value().c_str());
+      if(request->hasParam("repeat")) cmd.repeat = atoi(request->getParam("repeat")->value().c_str());
+      if(request->hasParam("stepSize")) cmd.stepSize = atoi(request->getParam("stepSize")->value().c_str());
+    }
+    else if(asyncBody(request)) {
+      DynamicJsonDocument doc(512);
+      DeserializationError err = deserializeJson(doc, asyncBody(request));
+      if(err) { asyncDeserializationError(request, err); return; }
+      JsonObject obj = doc.as<JsonObject>();
+      if(!obj.containsKey("shadeId")) { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}")); return; }
+      webServer.parseCommandJson(obj, cmd);
+    }
+    else { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}")); return; }
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    bool ok;
+    {
+      SomfyGuard guard;
+      JsonAsyncResponse resp;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      ok = webServer.execShadeCommand(cmd, resp);
+      if(ok) resp.endResponse();
+    }
+    if(ok) request->send(stream);
+    else { delete stream; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}")); }
+  }, nullptr, asyncBufferBody);
+  asyncServer.on("/tiltCommand", ASYNC_HTTP_GET | ASYNC_HTTP_PUT | ASYNC_HTTP_POST, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!webAsync.ensureAuth(request, false)) return;
+    somfy_cmd_req_t cmd;
+    if(request->hasParam("shadeId")) {
+      cmd.shadeId = atoi(request->getParam("shadeId")->value().c_str());
+      if(request->hasParam("command")) cmd.command = translateSomfyCommand(request->getParam("command")->value());
+      else if(request->hasParam("target")) cmd.target = atoi(request->getParam("target")->value().c_str());
+    }
+    else if(asyncBody(request)) {
+      DynamicJsonDocument doc(256);
+      DeserializationError err = deserializeJson(doc, asyncBody(request));
+      if(err) { asyncDeserializationError(request, err); return; }
+      JsonObject obj = doc.as<JsonObject>();
+      if(!obj.containsKey("shadeId")) { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}")); return; }
+      webServer.parseCommandJson(obj, cmd);
+    }
+    else { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}")); return; }
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    bool ok;
+    {
+      SomfyGuard guard;
+      JsonAsyncResponse resp;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      ok = webServer.execTiltCommand(cmd, resp);
+      if(ok) resp.endResponse();
+    }
+    if(ok) request->send(stream);
+    else { delete stream; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}")); }
+  }, nullptr, asyncBufferBody);
+  asyncServer.on("/groupCommand", ASYNC_HTTP_GET | ASYNC_HTTP_PUT | ASYNC_HTTP_POST, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!webAsync.ensureAuth(request, false)) return;
+    somfy_cmd_req_t cmd;
+    if(request->hasParam("groupId")) {
+      cmd.groupId = atoi(request->getParam("groupId")->value().c_str());
+      if(request->hasParam("command")) cmd.command = translateSomfyCommand(request->getParam("command")->value());
+      if(request->hasParam("repeat")) cmd.repeat = atoi(request->getParam("repeat")->value().c_str());
+      if(request->hasParam("stepSize")) cmd.stepSize = atoi(request->getParam("stepSize")->value().c_str());
+    }
+    else if(asyncBody(request)) {
+      DynamicJsonDocument doc(256);
+      DeserializationError err = deserializeJson(doc, asyncBody(request));
+      if(err) { asyncDeserializationError(request, err); return; }
+      JsonObject obj = doc.as<JsonObject>();
+      if(!obj.containsKey("groupId")) { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No group id was supplied.\"}")); return; }
+      webServer.parseCommandJson(obj, cmd);
+    }
+    else { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No group object supplied.\"}")); return; }
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    bool ok;
+    {
+      SomfyGuard guard;
+      JsonAsyncResponse resp;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      ok = webServer.execGroupCommand(cmd, resp);
+      if(ok) resp.endResponse();
+    }
+    if(ok) request->send(stream);
+    else { delete stream; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Group with the specified id not found.\"}")); }
+  }, nullptr, asyncBufferBody);
+  asyncServer.on("/repeatCommand", ASYNC_HTTP_GET | ASYNC_HTTP_PUT | ASYNC_HTTP_POST, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!webAsync.ensureAuth(request, false)) return;
+    somfy_cmd_req_t cmd;
+    if(request->hasParam("shadeId")) cmd.shadeId = atoi(request->getParam("shadeId")->value().c_str());
+    else if(request->hasParam("groupId")) cmd.groupId = atoi(request->getParam("groupId")->value().c_str());
+    if(request->hasParam("command")) cmd.command = translateSomfyCommand(request->getParam("command")->value());
+    if(request->hasParam("repeat")) cmd.repeat = atoi(request->getParam("repeat")->value().c_str());
+    if(request->hasParam("stepSize")) cmd.stepSize = atoi(request->getParam("stepSize")->value().c_str());
+    if(cmd.shadeId == 255 && cmd.groupId == 255 && asyncBody(request)) {
+      DynamicJsonDocument doc(512);
+      DeserializationError err = deserializeJson(doc, asyncBody(request));
+      if(err) { asyncDeserializationError(request, err); return; }
+      JsonObject obj = doc.as<JsonObject>();
+      webServer.parseCommandJson(obj, cmd);
+    }
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    uint8_t code;
+    {
+      SomfyGuard guard;
+      JsonAsyncResponse resp;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      code = webServer.execRepeatCommand(cmd, resp);
+      if(code == 0) resp.endResponse();
+    }
+    if(code != 0) delete stream;
+    switch(code) {
+      case 0: request->send(stream); break;
+      case 1: request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade reference could not be found.\"}")); break;
+      case 2: request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Group reference could not be found.\"}")); break;
+      default: request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No shade or group id supplied.\"}")); break;
+    }
+  }, nullptr, asyncBufferBody);
   asyncServer.onNotFound([](AsyncWebServerRequest *request) {
     request->send(404, "text/plain", "Not found");
   });
