@@ -376,6 +376,7 @@ function navGuardSetup() {
         if (!t || !t.matches || !t.matches('input,select,textarea')) return;
         if (t.classList.contains('pin-digit')) return;  // PIN entry (login or security page) is not a config edit
         if (t.closest && t.closest('#divUnauthenticated')) return;  // nothing on the login screen counts
+        if (t.closest && t.closest('#divHomePnl')) return;  // dashboard controls act immediately, there is nothing to save
         navMarkDirty();
     };
     document.addEventListener('input', mark, true);
