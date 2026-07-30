@@ -54,7 +54,45 @@ void Web::startup() {
     //server.send(200, "application/json", "{}");
   //});
 }
-// Body shared by the sync and async transports.
+// Bodies shared by the sync and async transports.
+void Web::emitModuleSettings(JsonResponse &resp) {
+  resp.beginObject();
+  resp.addElem("fwVersion", settings.fwVersion.name);
+  settings.toJSON(resp);
+  settings.NTP.toJSON(resp);
+  resp.endObject();
+}
+void Web::emitNetworkSettings(JsonResponse &resp) {
+  resp.beginObject();
+  settings.toJSON(resp);
+  resp.addElem("fwVersion", settings.fwVersion.name);
+  resp.beginObject("ethernet");
+  settings.Ethernet.toJSON(resp);
+  resp.endObject();
+  resp.beginObject("wifi");
+  settings.WIFI.toJSON(resp);
+  resp.endObject();
+  resp.beginObject("ip");
+  settings.IP.toJSON(resp);
+  resp.endObject();
+  resp.endObject();
+}
+void Web::emitMqttSettings(JsonResponse &resp) {
+  resp.beginObject();
+  settings.MQTT.toJSON(resp);
+  resp.endObject();
+}
+void Web::emitRadio(JsonResponse &resp) {
+  resp.beginObject();
+  somfy.transceiver.toJSON(resp);
+  resp.endObject();
+}
+size_t Web::buildSecurityJson(char *buff, size_t size) {
+  DynamicJsonDocument doc(192);
+  JsonObject obj = doc.to<JsonObject>();
+  settings.Security.toJSON(obj);
+  return serializeJson(doc, buff, size);
+}
 void Web::emitRfStats(JsonResponse &resp) {
   resp.beginObject();
   resp.addElem("frequency", somfy.transceiver.config.frequency);
@@ -436,10 +474,7 @@ void Web::beginNetworkRoutes() {
     webServer.sendCORSHeaders(server);
     // The response contains the password and pin in clear text.
     if(!webServer.ensureAuth(server, true)) return;
-    DynamicJsonDocument doc(192);
-    JsonObject obj = doc.to<JsonObject>();
-    settings.Security.toJSON(obj);
-    serializeJson(doc, g_content);
+    webServer.buildSecurityJson(g_content, sizeof(g_content));
     server.send(200, _encoding_json, g_content);
     });
 
@@ -614,23 +649,8 @@ void Web::beginNetworkRoutes() {
     webServer.sendCORSHeaders(server);
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("fwVersion", settings.fwVersion.name);
-    settings.toJSON(resp);
-    settings.NTP.toJSON(resp);
-    resp.endObject();
+    webServer.emitModuleSettings(resp);
     resp.endResponse();
-    /*
-    DynamicJsonDocument doc(512);
-    JsonObject obj = doc.to<JsonObject>();
-    doc["fwVersion"] = settings.fwVersion.name;
-    settings.toJSON(obj);
-    //settings.Ethernet.toJSON(obj);
-    //settings.WIFI.toJSON(obj);
-    settings.NTP.toJSON(obj);
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
-    */
     });
   server.on("/networksettings", []() {
     webServer.sendCORSHeaders(server);
@@ -638,35 +658,8 @@ void Web::beginNetworkRoutes() {
     if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    settings.toJSON(resp);
-    resp.addElem("fwVersion", settings.fwVersion.name);
-    resp.beginObject("ethernet");
-    settings.Ethernet.toJSON(resp);
-    resp.endObject();
-    resp.beginObject("wifi");
-    settings.WIFI.toJSON(resp);
-    resp.endObject();
-    resp.beginObject("ip");
-    settings.IP.toJSON(resp);
-    resp.endObject();
-    resp.endObject();
+    webServer.emitNetworkSettings(resp);
     resp.endResponse();
-    
-    /*
-    DynamicJsonDocument doc(2048);
-    JsonObject obj = doc.to<JsonObject>();
-    doc["fwVersion"] = settings.fwVersion.name;
-    settings.toJSON(obj);
-    JsonObject eth = obj.createNestedObject("ethernet");
-    settings.Ethernet.toJSON(eth);
-    JsonObject wifi = obj.createNestedObject("wifi");
-    settings.WIFI.toJSON(wifi);
-    JsonObject ip = obj.createNestedObject("ip");
-    settings.IP.toJSON(ip);
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
-    */
     });
   server.on("/connectmqtt", []() {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
@@ -717,18 +710,8 @@ void Web::beginNetworkRoutes() {
     if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    settings.MQTT.toJSON(resp);
-    resp.endObject();
+    webServer.emitMqttSettings(resp);
     resp.endResponse();
-    
-    /*
-    DynamicJsonDocument doc(1024);
-    JsonObject obj = doc.to<JsonObject>();
-    settings.MQTT.toJSON(obj);
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
-    */
     });
 }
 void Web::beginRadioRoutes() {
@@ -764,9 +747,7 @@ void Web::beginRadioRoutes() {
     if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    somfy.transceiver.toJSON(resp);
-    resp.endObject();
+    webServer.emitRadio(resp);
     resp.endResponse();
     });
   server.on("/sendRemoteCommand", []() {

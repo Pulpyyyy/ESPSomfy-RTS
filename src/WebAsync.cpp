@@ -168,6 +168,71 @@ void WebAsync::begin() {
     }
     request->send(stream);
   });
+  // Settings family: same auth gates as the sync twins.
+  asyncServer.on("/modulesettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+    // Public on the sync server too: general module info without secrets.
+    webServer.lastActivity = millis();
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      webServer.emitModuleSettings(resp);
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  asyncServer.on("/networksettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    // The response contains the WiFi passphrase.
+    if(!webAsync.ensureAuth(request, true)) return;
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      webServer.emitNetworkSettings(resp);
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  asyncServer.on("/mqttsettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    // The response contains the MQTT password.
+    if(!webAsync.ensureAuth(request, true)) return;
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      webServer.emitMqttSettings(resp);
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  asyncServer.on("/getRadio", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!webAsync.ensureAuth(request, true)) return;
+    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
+    {
+      SomfyGuard guard;
+      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      webServer.emitRadio(resp);
+      resp.endResponse();
+    }
+    request->send(stream);
+  });
+  asyncServer.on("/getSecurity", HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    // The response contains the password and pin in clear text.
+    if(!webAsync.ensureAuth(request, true)) return;
+    {
+      SomfyGuard guard;
+      webServer.buildSecurityJson(g_asyncContent, sizeof(g_asyncContent));
+    }
+    request->send(200, "application/json", g_asyncContent);
+  });
   asyncServer.onNotFound([](AsyncWebServerRequest *request) {
     request->send(404, "text/plain", "Not found");
   });

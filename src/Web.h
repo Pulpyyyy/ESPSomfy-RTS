@@ -76,6 +76,13 @@ public:
   // Transport-neutral JSON bodies, called by both the sync and async routes.
   void emitLoginContext(JsonResponse &resp);
   void emitRfStats(JsonResponse &resp);
+  void emitModuleSettings(JsonResponse &resp);
+  void emitNetworkSettings(JsonResponse &resp);
+  void emitMqttSettings(JsonResponse &resp);
+  void emitRadio(JsonResponse &resp);
+  // Serialized into buff (the security payload goes through ArduinoJson, not
+  // the streaming formatter); returns the JSON text length.
+  size_t buildSecurityJson(char *buff, size_t size);
 
   //void chunkRoomsResponse(WebServer &server, const char *elem = nullptr);
   //void chunkShadesResponse(WebServer &server, const char *elem = nullptr);
