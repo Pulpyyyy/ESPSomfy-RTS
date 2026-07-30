@@ -69,6 +69,13 @@ public:
   // sends a 403 when the request is cross-origin or targets a rebinding host.
   bool isSameOrigin(WebServer &server);
   bool sameOriginOK(WebServer &server);
+  // Pure origin/host policy shared by the sync and async transports: a single
+  // source of truth for the CSRF/anti-rebinding decision (and a native-test
+  // candidate once de-Arduino-ized).
+  bool originAllowed(const String &hostHeader, const String &origin, const String &referer);
+  // Transport-neutral JSON bodies, called by both the sync and async routes.
+  void emitLoginContext(JsonResponse &resp);
+  void emitRfStats(JsonResponse &resp);
 
   //void chunkRoomsResponse(WebServer &server, const char *elem = nullptr);
   //void chunkShadesResponse(WebServer &server, const char *elem = nullptr);

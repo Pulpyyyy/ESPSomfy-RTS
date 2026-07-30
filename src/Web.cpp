@@ -54,6 +54,21 @@ void Web::startup() {
     //server.send(200, "application/json", "{}");
   //});
 }
+// Body shared by the sync and async transports.
+void Web::emitRfStats(JsonResponse &resp) {
+  resp.beginObject();
+  resp.addElem("frequency", somfy.transceiver.config.frequency);
+  rfStats.toJSON(resp);
+  // The board's own link belongs on the same page: a weak or flapping WiFi
+  // reads exactly like an RF problem from the user's side.
+  resp.beginObject("wifi");
+  resp.addElem("rssi", net.connType == conn_types_t::wifi ? (int32_t)WiFi.RSSI() : (int32_t)0);
+  resp.addElem("channel", (int32_t)net.channel);
+  resp.addElem("reconnects", (uint32_t)net.reconnects);
+  resp.addElem("uptime", (uint32_t)(net.connectedAt > 0 ? (millis() - net.connectedAt) / 1000 : 0));
+  resp.endObject();
+  resp.endObject();
+}
 void Web::loop() {
   server.handleClient();
   delay(1);
@@ -836,18 +851,7 @@ void Web::beginRadioRoutes() {
     if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("frequency", somfy.transceiver.config.frequency);
-    rfStats.toJSON(resp);
-    // The board's own link belongs on the same page: a weak or flapping WiFi
-    // reads exactly like an RF problem from the user's side.
-    resp.beginObject("wifi");
-    resp.addElem("rssi", net.connType == conn_types_t::wifi ? (int32_t)WiFi.RSSI() : (int32_t)0);
-    resp.addElem("channel", (int32_t)net.channel);
-    resp.addElem("reconnects", (uint32_t)net.reconnects);
-    resp.addElem("uptime", (uint32_t)(net.connectedAt > 0 ? (millis() - net.connectedAt) / 1000 : 0));
-    resp.endObject();
-    resp.endObject();
+    webServer.emitRfStats(resp);
     resp.endResponse();
   });
   server.on("/clearRfStats", []() {

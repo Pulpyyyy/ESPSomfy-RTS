@@ -131,14 +131,19 @@ static bool csrfIsConfiguredHost(const String &h) {
 // is not browser-driven, so the check is skipped there to avoid breaking it.
 bool Web::isSameOrigin(WebServer &server) {
   if(&server == &apiServer) return true;
-  String host = csrfExtractHost(server.hostHeader());
+  return this->originAllowed(server.hostHeader(), server.header("Origin"), server.header("Referer"));
+}
+// Pure policy, shared verbatim by the sync and async transports so the CSRF
+// decision has a single source of truth.
+bool Web::originAllowed(const String &hostHeader, const String &origin, const String &referer) {
+  String host = csrfExtractHost(hostHeader);
   // (a) Anti DNS-rebinding: the Host must be an IP literal or our own hostname.
   //     An absent Host cannot carry a rebinding attack, so it is allowed through.
   if(host.length() != 0 && !csrfIsIpLiteral(host) && !csrfIsConfiguredHost(host)) return false;
   // (b) If the browser sent an Origin or Referer, its host must equal the Host
   //     header; a cross-site page driving this API would carry a foreign origin.
-  String src = server.header("Origin");
-  if(src.length() == 0) src = server.header("Referer");
+  String src = origin;
+  if(src.length() == 0) src = referer;
   if(src.length() != 0 && host.length() != 0) {
     String srcHost = csrfExtractHost(src);
     srcHost.toLowerCase();
@@ -355,6 +360,11 @@ void Web::handleLoginContext(WebServer &server) {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
+    this->emitLoginContext(resp);
+    resp.endResponse();
+}
+// Body shared by the sync and async transports.
+void Web::emitLoginContext(JsonResponse &resp) {
     resp.beginObject();
     resp.addElem("type", static_cast<uint8_t>(settings.Security.type));
     resp.addElem("permissions", settings.Security.permissions);
@@ -386,5 +396,4 @@ void Web::handleLoginContext(WebServer &server) {
     resp.addElem("otaSize", (uint32_t)ESP.getFreeSketchSpace());
     resp.addElem("flashSpeed", (uint32_t)(ESP.getFlashChipSpeed() / 1000000)); // En MHz
     resp.endObject();
-    resp.endResponse();
 }
