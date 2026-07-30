@@ -236,20 +236,94 @@ static const char _csp[] PROGMEM =
   "connect-src 'self' https://api.github.com ws://*:8080 wss://*:8080; "
   "object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
 
+// Serves a LittleFS file at full TCP throughput. The library's file response
+// paces itself to roughly half the socket send buffer per ACK round (its
+// in-flight credit scheme) and mallocs a fresh chunk buffer per event, which
+// measured ~30-60% slower than the sync server's blocking 4KB copy loop.
+// This responder tops the send buffer up to its full space() on every ACK
+// from a member buffer - the event-driven equivalent of the sync loop.
+class AsyncFastFileResponse : public AsyncWebServerResponse {
+  private:
+    File _file;
+    String _head;
+    uint8_t _buf[2920]; // two MSS per file read
+    void _sendHead(AsyncWebServerRequest *request) {
+      size_t space = request->client()->space();
+      size_t out = space < this->_head.length() ? space : this->_head.length();
+      if(!out) return;
+      this->_writtenLength += request->client()->write(this->_head.c_str(), out);
+      this->_head = this->_head.substring(out);
+    }
+    void _refill(AsyncWebServerRequest *request) {
+      while(this->_file && this->_sentLength < this->_contentLength) {
+        size_t space = request->client()->space();
+        if(!space) return;
+        size_t want = space < sizeof(this->_buf) ? space : sizeof(this->_buf);
+        size_t remaining = this->_contentLength - this->_sentLength;
+        if(want > remaining) want = remaining;
+        size_t n = this->_file.read(this->_buf, want);
+        if(!n) break;
+        this->_writtenLength += request->client()->write((const char *)this->_buf, n);
+        this->_sentLength += n;
+      }
+      if(this->_sentLength >= this->_contentLength) this->_state = RESPONSE_WAIT_ACK;
+    }
+  public:
+    AsyncFastFileResponse(File file, const char *contentType, bool gzip) : _file(file) {
+      this->_code = 200;
+      this->_contentType = contentType;
+      this->_contentLength = file.size();
+      this->_sendContentLength = true;
+      this->_chunked = false;
+      if(gzip) this->addHeader("Content-Encoding", "gzip", false);
+    }
+    ~AsyncFastFileResponse() { if(this->_file) this->_file.close(); }
+    bool _sourceValid() const override { return !!this->_file; }
+    void _respond(AsyncWebServerRequest *request) override {
+      this->addHeader("Connection", "close", false);
+      this->_assembleHead(this->_head, request->version());
+      this->_state = RESPONSE_CONTENT;
+      this->_sendHead(request);
+      if(!this->_head.length()) this->_refill(request);
+    }
+    size_t _ack(AsyncWebServerRequest *request, size_t len, uint32_t time) override {
+      (void)time;
+      this->_ackedLength += len;
+      if(this->_head.length()) this->_sendHead(request);
+      if(!this->_head.length() && this->_state == RESPONSE_CONTENT) this->_refill(request);
+      if(this->_state == RESPONSE_WAIT_ACK && this->_ackedLength >= this->_writtenLength) this->_state = RESPONSE_END;
+      return 0;
+    }
+};
+// Resolve path (or path.gz), and answer with the fast file responder.
+static void serveFastFile(AsyncWebServerRequest *request, const char *path, const char *contentType, bool cache) {
+  webServer.lastActivity = millis();
+  if(git.lockFS) {
+    request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}"));
+    return;
+  }
+  String pgz = String(path) + ".gz";
+  bool gz = LittleFS.exists(pgz);
+  File f = gz ? LittleFS.open(pgz, "r") : LittleFS.open(path, "r");
+  if(!f) { request->send(404, "text/plain", "404: Not Found"); return; }
+  AsyncFastFileResponse *response = new AsyncFastFileResponse(f, contentType, gz);
+  if(cache) response->addHeader(F("Cache-Control"), F("public, max-age=604800, immutable"));
+  request->send(response);
+}
 static void serveIndex(AsyncWebServerRequest *request) {
   webServer.lastActivity = millis();
   if(git.lockFS) {
     request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}"));
     return;
   }
-  // send(fs, path) picks up index.html.gz and sets Content-Encoding itself.
-  AsyncWebServerResponse *response = request->beginResponse(LittleFS, "/index.html", "text/html");
-  if(!response) { request->send(500, "text/plain", "Error opening file"); return; }
+  bool gz = LittleFS.exists("/index.html.gz");
+  File f = gz ? LittleFS.open("/index.html.gz", "r") : LittleFS.open("/index.html", "r");
+  if(!f) { request->send(500, "text/plain", "Error opening file"); return; }
+  AsyncFastFileResponse *response = new AsyncFastFileResponse(f, "text/html", gz);
   response->addHeader(F("Content-Security-Policy"), FPSTR(_csp));
   response->addHeader(F("X-Content-Type-Options"), F("nosniff"));
   request->send(response);
 }
-
 // Captures SSDP.schema()'s raw-HTTP output into a String so the XML body can
 // be split from its embedded header block.
 class SchemaCapture : public Print {
@@ -384,14 +458,14 @@ void WebAsync::begin() {
   if(!g_somfyLock) g_somfyLock = xSemaphoreCreateRecursiveMutex();
   asyncServer.on("/", ASYNC_HTTP_GET, serveIndex);
   asyncServer.on("/index.html", ASYNC_HTTP_GET, serveIndex);
-  // Every other asset straight from LittleFS: the handler only claims paths
-  // that exist as files (or file.gz), so future API routes are unaffected.
-  asyncServer.serveStatic("/", LittleFS, "/")
-    .setCacheControl("public, max-age=604800, immutable")
-    .setFilter([](AsyncWebServerRequest *request) {
-      webServer.lastActivity = millis();
-      return !git.lockFS;
-    });
+  // Explicit asset routes through the fast file responder, mirroring the sync
+  // server's explicit list (a catch-all serveStatic also exposed files the
+  // sync server never served, like /appversion).
+  asyncServer.on("/index.js", ASYNC_HTTP_GET, [](AsyncWebServerRequest *r) { serveFastFile(r, "/index.js", "text/javascript", true); });
+  asyncServer.on("/app.css", ASYNC_HTTP_GET, [](AsyncWebServerRequest *r) { serveFastFile(r, "/app.css", "text/css", true); });
+  asyncServer.on("/favicon.svg", ASYNC_HTTP_GET, [](AsyncWebServerRequest *r) { serveFastFile(r, "/favicon.svg", "image/svg+xml", true); });
+  asyncServer.on("/editionWifi.webp", ASYNC_HTTP_GET, [](AsyncWebServerRequest *r) { serveFastFile(r, "/editionWifi.webp", "image/webp", true); });
+  asyncServer.on("/editionEthernet.webp", ASYNC_HTTP_GET, [](AsyncWebServerRequest *r) { serveFastFile(r, "/editionEthernet.webp", "image/webp", true); });
   // ---- Phase 2 pilot GET routes: shared emitters, per-transport shells. ----
   asyncServer.on("/loginContext", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     // Deliberately unauthenticated, like the sync twin: it feeds the login page.
@@ -579,14 +653,10 @@ void WebAsync::begin() {
     });
   });
   asyncServer.on("/lang", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
-    webServer.lastActivity = millis();
     const char *file = settings.language == 1 ? "/locale/fr.json"
       : settings.language == 2 ? "/locale/de.json"
       : settings.language == 3 ? "/locale/es.json" : "/locale/en.json";
-    // send(fs, path) picks up the .gz variant and sets Content-Encoding itself.
-    AsyncWebServerResponse *response = request->beginResponse(LittleFS, file, "application/json");
-    if(!response) request->send(404, "text/plain", "Lang file not found");
-    else request->send(response);
+    serveFastFile(request, file, "application/json", false);
   });
   // ---- Phase 3: shade/group commands (the HA-critical mutations). ---------
   asyncServer.on("/shadeCommand", ASYNC_HTTP_GET | ASYNC_HTTP_PUT | ASYNC_HTTP_POST, [](AsyncWebServerRequest *request) {
