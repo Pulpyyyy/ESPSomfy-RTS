@@ -76,6 +76,17 @@ class WebAsync {
     // while routes migrate one phase at a time. The cutover commit moves this
     // to 80 and retires the synchronous registrations.
     static constexpr uint16_t PORT = 8082;
+    // Set for the duration of an async OTA/filesystem flash. The sync upload
+    // path runs in the loop task, so somfy.loop() simply never ran during a
+    // flash; an async upload runs in the async_tcp task concurrently with
+    // loop(), so loop() must skip its somfy/rfStats processing (the radio is
+    // shut down for the flash anyway) to reproduce that quiescence.
+    volatile bool otaInProgress = false;
+    // millis() of the last received flash chunk. A browser that drops mid-OTA
+    // never delivers the final chunk, so loop() calls abortStalledOta() to
+    // release the gate instead of leaving somfy frozen until a reboot.
+    volatile uint32_t otaActivity = 0;
+    void abortStalledOta();
     void begin();
     // Async twins of the WebAuth checks: same policy, same responses. The
     // origin decision itself is Web::originAllowed - one source of truth.
