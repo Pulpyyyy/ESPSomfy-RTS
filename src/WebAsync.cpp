@@ -36,43 +36,72 @@ static size_t g_asyncUploadBytes = 0;
 
 // The sync server fills g_content from the loop task without taking the lock,
 // so the async transport gets its own buffer for the dual-serving phase. The
-// async_tcp task runs handlers one at a time: one buffer is enough.
-static char g_asyncContent[WEB_MAX_RESPONSE];
+// async_tcp task runs handlers one at a time: one buffer is enough. Sized to
+// hold the largest single response (a full /controller) so it sends one-shot
+// rather than falling back to the slow stream path.
+static char g_asyncContent[8192];
 
-void JsonAsyncResponse::beginResponse(AsyncResponseStream *stream, char *buff, size_t buffSize) {
-  this->stream = stream;
+void JsonAsyncResponse::begin(AsyncWebServerRequest *request, char *buff, size_t buffSize) {
+  this->request = request;
+  this->overflow = nullptr;
   this->buff = buff;
   this->buffSize = buffSize;
+  this->_len = 0;
   this->buff[0] = '\0';
   this->_objects = 0;
   this->_arrays = 0;
   this->_nocomma = true;
 }
 void JsonAsyncResponse::_safecat(const char *val, bool escape) {
-  // Same buffering as JsonResponse::_safecat; only the flush target differs.
   size_t vlen = (escape ? this->calcEscapedLength(val) : strlen(val)) + (escape ? 2 : 0);
-  if(vlen + strlen(this->buff) >= this->buffSize) {
-    this->stream->print(this->buff);
-    this->buff[0] = '\0';
+  if(this->_len + vlen >= this->buffSize) {
+    // Staging buffer full: switch to (or continue) streaming the remainder.
+    // Only reached by responses larger than the buffer - oversize configs.
+    if(!this->overflow) this->overflow = this->request->beginResponseStream("application/json");
+    if(this->_len) { this->overflow->write((const uint8_t *)this->buff, this->_len); this->_len = 0; this->buff[0] = '\0'; }
     if(vlen >= this->buffSize) {
       Serial.printf("JSON value exceeds response buffer %d - %d\n", this->buffSize, vlen);
       return;
     }
   }
-  char *p = this->buff + strlen(this->buff);
+  char *p = this->buff + this->_len;
   if(escape) {
     *p++ = '"';
     p += this->escapeString(val, p);
     *p++ = '"';
     *p = '\0';
+    this->_len = (size_t)(p - this->buff);
   }
-  else strcpy(p, val);
+  else {
+    strcpy(p, val);
+    this->_len += vlen;
+  }
 }
-void JsonAsyncResponse::endResponse() {
-  if(this->buff[0] != '\0') {
-    this->stream->print(this->buff);
-    this->buff[0] = '\0';
+void JsonAsyncResponse::finish(const char *contentType) {
+  if(this->overflow) {
+    if(this->_len) this->overflow->write((const uint8_t *)this->buff, this->_len);
+    this->request->send(this->overflow);
+    this->overflow = nullptr; // ownership handed to the request
   }
+  else {
+    // One-shot: the whole body goes to LWIP at once for an initial-window burst.
+    this->request->send(200, contentType, this->buff);
+  }
+}
+void JsonAsyncResponse::discard() {
+  if(this->overflow) { delete this->overflow; this->overflow = nullptr; }
+}
+// Build a JSON body with `build` into the staging buffer under the somfy lock,
+// then send it one-shot. The fast path shared by every GET read.
+template<typename F>
+static void asyncSendJson(AsyncWebServerRequest *request, F build) {
+  JsonAsyncResponse resp;
+  {
+    SomfyGuard guard;
+    resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+    build(resp);
+  }
+  resp.finish();
 }
 
 // Accumulates a JSON request body into request->_tempObject (freed by the
@@ -134,7 +163,7 @@ const char *WebAsyncRequest::body() {
 }
 void WebAsyncRequest::send(int code, const char *contentType, const char *content) {
   if(this->_sent) return;
-  if(this->_stream) { delete this->_stream; this->_stream = nullptr; }
+  this->_resp.discard(); // drop any overflow stream begun before this error
   this->_sent = true;
   this->_request->send(code, contentType, content);
 }
@@ -145,20 +174,17 @@ bool WebAsyncRequest::ensureAuth(bool cfg) {
 }
 IPAddress WebAsyncRequest::remoteIP() { return this->_request->client()->remoteIP(); }
 JsonResponse &WebAsyncRequest::beginJson() {
-  if(!this->_stream) this->_stream = this->_request->beginResponseStream("application/json");
-  this->_resp.beginResponse(this->_stream, g_asyncContent, sizeof(g_asyncContent));
+  this->_resp.begin(this->_request, g_asyncContent, sizeof(g_asyncContent));
   return this->_resp;
 }
 void WebAsyncRequest::endJson() {
-  if(!this->_stream) return;
-  this->_resp.endResponse();
-  if(this->_sent) { delete this->_stream; }  // an error already went out first
-  else { this->_sent = true; this->_request->send(this->_stream); }
-  this->_stream = nullptr;
+  if(this->_sent) { this->_resp.discard(); return; } // an error already went out first
+  this->_sent = true;
+  this->_resp.finish();
 }
 void WebAsyncRequest::finish() {
   if(this->_sent) return;
-  if(this->_stream) { delete this->_stream; this->_stream = nullptr; }
+  this->_resp.discard();
   // The sync server closes without a response on these paths; do the same
   // rather than leaving the request open until the client gives up.
   this->_request->client()->close();
@@ -370,98 +396,45 @@ void WebAsync::begin() {
   asyncServer.on("/loginContext", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     // Deliberately unauthenticated, like the sync twin: it feeds the login page.
     webServer.lastActivity = millis();
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
-      webServer.emitLoginContext(resp);
-      resp.endResponse();
-    }
-    request->send(stream);
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) { webServer.emitLoginContext(resp); });
   });
   asyncServer.on("/rfStats", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, true)) return;
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
-      webServer.emitRfStats(resp);
-      resp.endResponse();
-    }
-    request->send(stream);
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) { webServer.emitRfStats(resp); });
   });
   asyncServer.on("/shades", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, false)) return;
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+    bool secrets = webAsync.isAuthenticated(request, true);
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) {
       resp.beginArray();
-      somfy.toJSONShades(resp, webAsync.isAuthenticated(request, true));
+      somfy.toJSONShades(resp, secrets);
       resp.endArray();
-      resp.endResponse();
-    }
-    request->send(stream);
+    });
   });
   // Settings family: same auth gates as the sync twins.
   asyncServer.on("/modulesettings", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     // Public on the sync server too: general module info without secrets.
     webServer.lastActivity = millis();
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
-      webServer.emitModuleSettings(resp);
-      resp.endResponse();
-    }
-    request->send(stream);
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) { webServer.emitModuleSettings(resp); });
   });
   asyncServer.on("/networksettings", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     // The response contains the WiFi passphrase.
     if(!webAsync.ensureAuth(request, true)) return;
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
-      webServer.emitNetworkSettings(resp);
-      resp.endResponse();
-    }
-    request->send(stream);
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) { webServer.emitNetworkSettings(resp); });
   });
   asyncServer.on("/mqttsettings", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     // The response contains the MQTT password.
     if(!webAsync.ensureAuth(request, true)) return;
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
-      webServer.emitMqttSettings(resp);
-      resp.endResponse();
-    }
-    request->send(stream);
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) { webServer.emitMqttSettings(resp); });
   });
   asyncServer.on("/getRadio", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, true)) return;
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
-      webServer.emitRadio(resp);
-      resp.endResponse();
-    }
-    request->send(stream);
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) { webServer.emitRadio(resp); });
   });
   asyncServer.on("/getSecurity", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
@@ -478,46 +451,26 @@ void WebAsync::begin() {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, false)) return;
     bool secrets = webAsync.isAuthenticated(request, true);
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
-      webServer.emitController(resp, secrets);
-      resp.endResponse();
-    }
-    request->send(stream);
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) { webServer.emitController(resp, secrets); });
   });
   asyncServer.on("/rooms", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, false)) return;
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) {
       resp.beginArray();
       somfy.toJSONRooms(resp);
       resp.endArray();
-      resp.endResponse();
-    }
-    request->send(stream);
+    });
   });
   asyncServer.on("/groups", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, false)) return;
     bool secrets = webAsync.isAuthenticated(request, true);
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) {
       resp.beginArray();
       somfy.toJSONGroups(resp, secrets);
       resp.endArray();
-      resp.endResponse();
-    }
-    request->send(stream);
+    });
   });
   // The single-entity reads and the id allocators are unauthenticated on the
   // sync server (secrets are masked by the flag): strict parity here.
@@ -529,21 +482,20 @@ void WebAsync::begin() {
     }
     bool secrets = webAsync.isAuthenticated(request, true);
     int shadeId = atoi(request->getParam("shadeId")->value().c_str());
-    AsyncResponseStream *stream = nullptr;
+    JsonAsyncResponse resp;
+    bool found = false;
     {
       SomfyGuard guard;
       SomfyShade *shade = somfy.getShadeById(shadeId);
       if(shade) {
-        stream = request->beginResponseStream("application/json");
-        JsonAsyncResponse resp;
-        resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+        found = true;
+        resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
         resp.beginObject();
         shade->toJSON(resp, secrets);
         resp.endObject();
-        resp.endResponse();
       }
     }
-    if(stream) request->send(stream);
+    if(found) resp.finish();
     else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade Id not found.\"}"));
   });
   asyncServer.on("/group", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -554,21 +506,20 @@ void WebAsync::begin() {
     }
     bool secrets = webAsync.isAuthenticated(request, true);
     int groupId = atoi(request->getParam("groupId")->value().c_str());
-    AsyncResponseStream *stream = nullptr;
+    JsonAsyncResponse resp;
+    bool found = false;
     {
       SomfyGuard guard;
       SomfyGroup *group = somfy.getGroupById(groupId);
       if(group) {
-        stream = request->beginResponseStream("application/json");
-        JsonAsyncResponse resp;
-        resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+        found = true;
+        resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
         resp.beginObject();
         group->toJSON(resp, secrets);
         resp.endObject();
-        resp.endResponse();
       }
     }
-    if(stream) request->send(stream);
+    if(found) resp.finish();
     else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Group Id not found.\"}"));
   });
   asyncServer.on("/room", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -578,31 +529,26 @@ void WebAsync::begin() {
       return;
     }
     int roomId = atoi(request->getParam("roomId")->value().c_str());
-    AsyncResponseStream *stream = nullptr;
+    JsonAsyncResponse resp;
+    bool found = false;
     {
       SomfyGuard guard;
       SomfyRoom *room = somfy.getRoomById(roomId);
       if(room) {
-        stream = request->beginResponseStream("application/json");
-        JsonAsyncResponse resp;
-        resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+        found = true;
+        resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
         resp.beginObject();
         room->toJSON(resp);
         resp.endObject();
-        resp.endResponse();
       }
     }
-    if(stream) request->send(stream);
+    if(found) resp.finish();
     else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Room Id not found.\"}"));
   });
   asyncServer.on("/getNextShade", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) {
       uint8_t shadeId = somfy.getNextShadeId();
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
       resp.beginObject();
       resp.addElem("shadeId", shadeId);
       resp.addElem("remoteAddress", (uint32_t)somfy.getNextRemoteAddress(shadeId));
@@ -610,41 +556,27 @@ void WebAsync::begin() {
       resp.addElem("stepSize", (uint8_t)100);
       resp.addElem("proto", static_cast<uint8_t>(somfy.transceiver.config.proto));
       resp.endObject();
-      resp.endResponse();
-    }
-    request->send(stream);
+    });
   });
   asyncServer.on("/getNextGroup", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) {
       uint8_t groupId = somfy.getNextGroupId();
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
       resp.beginObject();
       resp.addElem("groupId", groupId);
       resp.addElem("remoteAddress", (uint32_t)somfy.getNextRemoteAddress(groupId));
       resp.addElem("bitLength", somfy.transceiver.config.type);
       resp.addElem("proto", static_cast<uint8_t>(somfy.transceiver.config.proto));
       resp.endObject();
-      resp.endResponse();
-    }
-    request->send(stream);
+    });
   });
   asyncServer.on("/getNextRoom", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
-    JsonAsyncResponse resp;
-    {
-      SomfyGuard guard;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) {
       resp.beginObject();
       resp.addElem("roomId", somfy.getNextRoomId());
       resp.endObject();
-      resp.endResponse();
-    }
-    request->send(stream);
+    });
   });
   asyncServer.on("/lang", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
@@ -677,17 +609,15 @@ void WebAsync::begin() {
       webServer.parseCommandJson(obj, cmd);
     }
     else { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}")); return; }
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
     bool ok;
     {
       SomfyGuard guard;
-      JsonAsyncResponse resp;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
       ok = webServer.execShadeCommand(cmd, resp);
-      if(ok) resp.endResponse();
     }
-    if(ok) request->send(stream);
-    else { delete stream; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}")); }
+    if(ok) resp.finish();
+    else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
   }, nullptr, asyncBufferBody);
   asyncServer.on("/tiltCommand", ASYNC_HTTP_GET | ASYNC_HTTP_PUT | ASYNC_HTTP_POST, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
@@ -707,17 +637,15 @@ void WebAsync::begin() {
       webServer.parseCommandJson(obj, cmd);
     }
     else { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}")); return; }
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
     bool ok;
     {
       SomfyGuard guard;
-      JsonAsyncResponse resp;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
       ok = webServer.execTiltCommand(cmd, resp);
-      if(ok) resp.endResponse();
     }
-    if(ok) request->send(stream);
-    else { delete stream; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}")); }
+    if(ok) resp.finish();
+    else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade with the specified id not found.\"}"));
   }, nullptr, asyncBufferBody);
   asyncServer.on("/groupCommand", ASYNC_HTTP_GET | ASYNC_HTTP_PUT | ASYNC_HTTP_POST, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
@@ -738,17 +666,15 @@ void WebAsync::begin() {
       webServer.parseCommandJson(obj, cmd);
     }
     else { request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No group object supplied.\"}")); return; }
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
     bool ok;
     {
       SomfyGuard guard;
-      JsonAsyncResponse resp;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
       ok = webServer.execGroupCommand(cmd, resp);
-      if(ok) resp.endResponse();
     }
-    if(ok) request->send(stream);
-    else { delete stream; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Group with the specified id not found.\"}")); }
+    if(ok) resp.finish();
+    else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Group with the specified id not found.\"}"));
   }, nullptr, asyncBufferBody);
   asyncServer.on("/repeatCommand", ASYNC_HTTP_GET | ASYNC_HTTP_PUT | ASYNC_HTTP_POST, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
@@ -766,18 +692,15 @@ void WebAsync::begin() {
       JsonObject obj = doc.as<JsonObject>();
       webServer.parseCommandJson(obj, cmd);
     }
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
+    JsonAsyncResponse resp;
     uint8_t code;
     {
       SomfyGuard guard;
-      JsonAsyncResponse resp;
-      resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+      resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
       code = webServer.execRepeatCommand(cmd, resp);
-      if(code == 0) resp.endResponse();
     }
-    if(code != 0) delete stream;
     switch(code) {
-      case 0: request->send(stream); break;
+      case 0: resp.finish(); break;
       case 1: request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Shade reference could not be found.\"}")); break;
       case 2: request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Group reference could not be found.\"}")); break;
       default: request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"No shade or group id supplied.\"}")); break;
@@ -982,9 +905,8 @@ void WebAsync::begin() {
     if(!webAsync.ensureAuth(request, true)) return;
     if(net.softAPOpened) WiFi.disconnect(false);
     int n = WiFi.scanNetworks(false, true); // blocking (~seconds) in async_tcp
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
     JsonAsyncResponse resp;
-    resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+    resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
     resp.beginObject();
     resp.beginObject("connected");
     resp.addElem("name", settings.WIFI.ssid);
@@ -1003,8 +925,7 @@ void WebAsync::begin() {
     }
     resp.endArray();
     resp.endObject();
-    resp.endResponse();
-    request->send(stream);
+    resp.finish();
   });
   asyncServer.on("/getReleases", ASYNC_HTTP_ANY, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
@@ -1020,15 +941,13 @@ void WebAsync::begin() {
     repo->getReleases();
     git.setCurrentRelease(*repo);
     git.status = GIT_STATUS_READY;
-    AsyncResponseStream *stream = request->beginResponseStream("application/json");
     JsonAsyncResponse resp;
-    resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+    resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
     resp.beginObject();
     repo->toJSON(resp);
     resp.endObject();
-    resp.endResponse();
+    resp.finish();
     delete repo;
-    request->send(stream);
   });
   asyncServer.on("/downloadFirmware", ASYNC_HTTP_ANY, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
@@ -1051,18 +970,16 @@ void WebAsync::begin() {
           }
         }
         if(rel) {
-          AsyncResponseStream *stream = request->beginResponseStream("application/json");
           JsonAsyncResponse resp;
-          resp.beginResponse(stream, g_asyncContent, sizeof(g_asyncContent));
+          resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
           resp.beginObject();
           rel->toJSON(resp);
           resp.endObject();
-          resp.endResponse();
           strcpy(git.targetRelease, rel->version.name[0] ? rel->version.name : rel->name);
           // Hand the actual download to git.loop() (the flash write stays in
           // the loop task); leaving READY here would let the check re-fire.
           git.status = GIT_AWAITING_UPDATE;
-          request->send(stream);
+          resp.finish();
         }
         else { git.status = GIT_STATUS_READY; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Release not found in repo.\"}")); }
       }

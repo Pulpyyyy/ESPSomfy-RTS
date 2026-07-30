@@ -20,16 +20,24 @@
 #define ASYNC_HTTP_OPTIONS 0b01000000
 #define ASYNC_HTTP_ANY     0b01111111
 
-// JsonResponse twin bound to an async response stream. Inheriting JsonResponse
-// keeps every existing toJSON(JsonResponse&) serializer usable untouched; only
-// the flush target changes.
+// JsonResponse twin for the async server. Inheriting JsonResponse keeps every
+// existing toJSON(JsonResponse&) serializer usable untouched. It accumulates
+// the whole body in a staging buffer and sends it in one AsyncBasicResponse
+// (finish()): handing the full buffer to LWIP lets it burst the initial
+// congestion window, where an AsyncResponseStream fed piecemeal stalls on the
+// client's delayed ACKs (measured: controller 5.8KB was ~1150ms streamed, a
+// few ms one-shot). A stream fallback kicks in only if the body outgrows the
+// buffer (oversize configs), preserving unbounded correctness.
 class JsonAsyncResponse : public JsonResponse {
   protected:
     void _safecat(const char *val, bool escape = false) override;
+    size_t _len = 0;
   public:
-    AsyncResponseStream *stream = nullptr;
-    void beginResponse(AsyncResponseStream *stream, char *buff, size_t buffSize);
-    void endResponse();
+    AsyncWebServerRequest *request = nullptr;
+    AsyncResponseStream *overflow = nullptr; // created lazily only past buffSize
+    void begin(AsyncWebServerRequest *request, char *buff, size_t buffSize);
+    void finish(const char *contentType = "application/json");
+    void discard(); // drop an unsent overflow stream (error/abort paths)
 };
 
 // Async handlers run in the async_tcp task, concurrently with loop(). Every
@@ -52,12 +60,11 @@ class SomfyGuard {
 class WebAsyncRequest : public WebRequest {
   protected:
     AsyncWebServerRequest *_request;
-    AsyncResponseStream *_stream = nullptr;
     JsonAsyncResponse _resp;
     bool _sent = false;
   public:
     WebAsyncRequest(AsyncWebServerRequest *request) : _request(request) {}
-    ~WebAsyncRequest() { if(this->_stream) delete this->_stream; }
+    ~WebAsyncRequest() { this->_resp.discard(); }
     HTTPMethod method() override;
     bool hasParam(const char *name) override;
     String param(const char *name) override;
