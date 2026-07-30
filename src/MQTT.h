@@ -11,6 +11,11 @@ private:
 public:
   uint32_t lastConnect = 0;  // millis() of the last attempt; subtractive compare is rollover-safe
   bool suspended = false;
+  // Set by /connectmqtt (which may run in the async_tcp task) instead of
+  // calling disconnect() directly: every PubSubClient call must stay in the
+  // loop task, so loop() performs the disconnect and the normal reconnect
+  // logic then picks up the freshly saved settings.
+  volatile bool reconnectPending = false;
   char clientId[32] = {'\0'};
 
   bool begin();

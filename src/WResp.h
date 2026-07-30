@@ -31,6 +31,9 @@ class WebRequest {
     virtual const char *body() = 0;
     virtual void send(int code, const char *contentType, const char *content) = 0;
     virtual bool ensureAuth(bool cfg = false) = 0;
+    // Client address, needed by the handlers that mint API tokens (login,
+    // saveSecurity): the HMAC is bound to the caller's IP.
+    virtual IPAddress remoteIP() = 0;
     virtual JsonResponse &beginJson() = 0;
     virtual void endJson() = 0;
 };

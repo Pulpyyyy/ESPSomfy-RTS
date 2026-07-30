@@ -67,6 +67,10 @@ bool MQTTClass::end() { this->suspended = true; this->disconnect(); return true;
 void MQTTClass::reset() { this->disconnect(); this->lastConnect = 0; this->connect(); }
 
 bool MQTTClass::loop() {
+  if(this->reconnectPending) {
+    this->reconnectPending = false;
+    this->disconnect();
+  }
   if(settings.MQTT.enabled && !rebootDelay.reboot && !this->suspended && !mqttClient.connected()) {
     esp_task_wdt_reset();
     if(net.connected()) this->connect();

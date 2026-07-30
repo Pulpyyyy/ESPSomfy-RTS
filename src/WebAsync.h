@@ -65,6 +65,7 @@ class WebAsyncRequest : public WebRequest {
     const char *body() override;
     void send(int code, const char *contentType, const char *content) override;
     bool ensureAuth(bool cfg = false) override;
+    IPAddress remoteIP() override;
     JsonResponse &beginJson() override;
     void endJson() override;
     void finish();

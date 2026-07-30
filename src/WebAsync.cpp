@@ -56,9 +56,10 @@ void JsonAsyncResponse::endResponse() {
 
 // Accumulates a JSON request body into request->_tempObject (freed by the
 // request destructor), mirroring the sync server's arg("plain"). Bodies over
-// the cap are dropped: no mutation payload comes close to it.
+// the cap are dropped: the largest legitimate payload is the /restoreRfStats
+// export (~8KB), everything else stays under 1KB.
 static void asyncBufferBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-  if(total == 0 || total > 8192) return;
+  if(total == 0 || total > 16384) return;
   if(index == 0 && request->_tempObject == nullptr) request->_tempObject = malloc(total + 1);
   if(request->_tempObject != nullptr) {
     memcpy((uint8_t *)request->_tempObject + index, data, len);
@@ -118,6 +119,7 @@ bool WebAsyncRequest::ensureAuth(bool cfg) {
   if(!ok) this->_sent = true;  // ensureAuth answered 403/401 itself
   return ok;
 }
+IPAddress WebAsyncRequest::remoteIP() { return this->_request->client()->remoteIP(); }
 JsonResponse &WebAsyncRequest::beginJson() {
   if(!this->_stream) this->_stream = this->_request->beginResponseStream("application/json");
   this->_resp.beginResponse(this->_stream, g_asyncContent, sizeof(g_asyncContent));
@@ -665,6 +667,31 @@ void WebAsync::begin() {
   ASYNC_SHARED_ROUTE("/setSensor", handleSetSensor);
   ASYNC_SHARED_ROUTE("/sendRemoteCommand", handleSendRemoteCommand);
   ASYNC_SHARED_ROUTE("/netDiag", handleNetDiag);
+  // ---- Phase 3 batch C: system mutations. Long ops (/scanaps, /getReleases)
+  // and every upload/download stay sync until phases 4-5.
+  ASYNC_SHARED_ROUTE("/login", handleLogin);
+  // GET-only for parity with the sync registration.
+  asyncServer.on("/setLang", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    WebAsyncRequest req(request);
+    { SomfyGuard guard; webServer.handleSetLang(req); }
+    req.finish();
+  });
+  ASYNC_SHARED_ROUTE("/saveSecurity", handleSaveSecurity);
+  ASYNC_SHARED_ROUTE("/setgeneral", handleSetGeneral);
+  ASYNC_SHARED_ROUTE("/setNetwork", handleSetNetwork);
+  ASYNC_SHARED_ROUTE("/setIP", handleSetIP);
+  ASYNC_SHARED_ROUTE("/connectwifi", handleConnectWifi);
+  ASYNC_SHARED_ROUTE("/connectmqtt", handleConnectMqtt);
+  ASYNC_SHARED_ROUTE("/saveRadio", handleSaveRadio);
+  ASYNC_SHARED_ROUTE("/clearRfStats", handleClearRfStats);
+  ASYNC_SHARED_ROUTE("/restoreRfStats", handleRestoreRfStats);
+  ASYNC_SHARED_ROUTE("/setGuidedRssi", handleSetGuidedRssi);
+  ASYNC_SHARED_ROUTE("/beginFrequencyScan", handleBeginFrequencyScan);
+  ASYNC_SHARED_ROUTE("/endFrequencyScan", handleEndFrequencyScan);
+  ASYNC_SHARED_ROUTE("/reboot", handleReboot);
+  ASYNC_SHARED_ROUTE("/cancelFirmware", handleCancelFirmware);
+  ASYNC_SHARED_ROUTE("/recoverFilesystem", handleRecoverFilesystem);
   #undef ASYNC_SHARED_ROUTE
   asyncServer.onNotFound([](AsyncWebServerRequest *request) {
     request->send(404, "text/plain", "Not found");

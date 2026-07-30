@@ -21,6 +21,7 @@ class WebSyncRequest : public WebRequest {
     const char *body() override;
     void send(int code, const char *contentType, const char *content) override;
     bool ensureAuth(bool cfg = false) override;
+    IPAddress remoteIP() override;
     JsonResponse &beginJson() override;
     void endJson() override;
 };
@@ -154,6 +155,25 @@ public:
   void handleSetSensor(WebRequest &req);
   void handleSendRemoteCommand(WebRequest &req);
   void handleNetDiag(WebRequest &req);
+  // Batch C: system mutations. Long operations (/scanaps, /getReleases) and
+  // uploads stay on the sync transport until their own phases.
+  void handleLogin(WebRequest &req);
+  void handleSetLang(WebRequest &req);
+  void handleSaveSecurity(WebRequest &req);
+  void handleSetGeneral(WebRequest &req);
+  void handleSetNetwork(WebRequest &req);
+  void handleSetIP(WebRequest &req);
+  void handleConnectWifi(WebRequest &req);
+  void handleConnectMqtt(WebRequest &req);
+  void handleSaveRadio(WebRequest &req);
+  void handleClearRfStats(WebRequest &req);
+  void handleRestoreRfStats(WebRequest &req);
+  void handleSetGuidedRssi(WebRequest &req);
+  void handleBeginFrequencyScan(WebRequest &req);
+  void handleEndFrequencyScan(WebRequest &req);
+  void handleReboot(WebRequest &req);
+  void handleCancelFirmware(WebRequest &req);
+  void handleRecoverFilesystem(WebRequest &req);
   // Serialized into buff (the security payload goes through ArduinoJson, not
   // the streaming formatter); returns the JSON text length.
   size_t buildSecurityJson(char *buff, size_t size);
