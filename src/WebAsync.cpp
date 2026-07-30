@@ -59,6 +59,9 @@ void JsonAsyncResponse::endResponse() {
 // the cap are dropped: the largest legitimate payload is the /restoreRfStats
 // export (~8KB), everything else stays under 1KB.
 static void asyncBufferBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+  // The sync server never exposes a body on GET; mirror that so a degenerate
+  // GET-with-body behaves identically on both transports.
+  if(request->method() == ASYNC_HTTP_GET) return;
   if(total == 0 || total > 16384) return;
   if(index == 0 && request->_tempObject == nullptr) request->_tempObject = malloc(total + 1);
   if(request->_tempObject != nullptr) {
@@ -693,8 +696,13 @@ void WebAsync::begin() {
   ASYNC_SHARED_ROUTE("/cancelFirmware", handleCancelFirmware);
   ASYNC_SHARED_ROUTE("/recoverFilesystem", handleRecoverFilesystem);
   #undef ASYNC_SHARED_ROUTE
+  // Twin of the sync handleNotFound: same OPTIONS shortcut, same 404 text.
   asyncServer.onNotFound([](AsyncWebServerRequest *request) {
-    request->send(404, "text/plain", "Not found");
+    if(request->method() == ASYNC_HTTP_OPTIONS) {
+      request->send(200, "text/plain", "OK");
+      return;
+    }
+    request->send(404, "text/plain", "404: Not Found");
   });
   asyncServer.begin();
   Serial.printf("Async web server started on port %u\n", PORT);
