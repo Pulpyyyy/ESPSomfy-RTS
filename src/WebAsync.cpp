@@ -236,66 +236,19 @@ static const char _csp[] PROGMEM =
   "connect-src 'self' https://api.github.com ws://*:8080 wss://*:8080; "
   "object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
 
-// Serves a LittleFS file at full TCP throughput. The library's file response
-// paces itself to roughly half the socket send buffer per ACK round (its
-// in-flight credit scheme) and mallocs a fresh chunk buffer per event, which
-// measured ~30-60% slower than the sync server's blocking 4KB copy loop.
-// This responder tops the send buffer up to its full space() on every ACK
-// from a member buffer - the event-driven equivalent of the sync loop.
-class AsyncFastFileResponse : public AsyncWebServerResponse {
-  private:
-    File _file;
-    String _head;
-    uint8_t _buf[2920]; // two MSS per file read
-    void _sendHead(AsyncWebServerRequest *request) {
-      size_t space = request->client()->space();
-      size_t out = space < this->_head.length() ? space : this->_head.length();
-      if(!out) return;
-      this->_writtenLength += request->client()->write(this->_head.c_str(), out);
-      this->_head = this->_head.substring(out);
-    }
-    void _refill(AsyncWebServerRequest *request) {
-      while(this->_file && this->_sentLength < this->_contentLength) {
-        size_t space = request->client()->space();
-        if(!space) return;
-        size_t want = space < sizeof(this->_buf) ? space : sizeof(this->_buf);
-        size_t remaining = this->_contentLength - this->_sentLength;
-        if(want > remaining) want = remaining;
-        size_t n = this->_file.read(this->_buf, want);
-        if(!n) break;
-        this->_writtenLength += request->client()->write((const char *)this->_buf, n);
-        this->_sentLength += n;
-      }
-      if(this->_sentLength >= this->_contentLength) this->_state = RESPONSE_WAIT_ACK;
-    }
-  public:
-    AsyncFastFileResponse(File file, const char *contentType, bool gzip) : _file(file) {
-      this->_code = 200;
-      this->_contentType = contentType;
-      this->_contentLength = file.size();
-      this->_sendContentLength = true;
-      this->_chunked = false;
-      if(gzip) this->addHeader("Content-Encoding", "gzip", false);
-    }
-    ~AsyncFastFileResponse() { if(this->_file) this->_file.close(); }
-    bool _sourceValid() const override { return !!this->_file; }
-    void _respond(AsyncWebServerRequest *request) override {
-      this->addHeader("Connection", "close", false);
-      this->_assembleHead(this->_head, request->version());
-      this->_state = RESPONSE_CONTENT;
-      this->_sendHead(request);
-      if(!this->_head.length()) this->_refill(request);
-    }
-    size_t _ack(AsyncWebServerRequest *request, size_t len, uint32_t time) override {
-      (void)time;
-      this->_ackedLength += len;
-      if(this->_head.length()) this->_sendHead(request);
-      if(!this->_head.length() && this->_state == RESPONSE_CONTENT) this->_refill(request);
-      if(this->_state == RESPONSE_WAIT_ACK && this->_ackedLength >= this->_writtenLength) this->_state = RESPONSE_END;
-      return 0;
-    }
-};
-// Resolve path (or path.gz), and answer with the fast file responder.
+// Opens path.gz (or path) with a SINGLE LittleFS open and hands the already
+// open File to the library's own file response.
+//
+// Do NOT be tempted to replace this with a hand-rolled responder that fills
+// the whole TCP window on every ACK: it measures faster on one request but
+// floods the AsyncTCP event queue (each write triggers acks which trigger
+// more writes). Past ~4 concurrent transfers the queue congests, the library
+// starts discarding poll events, connections stall and the whole LWIP stack
+// stops accepting - on every port, sync included. It took a power cycle.
+// The library's in-flight credit pacing exists precisely to prevent that.
+//
+// The win kept here is the open: exists()+open() scans the directory twice,
+// which measured as a constant ~30ms per request whatever the file size.
 static void serveFastFile(AsyncWebServerRequest *request, const char *path, const char *contentType, bool cache) {
   webServer.lastActivity = millis();
   if(git.lockFS) {
@@ -303,10 +256,12 @@ static void serveFastFile(AsyncWebServerRequest *request, const char *path, cons
     return;
   }
   String pgz = String(path) + ".gz";
-  bool gz = LittleFS.exists(pgz);
-  File f = gz ? LittleFS.open(pgz, "r") : LittleFS.open(path, "r");
+  File f = LittleFS.open(pgz, "r");
+  if(!f) f = LittleFS.open(path, "r");
   if(!f) { request->send(404, "text/plain", "404: Not Found"); return; }
-  AsyncFastFileResponse *response = new AsyncFastFileResponse(f, contentType, gz);
+  // path (without .gz) as the name: the response adds Content-Encoding: gzip
+  // by itself when the open file is the .gz twin.
+  AsyncWebServerResponse *response = request->beginResponse(f, String(path), String(contentType));
   if(cache) response->addHeader(F("Cache-Control"), F("public, max-age=604800, immutable"));
   request->send(response);
 }
@@ -316,10 +271,10 @@ static void serveIndex(AsyncWebServerRequest *request) {
     request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}"));
     return;
   }
-  bool gz = LittleFS.exists("/index.html.gz");
-  File f = gz ? LittleFS.open("/index.html.gz", "r") : LittleFS.open("/index.html", "r");
+  File f = LittleFS.open("/index.html.gz", "r");
+  if(!f) f = LittleFS.open("/index.html", "r");
   if(!f) { request->send(500, "text/plain", "Error opening file"); return; }
-  AsyncFastFileResponse *response = new AsyncFastFileResponse(f, "text/html", gz);
+  AsyncWebServerResponse *response = request->beginResponse(f, String("/index.html"), String("text/html"));
   response->addHeader(F("Content-Security-Policy"), FPSTR(_csp));
   response->addHeader(F("X-Content-Type-Options"), F("nosniff"));
   request->send(response);
