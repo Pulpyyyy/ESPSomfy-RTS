@@ -282,6 +282,10 @@ static void startFileTransfer(AsyncWebServerRequest *request, const char *path, 
   // end of this transfer.
   request->onDisconnect([]() { onFileTransferDone(); });
   AsyncWebServerResponse *response = request->beginResponse(f, String(path), String(contentType));
+  // The file response adds this by itself; inline is the default behavior
+  // anyway and the synchronous server never sent it. Dropped so the headers
+  // stay identical to what the UI was served before the cutover.
+  response->removeHeader("Content-Disposition");
   if(cache) response->addHeader(F("Cache-Control"), F("public, max-age=604800, immutable"));
   if(index) {
     response->addHeader(F("Content-Security-Policy"), FPSTR(_csp));
