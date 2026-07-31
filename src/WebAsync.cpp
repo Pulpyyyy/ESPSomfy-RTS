@@ -690,10 +690,25 @@ void WebAsync::begin() {
     });
   });
   asyncServer.on("/lang", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
-    const char *file = settings.language == 1 ? "/locale/fr.json"
-      : settings.language == 2 ? "/locale/de.json"
-      : settings.language == 3 ? "/locale/es.json" : "/locale/en.json";
-    serveFastFile(request, file, "application/json", false);
+    // The UI asks for a specific language; the stored setting is the fallback
+    // for anything else that hits this route. Both keys that decide the
+    // content - the language and the firmware build - travel in the query, so
+    // the answer can be cached hard: a change lands on a different URL. The
+    // dictionary is 18KB and was being re-fetched on every page load.
+    uint8_t lang = settings.language;
+    bool versioned = request->hasParam("v");
+    if(request->hasParam("l")) {
+      String l = request->getParam("l")->value();
+      if(l == "fr") lang = 1;
+      else if(l == "de") lang = 2;
+      else if(l == "es") lang = 3;
+      else if(l == "en") lang = 0;
+      else versioned = false; // unknown tag: serve the setting, do not cache it
+    }
+    const char *file = lang == 1 ? "/locale/fr.json"
+      : lang == 2 ? "/locale/de.json"
+      : lang == 3 ? "/locale/es.json" : "/locale/en.json";
+    serveFastFile(request, file, "application/json", versioned);
   });
   // ---- Phase 3: shade/group commands (the HA-critical mutations). ---------
   asyncServer.on("/shadeCommand", ASYNC_HTTP_GET | ASYNC_HTTP_PUT | ASYNC_HTTP_POST, [](AsyncWebServerRequest *request) {

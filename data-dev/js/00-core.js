@@ -233,7 +233,13 @@ function loadLang(callback) {
         if (callback) callback();
         return;
     }
-    fetch(baseUrl + '/lang')
+    // Versioned URL so the dictionary can be cached hard: 18KB re-fetched on
+    // every single page load is the largest thing left that never changes.
+    // The address carries both keys that decide its content - the firmware
+    // build and the chosen language - so a change always misses the cache.
+    const _lv = (document.querySelector('script[src*="index.js"]')?.getAttribute('src') || '').split('v=')[1] || '';
+    const _ll = localStorage.getItem('selectedLang') || '';
+    fetch(`${baseUrl}/lang?v=${encodeURIComponent(_lv)}&l=${encodeURIComponent(_ll)}`)
     .then(r => r.json())
     .then(dict => {
         LANG = dict;
