@@ -2260,9 +2260,9 @@
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
                 <path d="M10 10v27h1V10h-1zm27 0v27h1V10h-1z" fill="var(--svg-shade4)"/>
                 <!-- Same two-set treatment as svg-shutter, on a blind whose slats already
-                     sit 3px apart: 9 slats when sealed, 7 when open. -->
+                     sit 3px apart: 9 slats when sealed, 6 when open. -->
                 <path style="opacity:var(--slat-seal, 1)" d="M6 12h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6z" fill="var(--accent-color)"/>
-                <path style="opacity:calc(1 - var(--slat-seal, 1))" d="M6 12h36v1H6zm0 3.9h36v1H6zm0 3.9h36v1H6zm0 3.9h36v1H6zm0 3.9h36v1H6zm0 3.9h36v1H6zm0 3.9h36v1H6z" fill="var(--accent-color)"/>
+                <path style="opacity:calc(1 - var(--slat-seal, 1))" d="M6 12h36v1H6zm0 4.6h36v1H6zm0 4.6h36v1H6zm0 4.6h36v1H6zm0 4.6h36v1H6zm0 4.6h36v1H6z" fill="var(--accent-color)"/>
             </g>
             <path d="M6 10h36v-1H6z" fill="var(--svg-shade3)"/>
             <rect x="5" width="38" height="4" fill="var(--unibloc-color)"/>
@@ -2291,9 +2291,10 @@
                      only ever bought fractions of a pixel, which vanish at icon size; so
                      the open state drops three slats over the same height instead, and
                      spends the freed room on gaps that are visibly wider than a slat.
-                     Sealed: 13 slats, 1px on 1px. Open: 10 slats, 1px on 1.6px. -->
+                     Sealed: 13 slats, 1px on 1px. Open: 8 slats, 1px on 2.25px - the gap
+                     has to be more than twice the slat before the drop reads at icon size. -->
                 <path style="opacity:var(--slat-seal, 1)" d="M8 12h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8z" fill="var(--accent-color)"/>
-                <path style="opacity:calc(1 - var(--slat-seal, 1))" d="M8 12h32v1H8zm0 2.6h32v1H8zm0 2.6h32v1H8zm0 2.6h32v1H8zm0 2.6h32v1H8zm0 2.6h32v1H8zm0 2.6h32v1H8zm0 2.6h32v1H8zm0 2.6h32v1H8zm0 2.6h32v1H8z" fill="var(--accent-color)"/>
+                <path style="opacity:calc(1 - var(--slat-seal, 1))" d="M8 12h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8z" fill="var(--accent-color)"/>
             </g>
             <path d="M6 10h36v-1H6z" fill="var(--svg-shade3)"/>
             <rect x="5" width="38" height="4" fill="var(--unibloc-color)"/>
