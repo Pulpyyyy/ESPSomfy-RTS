@@ -1226,8 +1226,13 @@ button:disabled:active {
        the shade opens (thinner, darker, wider gaps between them).
        Symbols fall back to their plain rendering when the tokens are absent,
        so the same icons stay usable outside a shade control. */
+    /* 1 only when the tablier sits on its closed stop. Widening the gaps in
+       place was a dead end - slats and gaps are both 1px in the artwork, so
+       every tenth of a pixel spent joining the slats came straight out of a
+       gap that is already sub-pixel once the icon is scaled down. The slatted
+       icons carry two slat sets instead and cross-fade between them on this
+       token; what remains here is for the icons drawn the other way round. */
     --slat-seal: clamp(0, calc(var(--shade-position, 0) - 99), 1);
-    --slat-weight: calc(var(--slat-seal) * 0.62px);
     --gap-weight: calc((1 - var(--slat-seal)) * 0.62px);
     /* The slat colour never changes; what deepens is the shadow between the
        slats once they part. --gap-tone is the surface showing through on the
