@@ -1236,9 +1236,12 @@ button:disabled:active {
     --gap-weight: calc((1 - var(--slat-seal)) * 0.62px);
     /* The slat colour never changes; what deepens is the shadow between the
        slats once they part. --gap-tone is the surface showing through on the
-       dark-tablier icons, --gap-ink the stripe drawn over a light tablier. */
+       dark-tablier icons, --gap-ink the stripe drawn over a light tablier.
+       Even sealed the gap is darkened: left at the plain tablier colour it
+       sat too close to the slats to read at 72px, and the closed shutter
+       showed as one flat block with no slat lines at all. */
     --gap-tone: color-mix(in srgb,
-        var(--accent-colorDark) calc(45% + var(--slat-seal) * 55%),
+        var(--accent-colorDark) calc(40% + var(--slat-seal) * 35%),
         #000);
     --gap-ink: color-mix(in srgb,
         #000 calc(13% + (1 - var(--slat-seal)) * 20%),
