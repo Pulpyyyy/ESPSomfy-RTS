@@ -1218,6 +1218,20 @@ button:disabled:active {
 .somfy-shade-icon  {
     width: 72px;
     height: 72px;
+    /* A tablier travels 0.26px per position point, so a shade one point off
+       fully closed - still letting light through the slat gaps - looked exactly
+       like a sealed one. These three tokens carry that state instead.
+       --slat-seal is 1 only when the tablier is fully down, 0 otherwise: the
+       slats then read as joined (thick, full colour) and separate as soon as
+       the shade opens (thinner, darker, wider gaps between them).
+       Symbols fall back to their plain rendering when the tokens are absent,
+       so the same icons stay usable outside a shade control. */
+    --slat-seal: clamp(0, calc(var(--shade-position, 0) - 99), 1);
+    --slat-weight: calc(var(--slat-seal) * 0.62px);
+    --gap-weight: calc((1 - var(--slat-seal)) * 0.62px);
+    --slat-tone: color-mix(in srgb,
+        var(--accent-color) calc(62% + var(--slat-seal) * 38%),
+        var(--accent-colorDark));
 }
 /* Long-press affordance: an accent ring grows while the button is held; it
    completes exactly when the 2s threshold triggers the secondary action
