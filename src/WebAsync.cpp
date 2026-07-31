@@ -243,7 +243,11 @@ static const char _csp[] PROGMEM =
 // their turn: the client simply sees a slower first byte instead of a dead
 // device. The sync server has always effectively done this, one at a time.
 #define ASYNC_MAX_FILE_XFER 3
-#define ASYNC_MAX_PENDING 10
+// Sized above the number of connections LWIP can hold at once (16 PCBs), so
+// a client that got a connection is always served: it waits its turn instead
+// of being refused. The 503 below is therefore unreachable in practice and
+// only exists so the array can never overflow.
+#define ASYNC_MAX_PENDING 18
 struct pending_file_t {
   AsyncWebServerRequest *request = nullptr;
   const char *path = nullptr;         // always a string literal or a static
