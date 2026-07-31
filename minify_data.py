@@ -1,5 +1,6 @@
 
 import gzip
+import hashlib
 import os
 import re
 import shutil
@@ -30,6 +31,18 @@ def _dst_dir():
 # Minificateurs
 # ──────────────────────────────────────────────
 
+# Cache-busting token per bundle, derived from the bundle's own bytes and
+# filled in by concat_*_chunks below. The bundles are served immutable for a
+# year, so the token in the URL is the only thing that can invalidate them:
+# keyed on the release version, as it used to be, any change shipped between
+# two releases reached browsers still holding the previous bundle - new HTML
+# driving old JavaScript, which is exactly what a stale service worker then
+# fights over. Content-keyed, a change always lands on a new URL.
+_ASSET_VER = {}
+
+def _content_ver(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]
+
 def merge_js_tags(text: str) -> str:
     # data-dev keeps the app JS as ordered chunks under js/ so the sources stay
     # editable, while the firmware serves ONE /index.js: collapse the chunk tags
@@ -39,7 +52,8 @@ def merge_js_tags(text: str) -> str:
     if not tags:
         return text
     m = re.search(r'\?v=([^"]+)"', tags[0])
-    ver = f"?v={m.group(1)}" if m else ""
+    ver = _ASSET_VER.get("js") or (m.group(1) if m else "")
+    ver = f"?v={ver}" if ver else ""
     text = text.replace(tags[0], f'<script src="index.js{ver}"></script>\n', 1)
     for t in tags[1:]:
         text = text.replace(t, "", 1)
@@ -66,7 +80,7 @@ def merge_css_tags(text: str) -> str:
         return text
     if len(tags) != len(CSS_CHUNKS):
         raise RuntimeError("merge_css_tags: index.html references only part of %s" % (CSS_CHUNKS,))
-    ver = tags[0].group(1) or ""
+    ver = "?v=%s" % _ASSET_VER["css"] if _ASSET_VER.get("css") else (tags[0].group(1) or "")
     text = text.replace(tags[0].group(0), '<link rel="stylesheet" href="app.css%s">\n' % ver, 1)
     for m in tags[1:]:
         text = text.replace(m.group(0), "", 1)
@@ -303,6 +317,7 @@ def concat_js_chunks(src_dir: str, dst_dir: str):
             parts.append(minify_js(f.read()))
     if not parts:
         return
+    _ASSET_VER["js"] = _content_ver("\n".join(parts))
     gz_path = os.path.join(dst_dir, "index.js.gz")
     # Join with a newline: a chunk missing its trailing newline must not glue its
     # last line (possibly a // comment) onto the first line of the next chunk.
@@ -323,6 +338,7 @@ def concat_css_chunks(src_dir: str, dst_dir: str):
         total += os.path.getsize(path)
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             parts.append(minify_css(f.read()))
+    _ASSET_VER["css"] = _content_ver("\n".join(parts))
     gz_path = os.path.join(dst_dir, "app.css.gz")
     write_gz("\n".join(parts).encode("utf-8"), gz_path)
     new_sz = os.path.getsize(gz_path)
