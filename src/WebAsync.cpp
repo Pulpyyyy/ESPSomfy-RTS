@@ -236,6 +236,77 @@ static const char _csp[] PROGMEM =
   "connect-src 'self' https://api.github.com ws://*:8080 wss://*:8080; "
   "object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
 
+// ---- Bounded file-transfer concurrency. ----------------------------------
+// A browser cold load asks for every asset at once. Six large transfers in
+// flight exhausted the board (heap plus the AsyncTCP event queue) and killed
+// the whole network stack, so only a few run at a time and the rest wait
+// their turn: the client simply sees a slower first byte instead of a dead
+// device. The sync server has always effectively done this, one at a time.
+#define ASYNC_MAX_FILE_XFER 3
+#define ASYNC_MAX_PENDING 10
+struct pending_file_t {
+  AsyncWebServerRequest *request = nullptr;
+  const char *path = nullptr;         // always a string literal or a static
+  const char *contentType = nullptr;  // idem
+  bool cache = false;
+  bool index = false;                 // index.html also carries the CSP headers
+};
+static uint8_t g_activeXfer = 0;
+static pending_file_t g_pending[ASYNC_MAX_PENDING];
+static void startFileTransfer(AsyncWebServerRequest *request, const char *path, const char *contentType, bool cache, bool index);
+// Runs when a served connection closes: frees the slot and starts the next
+// queued transfer, if any. Called from the async_tcp task.
+static void onFileTransferDone() {
+  if(g_activeXfer) g_activeXfer--;
+  for(uint8_t i = 0; i < ASYNC_MAX_PENDING; i++) {
+    if(!g_pending[i].request) continue;
+    pending_file_t p = g_pending[i];
+    g_pending[i].request = nullptr;
+    startFileTransfer(p.request, p.path, p.contentType, p.cache, p.index);
+    return;
+  }
+}
+static void startFileTransfer(AsyncWebServerRequest *request, const char *path, const char *contentType, bool cache, bool index) {
+  File f = LittleFS.open(String(path) + ".gz", "r");
+  if(!f) f = LittleFS.open(path, "r");
+  if(!f) {
+    request->send(index ? 500 : 404, "text/plain", index ? "Error opening file" : "404: Not Found");
+    return;
+  }
+  g_activeXfer++;
+  // The response is sent with Connection: close, so the disconnect marks the
+  // end of this transfer.
+  request->onDisconnect([]() { onFileTransferDone(); });
+  AsyncWebServerResponse *response = request->beginResponse(f, String(path), String(contentType));
+  if(cache) response->addHeader(F("Cache-Control"), F("public, max-age=604800, immutable"));
+  if(index) {
+    response->addHeader(F("Content-Security-Policy"), FPSTR(_csp));
+    response->addHeader(F("X-Content-Type-Options"), F("nosniff"));
+  }
+  request->send(response);
+}
+// Serve now if a slot is free, otherwise hold the request until one frees.
+static void serveFileGated(AsyncWebServerRequest *request, const char *path, const char *contentType, bool cache, bool index) {
+  webServer.lastActivity = millis();
+  if(git.lockFS) {
+    request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}"));
+    return;
+  }
+  if(g_activeXfer < ASYNC_MAX_FILE_XFER) { startFileTransfer(request, path, contentType, cache, index); return; }
+  for(uint8_t i = 0; i < ASYNC_MAX_PENDING; i++) {
+    if(g_pending[i].request) continue;
+    g_pending[i].request = request;
+    g_pending[i].path = path;
+    g_pending[i].contentType = contentType;
+    g_pending[i].cache = cache;
+    g_pending[i].index = index;
+    // If the client gives up while queued, drop the slot: the request object
+    // is destroyed right after this callback and must never be touched again.
+    request->onDisconnect([i]() { g_pending[i].request = nullptr; });
+    return;
+  }
+  request->send(503, "text/plain", "Server busy");
+}
 // Opens path.gz (or path) with a SINGLE LittleFS open and hands the already
 // open File to the library's own file response.
 //
@@ -250,34 +321,10 @@ static const char _csp[] PROGMEM =
 // The win kept here is the open: exists()+open() scans the directory twice,
 // which measured as a constant ~30ms per request whatever the file size.
 static void serveFastFile(AsyncWebServerRequest *request, const char *path, const char *contentType, bool cache) {
-  webServer.lastActivity = millis();
-  if(git.lockFS) {
-    request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}"));
-    return;
-  }
-  String pgz = String(path) + ".gz";
-  File f = LittleFS.open(pgz, "r");
-  if(!f) f = LittleFS.open(path, "r");
-  if(!f) { request->send(404, "text/plain", "404: Not Found"); return; }
-  // path (without .gz) as the name: the response adds Content-Encoding: gzip
-  // by itself when the open file is the .gz twin.
-  AsyncWebServerResponse *response = request->beginResponse(f, String(path), String(contentType));
-  if(cache) response->addHeader(F("Cache-Control"), F("public, max-age=604800, immutable"));
-  request->send(response);
+  serveFileGated(request, path, contentType, cache, false);
 }
 static void serveIndex(AsyncWebServerRequest *request) {
-  webServer.lastActivity = millis();
-  if(git.lockFS) {
-    request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Filesystem update in progress\"}"));
-    return;
-  }
-  File f = LittleFS.open("/index.html.gz", "r");
-  if(!f) f = LittleFS.open("/index.html", "r");
-  if(!f) { request->send(500, "text/plain", "Error opening file"); return; }
-  AsyncWebServerResponse *response = request->beginResponse(f, String("/index.html"), String("text/html"));
-  response->addHeader(F("Content-Security-Policy"), FPSTR(_csp));
-  response->addHeader(F("X-Content-Type-Options"), F("nosniff"));
-  request->send(response);
+  serveFileGated(request, "/index.html", "text/html", false, true);
 }
 // Captures SSDP.schema()'s raw-HTTP output into a String so the XML body can
 // be split from its embedded header block.
