@@ -109,8 +109,10 @@ public:
   // Transport-neutral JSON bodies, called by both the sync and async routes.
   void emitLoginContext(JsonResponse &resp);
   void emitRfStats(JsonResponse &resp);
-  void emitModuleSettings(JsonResponse &resp);
-  void emitController(JsonResponse &resp, bool includeSecrets);
+  // name != nullptr emits the payload as a named member instead of a bare
+  // object, so /bootstrap can nest the same bodies the single reads serve.
+  void emitModuleSettings(JsonResponse &resp, const char *name = nullptr);
+  void emitController(JsonResponse &resp, bool includeSecrets, const char *name = nullptr);
   // Command cores shared by the transports: they only write into resp when the
   // target exists (headers go out at the first flush), so the shells can still
   // answer the exact legacy error texts otherwise.
@@ -120,8 +122,8 @@ public:
   bool execGroupCommand(somfy_cmd_req_t &cmd, JsonResponse &resp);
   // 0 = sent, 1 = shade missing, 2 = group missing, 3 = no id supplied.
   uint8_t execRepeatCommand(somfy_cmd_req_t &cmd, JsonResponse &resp);
-  void emitNetworkSettings(JsonResponse &resp);
-  void emitMqttSettings(JsonResponse &resp);
+  void emitNetworkSettings(JsonResponse &resp, const char *name = nullptr);
+  void emitMqttSettings(JsonResponse &resp, const char *name = nullptr);
   void emitRadio(JsonResponse &resp);
   // Transport-neutral handlers on the WebRequest facade: the SAME body serves
   // the sync and async servers, so behavior parity is structural. The sync

@@ -506,7 +506,40 @@ var httpStatusText = {
     '504': 'Gateway Timeout',
     '505': 'HTTP Version Not Supported'
 };
-function getJSON(url, cb) {
+// Startup payloads fetched in one go by /bootstrap. Each request costs a
+// fresh TCP connection (the server answers Connection: close), which is
+// nothing on a LAN but around 800ms behind a reverse proxy - so chaining the
+// four reads cost seconds on mobile. They are served from here the first
+// time each is asked for; any later read goes to the network as usual, so a
+// panel reloading after a save still sees fresh data.
+const _boot = { data: null, taken: {} };
+const _bootKeys = {
+    '/modulesettings': 'module',
+    '/controller': 'controller',
+    '/networksettings': 'network',
+    '/mqttsettings': 'mqtt'
+};
+function bootstrapPrime(cb) {
+    _boot.data = null; _boot.taken = {};
+    getJSON('/bootstrap', (err, d) => {
+        if (!err && d) _boot.data = d;
+        if (cb) cb();
+    }, true);
+}
+// Returns the cached payload for this url, or undefined. Consumed once.
+function _bootTake(url) {
+    const key = _bootKeys[url];
+    if (!key || !_boot.data || _boot.taken[key]) return undefined;
+    const val = _boot.data[key];
+    if (typeof val === 'undefined') return undefined;
+    _boot.taken[key] = true;
+    return val;
+}
+function getJSON(url, cb, skipCache) {
+    if (!skipCache) {
+        const cached = _bootTake(url);
+        if (typeof cached !== 'undefined') { setTimeout(() => cb(null, cached), 0); return; }
+    }
     let xhr = new XMLHttpRequest();
     if(DBG) console.log({ get: url });
     xhr.open('GET', baseUrl.length > 0 ? `${baseUrl}${url}` : url, true);
@@ -539,13 +572,24 @@ function getJSON(url, cb) {
 // Same as getJSON, plus a modal wait overlay for the duration of the request.
 // The request itself is asynchronous, like every other one here.
 function getJSONBusy(url, cb) {
-    let overlay = ui.waitMessage(get('divContainer'));
+    const cached = _bootTake(url);
+    if (typeof cached !== 'undefined') { setTimeout(() => cb(null, cached), 0); return; }
+    // The overlay used to appear before the request even left, so a 20ms read
+    // still flashed a spinner. Hold it back: a response that lands inside the
+    // delay never shows one at all.
+    let overlay = null, done = false;
+    const tOverlay = setTimeout(() => { if (!done) overlay = ui.waitMessage(get('divContainer')); }, 250);
+    const clearBusy = () => {
+        done = true;
+        clearTimeout(tOverlay);
+        if (overlay) { overlay.remove(); overlay = null; }
+    };
     let xhr = new XMLHttpRequest();
     xhr.responseType = 'json';
     xhr.onload = () => {
         let status = xhr.status;
         if (status !== 200) {
-            if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
+            if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { clearBusy(); return; }
             let err = xhr.response || {};
             err.htmlError = status;
             err.service = `GET ${url}`;
@@ -556,7 +600,7 @@ function getJSONBusy(url, cb) {
             if(DBG) console.log({ get: url, obj:xhr.response });
             cb(null, xhr.response);
         }
-        if (typeof overlay !== 'undefined') overlay.remove();
+        clearBusy();
     };
 
         xhr.onerror = (evt) => {
@@ -566,11 +610,11 @@ function getJSONBusy(url, cb) {
             };
             if (typeof err.desc === 'undefined') err.desc = xhr.statusText || httpStatusText[xhr.status || 500];
             cb(err, null);
-            if (typeof overlay !== 'undefined') overlay.remove();
+            clearBusy();
         };
             xhr.onabort = (evt) => {
                 if(DBG) console.log('Aborted');
-                if (typeof overlay !== 'undefined') overlay.remove();
+                clearBusy();
             };
                 xhr.open('GET', baseUrl.length > 0 ? `${baseUrl}${url}` : url, true);
                 xhr.setRequestHeader('apikey', security.apiKey);

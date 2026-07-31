@@ -121,6 +121,10 @@ async function initSockets() {
             else {
                 (async () => {
                     ui.clearErrors();
+                    // One round trip for the four payloads below; each loader
+                    // then reads it from the cache instead of opening its own
+                    // connection. Behind a reverse proxy that is seconds saved.
+                    await new Promise(res => bootstrapPrime(res));
                     await general.loadGeneral();
                     await somfy.loadSomfy();
                     // Config panels need auth; skip them until logged in (or type None)

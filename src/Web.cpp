@@ -94,15 +94,15 @@ void Web::startup() {
   //});
 }
 // Bodies shared by the sync and async transports.
-void Web::emitModuleSettings(JsonResponse &resp) {
-  resp.beginObject();
+void Web::emitModuleSettings(JsonResponse &resp, const char *name) {
+  resp.beginObject(name);
   resp.addElem("fwVersion", settings.fwVersion.name);
   settings.toJSON(resp);
   settings.NTP.toJSON(resp);
   resp.endObject();
 }
-void Web::emitNetworkSettings(JsonResponse &resp) {
-  resp.beginObject();
+void Web::emitNetworkSettings(JsonResponse &resp, const char *name) {
+  resp.beginObject(name);
   settings.toJSON(resp);
   resp.addElem("fwVersion", settings.fwVersion.name);
   resp.beginObject("ethernet");
@@ -116,8 +116,8 @@ void Web::emitNetworkSettings(JsonResponse &resp) {
   resp.endObject();
   resp.endObject();
 }
-void Web::emitMqttSettings(JsonResponse &resp) {
-  resp.beginObject();
+void Web::emitMqttSettings(JsonResponse &resp, const char *name) {
+  resp.beginObject(name);
   settings.MQTT.toJSON(resp);
   resp.endObject();
 }
@@ -317,8 +317,8 @@ void Web::handleController(WebServer &server) {
   else server.send(404, _encoding_text, _response_404);
 }
 // Body shared by the sync and async transports.
-void Web::emitController(JsonResponse &resp, bool includeSecrets) {
-  resp.beginObject();
+void Web::emitController(JsonResponse &resp, bool includeSecrets, const char *name) {
+  resp.beginObject(name);
   resp.addElem("maxRooms", (uint8_t)SOMFY_MAX_ROOMS);
   resp.addElem("maxShades", (uint8_t)SOMFY_MAX_SHADES);
   resp.addElem("maxGroups", (uint8_t)SOMFY_MAX_GROUPS);

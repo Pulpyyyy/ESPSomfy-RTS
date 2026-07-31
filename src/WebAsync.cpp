@@ -39,7 +39,11 @@ static size_t g_asyncUploadBytes = 0;
 // async_tcp task runs handlers one at a time: one buffer is enough. Sized to
 // hold the largest single response (a full /controller) so it sends one-shot
 // rather than falling back to the slow stream path.
-static char g_asyncContent[8192];
+// Sized for the largest single response: /bootstrap carries the controller
+// payload plus the three settings blocks. Overflowing only costs speed (the
+// formatter falls back to streaming), but that fallback is what this whole
+// endpoint exists to avoid.
+static char g_asyncContent[12288];
 
 void JsonAsyncResponse::begin(AsyncWebServerRequest *request, char *buff, size_t buffSize) {
   this->request = request;
@@ -519,6 +523,29 @@ void WebAsync::begin() {
     webServer.lastActivity = millis();
     if(!webAsync.ensureAuth(request, true)) return;
     asyncSendJson(request, [&](JsonAsyncResponse &resp) { webServer.emitRadio(resp); });
+  });
+  // Everything the UI needs at startup, in one response. The four separate
+  // reads it replaces cost a fresh TCP connection each (the async library
+  // answers Connection: close), which is nothing on a LAN but dominates
+  // behind a reverse proxy: measured ~800ms apiece there, ~3.2s chained.
+  // Same auth as the parts it carries: the shade world needs a session, and
+  // the network/MQTT blocks hold the WiFi passphrase and broker password, so
+  // they are only included for a config-level session - exactly what
+  // /networksettings and /mqttsettings would each have enforced.
+  asyncServer.on("/bootstrap", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
+    webServer.lastActivity = millis();
+    if(!webAsync.ensureAuth(request, false)) return;
+    bool cfg = webAsync.isAuthenticated(request, true);
+    asyncSendJson(request, [&](JsonAsyncResponse &resp) {
+      resp.beginObject();
+      webServer.emitModuleSettings(resp, "module");
+      webServer.emitController(resp, cfg, "controller");
+      if(cfg) {
+        webServer.emitNetworkSettings(resp, "network");
+        webServer.emitMqttSettings(resp, "mqtt");
+      }
+      resp.endObject();
+    });
   });
   asyncServer.on("/getSecurity", ASYNC_HTTP_GET, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
