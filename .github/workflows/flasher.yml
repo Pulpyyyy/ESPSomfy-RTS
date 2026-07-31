@@ -4,9 +4,13 @@ name: Flasher page (GitHub Pages)
 # onboard images and ESP Web Tools manifests generated from the latest
 # release. Release assets have no CORS headers, so the binaries must be
 # served from the Pages origin itself.
+# Waits for the build rather than listening to the same release event: both
+# used to start together on `release: published`, and this one lost the race,
+# finding no assets to download because the build had not uploaded them yet.
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["ESPSomfy-RTS Build"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -20,6 +24,13 @@ concurrency:
 
 jobs:
   build:
+    # The build runs on every push too; only republish the page when it was a
+    # release that succeeded, or when asked by hand. deploy needs this job, so
+    # skipping here skips the whole workflow.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'release')
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
