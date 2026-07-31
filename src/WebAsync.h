@@ -79,10 +79,10 @@ class WebAsyncRequest : public WebRequest {
 };
 class WebAsync {
   public:
-    // Development port: the synchronous server keeps port 80 fully functional
-    // while routes migrate one phase at a time. The cutover commit moves this
-    // to 80 and retires the synchronous registrations.
-    static constexpr uint16_t PORT = 8082;
+    // The browser-facing server. Was 8082 while routes migrated phase by
+    // phase next to the synchronous server; the cutover moved it to 80 and
+    // retired the synchronous port-80 registrations (Web::begin).
+    static constexpr uint16_t PORT = 80;
     // Set for the duration of an async OTA/filesystem flash. The sync upload
     // path runs in the loop task, so somfy.loop() simply never ran during a
     // flash; an async upload runs in the async_tcp task concurrently with

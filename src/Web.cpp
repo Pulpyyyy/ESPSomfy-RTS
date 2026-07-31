@@ -223,8 +223,9 @@ void Web::handleNetDiag(WebRequest &req) {
   req.endJson();
 }
 void Web::loop() {
-  server.handleClient();
-  delay(1);
+  // Port 80 is served by the async task now; only the HA API server is polled
+  // from here. The delay yields to the idle task (which the watchdog watches)
+  // and bounds how long a request waits behind a loop pass.
   apiServer.handleClient();
   delay(1);
 }
@@ -465,41 +466,13 @@ void Web::begin() {
   // hostHeader() but is collected here too for completeness.
   const char *keys[] = {"apikey", "Host", "Origin", "Referer"};
   const size_t keyCount = sizeof(keys) / sizeof(keys[0]);
-  server.collectHeaders(keys, keyCount);
-  // API Server Handlers
+  // CUTOVER: the async server owns port 80 (WebAsync::begin). The browser
+  // facing routes that used to be registered here now live on it; only the
+  // Home Assistant API server stays synchronous, on its own port 8081.
+  // The sync WebServer object and its handlers are kept because apiServer
+  // still uses them - it simply never listens on 80 any more.
   apiServer.collectHeaders(keys, keyCount);
   this->beginApiRoutes();
-  server.on("/lang", HTTP_GET, [this]() { this->handleLang(server); });
-  server.on("/setLang", HTTP_GET, [this]() { this->handleSetLang(server); });
-
-  server.on("/tiltCommand", []() { webServer.handleTiltCommand(server); });
-  server.on("/repeatCommand", []() { webServer.handleRepeatCommand(server); });
-  server.on("/shadeCommand", []() { webServer.handleShadeCommand(server); });
-  server.on("/groupCommand", []() { webServer.handleGroupCommand(server); });
-  server.on("/setPositions", []() { webServer.handleSetPositions(server); });
-  server.on("/setSensor", []() { webServer.handleSetSensor(server); });
-  server.on("/upnp.xml", []() { SSDP.schema(server.client()); });
-  server.on("/", []() { webServer.handleStreamFile(server, "/index.html.gz", _encoding_html); });
-  server.on("/login", []() { webServer.handleLogin(server); });
-  server.on("/loginContext", []() { webServer.handleLoginContext(server); });
-  // The raw shade config exposes remote addresses and rolling codes.
-  server.on("/shades.cfg", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.cfg", _encoding_text); });
-  server.on("/shades.tmp", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.tmp", _encoding_text); });
-  server.on("/index.js", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/index.js.gz", "text/javascript"); });
-  // base/main/overlays are concatenated into app.css by the build (minify_data.py):
-  // one stylesheet request instead of three on a one-connection-at-a-time server.
-  server.on("/app.css", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/app.css.gz", "text/css"); });
-  server.on("/favicon.svg", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/favicon.svg.gz", "image/svg+xml"); });
-
-  server.on("/editionWifi.webp", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/editionWifi.webp", "image/webp"); });
-  server.on("/editionEthernet.webp", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/editionEthernet.webp", "image/webp"); });
-
-  server.onNotFound([]() { webServer.handleNotFound(server); });
-  this->beginShadeRoutes();
-  this->beginSystemRoutes();
-  this->beginNetworkRoutes();
-  this->beginRadioRoutes();
-  server.begin();
   apiServer.begin();
 }
 
