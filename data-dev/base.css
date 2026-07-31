@@ -1229,9 +1229,15 @@ button:disabled:active {
     --slat-seal: clamp(0, calc(var(--shade-position, 0) - 99), 1);
     --slat-weight: calc(var(--slat-seal) * 0.62px);
     --gap-weight: calc((1 - var(--slat-seal)) * 0.62px);
-    --slat-tone: color-mix(in srgb,
-        var(--accent-color) calc(62% + var(--slat-seal) * 38%),
-        var(--accent-colorDark));
+    /* The slat colour never changes; what deepens is the shadow between the
+       slats once they part. --gap-tone is the surface showing through on the
+       dark-tablier icons, --gap-ink the stripe drawn over a light tablier. */
+    --gap-tone: color-mix(in srgb,
+        var(--accent-colorDark) calc(45% + var(--slat-seal) * 55%),
+        #000);
+    --gap-ink: color-mix(in srgb,
+        #000 calc(13% + (1 - var(--slat-seal)) * 20%),
+        transparent);
 }
 /* Long-press affordance: an accent ring grows while the button is held; it
    completes exactly when the 2s threshold triggers the secondary action

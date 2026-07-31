@@ -2241,11 +2241,11 @@
         <symbol id="svg-window-shade" viewBox="0 0 48 48">
             <path d="M6 11v28h36V11H6zm34 2v24H8V13h32z" fill="var(--svg-shade3)"/>
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
-                <path style="fill:var(--slat-tone, var(--accent-color))" d="M7 11v26h34V11H7z"/>
+                <path d="M7 11v26h34V11H7z" fill="var(--accent-color)"/>
                 <!-- Here the tablier is the light surface and the dark stripes are the gaps,
-                     the reverse of svg-shutter: so the gaps widen as the shade opens instead
-                     of the slats thinning. Same state, drawn on the other stripe. -->
-                <path style="stroke:#0002;stroke-width:var(--gap-weight, 0px)" d="M7 13h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7z" fill="#0002"/>
+                     the reverse of svg-shutter: so the gaps both widen and deepen as the
+                     shade opens, instead of the slats thinning. Same state, other stripe. -->
+                <path style="fill:var(--gap-ink, #0002);stroke:var(--gap-ink, #0002);stroke-width:var(--gap-weight, 0px)" d="M7 13h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7z"/>
                 <path d="M8 12h1v25H8zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1z" fill="#0002"/>
             </g>
             <path d="M6 12h36v-1H6z" fill="var(--svg-shade3)"/>
@@ -2259,8 +2259,9 @@
             <path d="M6 9v30h36V9H6zm34 2v26H8V11h32z" fill="var(--svg-shade3)"/>
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
                 <path d="M10 10v27h1V10h-1zm27 0v27h1V10h-1z" fill="var(--svg-shade4)"/>
-                <!-- Same reading as svg-shutter: these stripes are the slats themselves. -->
-                <path style="fill:var(--slat-tone, var(--accent-color));stroke:var(--slat-tone, var(--accent-color));stroke-width:var(--slat-weight, 0px)" d="M6 12h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6z"/>
+                <!-- Same reading as svg-shutter: these stripes are the slats themselves.
+                     Nothing is drawn between them here, so only their weight carries it. -->
+                <path style="stroke:var(--accent-color);stroke-width:var(--slat-weight, 0px)" d="M6 12h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6z" fill="var(--accent-color)"/>
             </g>
             <path d="M6 10h36v-1H6z" fill="var(--svg-shade3)"/>
             <rect x="5" width="38" height="4" fill="var(--unibloc-color)"/>
@@ -2282,11 +2283,12 @@
         <symbol id="svg-shutter" viewBox="0 0 48 48">
             <path d="M6 9v30h36V9H6zm34 2v26H8V11h32z" fill="var(--svg-shade3)"/>
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
-                <rect x="8" y="11" width="32" height="26" fill="var(--accent-colorDark)"/>
-                <!-- Light stripes are the slat faces, the dark ones between them are the
-                     gaps: joined and full colour when sealed, thinner and dimmer as soon
-                     as the shade opens and daylight comes through. -->
-                <path style="fill:var(--slat-tone, var(--accent-color));stroke:var(--slat-tone, var(--accent-color));stroke-width:var(--slat-weight, 0px)" d="M8 12h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8z"/>
+                <!-- This surface is what shows between the slats: it deepens toward black
+                     as they part, while the slats themselves keep their colour. -->
+                <rect style="fill:var(--gap-tone, var(--accent-colorDark))" x="8" y="11" width="32" height="26"/>
+                <!-- Light stripes are the slat faces: joined when the tablier is sealed,
+                     thinner as soon as it lifts and the gaps open up. -->
+                <path style="stroke:var(--accent-color);stroke-width:var(--slat-weight, 0px)" d="M8 12h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8z" fill="var(--accent-color)"/>
             </g>
             <path d="M6 10h36v-1H6z" fill="var(--svg-shade3)"/>
             <rect x="5" width="38" height="4" fill="var(--unibloc-color)"/>
