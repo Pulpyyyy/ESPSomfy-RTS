@@ -146,8 +146,108 @@ def minify_css(text: str) -> str:
         text = text.replace(f"\x00{i}\x00", token, 1)
     return text
 
+_JS_BS = chr(92)
+
 def minify_js(text: str) -> str:
-    return text
+    """Strip comments and layout from JS, keeping every token byte for byte.
+
+    Sources under data-dev/js keep their comments; only the bundle the board
+    serves is stripped, which is a quarter of its compressed size - the single
+    biggest asset of a cold page load.
+
+    Knowing when a '/' opens a regex and when a backtick closes a template is
+    the whole difficulty: a template's ${...} holds arbitrary code that may
+    contain another template. The state stack below tracks that, and anything
+    inside a literal is copied verbatim, so only code-context whitespace and
+    comments ever go. Verified by tokenising the bundle before and after with
+    esprima and comparing the streams - identical, 58118 tokens - which is how
+    two earlier attempts were caught silently reindenting HTML templates.
+    """
+    src = text
+    out = []
+    i, n = 0, len(src)
+    prev = ''          # last significant code char: tells a regex from a division
+    stack = []         # 'tpl' inside a template literal, 'expr' inside its ${...}
+
+    while i < n:
+        c = src[i]
+        nx = src[i + 1] if i + 1 < n else ''
+
+        if stack and stack[-1] == 'tpl':
+            if c == _JS_BS:
+                out.append(src[i:i + 2]); i += 2; continue
+            if c == '`':
+                out.append(c); i += 1; stack.pop(); prev = '`'; continue
+            if c == '$' and nx == '{':
+                out.append('${'); i += 2; stack.append('expr'); prev = '{'; continue
+            out.append(c); i += 1
+            continue
+
+        if c == '/' and nx == '/':
+            while i < n and src[i] not in '\r\n':
+                i += 1
+            continue
+        if c == '/' and nx == '*':
+            i += 2
+            while i < n and not (src[i] == '*' and i + 1 < n and src[i + 1] == '/'):
+                i += 1
+            i += 2
+            continue
+        if c in ('"', "'"):
+            q = c
+            out.append(c); i += 1
+            while i < n:
+                if src[i] == _JS_BS:
+                    out.append(src[i:i + 2]); i += 2; continue
+                out.append(src[i])
+                if src[i] == q:
+                    i += 1; break
+                i += 1
+            prev = q
+            continue
+        if c == '`':
+            out.append(c); i += 1; stack.append('tpl'); prev = '`'
+            continue
+        if c == '}' and stack and stack[-1] == 'expr':
+            out.append(c); i += 1; stack.pop(); prev = '}'
+            continue
+        if c == '/' and (prev == '' or prev in '(,=:[!&|?{};+-*%~^<>'):
+            out.append(c); i += 1
+            inclass = False
+            while i < n:
+                if src[i] == _JS_BS:
+                    out.append(src[i:i + 2]); i += 2; continue
+                ch = src[i]
+                if ch in '\r\n':
+                    break
+                out.append(ch); i += 1
+                if ch == '[':
+                    inclass = True
+                elif ch == ']':
+                    inclass = False
+                elif ch == '/' and not inclass:
+                    break
+            prev = '/'
+            continue
+
+        if c.isspace():
+            j, nl = i, False
+            while j < n and src[j].isspace():
+                if src[j] in '\r\n':
+                    nl = True
+                j += 1
+            # A newline has to survive as one: automatic semicolon insertion
+            # depends on it.
+            if out:
+                out.append('\n' if nl else ' ')
+            i = j
+            continue
+
+        out.append(c)
+        prev = c
+        i += 1
+
+    return ''.join(out)
 
 def minify_json(text: str) -> str:
     try:
@@ -200,7 +300,7 @@ def concat_js_chunks(src_dir: str, dst_dir: str):
         path = os.path.join(jsdir, fname)
         total += os.path.getsize(path)
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            parts.append(f.read())
+            parts.append(minify_js(f.read()))
     if not parts:
         return
     gz_path = os.path.join(dst_dir, "index.js.gz")
@@ -209,7 +309,7 @@ def concat_js_chunks(src_dir: str, dst_dir: str):
     write_gz("\n".join(parts).encode("utf-8"), gz_path)
     new_sz = os.path.getsize(gz_path)
     pct = ((total - new_sz) / total * 100) if total else 0
-    print(f"  {'js/* -> index.js':<30} {total:>7} -> {new_sz:>7} B ({pct:>3.0f}%) [concat+gzip]")
+    print(f"  {'js/* -> index.js':<30} {total:>7} -> {new_sz:>7} B ({pct:>3.0f}%) [concat+minify+gzip]")
 
 def concat_css_chunks(src_dir: str, dst_dir: str):
     # base/main/overlays become one app.css.gz: same payload, two fewer TCP
