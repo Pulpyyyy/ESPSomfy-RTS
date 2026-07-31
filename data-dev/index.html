@@ -2242,7 +2242,10 @@
             <path d="M6 11v28h36V11H6zm34 2v24H8V13h32z" fill="var(--svg-shade3)"/>
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
                 <path d="M7 11v26h34V11H7z" fill="var(--accent-color)"/>
-                <path d="M7 13h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7z" fill="#0002"/>
+                <!-- Here the tablier is the light surface and the dark stripes are the gaps,
+                     the reverse of svg-shutter: so the gaps both widen and deepen as the
+                     shade opens, instead of the slats thinning. Same state, other stripe. -->
+                <path style="fill:var(--gap-ink, #0002);stroke:var(--gap-ink, #0002);stroke-width:var(--gap-weight, 0px)" d="M7 13h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7z"/>
                 <path d="M8 12h1v25H8zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1z" fill="#0002"/>
             </g>
             <path d="M6 12h36v-1H6z" fill="var(--svg-shade3)"/>
@@ -2256,7 +2259,10 @@
             <path d="M6 9v30h36V9H6zm34 2v26H8V11h32z" fill="var(--svg-shade3)"/>
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
                 <path d="M10 10v27h1V10h-1zm27 0v27h1V10h-1z" fill="var(--svg-shade4)"/>
-                <path d="M6 12h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6z" fill="var(--accent-color)"/>
+                <!-- Same two-set treatment as svg-shutter, on a blind whose slats already
+                     sit 3px apart: 9 slats when sealed, 6 when open. -->
+                <path style="opacity:var(--slat-seal, 1)" d="M6 12h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6z" fill="var(--accent-color)"/>
+                <path style="opacity:calc(1 - var(--slat-seal, 1))" d="M6 12h36v1H6zm0 4.6h36v1H6zm0 4.6h36v1H6zm0 4.6h36v1H6zm0 4.6h36v1H6zm0 4.6h36v1H6z" fill="var(--accent-color)"/>
             </g>
             <path d="M6 10h36v-1H6z" fill="var(--svg-shade3)"/>
             <rect x="5" width="38" height="4" fill="var(--unibloc-color)"/>
@@ -2278,8 +2284,17 @@
         <symbol id="svg-shutter" viewBox="0 0 48 48">
             <path d="M6 9v30h36V9H6zm34 2v26H8V11h32z" fill="var(--svg-shade3)"/>
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
-                <rect x="8" y="11" width="32" height="26" fill="var(--accent-colorDark)"/>
-                <path d="M8 12h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8z" fill="var(--accent-color)"/>
+                <!-- This surface is what shows between the slats: it deepens toward black
+                     as they part, while the slats themselves keep their colour. -->
+                <rect style="fill:var(--gap-tone, var(--accent-colorDark))" x="8" y="11" width="32" height="26"/>
+                <!-- Two slat sets, cross-faded by --slat-seal. Widening the gaps in place
+                     only ever bought fractions of a pixel, which vanish at icon size; so
+                     the open state drops three slats over the same height instead, and
+                     spends the freed room on gaps that are visibly wider than a slat.
+                     Sealed: 13 slats, 1px on 1px. Open: 8 slats, 1px on 2.25px - the gap
+                     has to be more than twice the slat before the drop reads at icon size. -->
+                <path style="opacity:var(--slat-seal, 1)" d="M8 12h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8z" fill="var(--accent-color)"/>
+                <path style="opacity:calc(1 - var(--slat-seal, 1))" d="M8 12h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8zm0 3.25h32v1H8z" fill="var(--accent-color)"/>
             </g>
             <path d="M6 10h36v-1H6z" fill="var(--svg-shade3)"/>
             <rect x="5" width="38" height="4" fill="var(--unibloc-color)"/>

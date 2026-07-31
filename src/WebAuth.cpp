@@ -131,14 +131,19 @@ static bool csrfIsConfiguredHost(const String &h) {
 // is not browser-driven, so the check is skipped there to avoid breaking it.
 bool Web::isSameOrigin(WebServer &server) {
   if(&server == &apiServer) return true;
-  String host = csrfExtractHost(server.hostHeader());
+  return this->originAllowed(server.hostHeader(), server.header("Origin"), server.header("Referer"));
+}
+// Pure policy, shared verbatim by the sync and async transports so the CSRF
+// decision has a single source of truth.
+bool Web::originAllowed(const String &hostHeader, const String &origin, const String &referer) {
+  String host = csrfExtractHost(hostHeader);
   // (a) Anti DNS-rebinding: the Host must be an IP literal or our own hostname.
   //     An absent Host cannot carry a rebinding attack, so it is allowed through.
   if(host.length() != 0 && !csrfIsIpLiteral(host) && !csrfIsConfiguredHost(host)) return false;
   // (b) If the browser sent an Origin or Referer, its host must equal the Host
   //     header; a cross-site page driving this API would carry a foreign origin.
-  String src = server.header("Origin");
-  if(src.length() == 0) src = server.header("Referer");
+  String src = origin;
+  if(src.length() == 0) src = referer;
   if(src.length() != 0 && host.length() != 0) {
     String srcHost = csrfExtractHost(src);
     srcHost.toLowerCase();
@@ -225,26 +230,27 @@ void Web::handleLang(WebServer &server) {
         server.send(404, "text/plain", "Lang file not found");
     }
 }
-void Web::handleSetLang(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) {
-      server.send(200, "OK");
+void Web::handleSetLang(WebServer &server) { WebSyncRequest req(server); this->handleSetLang(req); }
+void Web::handleSetLang(WebRequest &req) {
+    webServer.lastActivity = millis();
+    if(req.method() == HTTP_OPTIONS) {
+      req.send(200, "OK", "");
       return;
     }
 
-    if(!server.hasArg("lang")) {
-      server.send(400, _encoding_json, "{\"error\":\"missing lang\"}");
+    if(!req.hasParam("lang")) {
+      req.send(400, _encoding_json, "{\"error\":\"missing lang\"}");
       return;
     }
 
-    String lang = server.arg("lang");
+    String lang = req.param("lang");
     uint8_t language;
     if(lang == "en") language = 0;
     else if(lang == "fr") language = 1;
     else if(lang == "de") language = 2;
     else if(lang == "es") language = 3;
     else {
-      server.send(400, _encoding_json, "{\"error\":\"unsupported lang\"}");
+      req.send(400, _encoding_json, "{\"error\":\"unsupported lang\"}");
       return;
     }
     // This endpoint is reachable before login, since the language selector sits on the
@@ -254,7 +260,7 @@ void Web::handleSetLang(WebServer &server) {
       settings.language = language;
       settings.save();
     }
-    server.send(200, _encoding_json, "{\"status\":\"ok\"}");
+    req.send(200, _encoding_json, "{\"status\":\"ok\"}");
 }
 void Web::handleLogout(WebServer &server) {
   Serial.println("Logging out of webserver");
@@ -263,21 +269,24 @@ void Web::handleLogout(WebServer &server) {
   server.sendHeader("Set-Cookie", "ESPSOMFYID=0");
   server.send(301);
 }
-void Web::handleLogin(WebServer &server) {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
+void Web::handleLogin(WebServer &server) { WebSyncRequest req(server); this->handleLogin(req); }
+void Web::handleLogin(WebRequest &req) {
+    webServer.lastActivity = millis();
+    if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
     StaticJsonDocument<256> doc;
     JsonObject obj = doc.to<JsonObject>();
     char token[65];
     memset(&token, 0x00, sizeof(token));
-    this->createAPIToken(server.client().remoteIP(), token);
+    this->createAPIToken(req.remoteIP(), token);
+    // Serialized into a local buffer: g_content belongs to the sync transport.
+    char out[384];
     obj["type"] = static_cast<uint8_t>(settings.Security.type);
     if(settings.Security.type == security_types::None) {
       obj["apiKey"] = token;
       obj["msg"] = "Success";
       obj["success"] = true;
-      serializeJson(doc, g_content);
-      server.send(200, _encoding_json, g_content);
+      serializeJson(doc, out, sizeof(out));
+      req.send(200, _encoding_json, out);
       return;
     }
     Serial.println("Web logging in...");
@@ -287,11 +296,11 @@ void Web::handleLogin(WebServer &server) {
     memset(username, 0x00, sizeof(username));
     memset(password, 0x00, sizeof(password));
     memset(pin, 0x00, sizeof(pin));
-    if(server.hasArg("plain")) {
+    if(req.hasBody()) {
       DynamicJsonDocument docin(512);
-      DeserializationError err = deserializeJson(docin, server.arg("plain"));
+      DeserializationError err = deserializeJson(docin, req.body());
       if (err) {
-        this->handleDeserializationError(server, err);
+        this->sendDeserializationError(req, err);
         return;
       }
       else {
@@ -302,16 +311,16 @@ void Web::handleLogin(WebServer &server) {
       }
     }
     else {
-      if(server.hasArg("username")) strlcpy(username, server.arg("username").c_str(), sizeof(username));
-      if(server.hasArg("password")) strlcpy(password, server.arg("password").c_str(), sizeof(password));
-      if(server.hasArg("pin")) strlcpy(pin, server.arg("pin").c_str(), sizeof(pin));
+      if(req.hasParam("username")) strlcpy(username, req.param("username").c_str(), sizeof(username));
+      if(req.hasParam("password")) strlcpy(password, req.param("password").c_str(), sizeof(password));
+      if(req.hasParam("pin")) strlcpy(pin, req.param("pin").c_str(), sizeof(pin));
     }
     // At this point we should have all the data we need to login.
     if(this->_loginLocked()) {
       obj["success"] = false;
       obj["msg"] = "Too many attempts, try again shortly";
-      serializeJson(doc, g_content);
-      server.send(429, _encoding_json, g_content);
+      serializeJson(doc, out, sizeof(out));
+      req.send(429, _encoding_json, out);
       return;
     }
     if(settings.Security.type == security_types::PinEntry) {
@@ -345,8 +354,8 @@ void Web::handleLogin(WebServer &server) {
         obj["apiKey"] = token;
       }
     }
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
+    serializeJson(doc, out, sizeof(out));
+    req.send(200, _encoding_json, out);
     return;
 }
 
@@ -355,6 +364,11 @@ void Web::handleLoginContext(WebServer &server) {
     if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
+    this->emitLoginContext(resp);
+    resp.endResponse();
+}
+// Body shared by the sync and async transports.
+void Web::emitLoginContext(JsonResponse &resp) {
     resp.beginObject();
     resp.addElem("type", static_cast<uint8_t>(settings.Security.type));
     resp.addElem("permissions", settings.Security.permissions);
@@ -386,5 +400,4 @@ void Web::handleLoginContext(WebServer &server) {
     resp.addElem("otaSize", (uint32_t)ESP.getFreeSketchSpace());
     resp.addElem("flashSpeed", (uint32_t)(ESP.getFlashChipSpeed() / 1000000)); // En MHz
     resp.endObject();
-    resp.endResponse();
 }

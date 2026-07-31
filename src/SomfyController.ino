@@ -5,6 +5,7 @@
 #include "ConfigSettings.h"
 #include "Network.h"
 #include "Web.h"
+#include "WebAsync.h"
 #include "Sockets.h"
 #include "Utils.h"
 #include "Somfy.h"
@@ -46,6 +47,7 @@ void setup() {
   Serial.println();
   webServer.startup();
   webServer.begin();
+  webAsync.begin();
   delay(1000);
   net.setup();
   somfy.begin();
@@ -83,8 +85,19 @@ void loop() {
   if(millis() - timing > 100) Serial.printf("Timing Net: %ldms\n", millis() - timing);
   timing = millis();
   esp_task_wdt_reset();
-  somfy.loop();
-  rfStats.loop();
+  // Release the OTA gate if a flash stalled (browser dropped mid-upload), so
+  // somfy does not stay frozen waiting for a final chunk that never comes.
+  webAsync.abortStalledOta();
+  if(!webAsync.otaInProgress) {
+    // Async HTTP handlers run concurrently in the async_tcp task; everything
+    // touching the somfy/rfStats world is serialized on this lock. During an
+    // async OTA flash the radio is shut down and somfy must stay quiescent,
+    // exactly as it does on the sync path (which blocks the loop task for the
+    // whole upload), so skip this block until the flash completes.
+    SomfyGuard guard;
+    somfy.loop();
+    rfStats.loop();
+  }
   if(millis() - timing > 100) Serial.printf("Timing Somfy: %ldms\n", millis() - timing);
   timing = millis();
   esp_task_wdt_reset();

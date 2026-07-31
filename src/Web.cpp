@@ -16,6 +16,9 @@
 #include "GitOTA.h"
 #include "Rollback.h"
 #include "Network.h"
+// LWIP internals for /netDiag: the TCP PCB lists, to watch for socket-pool
+// exhaustion (the wedge symptom: ping alive, every accept dead).
+#include "lwip/priv/tcp_priv.h"
 
 extern ConfigSettings settings;
 extern SSDPClass SSDP;
@@ -44,6 +47,42 @@ extern const char _encoding_json[] = "application/json";
 
 WebServer apiServer(8081);
 WebServer server(80);
+// ---- WebRequest bound to the sync WebServer. ------------------------------
+HTTPMethod WebSyncRequest::method() { return this->_server.method(); }
+bool WebSyncRequest::hasParam(const char *name) { return this->_server.hasArg(name); }
+String WebSyncRequest::param(const char *name) { return this->_server.arg(name); }
+bool WebSyncRequest::hasBody() { return this->_server.hasArg("plain"); }
+const char *WebSyncRequest::body() {
+  if(!this->_bodyLoaded) {
+    this->_body = this->_server.arg("plain");
+    this->_bodyLoaded = true;
+  }
+  return this->_body.c_str();
+}
+void WebSyncRequest::send(int code, const char *contentType, const char *content) {
+  this->_server.send(code, contentType, content);
+}
+bool WebSyncRequest::ensureAuth(bool cfg) { return webServer.ensureAuth(this->_server, cfg); }
+IPAddress WebSyncRequest::remoteIP() { return this->_server.client().remoteIP(); }
+JsonResponse &WebSyncRequest::beginJson() {
+  this->_resp.beginResponse(&this->_server, g_content, sizeof(g_content));
+  return this->_resp;
+}
+void WebSyncRequest::endJson() { this->_resp.endResponse(); }
+// Twin of handleDeserializationError for the facade: same texts.
+void Web::sendDeserializationError(WebRequest &req, DeserializationError &err) {
+  switch (err.code()) {
+    case DeserializationError::InvalidInput:
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON payload\"}");
+      break;
+    case DeserializationError::NoMemory:
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Out of memory parsing JSON\"}");
+      break;
+    default:
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"General JSON Deserialization failed\"}");
+      break;
+  }
+}
 void Web::startup() {
   Serial.println("Launching web server...");
 
@@ -54,9 +93,139 @@ void Web::startup() {
     //server.send(200, "application/json", "{}");
   //});
 }
+// Bodies shared by the sync and async transports.
+void Web::emitModuleSettings(JsonResponse &resp, const char *name) {
+  resp.beginObject(name);
+  resp.addElem("fwVersion", settings.fwVersion.name);
+  settings.toJSON(resp);
+  settings.NTP.toJSON(resp);
+  resp.endObject();
+}
+void Web::emitNetworkSettings(JsonResponse &resp, const char *name) {
+  resp.beginObject(name);
+  settings.toJSON(resp);
+  resp.addElem("fwVersion", settings.fwVersion.name);
+  resp.beginObject("ethernet");
+  settings.Ethernet.toJSON(resp);
+  resp.endObject();
+  resp.beginObject("wifi");
+  settings.WIFI.toJSON(resp);
+  resp.endObject();
+  resp.beginObject("ip");
+  settings.IP.toJSON(resp);
+  resp.endObject();
+  resp.endObject();
+}
+void Web::emitMqttSettings(JsonResponse &resp, const char *name) {
+  resp.beginObject(name);
+  settings.MQTT.toJSON(resp);
+  resp.endObject();
+}
+void Web::emitRadio(JsonResponse &resp) {
+  resp.beginObject();
+  somfy.transceiver.toJSON(resp);
+  resp.endObject();
+}
+size_t Web::buildSecurityJson(char *buff, size_t size) {
+  DynamicJsonDocument doc(192);
+  JsonObject obj = doc.to<JsonObject>();
+  settings.Security.toJSON(obj);
+  return serializeJson(doc, buff, size);
+}
+void Web::emitRfStats(JsonResponse &resp) {
+  resp.beginObject();
+  resp.addElem("frequency", somfy.transceiver.config.frequency);
+  rfStats.toJSON(resp);
+  // The board's own link belongs on the same page: a weak or flapping WiFi
+  // reads exactly like an RF problem from the user's side.
+  resp.beginObject("wifi");
+  resp.addElem("rssi", net.connType == conn_types_t::wifi ? (int32_t)WiFi.RSSI() : (int32_t)0);
+  resp.addElem("channel", (int32_t)net.channel);
+  resp.addElem("reconnects", (uint32_t)net.reconnects);
+  resp.addElem("uptime", (uint32_t)(net.connectedAt > 0 ? (millis() - net.connectedAt) / 1000 : 0));
+  resp.endObject();
+  resp.endObject();
+}
+void Web::handleSendRemoteCommand(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  HTTPMethod method = req.method();
+  if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
+    somfy_frame_t frame;
+    uint8_t repeats = 0;
+    if (req.hasParam("address")) {
+      frame.remoteAddress = atoi(req.param("address").c_str());
+      if (req.hasParam("encKey")) frame.encKey = atoi(req.param("encKey").c_str());
+      if (req.hasParam("command")) frame.cmd = translateSomfyCommand(req.param("command"));
+      if (req.hasParam("rcode")) frame.rollingCode = atoi(req.param("rcode").c_str());
+      if (req.hasParam("repeats")) repeats = atoi(req.param("repeats").c_str());
+    }
+    else if (req.hasBody()) {
+      StaticJsonDocument<128> doc;
+      DeserializationError err = deserializeJson(doc, req.body());
+      if (err) {
+        this->sendDeserializationError(req, err);
+        return;
+      }
+      else {
+        JsonObject obj = doc.as<JsonObject>();
+        String scmd;
+        if (obj.containsKey("address")) frame.remoteAddress = obj["address"];
+        if (obj.containsKey("command")) scmd = obj["command"].as<String>();
+        if (obj.containsKey("repeats")) repeats = obj["repeats"];
+        if (obj.containsKey("rcode")) frame.rollingCode = obj["rcode"];
+        if (obj.containsKey("encKey")) frame.encKey = obj["encKey"];
+        frame.cmd = translateSomfyCommand(scmd.c_str());
+      }
+    }
+    if (frame.remoteAddress > 0 && frame.rollingCode > 0) {
+      somfy.sendFrame(frame, repeats);
+      req.send(200, _encoding_json, "{\"status\":\"SUCCESS\",\"desc\":\"Command Sent\"}");
+    }
+    else
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"No address or rolling code provided\"}");
+  }
+}
+// Diagnostic snapshot of the heap and the LWIP TCP PCB pools. The pools are
+// tiny (16 active PCBs by default): a slow leak of connections wedges every
+// listener while ICMP keeps answering. Walking the lists without the tcpip
+// lock is racy but read-only over pool-allocated nodes, and the walk is
+// bounded; good enough for a diagnostic.
+void Web::handleNetDiag(WebRequest &req) {
+  if(!req.ensureAuth(true)) return;
+  uint16_t active = 0, closeWait = 0, established = 0, timeWait = 0, bound = 0, listening = 0;
+  for(struct tcp_pcb *p = tcp_active_pcbs; p && active < 99; p = p->next) {
+    active++;
+    if(p->state == CLOSE_WAIT) closeWait++;
+    else if(p->state == ESTABLISHED) established++;
+  }
+  for(struct tcp_pcb *p = tcp_tw_pcbs; p && timeWait < 99; p = p->next) timeWait++;
+  for(struct tcp_pcb *p = tcp_bound_pcbs; p && bound < 99; p = p->next) bound++;
+  for(struct tcp_pcb_listen *p = tcp_listen_pcbs.listen_pcbs; p && listening < 99; p = (struct tcp_pcb_listen *)p->next) listening++;
+  JsonResponse &resp = req.beginJson();
+  resp.beginObject();
+  resp.addElem("uptime", (uint32_t)(millis() / 1000));
+  resp.beginObject("heap");
+  resp.addElem("free", (uint32_t)ESP.getFreeHeap());
+  resp.addElem("min", (uint32_t)ESP.getMinFreeHeap());
+  resp.addElem("maxAlloc", (uint32_t)ESP.getMaxAllocHeap());
+  resp.endObject();
+  resp.beginObject("tcp");
+  resp.addElem("active", (uint32_t)active);
+  resp.addElem("established", (uint32_t)established);
+  resp.addElem("closeWait", (uint32_t)closeWait);
+  resp.addElem("timeWait", (uint32_t)timeWait);
+  resp.addElem("bound", (uint32_t)bound);
+  resp.addElem("listen", (uint32_t)listening);
+  resp.endObject();
+  resp.endObject();
+  req.endJson();
+}
 void Web::loop() {
-  server.handleClient();
-  delay(1);
+  // Port 80 is served by the async task now; only the HA API server is polled
+  // from here. The delay yields to the idle task (which the watchdog watches)
+  // and bounds how long a request waits behind a loop pass.
   apiServer.handleClient();
   delay(1);
 }
@@ -142,35 +311,39 @@ void Web::handleController(WebServer &server) {
   if (method == HTTP_POST || method == HTTP_GET) {
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("maxRooms", (uint8_t)SOMFY_MAX_ROOMS);
-    resp.addElem("maxShades", (uint8_t)SOMFY_MAX_SHADES);
-    resp.addElem("maxGroups", (uint8_t)SOMFY_MAX_GROUPS);
-    resp.addElem("maxGroupedShades", (uint8_t)SOMFY_MAX_GROUPED_SHADES);
-    resp.addElem("maxLinkedRemotes", (uint8_t)SOMFY_MAX_LINKED_REMOTES);
-    resp.addElem("startingAddress", (uint32_t)somfy.startingAddress);
-    resp.beginObject("transceiver");
-    somfy.transceiver.toJSON(resp);
-    resp.endObject();
-    resp.beginObject("version");
-    git.toJSON(resp);
-    resp.endObject();
-    resp.beginArray("rooms");
-    somfy.toJSONRooms(resp);
-    resp.endArray();
-    resp.beginArray("shades");
-    somfy.toJSONShades(resp, this->isAuthenticated(server, true));
-    resp.endArray();
-    resp.beginArray("groups");
-    somfy.toJSONGroups(resp, this->isAuthenticated(server, true));
-    resp.endArray();
-    resp.beginArray("repeaters");
-    somfy.toJSONRepeaters(resp);
-    resp.endArray();
-    resp.endObject();
+    this->emitController(resp, this->isAuthenticated(server, true));
     resp.endResponse();
   }
   else server.send(404, _encoding_text, _response_404);
+}
+// Body shared by the sync and async transports.
+void Web::emitController(JsonResponse &resp, bool includeSecrets, const char *name) {
+  resp.beginObject(name);
+  resp.addElem("maxRooms", (uint8_t)SOMFY_MAX_ROOMS);
+  resp.addElem("maxShades", (uint8_t)SOMFY_MAX_SHADES);
+  resp.addElem("maxGroups", (uint8_t)SOMFY_MAX_GROUPS);
+  resp.addElem("maxGroupedShades", (uint8_t)SOMFY_MAX_GROUPED_SHADES);
+  resp.addElem("maxLinkedRemotes", (uint8_t)SOMFY_MAX_LINKED_REMOTES);
+  resp.addElem("startingAddress", (uint32_t)somfy.startingAddress);
+  resp.beginObject("transceiver");
+  somfy.transceiver.toJSON(resp);
+  resp.endObject();
+  resp.beginObject("version");
+  git.toJSON(resp);
+  resp.endObject();
+  resp.beginArray("rooms");
+  somfy.toJSONRooms(resp);
+  resp.endArray();
+  resp.beginArray("shades");
+  somfy.toJSONShades(resp, includeSecrets);
+  resp.endArray();
+  resp.beginArray("groups");
+  somfy.toJSONGroups(resp, includeSecrets);
+  resp.endArray();
+  resp.beginArray("repeaters");
+  somfy.toJSONRepeaters(resp);
+  resp.endArray();
+  resp.endObject();
 }
 void Web::handleBackup(WebServer &server, bool attach) {
   webServer.sendCORSHeaders(server);
@@ -267,19 +440,20 @@ void Web::handleNotFound(WebServer &server) {
 
   server.send(404, _encoding_text, F("404: Not Found"));
 }
-void Web::handleReboot(WebServer &server) {
-  webServer.sendCORSHeaders(server);
-  if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-  if(!this->ensureAuth(server, true)) return;
-  HTTPMethod method = server.method();
+void Web::handleReboot(WebServer &server) { WebSyncRequest req(server); this->handleReboot(req); }
+void Web::handleReboot(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  HTTPMethod method = req.method();
   if (method == HTTP_POST || method == HTTP_PUT) {
     Serial.println("Rebooting ESP...");
     rebootDelay.reboot = true;
     rebootDelay.rebootTime = millis() + 500;
-    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully started reboot\"}");
+    req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully started reboot\"}");
   }
   else {
-    server.send(201, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
+    req.send(201, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
   }
 }
 void Web::begin() {
@@ -292,41 +466,13 @@ void Web::begin() {
   // hostHeader() but is collected here too for completeness.
   const char *keys[] = {"apikey", "Host", "Origin", "Referer"};
   const size_t keyCount = sizeof(keys) / sizeof(keys[0]);
-  server.collectHeaders(keys, keyCount);
-  // API Server Handlers
+  // CUTOVER: the async server owns port 80 (WebAsync::begin). The browser
+  // facing routes that used to be registered here now live on it; only the
+  // Home Assistant API server stays synchronous, on its own port 8081.
+  // The sync WebServer object and its handlers are kept because apiServer
+  // still uses them - it simply never listens on 80 any more.
   apiServer.collectHeaders(keys, keyCount);
   this->beginApiRoutes();
-  server.on("/lang", HTTP_GET, [this]() { this->handleLang(server); });
-  server.on("/setLang", HTTP_GET, [this]() { this->handleSetLang(server); });
-
-  server.on("/tiltCommand", []() { webServer.handleTiltCommand(server); });
-  server.on("/repeatCommand", []() { webServer.handleRepeatCommand(server); });
-  server.on("/shadeCommand", []() { webServer.handleShadeCommand(server); });
-  server.on("/groupCommand", []() { webServer.handleGroupCommand(server); });
-  server.on("/setPositions", []() { webServer.handleSetPositions(server); });
-  server.on("/setSensor", []() { webServer.handleSetSensor(server); });
-  server.on("/upnp.xml", []() { SSDP.schema(server.client()); });
-  server.on("/", []() { webServer.handleStreamFile(server, "/index.html.gz", _encoding_html); });
-  server.on("/login", []() { webServer.handleLogin(server); });
-  server.on("/loginContext", []() { webServer.handleLoginContext(server); });
-  // The raw shade config exposes remote addresses and rolling codes.
-  server.on("/shades.cfg", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.cfg", _encoding_text); });
-  server.on("/shades.tmp", []() { if(!webServer.ensureAuth(server, true)) return; webServer.handleStreamFile(server, "/shades.tmp", _encoding_text); });
-  server.on("/index.js", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/index.js.gz", "text/javascript"); });
-  // base/main/overlays are concatenated into app.css by the build (minify_data.py):
-  // one stylesheet request instead of three on a one-connection-at-a-time server.
-  server.on("/app.css", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/app.css.gz", "text/css"); });
-  server.on("/favicon.svg", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/favicon.svg.gz", "image/svg+xml"); });
-
-  server.on("/editionWifi.webp", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/editionWifi.webp", "image/webp"); });
-  server.on("/editionEthernet.webp", []() { webServer.sendCacheHeaders(604800); webServer.handleStreamFile(server, "/editionEthernet.webp", "image/webp"); });
-
-  server.onNotFound([]() { webServer.handleNotFound(server); });
-  this->beginShadeRoutes();
-  this->beginSystemRoutes();
-  this->beginNetworkRoutes();
-  this->beginRadioRoutes();
-  server.begin();
   apiServer.begin();
 }
 
@@ -350,6 +496,310 @@ void Web::beginApiRoutes() {
   apiServer.on("/downloadFirmware", []() { webServer.handleDownloadFirmware(apiServer); });
   apiServer.on("/backup", []() { webServer.handleBackup(apiServer); });
   apiServer.on("/reboot", []() { webServer.handleReboot(apiServer); });
+}
+// ---- Batch C system-mutation cores on the WebRequest facade. --------------
+void Web::handleSaveSecurity(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "text/html", ""); return; }
+  if(!req.ensureAuth(true)) return;
+
+  StaticJsonDocument<768> doc;
+  if (deserializeJson(doc, req.body())) { req.send(400, "text/plain", "J-Err"); return; }
+
+  if (req.method() == HTTP_POST || req.method() == HTTP_PUT) {
+    JsonObject obj = doc.as<JsonObject>();
+    settings.Security.fromJSON(obj);
+    settings.Security.save();
+
+    doc.clear();
+    obj = doc.to<JsonObject>();
+
+    char token[65];
+    webServer.createAPIToken(req.remoteIP(), token);
+    settings.Security.toJSON(obj);
+    obj["apiKey"] = token;
+
+    char out[768];
+    serializeJson(doc, out, sizeof(out));
+    req.send(200, _encoding_json, out);
+  } else {
+    req.send(405, _encoding_json, "{\"s\":\"ERR\"}");
+  }
+}
+void Web::handleSetGeneral(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  DynamicJsonDocument doc(512);
+  DeserializationError err = deserializeJson(doc, req.body());
+  if (err) {
+    this->sendDeserializationError(req, err);
+    return;
+  }
+  else {
+    JsonObject obj = doc.as<JsonObject>();
+    HTTPMethod method = req.method();
+    if (method == HTTP_POST || method == HTTP_PUT) {
+      // Parse out all the inputs.
+      if (obj.containsKey("hostname") || obj.containsKey("ssdpBroadcast") || obj.containsKey("checkForUpdate")) {
+        bool checkForUpdate = settings.checkForUpdate;
+        settings.fromJSON(obj);
+        settings.save();
+        if(settings.checkForUpdate != checkForUpdate) git.emitUpdateCheck();
+        if(obj.containsKey("hostname")) net.updateHostname();
+      }
+      if (obj.containsKey("ntpServer") || obj.containsKey("ntpServer")) {
+        settings.NTP.fromJSON(obj);
+        settings.NTP.save();
+      }
+      req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully set General Settings\"}");
+    }
+    else {
+      req.send(201, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
+    }
+  }
+}
+void Web::handleSetNetwork(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  DynamicJsonDocument doc(1024);
+  DeserializationError err = deserializeJson(doc, req.body());
+  if (err) {
+    Serial.print("Error parsing JSON ");
+    Serial.println(err.c_str());
+    char msg[128];
+    snprintf(msg, sizeof(msg), "Error parsing JSON body<br>%s", err.c_str());
+    req.send(400, _encoding_html, msg);
+  }
+  else {
+    JsonObject obj = doc.as<JsonObject>();
+    HTTPMethod method = req.method();
+    if (method == HTTP_POST || method == HTTP_PUT) {
+      // Parse out all the inputs.
+      bool reboot = false;
+      if(obj.containsKey("connType") && obj["connType"].as<uint8_t>() != static_cast<uint8_t>(settings.connType)) {
+        settings.connType = static_cast<conn_types_t>(obj["connType"].as<uint8_t>());
+        settings.save();
+        reboot = true;
+      }
+      if(obj.containsKey("wifi")) {
+        JsonObject objWifi = obj["wifi"];
+        // Compare against the applied result since fromJSON keeps the stored
+        // passphrase when the client sends it empty for an unchanged SSID.
+        char oldSsid[sizeof(settings.WIFI.ssid)];
+        char oldPass[sizeof(settings.WIFI.passphrase)];
+        strlcpy(oldSsid, settings.WIFI.ssid, sizeof(oldSsid));
+        strlcpy(oldPass, settings.WIFI.passphrase, sizeof(oldPass));
+        settings.WIFI.fromJSON(objWifi);
+        settings.WIFI.save();
+        if(settings.connType == conn_types_t::wifi &&
+          (strcmp(oldSsid, settings.WIFI.ssid) != 0 || strcmp(oldPass, settings.WIFI.passphrase) != 0)) {
+          if(WiFi.softAPgetStationNum() == 0) reboot = true;
+        }
+      }
+      if(obj.containsKey("ethernet"))
+      {
+        JsonObject objEth = obj["ethernet"];
+        // This is an ethernet connection so if anything changes we need to reboot.
+        if(settings.connType == conn_types_t::ethernet || settings.connType == conn_types_t::ethernetpref)
+          reboot = true;
+        settings.Ethernet.fromJSON(objEth);
+        settings.Ethernet.save();
+      }
+      if (reboot) {
+        Serial.println("Rebooting ESP for new Network settings...");
+        rebootDelay.reboot = true;
+        rebootDelay.rebootTime = millis() + 1000;
+      }
+      req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully set Network Settings\"}");
+    }
+    else {
+      req.send(201, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
+    }
+  }
+}
+void Web::handleSetIP(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  Serial.println("Setting IP...");
+  DynamicJsonDocument doc(1024);
+  DeserializationError err = deserializeJson(doc, req.body());
+  if (err) {
+    this->sendDeserializationError(req, err);
+    return;
+  }
+  else {
+    JsonObject obj = doc.as<JsonObject>();
+    HTTPMethod method = req.method();
+    if (method == HTTP_POST || method == HTTP_PUT) {
+      settings.IP.fromJSON(obj);
+      settings.IP.save();
+      req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully set Network Settings\"}");
+    }
+    else {
+      req.send(201, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
+    }
+  }
+}
+void Web::handleConnectWifi(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  Serial.println("Settings WIFI connection...");
+  DynamicJsonDocument doc(512);
+  DeserializationError err = deserializeJson(doc, req.body());
+  if (err) {
+    this->sendDeserializationError(req, err);
+    return;
+  }
+  else {
+    JsonObject obj = doc.as<JsonObject>();
+    HTTPMethod method = req.method();
+    if (method == HTTP_POST || method == HTTP_PUT) {
+      String ssid = "";
+      String passphrase = "";
+      if (obj.containsKey("ssid")) ssid = obj["ssid"].as<String>();
+      if (obj.containsKey("passphrase")) passphrase = obj["passphrase"].as<String>();
+      // The passphrase is never prefilled client-side; an empty value means
+      // "keep the stored one" unless the target SSID changes.
+      bool ssidChanged = ssid.compareTo(settings.WIFI.ssid) != 0;
+      if (passphrase.length() == 0 && !ssidChanged) passphrase = settings.WIFI.passphrase;
+      bool reboot = ssidChanged || passphrase.compareTo(settings.WIFI.passphrase) != 0;
+      // ssidExists() runs a blocking WiFi scan (a few seconds): a config-time
+      // operation, same stall as the sync transport always had.
+      if (!settings.WIFI.ssidExists(ssid.c_str()) && ssid.length() > 0) {
+        req.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"WiFi Network Does not exist\"}");
+      }
+      else {
+        SETCHARPROP(settings.WIFI.ssid, ssid.c_str(), sizeof(settings.WIFI.ssid));
+        SETCHARPROP(settings.WIFI.passphrase, passphrase.c_str(), sizeof(settings.WIFI.passphrase));
+        settings.WIFI.save();
+        settings.WIFI.print();
+        req.send(201, _encoding_json, "{\"status\":\"OK\",\"desc\":\"Successfully set server connection\"}");
+        if (reboot) {
+          Serial.println("Rebooting ESP for new WiFi settings...");
+          rebootDelay.reboot = true;
+          rebootDelay.rebootTime = millis() + 1000;
+        }
+      }
+    }
+    else {
+      req.send(201, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
+    }
+  }
+}
+void Web::handleConnectMqtt(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  DynamicJsonDocument doc(1024);
+  DeserializationError err = deserializeJson(doc, req.body());
+  if (err) {
+    this->sendDeserializationError(req, err);
+    return;
+  }
+  else {
+    JsonObject obj = doc.as<JsonObject>();
+    HTTPMethod method = req.method();
+    if (method == HTTP_POST || method == HTTP_PUT) {
+      // Reject the payload before dropping the current connection: an empty or
+      // wildcard root topic would scope this device at the broker root.
+      if(!settings.MQTT.fromJSON(obj)) {
+        req.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"The MQTT root topic is required and cannot contain '+' or '#' nor start with '/' or '$'\"}");
+        return;
+      }
+      // Deferred to mqtt.loop(): PubSubClient is not thread-safe and this
+      // handler may run in the async_tcp task.
+      mqtt.reconnectPending = true;
+      settings.MQTT.save();
+      JsonResponse &resp = req.beginJson();
+      resp.beginObject();
+      settings.MQTT.toJSON(resp);
+      resp.endObject();
+      req.endJson();
+    }
+    else {
+      req.send(201, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
+    }
+  }
+}
+void Web::handleSaveRadio(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "text/html", ""); return; }
+  if(!req.ensureAuth(true)) return;
+
+  StaticJsonDocument<512> doc;
+  if (deserializeJson(doc, req.body())) { req.send(400, "text/plain", "J-Err"); return; }
+
+  if (req.method() == HTTP_POST || req.method() == HTTP_PUT) {
+    JsonObject obj = doc.as<JsonObject>();
+    somfy.transceiver.fromJSON(obj);
+    somfy.transceiver.save();
+    // Roll the RF-stats epoch so KPIs accumulated under the old radio settings are
+    // frozen for the before/after comparison; no-op when nothing relevant changed.
+    rfStats.syncEpoch(somfy.transceiver.config.frequency, somfy.transceiver.config.rxBandwidth, somfy.transceiver.config.txPower);
+
+    JsonResponse &resp = req.beginJson();
+    resp.beginObject();
+    somfy.transceiver.toJSON(resp);
+    resp.endObject();
+    req.endJson();
+  } else {
+    req.send(405, _encoding_json, "{\"s\":\"ERR\"}");
+  }
+}
+void Web::handleClearRfStats(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(!req.ensureAuth(true)) return;
+  rfStats.clear();
+  req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics cleared\"}");
+}
+void Web::handleRestoreRfStats(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "text/html", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  // A full 48-entry export is ~8KB of JSON; the document is transient heap.
+  DynamicJsonDocument doc(16384);
+  if(deserializeJson(doc, req.body())) { req.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON\"}"); return; }
+  JsonObject obj = doc.as<JsonObject>();
+  if(!rfStats.restoreJSON(obj)) { req.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid stats payload\"}"); return; }
+  req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics restored\"}");
+}
+void Web::handleSetGuidedRssi(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "text/html", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  StaticJsonDocument<128> doc;
+  if(deserializeJson(doc, req.body())) { req.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON\"}"); return; }
+  JsonObject obj = doc.as<JsonObject>();
+  if(!obj.containsKey("address") || !obj.containsKey("rssi")
+    || !rfStats.setGuided(obj["address"], obj["rssi"])) {
+    req.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid address or RSSI\"}");
+    return;
+  }
+  req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Guided measurement stored\"}");
+}
+void Web::handleBeginFrequencyScan(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(!req.ensureAuth(true)) return;
+  somfy.transceiver.beginFrequencyScan();
+  JsonResponse &resp = req.beginJson();
+  resp.beginObject();
+  somfy.transceiver.toJSON(resp);
+  resp.endObject();
+  req.endJson();
+}
+void Web::handleEndFrequencyScan(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(!req.ensureAuth(true)) return;
+  somfy.transceiver.endFrequencyScan();
+  JsonResponse &resp = req.beginJson();
+  resp.beginObject();
+  somfy.transceiver.toJSON(resp);
+  resp.endObject();
+  req.endJson();
 }
 void Web::beginNetworkRoutes() {
   server.on("/scanaps", []() {
@@ -390,232 +840,25 @@ void Web::beginNetworkRoutes() {
     resp.endObject();
     resp.endResponse();
     });
-  server.on("/saveSecurity", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) return server.send(200);
-    if(!webServer.ensureAuth(server, true)) return;
-
-    StaticJsonDocument<768> doc; // Un seul doc suffit pour l'entrée et la sortie
-    if (deserializeJson(doc, server.arg("plain"))) return server.send(400, "text/plain", F("J-Err"));
-
-    if (server.method() == HTTP_POST || server.method() == HTTP_PUT) {
-      JsonObject obj = doc.as<JsonObject>();
-      settings.Security.fromJSON(obj);
-      settings.Security.save();
-
-      doc.clear();
-      obj = doc.to<JsonObject>();
-
-      char token[65];
-      webServer.createAPIToken(server.client().remoteIP(), token);
-      settings.Security.toJSON(obj);
-      obj["apiKey"] = token;
-
-      serializeJson(doc, g_content);
-      server.send(200, _encoding_json, g_content);
-    } else {
-      server.send(405, _encoding_json, F("{\"s\":\"ERR\"}"));
-    }
-  });
+  server.on("/saveSecurity", []() { WebSyncRequest req(server); webServer.handleSaveSecurity(req); });
   server.on("/getSecurity", []() {
     webServer.sendCORSHeaders(server);
     // The response contains the password and pin in clear text.
     if(!webServer.ensureAuth(server, true)) return;
-    DynamicJsonDocument doc(192);
-    JsonObject obj = doc.to<JsonObject>();
-    settings.Security.toJSON(obj);
-    serializeJson(doc, g_content);
+    webServer.buildSecurityJson(g_content, sizeof(g_content));
     server.send(200, _encoding_json, g_content);
     });
 
-  server.on("/setgeneral", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    DynamicJsonDocument doc(512);
-    
-    Serial.print("Plain: ");
-    Serial.print(server.method());
-    Serial.println(server.arg("plain"));
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      webServer.handleDeserializationError(server, err);
-      return;
-    }
-    else {
-      JsonObject obj = doc.as<JsonObject>();
-      HTTPMethod method = server.method();
-      if (method == HTTP_POST || method == HTTP_PUT) {
-        // Parse out all the inputs.
-        if (obj.containsKey("hostname") || obj.containsKey("ssdpBroadcast") || obj.containsKey("checkForUpdate")) {
-          bool checkForUpdate = settings.checkForUpdate;
-          settings.fromJSON(obj);
-          settings.save();
-          if(settings.checkForUpdate != checkForUpdate) git.emitUpdateCheck();
-          if(obj.containsKey("hostname")) net.updateHostname();
-        }
-        if (obj.containsKey("ntpServer") || obj.containsKey("ntpServer")) {
-          settings.NTP.fromJSON(obj);
-          settings.NTP.save();
-        }
-        server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully set General Settings\"}");
-      }
-      else {
-        server.send(201, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
-      }
-    }
-    });
-  server.on("/setNetwork", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    DynamicJsonDocument doc(1024);
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      Serial.print("Error parsing JSON ");
-      Serial.println(err.c_str());
-      String msg = err.c_str();
-      server.send(400, _encoding_html, "Error parsing JSON body<br>" + msg);
-    }
-    else {
-      JsonObject obj = doc.as<JsonObject>();
-      HTTPMethod method = server.method();
-      if (method == HTTP_POST || method == HTTP_PUT) {
-        // Parse out all the inputs.
-        bool reboot = false;
-        if(obj.containsKey("connType") && obj["connType"].as<uint8_t>() != static_cast<uint8_t>(settings.connType)) {
-          settings.connType = static_cast<conn_types_t>(obj["connType"].as<uint8_t>());
-          settings.save();
-          reboot = true;
-        }
-        if(obj.containsKey("wifi")) {
-          JsonObject objWifi = obj["wifi"];
-          // Compare against the applied result since fromJSON keeps the stored
-          // passphrase when the client sends it empty for an unchanged SSID.
-          char oldSsid[sizeof(settings.WIFI.ssid)];
-          char oldPass[sizeof(settings.WIFI.passphrase)];
-          strlcpy(oldSsid, settings.WIFI.ssid, sizeof(oldSsid));
-          strlcpy(oldPass, settings.WIFI.passphrase, sizeof(oldPass));
-          settings.WIFI.fromJSON(objWifi);
-          settings.WIFI.save();
-          if(settings.connType == conn_types_t::wifi &&
-            (strcmp(oldSsid, settings.WIFI.ssid) != 0 || strcmp(oldPass, settings.WIFI.passphrase) != 0)) {
-            if(WiFi.softAPgetStationNum() == 0) reboot = true;
-          }
-        }
-        if(obj.containsKey("ethernet"))
-        {
-          JsonObject objEth = obj["ethernet"];
-          // This is an ethernet connection so if anything changes we need to reboot.
-          if(settings.connType == conn_types_t::ethernet || settings.connType == conn_types_t::ethernetpref)
-            reboot = true;
-          settings.Ethernet.fromJSON(objEth);
-          settings.Ethernet.save();
-        }
-        if (reboot) {
-          Serial.println("Rebooting ESP for new Network settings...");
-          rebootDelay.reboot = true;
-          rebootDelay.rebootTime = millis() + 1000;
-        }
-        server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully set Network Settings\"}");
-      }
-      else {
-        server.send(201, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
-      }
-    }
-  });
-  server.on("/setIP", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    Serial.println("Setting IP...");
-    DynamicJsonDocument doc(1024);
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      webServer.handleDeserializationError(server, err);
-      return;
-    }
-    else {
-      JsonObject obj = doc.as<JsonObject>();
-      HTTPMethod method = server.method();
-      if (method == HTTP_POST || method == HTTP_PUT) {
-        settings.IP.fromJSON(obj);
-        settings.IP.save();
-        server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Successfully set Network Settings\"}");
-      }
-      else {
-        server.send(201, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
-      }
-    }
-  });
-  server.on("/connectwifi", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    Serial.println("Settings WIFI connection...");
-    DynamicJsonDocument doc(512);
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      webServer.handleDeserializationError(server, err);
-      return;
-    }
-    else {
-      JsonObject obj = doc.as<JsonObject>();
-      HTTPMethod method = server.method();
-      //Serial.print(F("HTTP Method: "));
-      //Serial.println(server.method());
-      if (method == HTTP_POST || method == HTTP_PUT) {
-        String ssid = "";
-        String passphrase = "";
-        if (obj.containsKey("ssid")) ssid = obj["ssid"].as<String>();
-        if (obj.containsKey("passphrase")) passphrase = obj["passphrase"].as<String>();
-        // The passphrase is never prefilled client-side; an empty value means
-        // "keep the stored one" unless the target SSID changes.
-        bool ssidChanged = ssid.compareTo(settings.WIFI.ssid) != 0;
-        if (passphrase.length() == 0 && !ssidChanged) passphrase = settings.WIFI.passphrase;
-        bool reboot = ssidChanged || passphrase.compareTo(settings.WIFI.passphrase) != 0;
-        if (!settings.WIFI.ssidExists(ssid.c_str()) && ssid.length() > 0) {
-          server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"WiFi Network Does not exist\"}");
-        }
-        else {
-          SETCHARPROP(settings.WIFI.ssid, ssid.c_str(), sizeof(settings.WIFI.ssid));
-          SETCHARPROP(settings.WIFI.passphrase, passphrase.c_str(), sizeof(settings.WIFI.passphrase));
-          settings.WIFI.save();
-          settings.WIFI.print();
-          server.send(201, _encoding_json, "{\"status\":\"OK\",\"desc\":\"Successfully set server connection\"}");
-          if (reboot) {
-            Serial.println("Rebooting ESP for new WiFi settings...");
-            rebootDelay.reboot = true;
-            rebootDelay.rebootTime = millis() + 1000;
-          }
-        }
-      }
-      else {
-        server.send(201, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
-      }
-    }
-    });
+  server.on("/setgeneral", []() { WebSyncRequest req(server); webServer.handleSetGeneral(req); });
+  server.on("/setNetwork", []() { WebSyncRequest req(server); webServer.handleSetNetwork(req); });
+  server.on("/setIP", []() { WebSyncRequest req(server); webServer.handleSetIP(req); });
+  server.on("/connectwifi", []() { WebSyncRequest req(server); webServer.handleConnectWifi(req); });
   server.on("/modulesettings", []() {
     webServer.sendCORSHeaders(server);
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("fwVersion", settings.fwVersion.name);
-    settings.toJSON(resp);
-    settings.NTP.toJSON(resp);
-    resp.endObject();
+    webServer.emitModuleSettings(resp);
     resp.endResponse();
-    /*
-    DynamicJsonDocument doc(512);
-    JsonObject obj = doc.to<JsonObject>();
-    doc["fwVersion"] = settings.fwVersion.name;
-    settings.toJSON(obj);
-    //settings.Ethernet.toJSON(obj);
-    //settings.WIFI.toJSON(obj);
-    settings.NTP.toJSON(obj);
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
-    */
     });
   server.on("/networksettings", []() {
     webServer.sendCORSHeaders(server);
@@ -623,260 +866,44 @@ void Web::beginNetworkRoutes() {
     if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    settings.toJSON(resp);
-    resp.addElem("fwVersion", settings.fwVersion.name);
-    resp.beginObject("ethernet");
-    settings.Ethernet.toJSON(resp);
-    resp.endObject();
-    resp.beginObject("wifi");
-    settings.WIFI.toJSON(resp);
-    resp.endObject();
-    resp.beginObject("ip");
-    settings.IP.toJSON(resp);
-    resp.endObject();
-    resp.endObject();
+    webServer.emitNetworkSettings(resp);
     resp.endResponse();
-    
-    /*
-    DynamicJsonDocument doc(2048);
-    JsonObject obj = doc.to<JsonObject>();
-    doc["fwVersion"] = settings.fwVersion.name;
-    settings.toJSON(obj);
-    JsonObject eth = obj.createNestedObject("ethernet");
-    settings.Ethernet.toJSON(eth);
-    JsonObject wifi = obj.createNestedObject("wifi");
-    settings.WIFI.toJSON(wifi);
-    JsonObject ip = obj.createNestedObject("ip");
-    settings.IP.toJSON(ip);
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
-    */
     });
-  server.on("/connectmqtt", []() {
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    DynamicJsonDocument doc(1024);
-    DeserializationError err = deserializeJson(doc, server.arg("plain"));
-    if (err) {
-      webServer.handleDeserializationError(server, err);
-      return;
-    }
-    else {
-      JsonObject obj = doc.as<JsonObject>();
-      HTTPMethod method = server.method();
-      Serial.print("Saving MQTT ");
-      Serial.print(F("HTTP Method: "));
-      Serial.println(server.method());
-      if (method == HTTP_POST || method == HTTP_PUT) {
-        // Reject the payload before dropping the current connection: an empty or
-        // wildcard root topic would scope this device at the broker root.
-        if(!settings.MQTT.fromJSON(obj)) {
-          server.send(400, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"The MQTT root topic is required and cannot contain '+' or '#' nor start with '/' or '$'\"}"));
-          return;
-        }
-        mqtt.disconnect();
-        settings.MQTT.save();
-        JsonResponse resp;
-        resp.beginResponse(&server, g_content, sizeof(g_content));
-        resp.beginObject();
-        settings.MQTT.toJSON(resp);
-        resp.endObject();
-        resp.endResponse();
-        /*
-        DynamicJsonDocument sdoc(1024);
-        JsonObject sobj = sdoc.to<JsonObject>();
-        settings.MQTT.toJSON(sobj);
-        serializeJson(sdoc, g_content);
-        server.send(200, _encoding_json, g_content);
-        */
-      }
-      else {
-        server.send(201, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Invalid HTTP Method: \"}");
-      }
-    }
-    });
+  server.on("/connectmqtt", []() { WebSyncRequest req(server); webServer.handleConnectMqtt(req); });
   server.on("/mqttsettings", []() {
     webServer.sendCORSHeaders(server);
     // The response contains the MQTT password.
     if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    settings.MQTT.toJSON(resp);
-    resp.endObject();
+    webServer.emitMqttSettings(resp);
     resp.endResponse();
-    
-    /*
-    DynamicJsonDocument doc(1024);
-    JsonObject obj = doc.to<JsonObject>();
-    settings.MQTT.toJSON(obj);
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
-    */
     });
 }
 void Web::beginRadioRoutes() {
-  server.on("/saveRadio", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) return server.send(200);
-    if(!webServer.ensureAuth(server, true)) return;
-
-    StaticJsonDocument<512> doc; // Réduit de 1024 à 768 si tes réglages radio sont simples
-    if (deserializeJson(doc, server.arg("plain"))) return server.send(400, "text/plain", F("J-Err"));
-
-    if (server.method() == HTTP_POST || server.method() == HTTP_PUT) {
-      JsonObject obj = doc.as<JsonObject>();
-      somfy.transceiver.fromJSON(obj);
-      somfy.transceiver.save();
-      // Roll the RF-stats epoch so KPIs accumulated under the old radio settings are
-      // frozen for the before/after comparison; no-op when nothing relevant changed.
-      rfStats.syncEpoch(somfy.transceiver.config.frequency, somfy.transceiver.config.rxBandwidth, somfy.transceiver.config.txPower);
-
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      somfy.transceiver.toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-    } else {
-      server.send(405, _encoding_json, F("{\"s\":\"ERR\"}"));
-    }
-  });
+  server.on("/saveRadio", []() { WebSyncRequest req(server); webServer.handleSaveRadio(req); });
   server.on("/getRadio", []() {
     webServer.sendCORSHeaders(server);
     // Config-level read, same gate as /saveRadio and the scan endpoints.
     if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    somfy.transceiver.toJSON(resp);
-    resp.endObject();
+    webServer.emitRadio(resp);
     resp.endResponse();
     });
-  server.on("/sendRemoteCommand", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    HTTPMethod method = server.method();
-    if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
-      somfy_frame_t frame;
-      uint8_t repeats = 0;
-      if (server.hasArg("address")) {
-        frame.remoteAddress = atoi(server.arg("address").c_str());
-        if (server.hasArg("encKey")) frame.encKey = atoi(server.arg("encKey").c_str());
-        if (server.hasArg("command")) frame.cmd = translateSomfyCommand(server.arg("command"));
-        if (server.hasArg("rcode")) frame.rollingCode = atoi(server.arg("rcode").c_str());
-        if (server.hasArg("repeats")) repeats = atoi(server.arg("repeats").c_str());
-      }
-      else if (server.hasArg("plain")) {
-        StaticJsonDocument<128> doc;
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-          webServer.handleDeserializationError(server, err);
-          return;
-        }
-        else {
-          JsonObject obj = doc.as<JsonObject>();
-          String scmd;
-          if (obj.containsKey("address")) frame.remoteAddress = obj["address"];
-          if (obj.containsKey("command")) scmd = obj["command"].as<String>();
-          if (obj.containsKey("repeats")) repeats = obj["repeats"];
-          if (obj.containsKey("rcode")) frame.rollingCode = obj["rcode"];
-          if (obj.containsKey("encKey")) frame.encKey = obj["encKey"];
-          frame.cmd = translateSomfyCommand(scmd.c_str());
-        }
-      }
-      if (frame.remoteAddress > 0 && frame.rollingCode > 0) {
-        somfy.sendFrame(frame, repeats);
-        server.send(200, _encoding_json, F("{\"status\":\"SUCCESS\",\"desc\":\"Command Sent\"}"));
-      }
-      else
-        server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"No address or rolling code provided\"}"));
-    }
-    });
-  server.on("/beginFrequencyScan", []() {
-    webServer.sendCORSHeaders(server);
-    if(!webServer.ensureAuth(server, true)) return;
-    somfy.transceiver.beginFrequencyScan();
-    JsonResponse resp;
-    resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    somfy.transceiver.toJSON(resp);
-    resp.endObject();
-    resp.endResponse();
-    /*
-    DynamicJsonDocument doc(1024);
-    JsonObject obj = doc.to<JsonObject>();
-    somfy.transceiver.toJSON(obj);
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
-    */
-  });
-  server.on("/endFrequencyScan", []() {
-    webServer.sendCORSHeaders(server);
-    if(!webServer.ensureAuth(server, true)) return;
-    somfy.transceiver.endFrequencyScan();
-    JsonResponse resp;
-    resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    somfy.transceiver.toJSON(resp);
-    resp.endObject();
-    resp.endResponse();
-    /*
-    DynamicJsonDocument doc(1024);
-    JsonObject obj = doc.to<JsonObject>();
-    somfy.transceiver.toJSON(obj);
-    serializeJson(doc, g_content);
-    server.send(200, _encoding_json, g_content);
-    */
-  });
+  server.on("/sendRemoteCommand", []() { WebSyncRequest req(server); webServer.handleSendRemoteCommand(req); });
+  server.on("/netDiag", []() { WebSyncRequest req(server); webServer.handleNetDiag(req); });
+  server.on("/beginFrequencyScan", []() { WebSyncRequest req(server); webServer.handleBeginFrequencyScan(req); });
+  server.on("/endFrequencyScan", []() { WebSyncRequest req(server); webServer.handleEndFrequencyScan(req); });
   server.on("/rfStats", []() {
     webServer.sendCORSHeaders(server);
     if(!webServer.ensureAuth(server, true)) return;
     JsonResponse resp;
     resp.beginResponse(&server, g_content, sizeof(g_content));
-    resp.beginObject();
-    resp.addElem("frequency", somfy.transceiver.config.frequency);
-    rfStats.toJSON(resp);
-    // The board's own link belongs on the same page: a weak or flapping WiFi
-    // reads exactly like an RF problem from the user's side.
-    resp.beginObject("wifi");
-    resp.addElem("rssi", net.connType == conn_types_t::wifi ? (int32_t)WiFi.RSSI() : (int32_t)0);
-    resp.addElem("channel", (int32_t)net.channel);
-    resp.addElem("reconnects", (uint32_t)net.reconnects);
-    resp.addElem("uptime", (uint32_t)(net.connectedAt > 0 ? (millis() - net.connectedAt) / 1000 : 0));
-    resp.endObject();
-    resp.endObject();
+    webServer.emitRfStats(resp);
     resp.endResponse();
   });
-  server.on("/clearRfStats", []() {
-    webServer.sendCORSHeaders(server);
-    if(!webServer.ensureAuth(server, true)) return;
-    rfStats.clear();
-    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics cleared\"}");
-  });
-  server.on("/restoreRfStats", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) return server.send(200);
-    if(!webServer.ensureAuth(server, true)) return;
-    // A full 48-entry export is ~8KB of JSON; the document is transient heap.
-    DynamicJsonDocument doc(16384);
-    if(deserializeJson(doc, server.arg("plain"))) return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON\"}");
-    JsonObject obj = doc.as<JsonObject>();
-    if(!rfStats.restoreJSON(obj)) return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid stats payload\"}");
-    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"RF statistics restored\"}");
-  });
-  server.on("/setGuidedRssi", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) return server.send(200);
-    if(!webServer.ensureAuth(server, true)) return;
-    StaticJsonDocument<128> doc;
-    if(deserializeJson(doc, server.arg("plain"))) return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid JSON\"}");
-    JsonObject obj = doc.as<JsonObject>();
-    if(!obj.containsKey("address") || !obj.containsKey("rssi")
-      || !rfStats.setGuided(obj["address"], obj["rssi"]))
-      return server.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Invalid address or RSSI\"}");
-    server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Guided measurement stored\"}");
-  });
+  server.on("/clearRfStats", []() { WebSyncRequest req(server); webServer.handleClearRfStats(req); });
+  server.on("/restoreRfStats", []() { WebSyncRequest req(server); webServer.handleRestoreRfStats(req); });
+  server.on("/setGuidedRssi", []() { WebSyncRequest req(server); webServer.handleSetGuidedRssi(req); });
 }

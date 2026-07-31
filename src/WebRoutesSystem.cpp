@@ -60,25 +60,7 @@ void Web::beginSystemRoutes() {
     resp.endResponse();
   });
   server.on("/downloadFirmware", []() { webServer.handleDownloadFirmware(server); });
-  server.on("/cancelFirmware", []() {
-    webServer.sendCORSHeaders(server);
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    if(!webServer.ensureAuth(server, true)) return;
-    // If we are currently downloading the filesystem we cannot cancel.
-    if(!git.lockFS) {
-      git.status = GIT_UPDATE_CANCELLING;
-      JsonResponse resp;
-      resp.beginResponse(&server, g_content, sizeof(g_content));
-      resp.beginObject();
-      git.toJSON(resp);
-      resp.endObject();
-      resp.endResponse();
-      git.cancelled = true;
-    }
-    else {
-      server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Cannot cancel during filesystem update.\"}"));
-    }
-  });
+  server.on("/cancelFirmware", []() { WebSyncRequest req(server); webServer.handleCancelFirmware(req); });
   server.on("/backup", []() { webServer.handleBackup(server, true); });
   server.on("/restore", HTTP_POST, []() {
     webServer.sendCORSHeaders(server);
@@ -345,17 +327,37 @@ void Web::beginSystemRoutes() {
       esp_task_wdt_reset();
     });
   server.on("/reboot", []() { webServer.handleReboot(server);});
-  server.on("/recoverFilesystem", [] () {
-    if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
-    webServer.sendCORSHeaders(server);
-    if(!webServer.ensureAuth(server, true)) return;
-    if(git.status == GIT_UPDATING)
-      server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Filesystem is updating.  Please wait!!!\"}");
-    else if(git.status != GIT_STATUS_READY)
-      server.send(200, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Cannot recover file system at this time.\"}");
-    else {
-      git.recoverFilesystem();
-      server.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Recovering filesystem from github please wait!!!\"}");
-    }
-  });
+  server.on("/recoverFilesystem", []() { WebSyncRequest req(server); webServer.handleRecoverFilesystem(req); });
+}
+// ---- Batch C cores on the WebRequest facade. ------------------------------
+void Web::handleCancelFirmware(WebRequest &req) {
+  webServer.lastActivity = millis();
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  if(!req.ensureAuth(true)) return;
+  // If we are currently downloading the filesystem we cannot cancel.
+  if(!git.lockFS) {
+    git.status = GIT_UPDATE_CANCELLING;
+    JsonResponse &resp = req.beginJson();
+    resp.beginObject();
+    git.toJSON(resp);
+    resp.endObject();
+    req.endJson();
+    git.cancelled = true;
+  }
+  else {
+    req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Cannot cancel during filesystem update.\"}");
+  }
+}
+void Web::handleRecoverFilesystem(WebRequest &req) {
+  if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+  webServer.lastActivity = millis();
+  if(!req.ensureAuth(true)) return;
+  if(git.status == GIT_UPDATING)
+    req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Filesystem is updating.  Please wait!!!\"}");
+  else if(git.status != GIT_STATUS_READY)
+    req.send(200, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Cannot recover file system at this time.\"}");
+  else {
+    git.recoverFilesystem();
+    req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Recovering filesystem from github please wait!!!\"}");
+  }
 }
