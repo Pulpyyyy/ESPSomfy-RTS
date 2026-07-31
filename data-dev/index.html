@@ -2242,7 +2242,12 @@
             <path d="M6 11v28h36V11H6zm34 2v24H8V13h32z" fill="var(--svg-shade3)"/>
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
                 <path d="M7 11v26h34V11H7z" fill="var(--accent-color)"/>
-                <path d="M7 13h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7z" fill="#0002"/>
+                <!-- The slat lines are the gaps light comes through. A tablier at 99% still
+                     leaks light but only sits a quarter of a pixel higher than a sealed one,
+                     so the state is carried by the line weight: thin when sealed at 100,
+                     thick as soon as the gaps open. Capped below the gap height, otherwise
+                     the lines merge and the slats disappear. -->
+                <path style="stroke:#0002;stroke-width:clamp(0px, calc((100 - var(--shade-position, 0)) * 1px), 0.62px)" d="M7 13h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7zm0 3h34v1H7z" fill="#0002"/>
                 <path d="M8 12h1v25H8zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1zm2 0h1v25h-1z" fill="#0002"/>
             </g>
             <path d="M6 12h36v-1H6z" fill="var(--svg-shade3)"/>
@@ -2256,7 +2261,8 @@
             <path d="M6 9v30h36V9H6zm34 2v26H8V11h32z" fill="var(--svg-shade3)"/>
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
                 <path d="M10 10v27h1V10h-1zm27 0v27h1V10h-1z" fill="var(--svg-shade4)"/>
-                <path d="M6 12h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6z" fill="var(--accent-color)"/>
+                <!-- Line weight carries the sealed/ajar state, see svg-window-shade. -->
+                <path style="stroke:var(--accent-color);stroke-width:clamp(0px, calc((100 - var(--shade-position, 0)) * 1px), 0.62px)" d="M6 12h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6zm0 3h36v1H6z" fill="var(--accent-color)"/>
             </g>
             <path d="M6 10h36v-1H6z" fill="var(--svg-shade3)"/>
             <rect x="5" width="38" height="4" fill="var(--unibloc-color)"/>
@@ -2279,7 +2285,8 @@
             <path d="M6 9v30h36V9H6zm34 2v26H8V11h32z" fill="var(--svg-shade3)"/>
             <g class="lattes-group" style="transform:translateY(calc(-26px + (0.26px * var(--shade-position, 0))))">
                 <rect x="8" y="11" width="32" height="26" fill="var(--accent-colorDark)"/>
-                <path d="M8 12h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8z" fill="var(--accent-color)"/>
+                <!-- Line weight carries the sealed/ajar state, see svg-window-shade. -->
+                <path style="stroke:var(--accent-color);stroke-width:clamp(0px, calc((100 - var(--shade-position, 0)) * 1px), 0.62px)" d="M8 12h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8zm0 2h32v1H8z" fill="var(--accent-color)"/>
             </g>
             <path d="M6 10h36v-1H6z" fill="var(--svg-shade3)"/>
             <rect x="5" width="38" height="4" fill="var(--unibloc-color)"/>
