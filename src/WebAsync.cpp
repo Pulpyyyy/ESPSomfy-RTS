@@ -292,6 +292,11 @@ static void startFileTransfer(AsyncWebServerRequest *request, const char *path, 
   response->removeHeader("Content-Disposition");
   if(cache) response->addHeader(F("Cache-Control"), F("public, max-age=604800, immutable"));
   if(index) {
+    // This document carries the content hashes of the bundles, so it is the
+    // one file that must never be reused blind. With no directive at all a
+    // proxy or a service worker may cache it heuristically, and stale HTML
+    // pointing at fresh assets is what makes a page fight itself and reload.
+    response->addHeader(F("Cache-Control"), F("no-cache, must-revalidate"));
     response->addHeader(F("Content-Security-Policy"), FPSTR(_csp));
     response->addHeader(F("X-Content-Type-Options"), F("nosniff"));
   }
