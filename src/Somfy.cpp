@@ -75,7 +75,7 @@ void SomfyShade::clear() {
   this->curveGain = 0.0f;
   this->tiltTime = 7000;
   this->stepSize = 100;
-  this->repeats = 1;
+  this->repeats = SOMFY_MIN_REPEATS;
   this->sortOrder = 255;
 }
 void SomfyRoom::clear() {
@@ -85,7 +85,7 @@ void SomfyRoom::clear() {
 void SomfyGroup::clear() {
   this->setGroupId(255);
   this->setRemoteAddress(0);
-  this->repeats = 0;
+  this->repeats = SOMFY_MIN_REPEATS;
   this->roomId = 0;
   this->name[0] = 0x00;
   memset(&this->linkedShades, 0x00, sizeof(this->linkedShades));

@@ -59,6 +59,8 @@
     --md-surface-container-high:#e8e7ec; --md-surface-container-highest:#e3e1e6;
     --md-on-surface:#1b1b1f; --md-on-surface-variant:#45464f;
     --md-outline:#767680; --md-outline-variant:#c6c5d0;
+    --md-error:#ba1a1a; --md-on-error:#ffffff;
+    --md-error-container:#ffdad6; --md-on-error-container:#410002;
     --md-elevation-1:0 1px 2px rgba(0,0,0,.20), 0 1px 3px 1px rgba(0,0,0,.10);
     --md-elevation-2:0 1px 2px rgba(0,0,0,.20), 0 2px 6px 2px rgba(0,0,0,.12);
     /* App roles mapped onto MD3 */
@@ -74,6 +76,7 @@
     --border:var(--md-outline-variant);
     --hr-color:var(--md-outline-variant);
     --help:var(--md-outline);
+    --danger-color:var(--md-error);
     --border-lbc:var(--md-outline-variant);
     /* Component-specific tokens */
     --invertxt-color: #e4e3e8;
@@ -127,6 +130,8 @@
     --md-surface-container-high:#282a2d; --md-surface-container-highest:#333438;
     --md-on-surface:#e4e1e6; --md-on-surface-variant:#c6c5d0;
     --md-outline:#90909a; --md-outline-variant:#45464f;
+    --md-error:#ffb4ab; --md-on-error:#690005;
+    --md-error-container:#93000a; --md-on-error-container:#ffdad6;
     --md-elevation-1:0 1px 2px rgba(0,0,0,.50), 0 1px 3px 1px rgba(0,0,0,.30);
     --md-elevation-2:0 1px 2px rgba(0,0,0,.50), 0 2px 6px 2px rgba(0,0,0,.30);
     /* App roles mapped onto MD3 */
@@ -142,6 +147,7 @@
     --border:var(--md-outline-variant);
     --hr-color:var(--md-outline-variant);
     --help:var(--md-outline);
+    --danger-color:var(--md-error);
     --border-lbc:var(--md-outline-variant);
     /* Component-specific tokens */
     --invertxt-color: #000000;
@@ -191,7 +197,6 @@ body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif; }
 .buttonUpdate,
 .unibutton,
 .uniGroupButton,
-.bloc80slidStep label,
 .vr-progFav,
 .blocRadioHeader,
 .rssi-row,
@@ -784,6 +789,16 @@ input[type="radio"]:hover {
     letter-spacing: 0.5px;
     flex: 0 0 100px;
 }
+/* Permanent range hint, parked where a dropdown chevron would otherwise sit. The
+   placeholder that used to carry this information only shows on an empty field, and
+   these fields are filled from the config the moment the panel opens. */
+.input-hint {
+    flex: 0 0 auto;
+    font-size: var(--fs-xs);
+    color: var(--soustxt-color);
+    white-space: nowrap;
+    pointer-events: none;
+}
 .step-buttons-warp {
     flex: 0 0 100px;
     justify-content: flex-end;
@@ -814,6 +829,11 @@ input[type="radio"]:hover {
     padding: 2px;
     height: 32px;
     flex-shrink: 0;
+    /* The two buttons carry 48px touch targets (see below) around 28px of visible
+       button. Sitting flush, those targets overlapped by 20px and the later sibling
+       won, so the right edge of "-" incremented. This gap is wide enough that the
+       overlap falls entirely between the buttons instead of onto one of them. */
+    gap: var(--sp-12);
 }
 .step-buttons button {
     background: transparent;
@@ -829,6 +849,29 @@ input[type="radio"]:hover {
 .step-buttons button:hover {
     background: rgba(255, 255, 255, 0.08);
     color: var(--color);
+}
+/* Repeat count: the value is typed straight into the field, and the +/- pair sits at the
+   right edge of the row so nudging it by one never costs a keyboard on a phone. The row
+   is a .unibloc child, which is already position: relative. */
+/* Wide enough to clear the 72px stepper parked on the right of the row. */
+.repeatField { padding-right: 86px !important; }
+.repeatSteps {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+}
+/* Validation belongs under the field that failed -- M3 supporting text, switched to the
+   error role. The text itself carries the message: colour is never the only signal. */
+.field-error {
+    font-size: var(--fs-xs);
+    line-height: 1.35;
+    color: var(--md-error);
+    margin: var(--sp-4) 0 0;
+}
+/* box-shadow rather than a border: the fields draw no border of their own, and adding
+   one here would shift every row below by 2px on the way in and out of the error state. */
+.is-invalid {
+    box-shadow: 0 2px 0 0 var(--md-error);
 }
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
@@ -1420,8 +1463,9 @@ button:disabled:active {
     }
 }
 
-/* Small round controls were 28px, below the ~44px comfortable touch target, and sat next
-   to each other. Keep the visual size but extend the hit area so mobile taps land. */
+/* Small round controls are 28px, below the 48dp minimum touch target M3 asks for. Keep
+   the visual size and extend the hit area to 48px; .step-buttons spaces its pair so the
+   two targets never claim the same pixel. */
 .step-buttons button,
 .btn-none-shortcut {
     position: relative;
@@ -1432,8 +1476,8 @@ button:disabled:active {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     transform: translate(-50%, -50%);
 }
 

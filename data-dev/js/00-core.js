@@ -5,6 +5,12 @@ var hst = '192.168.4.1';
 var DBG = false; // UI debug logging (requests, heap); never logs secrets
 
 var _rooms = [];
+// TX repeat frames sent after the first one. RTS is one-way: nothing tells us the motor
+// heard the command, so the only defence against a lost frame is to send it again. One
+// repeat leaves a single retry and misses show up as a shade that "sometimes" ignores an
+// order, so 2 is the floor the UI defaults to and the RF advice never goes below.
+const MIN_REPEATS = 2;
+const DEFAULT_REPEATS = 2;
 let LANG = {};
 // Reverse-proxy support: when the UI is served under a sub-path (e.g.
 // https://ha.local/espsomfy/), every API path must carry that prefix. Served
@@ -22,6 +28,25 @@ document.addEventListener('touchstart', () => { mouseDown = true; }, { capture: 
 document.addEventListener('touchend', () => { mouseDown = false; }, true);
 document.addEventListener('touchcancel', () => { mouseDown = false; }, true);
 const get = id => document.getElementById(id);
+// Hold a number field inside its own min/max. type="number" only constrains its spinner:
+// typed and pasted values go through untouched, so without this the device receives
+// whatever was in the box. An emptied field falls back to `dflt` rather than to the
+// minimum, because for most of these settings the minimum is a meaningful value someone
+// did not choose.
+function clampNumField(el, dflt) {
+    if (!el) return;
+    const num = el.getAttribute('data-datatype') === 'float'
+        ? (s) => parseFloat(s)
+        : (s) => parseInt(s, 10);
+    const min = num(el.min);
+    const max = num(el.max);
+    let v = num(el.value);
+    if (isNaN(v)) v = typeof dflt === 'number' ? dflt : (isNaN(min) ? 0 : min);
+    if (!isNaN(min)) v = Math.max(min, v);
+    if (!isNaN(max)) v = Math.min(max, v);
+    el.value = v;
+    return v;
+}
 // Escape device-/user-controlled strings for safe use in HTML text and quoted attributes (XSS).
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 // Attribute bundle that turns a generated <div> control into a real button for the

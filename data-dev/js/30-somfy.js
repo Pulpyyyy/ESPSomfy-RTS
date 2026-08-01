@@ -194,6 +194,16 @@ class Somfy {
             }
         });
     }
+    // Nudge a numeric field, through the same clamp typing goes through so the keyboard
+    // and the buttons can never disagree. An emptied field reads as `dflt`, not as zero.
+    stepField(id, delta, dflt) {
+        const el = get(id);
+        if (!el) return;
+        el.value = (parseInt(el.value, 10) || 0) + delta;
+        clampNumField(el, dflt);
+    }
+    clampRepeats(el) { return clampNumField(el, DEFAULT_REPEATS); }
+    stepRepeats(id, direction) { this.stepField(id, direction, DEFAULT_REPEATS); }
     stepGpio(pinKey, direction) {
         const newValue = stepDeviceGpio(pinKey, direction, 'Trans', 'selRadioBoardType', val => val === 255, this.pinMaps);
         if (newValue === undefined) return;
@@ -1071,11 +1081,37 @@ class Somfy {
 
         // The per-item handlers die with the items, which are replaced wholesale on every
         // refresh, so they need no explicit teardown.
+        // Arrow presses are discrete moves, so each one would post the whole order. Coalesce
+        // a held key into a single write once the user stops moving the row.
+        let kbTimer = null;
+        const persist = () => {
+            if (kbTimer) clearTimeout(kbTimer);
+            kbTimer = setTimeout(() => { kbTimer = null; if (typeof cb === 'function') cb(list); }, 400);
+        };
         list.querySelectorAll(cl).forEach(it => {
             let h = it.querySelector('.drag-handle');
             if (h) {
                 h.addEventListener('touchstart', (e) => start(e, it), { passive: true });
                 h.addEventListener('mousedown', (e) => start(e, it));
+                // The pointer drag had no keyboard equivalent, which left the order of the
+                // list unreachable without a mouse or a touchscreen. The handle becomes a
+                // real button and the arrows move the row through the same callback the
+                // drop uses, so both paths persist identically.
+                h.setAttribute('role', 'button');
+                h.setAttribute('tabindex', '0');
+                h.setAttribute('aria-label', tr('A11Y_REORDER'));
+                h.addEventListener('keydown', (e) => {
+                    const up = e.key === 'ArrowUp', down = e.key === 'ArrowDown';
+                    if (!up && !down) return;
+                    e.preventDefault();
+                    const items = Array.prototype.slice.call(list.querySelectorAll(cl));
+                    const i = items.indexOf(it), j = up ? i - 1 : i + 1;
+                    if (i < 0 || j < 0 || j >= items.length) return;
+                    if (up) list.insertBefore(it, items[j]);
+                    else list.insertBefore(items[j], it);
+                    h.focus();
+                    persist();
+                });
             }
         });
     }
@@ -1622,7 +1658,7 @@ class Somfy {
             if (isNew) {
                 Object.assign(shade, {
                     name: '', shadeType: 4, roomId: 0, downTime: 10000, upTime: 10000, liftTime: 0,
-                    tiltTime: 7000, tiltType: 0, flipCommands: 0, flipPosition: 0, paired: 0, sunSensor: 0, simMy: 0, repeats: 0
+                    tiltTime: 7000, tiltType: 0, flipCommands: 0, flipPosition: 0, paired: 0, sunSensor: 0, simMy: 0, repeats: DEFAULT_REPEATS
                 });
             }
             if (!isNew) {
@@ -1819,24 +1855,27 @@ class Somfy {
         // Empty field, or firmware older than the UI (JSON without liftTime): 0 = original behaviour.
         if (isNaN(obj.liftTime)) obj.liftTime = 0;
 
+        ui.clearFieldErrors(g('somfyShade'));
+        // Third entry: the field the message belongs to, so the user is put in front of
+        // the thing to fix instead of being told what went wrong and left to find it.
         const checks = [
-            [isNaN(obj.remoteAddress) || obj.remoteAddress < 1 || obj.remoteAddress > 16777215, 'ERR_REMOTE_ADDRESS_INVALID'],
-            [!obj.name || obj.name.length > 20, 'ERR_DEVIVE_NAME_INVALID'],
-            [isNaN(obj.upTime) || obj.upTime < 1 || obj.upTime > 180000, 'ERR_UP_TIME_INVALID'],
-            [isNaN(obj.downTime) || obj.downTime < 1 || obj.downTime > 180000, 'ERR_DOWN_TIME_INVALID'],
-            [obj.liftTime < 0 || obj.liftTime > 60000, 'ERR_LIFT_TIME_INVALID']
+            [isNaN(obj.remoteAddress) || obj.remoteAddress < 1 || obj.remoteAddress > 16777215, 'ERR_REMOTE_ADDRESS_INVALID', 'fldShadeAddress'],
+            [!obj.name || obj.name.length > 20, 'ERR_DEVIVE_NAME_INVALID', 'fldShadeName'],
+            [isNaN(obj.upTime) || obj.upTime < 1 || obj.upTime > 180000, 'ERR_UP_TIME_INVALID', 'fldShadeUpTime'],
+            [isNaN(obj.downTime) || obj.downTime < 1 || obj.downTime > 180000, 'ERR_DOWN_TIME_INVALID', 'fldShadeDownTime'],
+            [obj.liftTime < 0 || obj.liftTime > 60000, 'ERR_LIFT_TIME_INVALID', 'fldShadeLiftTime']
         ];
 
         const basicError = checks.find(c => c[0]);
-        if (basicError) return ui.errorMessage(settings, tr(basicError[1]));
+        if (basicError) return ui.fieldError(g(basicError[2]), tr(basicError[1]));
         if (obj.proto === 8 || obj.proto === 9) {
             const isSp = [5, 14, 15, 16, 10].includes(obj.shadeType);
 
             if (obj.gpioUp === obj.gpioDown && !(isSp && obj.proto === 9)) {
-                return ui.errorMessage(settings, tr('ERR_GPIO_UP_DOWN_NOT_UNIQUE'));
+                return ui.fieldError(g('selShadeGPIODown'), tr('ERR_GPIO_UP_DOWN_NOT_UNIQUE'));
             }
             if (!isSp && obj.proto === 9 && (obj.gpioMy === obj.gpioUp || obj.gpioMy === obj.gpioDown)) {
-                return ui.errorMessage(settings, tr('ERR_GPIO_UP_DOWN_MY_NOT_UNIQUE'));
+                return ui.fieldError(g('selShadeGPIOMy'), tr('ERR_GPIO_UP_DOWN_MY_NOT_UNIQUE'));
             }
         }
         const isNew = isNaN(sId) || sId >= 255;
@@ -1859,12 +1898,13 @@ class Somfy {
         obj = ui.fromElement(g('somfyGroup')),
         isNew = isNaN(groupId) || groupId >= 255;
 
+        ui.clearFieldErrors(g('somfyGroup'));
         const checks = [
-            [isNaN(obj.remoteAddress) || obj.remoteAddress < 1 || obj.remoteAddress > 16777215, 'ERR_REMOTE_ADDRESS_INVALID'],
-            [!obj.name || obj.name.length > 20, 'ERR_DEVIVE_NAME_INVALID']
+            [isNaN(obj.remoteAddress) || obj.remoteAddress < 1 || obj.remoteAddress > 16777215, 'ERR_REMOTE_ADDRESS_INVALID', 'fldGroupAddress'],
+            [!obj.name || obj.name.length > 20, 'ERR_DEVIVE_NAME_INVALID', 'fldGroupName']
         ];
         const error = checks.find(c => c[0]);
-        if (error) return ui.errorMessage(tr(error[1]));
+        if (error) return ui.fieldError(g(error[2]), tr(error[1]));
         if (!isNew) obj.groupId = groupId;
 
         putJSONBusy(isNew ? '/addGroup' : '/saveGroup', obj, (err, group) => {
@@ -2588,9 +2628,6 @@ class Somfy {
         if(DBG) console.log(el.value);
         let lvls = [-30, -20, -15, -10, -6, 0, 5, 7, 10, 11, 12];
         get('spanTxPower').innerText = lvls[el.value];
-    }
-    stepSizeChanged(el) {
-        get('spanStepSize').innerText = parseInt(el.value, 10).fmt('#,##0');
     }
     processShadeTarget(el, shadeId) {
         let positioner = document.querySelector(`.shade-positioner[data-shadeid="${shadeId}"]`);

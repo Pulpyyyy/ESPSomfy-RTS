@@ -669,19 +669,6 @@ div.wifiSignal {
     width:56px;
     height:56px;
 }
-.bloc80slidStep input {
-    width:100%;
-}
-.bloc80slidStep label {
-    font-size:1em;
-    margin-top:0px;
-    padding:0 7px;
-}
-.bloc80slidStep span {
-    display:inline-flex;
-    gap:5px;
-    align-items:center;
-}
 #divSomfyGroupButtons {
     display: flex;
     justify-content: center;
@@ -937,17 +924,36 @@ display: none;
     position: relative;
     background: var(--background-color);
     border-radius: var(--radius-bloc);
-    padding: var(--sp-16);
+    /* .vr-step80Label is absolute at bottom:10px. It used to sit under a thin slider
+       track; the 44px number box reaches into that band, so the row reserves its own
+       strip at the bottom for the label. */
+    padding: var(--sp-16) var(--sp-16) 34px;
     gap: var(--sp-12);
     width: 100%;
 }
 .vrslidStepSize {
     flex: 1;
 }
-.vrslidStepSize input {
+/* Step size in the virtual remote: a number box between the two jog arrows, replacing a
+   1-127 range slider whose useful values all lived in its first tenth. */
+.vrStepBox {
     width: 100%;
+    justify-content: space-between;
+    gap: var(--sp-8);
+    /* No label inside this one, so the 16px it reserved goes back to the value. */
+    padding-left: var(--sp-8);
+}
+.vrStepBox input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    color: var(--color);
+    font-size: var(--fs-md);
+    font-weight: bold;
+    text-align: center;
+    padding: 0;
     margin: 0;
-    cursor: pointer;
 }
 .vr-step80-arrow {
     width: 46px;

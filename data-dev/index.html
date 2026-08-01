@@ -596,14 +596,10 @@
                                                     </div>
                                                 </div>
                                                 <div class="gpio-card">
-                                                    <div class="input-number-custom" style="position: relative;">
-                                                        <span class="input-label">Adresse</span>
-                                                        <select id="selETHAddress" class="inputAndSelect" name="address" data-datatype="int" data-bind="ethernet.phyAddress"></select>
-                                                        <div class="step-buttons-warp">
-                                                            <div class="btn-none-shortcut step-select-arrow">
-                                                                <svg class="icon-pwr icon-select-arrow"><use href="#svg-arrowDown" /></svg>
-                                                            </div>
-                                                        </div>
+                                                    <div class="input-number-custom">
+                                                        <span class="input-label">ADDR</span>
+                                                        <input id="fldETHAddress" class="inputAndSelect" name="address" type="number" inputmode="numeric" min="0" max="31" step="1" data-datatype="int" data-bind="ethernet.phyAddress" placeholder="0 - 31" onchange="clampNumField(this, 0);"/>
+                                                        <span class="input-hint">0 - 31</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -628,7 +624,7 @@
                                                 <div class="gpio-card">
                                                     <div class="input-number-custom">
                                                         <span class="input-label">MDC</span>
-                                                        <input id="inputETHMDCPin" type="number" class="inputAndSelect" name="mdc" min="0" max="39" autocomplete="new-password" data-datatype="int" data-bind="ethernet.MDCPin">
+                                                        <input id="inputETHMDCPin" type="number" class="inputAndSelect" name="mdc" min="0" max="39" autocomplete="new-password" data-datatype="int" data-bind="ethernet.MDCPin" onchange="clampNumField(this);"/>
                                                         <div class="step-buttons-warp">
                                                             <div class="step-buttons">
                                                                 <button type="button" onclick="wifi.stepGpio('MDCPin', -1)">−</button>
@@ -640,7 +636,7 @@
                                                 <div class="gpio-card">
                                                     <div class="input-number-custom">
                                                         <span class="input-label">MDIO</span>
-                                                        <input id="inputETHMDIOPin" type="number" class="inputAndSelect" name="mdio" min="0" max="39" autocomplete="new-password" data-datatype="int" data-bind="ethernet.MDIOPin">
+                                                        <input id="inputETHMDIOPin" type="number" class="inputAndSelect" name="mdio" min="0" max="39" autocomplete="new-password" data-datatype="int" data-bind="ethernet.MDIOPin" onchange="clampNumField(this);"/>
                                                         <div class="step-buttons-warp">
                                                             <div class="step-buttons">
                                                                 <button type="button" onclick="wifi.stepGpio('MDIOPin', -1)">−</button>
@@ -786,27 +782,27 @@
                                 <hr>
                                 <div>
                                     <label class="label" for="fldIPAddress" tr="ADRESSIP_STATIC_IP"></label>
-                                    <input id="fldIPAddress" class="inputAndSelect" name="staticIP" type="text" data-bind="ip.ip" length=32 tr="ADRESSIP_STATIC_IP_PLH" placeholder="0.0.0.0">
+                                    <input id="fldIPAddress" class="inputAndSelect" name="staticIP" type="text" inputmode="decimal" data-bind="ip.ip" length=32 tr="ADRESSIP_STATIC_IP_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldSubnetMask" tr="ADRESSIP_SUBNET_MASK" ></label>
-                                    <input id="fldSubnetMask" class="inputAndSelect" name="subnet" type="text" data-bind="ip.subnet" length=32 tr="ADRESSIP_SUBNET_MASK_PLH" placeholder="0.0.0.0">
+                                    <input id="fldSubnetMask" class="inputAndSelect" name="subnet" type="text" inputmode="decimal" data-bind="ip.subnet" length=32 tr="ADRESSIP_SUBNET_MASK_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldGateway" tr="ADRESSIP_GATEWAY" ></label>
-                                    <input id="fldGateway" class="inputAndSelect" name="gateway" type="text" data-bind="ip.gateway" length=32  tr="ADRESSIP_GATEWAY_PLH" placeholder="0.0.0.0">
+                                    <input id="fldGateway" class="inputAndSelect" name="gateway" type="text" inputmode="decimal" data-bind="ip.gateway" length=32  tr="ADRESSIP_GATEWAY_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldDNS1" tr="ADRESSIP_DNS1"></label>
-                                    <input id="fldDNS1" class="inputAndSelect" name="dns1" type="text" data-bind="ip.dns1" length=32 tr="ADRESSIP_DNS1_PLH" placeholder="0.0.0.0">
+                                    <input id="fldDNS1" class="inputAndSelect" name="dns1" type="text" inputmode="decimal" data-bind="ip.dns1" length=32 tr="ADRESSIP_DNS1_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldDNS2" tr="ADRESSIP_DNS2"></label>
-                                    <input id="fldDNS2" class="inputAndSelect" name="dns2" type="text" data-bind="ip.dns2" length=32 tr="ADRESSIP_DNS2_PLH" placeholder="0.0.0.0">
+                                    <input id="fldDNS2" class="inputAndSelect" name="dns2" type="text" inputmode="decimal" data-bind="ip.dns2" length=32 tr="ADRESSIP_DNS2_PLH" placeholder="0.0.0.0">
                                 </div>
                             </div>
                         </div>
@@ -1087,23 +1083,23 @@
                                 <div id="divLiftSettings">
                                     <div>
                                         <label class="label" for="fldShadeUpTime" tr="SHADE_UP_TIME"></label>
-                                        <input id="fldShadeUpTime" class="inputAndSelect" name="shadeUpTime" data-bind="upTime" data-datatype="int" type="number" min="1" max="180000" step="1" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
+                                        <input id="fldShadeUpTime" class="inputAndSelect" name="shadeUpTime" data-bind="upTime" data-datatype="int" type="number" min="1" max="180000" step="1" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
                                     </div>
                                     <hr>
                                     <div>
                                         <label class="label" for="fldShadeDownTime" tr="SHADE_DOWN_TIME"></label>
-                                        <input id="fldShadeDownTime" class="inputAndSelect" name="shadeDownTime" type="number" min="1" max="180000" step="1" data-bind="downTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
+                                        <input id="fldShadeDownTime" class="inputAndSelect" name="shadeDownTime" type="number" min="1" max="180000" step="1" data-bind="downTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
                                     </div>
                                     <div id="divLiftTime">
                                         <hr>
                                         <div>
                                             <label class="label" for="fldShadeLiftTime" tr="SHADE_LIFT_TIME"></label>
-                                            <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" min="0" max="60000" step="1" data-bind="liftTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds"/>
+                                            <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" min="0" max="60000" step="1" data-bind="liftTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 0);"/>
                                         </div>
                                         <hr>
                                         <div>
                                             <label class="label" for="fldShadeCurveGain" tr="SHADE_CURVE_GAIN"></label>
-                                            <input id="fldShadeCurveGain" class="inputAndSelect" name="shadeCurveGain" type="number" data-bind="curveGain" data-datatype="float" min="0" max="0.95" step="0.01" placeholder="0.00 - 0.95"/>
+                                            <input id="fldShadeCurveGain" class="inputAndSelect" name="shadeCurveGain" type="number" data-bind="curveGain" data-datatype="float" min="0" max="0.95" step="0.01" placeholder="0.00 - 0.95" onchange="clampNumField(this, 0);"/>
                                         </div>
                                         <hr>
                                         <div class="divButton">
@@ -1131,21 +1127,18 @@
                                     <hr id="hrDldTiltTime">
                                     <div>
                                         <label class="label" for="fldTiltTime" tr="SHADE_TILT_TIME"></label>
-                                        <input id="fldTiltTime" class="inputAndSelect" name="shadeTiltTime" type="number" min="0" data-bind="tiltTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" />
+                                        <input id="fldTiltTime" class="inputAndSelect" name="shadeTiltTime" type="number" min="0" max="60000" data-bind="tiltTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 7000);"/>
                                     </div>
                                 </div>
                                 <div id="divStepSettings">
                                 <hr id="hrDivStepSettings">
-                                    <div class="bloc80slidStep">
-                                        <input id="slidStepSize" name="stepSize" type="range" min="1" max="1000" step="1" data-bind="stepSize" data-datatype="int" oninput="somfy.stepSizeChanged(this);" />
-                                        <label for="slidStepSize">
-                                            <span tr="SHADE_STEP_SIZE_MIN"></span>
-                                            <span>
-                                                <span id="spanStepSize" data-bind="stepSize" data-datatype="int" data-fmttype="number" data-fmtmask="#,##0"></span>
-                                                <span tr="SHADE_STEP_SIZE_MAX"></span>
-                                            </span>
-
-                                        </label>
+                                    <div>
+                                        <label class="label" for="fldShadeStepSize" tr="SHADE_STEP_SIZE"></label>
+                                        <input id="fldShadeStepSize" class="inputAndSelect repeatField" name="shadeStepSize" type="number" inputmode="numeric" min="1" max="1000" step="10" data-bind="stepSize" data-datatype="int" tr="SHADE_MS_PLH" placeholder="millisecondes" onchange="clampNumField(this, 100);"/>
+                                        <div class="step-buttons repeatSteps">
+                                            <button type="button" onclick="somfy.stepField('fldShadeStepSize', -10, 100);">−</button>
+                                            <button type="button" onclick="somfy.stepField('fldShadeStepSize', 10, 100);">+</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1241,30 +1234,12 @@
                                 </div>
                                 <hr>
                                 <div>
-                                    <label class="label" for="selRepeatCommands" tr="REPEAT_COMMANDS" ></label>
-                                    <select id="selRepeatCommands" class="inputAndSelect" data-bind="repeats" data-datatype="int">
-                                        <option value="0" tr="OPT_NO_REPEAT">Aucune répétition</option>
-                                        <option value="1" tr="OPT_1TIME"></option>
-                                        <option value="2" tr="OPT_2TIME"></option>
-                                        <option value="3" tr="OPT_3TIME"></option>
-                                        <option value="4" tr="OPT_4TIME"></option>
-                                        <option value="5" tr="OPT_5TIME"></option>
-                                        <option value="6" tr="OPT_6TIME"></option>
-                                        <option value="7" tr="OPT_7TIME"></option>
-                                        <option value="8" tr="OPT_8TIME"></option>
-                                        <option value="9" tr="OPT_9TIME"></option>
-                                        <option value="10" tr="OPT_10TIME"></option>
-                                        <option value="11" tr="OPT_11TIME"></option>
-                                        <option value="12" tr="OPT_12TIME""></option>
-                                        <option value="13" tr="OPT_13TIME"></option>
-                                        <option value="14" tr="OPT_14TIME"></option>
-                                        <option value="15" tr="OPT_15TIME"></option>
-                                        <option value="16" tr="OPT_16TIME"></option>
-                                        <option value="17" tr="OPT_17TIME"></option>
-                                        <option value="18" tr="OPT_18TIME"></option>
-                                        <option value="19" tr="OPT_19TIME"></option>
-                                        <option value="20" tr="OPT_20TIME"></option>
-                                    </select>
+                                    <label class="label" for="fldShadeRepeats" tr="REPEAT_COMMANDS"></label>
+                                    <input id="fldShadeRepeats" class="inputAndSelect repeatField" name="shadeRepeats" type="number" inputmode="numeric" min="0" max="20" step="1" data-bind="repeats" data-datatype="int" placeholder="0 - 20" onchange="somfy.clampRepeats(this);"/>
+                                    <div class="step-buttons repeatSteps">
+                                        <button type="button" onclick="somfy.stepRepeats('fldShadeRepeats', -1);">−</button>
+                                        <button type="button" onclick="somfy.stepRepeats('fldShadeRepeats', 1);">+</button>
+                                    </div>
                                 </div>
                                 <hr id="hrSetRollingC">
                                 <div id="btnSetRollingCode">
@@ -1375,17 +1350,12 @@
                                 </label>
                                 <hr>
                                 <div>
-                                    <label class="label" for="selGroupRepeatCommands" tr="REPEAT_COMMANDS"></label>
-                                    <select id="selGroupRepeatCommands" class="inputAndSelect" data-bind="repeats" data-datatype="int">
-                                        <option value="0" tr="OPT_NO_REPEAT"></option>
-                                        <option value="1" tr="OPT_1TIME"></option>
-                                        <option value="2" tr="OPT_2TIME"></option>
-                                        <option value="3" tr="OPT_3TIME"></option>
-                                        <option value="4" tr="OPT_4TIME"></option>
-                                        <option value="5" tr="OPT_5TIME"></option>
-                                        <option value="6" tr="OPT_6TIME"></option>
-                                        <option value="7" tr="OPT_7TIME"></option>
-                                    </select>
+                                    <label class="label" for="fldGroupRepeats" tr="REPEAT_COMMANDS"></label>
+                                    <input id="fldGroupRepeats" class="inputAndSelect repeatField" name="groupRepeats" type="number" inputmode="numeric" min="0" max="20" step="1" data-bind="repeats" data-datatype="int" placeholder="0 - 20" onchange="somfy.clampRepeats(this);"/>
+                                    <div class="step-buttons repeatSteps">
+                                        <button type="button" onclick="somfy.stepRepeats('fldGroupRepeats', -1);">−</button>
+                                        <button type="button" onclick="somfy.stepRepeats('fldGroupRepeats', 1);">+</button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="button-container-row">
@@ -1491,9 +1461,15 @@
                                     </div>
                                 </div>
                                 <div class="vrslidStepSize">
-                                    <input id="vrslidStepSize" name="stepSize" type="range" min="1" max="127" step="1" data-bind="stepSize" value="1" oninput="document.getElementById('vrspanStepSize').innerText = this.value;" />
+                                    <div class="input-number-custom vrStepBox">
+                                        <input id="vrfldStepSize" name="stepSize" type="number" inputmode="numeric" min="1" max="127" step="1" data-bind="stepSize" data-datatype="int" value="1" onchange="clampNumField(this, 1);"/>
+                                        <div class="step-buttons">
+                                            <button type="button" onclick="somfy.stepField('vrfldStepSize', -1, 1);">−</button>
+                                            <button type="button" onclick="somfy.stepField('vrfldStepSize', 1, 1);">+</button>
+                                        </div>
+                                    </div>
                                     <div class="vr-step80Label">
-                                        <label tr="VR_STEP_SIZE"></label><span id="vrspanStepSize">1</span>
+                                        <label for="vrfldStepSize" tr="VR_STEP_SIZE"></label>
                                     </div>
                                 </div>
                                 <div>

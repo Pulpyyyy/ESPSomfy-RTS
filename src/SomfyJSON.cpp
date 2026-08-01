@@ -95,8 +95,10 @@ int8_t SomfyShade::fromJSON(JsonObject &obj) {
     if(obj.containsKey("liftTime")) this->liftTime = min(obj["liftTime"].as<uint32_t>(), (uint32_t)60000);
     if(obj.containsKey("curveGain")) this->curveGain = constrain(obj["curveGain"].as<float>(), 0.0f, 0.95f);
     if(obj.containsKey("remoteAddress")) this->setRemoteAddress(obj["remoteAddress"]);
-    if(obj.containsKey("tiltTime")) this->tiltTime = obj["tiltTime"];
-    if(obj.containsKey("stepSize")) this->stepSize = obj["stepSize"];
+    // Same reasoning as liftTime above: both divide the position math, and both were
+    // reaching it unchecked -- tiltTime had no bound anywhere, in the UI or here.
+    if(obj.containsKey("tiltTime")) this->tiltTime = min(obj["tiltTime"].as<uint32_t>(), (uint32_t)60000);
+    if(obj.containsKey("stepSize")) this->stepSize = constrain(obj["stepSize"].as<int>(), 1, 1000);
     if(obj.containsKey("hasTilt")) this->tiltType = static_cast<bool>(obj["hasTilt"]) ? tilt_types::none : tilt_types::tiltmotor;
     if(obj.containsKey("bitLength")) this->bitLength = obj["bitLength"];
     if(obj.containsKey("proto")) this->proto = static_cast<radio_proto>(obj["proto"].as<uint8_t>());
@@ -142,7 +144,7 @@ int8_t SomfyShade::fromJSON(JsonObject &obj) {
     }
     if(obj.containsKey("flipCommands")) this->flipCommands = obj["flipCommands"].as<bool>();
     if(obj.containsKey("flipPosition")) this->flipPosition = obj["flipPosition"].as<bool>();
-    if(obj.containsKey("repeats")) this->repeats = obj["repeats"];
+    if(obj.containsKey("repeats")) this->repeats = constrain(obj["repeats"].as<int>(), 0, SOMFY_MAX_TX_REPEATS);
     if(obj.containsKey("tiltType")) {
       if(obj["tiltType"].is<const char *>()) {
         if(strncmp(obj["tiltType"].as<const char *>(), "none", 4) == 0)
@@ -337,7 +339,7 @@ bool SomfyGroup::fromJSON(JsonObject &obj) {
   if(obj.containsKey("flipCommands")) this->flipCommands = obj["flipCommands"].as<bool>();
   
   //if(obj.containsKey("sunSensor")) this->hasSunSensor() = obj["sunSensor"];  This is calculated
-  if(obj.containsKey("repeats")) this->repeats = obj["repeats"];
+  if(obj.containsKey("repeats")) this->repeats = constrain(obj["repeats"].as<int>(), 0, SOMFY_MAX_TX_REPEATS);
   if(obj.containsKey("linkedShades")) {
     uint8_t linkedShades[SOMFY_MAX_GROUPED_SHADES];
     memset(linkedShades, 0x00, sizeof(linkedShades));

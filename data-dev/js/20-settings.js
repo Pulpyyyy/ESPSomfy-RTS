@@ -658,12 +658,6 @@ class Wifi {
         this.loadETHDropdown(get('selETHPhyType'), this.ethPhyTypes);
         this.loadETHDropdown(get('selETHBoardType'), this.ethBoardTypes);
 
-        let addr = [];
-        for (let i = 0; i < 32; i++) {
-            addr.push({ val: i, label: `PHY ${i}` });
-        }
-        this.loadETHDropdown(get('selETHAddress'), addr);
-
         ui.toElement(get('divNetAdapter'), {
             wifi: { ssid: '', passphrase: '' },
             ethernet: {
@@ -722,7 +716,7 @@ class Wifi {
         if (typeof type !== 'undefined') {
             if (typeof type.ct !== 'undefined') get('selETHPhyType').value = type.ct;
             if (typeof type.clk !== 'undefined') get('selETHClkMode').value = type.clk;
-            if (typeof type.addr !== 'undefined') get('selETHAddress').value = type.addr;
+            if (typeof type.addr !== 'undefined') get('fldETHAddress').value = type.addr;
 
             const inputPwr = get('inputETHPWRPin');
             if (inputPwr && typeof type.pwr !== 'undefined') {

@@ -203,15 +203,23 @@ class RfDiag {
             rows.appendChild(row);
         }
     }
-    // Repeats ladder from the signal-to-noise margin. Each extra repeat trades
-    // airtime for reception probability; under 8 dB retries alone rarely save a
-    // link, so the advice string points at the antenna or a repeater instead.
+    // Repeats ladder from the signal-to-noise margin. Each extra repeat trades airtime
+    // for reception probability; under 8 dB retries alone rarely save a link, so the
+    // advice string points at the antenna or a repeater instead.
+    //
+    // The ladder starts at MIN_REPEATS, never at 1. The margin we measure is the
+    // remote -> ESP path, the only one RTS lets us observe; the path that actually
+    // matters is ESP -> motor, with a different antenna, a different TX power and a
+    // receiver we cannot hear. A comfortable measured margin is therefore an argument
+    // for few repeats, never for a single retry -- one lost frame then means one
+    // ignored command, which is exactly how a shade earns a reputation for
+    // "sometimes" not answering.
     recoRepeats(margin) {
-        if (margin >= 30) return 1;
-        if (margin >= 22) return 2;
-        if (margin >= 14) return 3;
-        if (margin >= 8) return 4;
-        return 5;
+        if (margin >= 30) return MIN_REPEATS;
+        if (margin >= 22) return MIN_REPEATS + 1;
+        if (margin >= 14) return MIN_REPEATS + 2;
+        if (margin >= 8) return MIN_REPEATS + 3;
+        return MIN_REPEATS + 4;
     }
     setReco(stats) {
         this.lastStats = stats;
@@ -243,17 +251,21 @@ class RfDiag {
                 const level = best.guided || best.recent;
                 const margin = level - noiseRef;
                 const reco = this.recoRepeats(margin);
-                const cur = shade.repeats || 1;
+                const cur = typeof shade.repeats === 'number' ? shade.repeats : DEFAULT_REPEATS;
                 status = trf('RFDIAG_RECO_MARGIN', margin.toFixed(1));
                 status += best.guided ? ' \u{1F4CD}' : ` — ${tr('RFDIAG_RECO_PASSIVE')}`;
                 if (margin < 8) status += ` — ${tr('RFDIAG_RECO_ADVICE')}`;
                 const badge = document.createElement('span');
                 badge.className = `rfdiag-badge ${margin >= 22 ? 'good' : margin >= 14 ? 'fair' : 'weak'}`;
-                badge.textContent = cur === reco
+                // The ladder is a floor, not a target: a shade already sending more
+                // repeats than advised is left alone. Talking someone down to the
+                // computed value only buys back airtime, and pays for it with the
+                // one thing RTS cannot recover from -- a command nobody heard.
+                badge.textContent = cur >= reco
                     ? trf('RFDIAG_RECO_OK', cur)
                     : trf('RFDIAG_RECO_REPEATS', cur, reco);
                 right.appendChild(badge);
-                if (cur !== reco) {
+                if (cur < reco) {
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.setAttribute('line', '');

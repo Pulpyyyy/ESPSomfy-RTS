@@ -21,6 +21,14 @@
 #define SOMFY_NO_WIND_TIMEOUT MINS_TO_MILLIS(12)
 #define SOMFY_NO_WIND_REMOTE_TIMEOUT SECS_TO_MILLIS(30)
 
+// Repeat frames appended to a normal press. RTS is one-way: the motor never acknowledges,
+// so a frame lost to a burst of noise is a command that simply never happened. One repeat
+// leaves a single retry, which is what makes a marginal shade answer "most of the time";
+// two is the floor both the UI and the RF advice work from. The ceiling only guards the
+// API -- a bad value would otherwise hold the radio for seconds.
+#define SOMFY_MIN_REPEATS 2
+#define SOMFY_MAX_TX_REPEATS 20
+
 // Repeat counts for hold/long-press command trains.
 #define SETMY_REPEATS 35
 #define TILT_REPEATS 15
@@ -119,7 +127,7 @@ class SomfyRemote {
     uint16_t lastRollingCode = 0;
     uint8_t flags = 0;
     uint8_t bitLength = 0;
-    uint8_t repeats = 1;
+    uint8_t repeats = SOMFY_MIN_REPEATS;
     virtual bool isLastCommand(somfy_commands cmd);
     char *getRemotePrefId() {return m_remotePrefId;}
     virtual void toJSON(JsonResponse &json);

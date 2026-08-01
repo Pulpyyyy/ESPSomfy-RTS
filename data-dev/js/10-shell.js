@@ -1298,7 +1298,36 @@ class UIBinder {
         }
         return div;
     }
+    // A rejected field is a correction to make, not an incident: it belongs under the
+    // field, with the focus moved there, instead of behind a modal the user has to
+    // dismiss before hunting for the cause. role="alert" is what carries the message to
+    // a screen reader, since the focus lands on the input and not on the text.
+    fieldError(el, msg) {
+        this.clearFieldErrors();
+        // A field belonging to a collapsed section cannot show or receive anything; the
+        // modal is the honest fallback there rather than a message nobody can see.
+        if (!el || el.offsetParent === null) return this.errorMessage(msg);
+        let div = document.createElement('div');
+        div.className = 'field-error';
+        div.setAttribute('role', 'alert');
+        div.textContent = msg;
+        (el.parentElement || el).appendChild(div);
+        el.setAttribute('aria-invalid', 'true');
+        el.classList.add('is-invalid');
+        el.focus();
+        if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+        return div;
+    }
+    clearFieldErrors(scope) {
+        const root = scope || document;
+        root.querySelectorAll('.field-error').forEach((e) => e.remove());
+        root.querySelectorAll('[aria-invalid]').forEach((e) => {
+            e.removeAttribute('aria-invalid');
+            e.classList.remove('is-invalid');
+        });
+    }
     clearErrors() {
+        this.clearFieldErrors();
         let errors = document.querySelectorAll('div.modal-overlay');
         errors.forEach((el) => {
             closeDialog(el);
@@ -1318,6 +1347,9 @@ class UIBinder {
         div.innerHTML = `<div class="success-content"><svg class="icon-svg"><use href="#svg-succes"></use></svg><span>${msg}</span></div>`;
 
         div.classList.add('success-toast');
+        // The toast is the only confirmation a save ever gets, and it removes itself after
+        // 3.5s. Without a live region a screen reader user is never told the save landed.
+        div.setAttribute('role', 'status');
         el.appendChild(div);
 
         setTimeout(() => {
