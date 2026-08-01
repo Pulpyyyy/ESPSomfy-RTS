@@ -42,6 +42,11 @@ jobs:
       - name: Run unit tests
         run: pio test -e native
 
+      # A missing translation key renders as the raw key on the device and fails
+      # nothing at build time, so it only surfaces once flashed.
+      - name: Check translation keys
+        run: python tools/check_locales.py
+
   # =======================================================================
   # JOB 1 : Génération du LittleFS unique (Compiles pour Dev ET Release)
   # =======================================================================
