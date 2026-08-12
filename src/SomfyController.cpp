@@ -416,7 +416,9 @@ void SomfyShadeController::sendFrame(somfy_frame_t &frame, uint8_t repeat) {
   // after) anchors moveStart/startPos on this moment, so position tracking starts as it always
   // did. Only the repeat train is handed to the queue, to interleave with other shades'. The
   // first frame carries no trailing silence (false): that gap is scheduled before the first
-  // queued repeat via nextSendAt. hasQueueSlot() was just checked, so queueRepeats() succeeds.
+  // queued repeat via nextSendAt, and beginTransmit() itself waits out TX_FRAME_SILENCE so a
+  // burst of commands cannot butt this frame against whatever the radio just sent.
+  // hasQueueSlot() was just checked, so queueRepeats() succeeds.
   this->transceiver.beginTransmit();
   this->transceiver.sendFrame(frm, firstSync, frame.bitLength, false);
   this->transceiver.endTransmit();

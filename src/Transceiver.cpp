@@ -35,6 +35,15 @@ uint8_t rxmode = 0;  // Indicates whether the radio is in receive mode.  Just to
 // TX_QUEUE_DELAY=100ms) and interleaving several shades widens each one's effective spacing, so
 // this only needs to be a floor.
 #define TX_REPEAT_GAP 30
+// Minimum silence between ANY two frames on the air, whichever shade they belong to. The RTS
+// inter-frame silence measures ~27.5ms and the motors rely on it to delimit frames.
+// TX_REPEAT_GAP only spaces frames of the SAME job, so with two or more shades transmitting
+// (interleaved repeat trains, or a burst of commands each sending its first frame straight off
+// the mutex handoff) frames used to follow each other within loop-pass time -- a wall of RF a
+// motor can fail to decode, leaving the shade still while the ESP dead-reckons it as moving.
+// The queue drain checks this floor without blocking; beginTransmit() waits it out (bounded)
+// for the synchronous sends.
+#define TX_FRAME_SILENCE 28
 
 static int interruptPin = 0;
 // Default TX bit length, refreshed from the radio config by transceiver_config_t::apply().
@@ -71,6 +80,9 @@ static somfy_tx_queue_t tx_queue;
 // pay only their synchronous first frame, then their repeats interleave in the background.
 static somfy_tx_job_t txJobs[SOMFY_MAX_SHADES];
 static uint8_t txCursor = 0;  // round-robin position across txJobs
+// End of the last frame's data on the air (stamped before any spun trailing silence), the
+// reference point TX_FRAME_SILENCE is measured from.
+static uint32_t lastTxEnd = 0;
 // Guards the rx_queue handoff between the IRAM receive ISR (producer) and the
 // main loop (consumer).  Only the small bookkeeping (length + index[]) is held
 // under this spinlock; the ~1.2KB per-frame copy is always done outside it.
@@ -224,6 +236,9 @@ void Transceiver::sendFrame(byte *frame, uint8_t sync, uint8_t bitLength, bool i
   // Inter-frame silence for 56-bit protocols are around 34ms.  However, an 80 bit protocol should
   // reduce this by the transmission of SYMBOL * 24 or 15,360us
   REG_WRITE(GPIO_OUT_W1TC_REG, pin);
+  // Stamp the end of the data before any spun silence so that silence counts toward the
+  // TX_FRAME_SILENCE floor the next transmission has to respect.
+  lastTxEnd = millis();
   // Below are the original calculations for inter-frame silence.  However, when actually inspecting this from
   // the remote it appears to be closer to 27500us.  The delayMicoseconds call cannot be called with
   // values larger than 16383.
@@ -1072,9 +1087,12 @@ void Transceiver::loop() {
     // the repeater path below. beginTransmit/endTransmit bracket each frame here (rather than a
     // whole job) so the radio state stays correct across the interleaving and when an urgent
     // frame -- a STOP sent synchronously from checkMovement -- goes out between repeats.
+    // The TX_FRAME_SILENCE check keeps interleaved jobs from butting their frames against each
+    // other; a pass that arrives too early simply leaves the frame for a later one, so this
+    // path never blocks on the floor the way beginTransmit() does for synchronous sends.
     bool sentRepeat = false;
-    if(somfy_rx.cpt_synchro_hw == 0) {
-      const uint32_t now = millis();
+    const uint32_t now = millis();
+    if(somfy_rx.cpt_synchro_hw == 0 && now - lastTxEnd >= TX_FRAME_SILENCE) {
       for(uint8_t k = 0; k < SOMFY_MAX_SHADES; k++) {
         uint8_t idx = (txCursor + k) % SOMFY_MAX_SHADES;
         somfy_tx_job_t &job = txJobs[idx];
@@ -1095,8 +1113,10 @@ void Transceiver::loop() {
       }
     }
     // Check to see if there is anything in the repeater buffer. Only when we did not just emit a
-    // repeat frame above, so we never transmit two frames in one pass.
-    if(!sentRepeat && tx_queue.length > 0 && (int32_t)(millis() - tx_queue.delay_time) >= 0 && somfy_rx.cpt_synchro_hw == 0) {
+    // repeat frame above, so we never transmit two frames in one pass. The TX_FRAME_SILENCE
+    // check mirrors the drain above so a repeated frame never rides the tail of another one.
+    if(!sentRepeat && tx_queue.length > 0 && (int32_t)(millis() - tx_queue.delay_time) >= 0 && somfy_rx.cpt_synchro_hw == 0
+      && millis() - lastTxEnd >= TX_FRAME_SILENCE) {
       this->beginTransmit();
       somfy_tx_t tx;
       
@@ -1132,6 +1152,14 @@ void Transceiver::beginTransmit() {
       // frequency (up to 0.5MHz off, possibly at 58kHz bandwidth).  Abort the scan
       // cleanly first: config.apply() retunes the radio, the emit tells the UI.
       if(rxmode == 3) this->endFrequencyScan();
+      // Enforce the inter-frame silence before opening the air. A burst of commands used to
+      // put each handler's first frame right on the tail of the previous frame (only the
+      // mutex handoff apart), which motors can fail to decode. The wait is bounded by
+      // TX_FRAME_SILENCE and delay() yields the task, so it costs at most one frame-gap on
+      // the ~100ms a synchronous send already takes. The queue drain pre-checks the floor
+      // and never reaches this wait.
+      uint32_t sinceTx = millis() - lastTxEnd;
+      if(sinceTx < TX_FRAME_SILENCE) delay(TX_FRAME_SILENCE - sinceTx);
       this->disableReceive();
       pinMode(this->config.TXPin, OUTPUT);
       digitalWrite(this->config.TXPin, 0);

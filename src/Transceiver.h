@@ -264,7 +264,8 @@ class Transceiver {
     somfy_frame_t& lastFrame();
     // interFrameGap keeps the ~27ms trailing silence that separates one frame from the next.
     // The non-blocking repeat path sends it as false because that gap is now scheduled between
-    // loop passes (nextSendAt) instead of being spun on inside the transmit.
+    // loop passes (nextSendAt) instead of being spun on inside the transmit, with the
+    // TX_FRAME_SILENCE floor guaranteeing the silence across jobs and command bursts alike.
     void sendFrame(byte *frame, uint8_t sync, uint8_t bitLength = 56, bool interFrameGap = true);
     void beginTransmit();
     void endTransmit();
