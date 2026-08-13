@@ -181,7 +181,14 @@ class Somfy {
                     if (sideNote) sideNote.style.display = isRadioInit ? 'none' : 'inline';
                     row.classList.toggle('radioOn', !!isRadioInit);
                 }
-                cbRadio.addEventListener('change', updateRadioText);
+                // Any trusted edit in the panel (sliders included) flips the status line
+                // to the save-required hint: the sliders preview their new value
+                // instantly and nothing else said the radio still runs the old one.
+                // Property assignment so socket reconnects do not stack listeners.
+                const panel = get('divTransceiverSettings');
+                panel.oninput = panel.onchange = (e) => {
+                    if (e.isTrusted) txtStatus.textContent = tr('RADIO_SAVE_REQUIRED');
+                };
                 updateRadioText();
 
                 this.setRoomsList(somfy.rooms);
@@ -279,7 +286,6 @@ class Somfy {
                     if (err) return ui.serviceError(err);
 
                     ui.successMessage(tr('MSG_SAVE_SUCCESS'));
-                    get('btnSaveRadio').classList.remove('disabled');
 
                     const init = res.config.radioInit,
                     tab = document.querySelector('.tab-container span[data-grpid="divRadioSettings"]'),

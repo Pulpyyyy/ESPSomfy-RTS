@@ -1115,6 +1115,12 @@ button:disabled:active {
     background: color-mix(in srgb, var(--color) 12%, transparent) !important;
     transform: none !important;
 }
+/* Dirty-flag save buttons (navSyncSaveButtons) while there is nothing to save:
+   visibility rather than display so their slot is kept and footers do not
+   reflow when the button appears on the first edit. */
+button.save-idle {
+    visibility: hidden !important;
+}
 .buttonUpdate,
 .unibutton,
 .uniGroupButton{

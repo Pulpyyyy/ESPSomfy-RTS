@@ -356,11 +356,13 @@ window.addEventListener('popstate', () => navApplyHash());
 // save / discard / cancel. A suppression window swallows the change events that
 // fire while a form loads so they do not count as user edits.
 let _navDirty = false, _navSuppress = false;
-// Save buttons mirror the dirty flag: disabled (M3 38%) until an edit exists,
-// re-disabled once the save went through.  #btnLogin is excluded on purpose.
+// Save buttons mirror the dirty flag: fully hidden until an edit exists,
+// hidden again once the save went through. The disabled property stays set
+// underneath as a guard against programmatic clicks.  #btnLogin is excluded
+// on purpose.
 const NAV_SAVE_SEL = '[id^="btnSave"], #btnConnectMQTT';
 function navSyncSaveButtons() {
-    document.querySelectorAll(NAV_SAVE_SEL).forEach(b => { b.disabled = !_navDirty; });
+    document.querySelectorAll(NAV_SAVE_SEL).forEach(b => { b.disabled = !_navDirty; b.classList.toggle('save-idle', !_navDirty); });
 }
 function navSuppress() { _navSuppress = true; setTimeout(() => { _navSuppress = false; }, 900); }
 function navClearDirty() { _navDirty = false; navSyncSaveButtons(); }
@@ -395,6 +397,20 @@ function navFindSaveButton() {
     for (let i = 0; i < cands.length; i++) if (cands[i].offsetParent !== null) return cands[i];
     return null;
 }
+// Discarded edits must also leave the DOM: the panels are only repopulated on
+// socket open, so the abandoned values would keep showing on the next visit as
+// if they were the device's active settings.
+function navReloadPanels() {
+    navSuppress();
+    (async () => {
+        try {
+            await general.loadGeneral();
+            await somfy.loadSomfy();
+            const authed = (typeof security === 'undefined') || security.type === 0 || security.authenticated;
+            if (authed) { await wifi.loadNetwork(); await mqtt.loadMQTT(); }
+        } catch (err) { console.error(err); }
+    })();
+}
 // Returns true if navigation may proceed; false if it opened the prompt (deferred).
 function navConfirmLeave(proceed) {
     if (!_navDirty) return true;
@@ -411,7 +427,7 @@ function navConfirmLeave(proceed) {
     openDialog(div);
     const done = () => { closeDialog(div); div.remove(); };
     div.querySelector('#navCancel').onclick = done;
-    div.querySelector('#navDiscard').onclick = () => { navClearDirty(); done(); proceed(); };
+    div.querySelector('#navDiscard').onclick = () => { navClearDirty(); done(); navReloadPanels(); proceed(); };
     div.querySelector('#navSave').onclick = () => {
         const b = navFindSaveButton(); done();
         if (!b) { navClearDirty(); proceed(); return; }
