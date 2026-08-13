@@ -43,7 +43,7 @@ uint8_t rxmode = 0;  // Indicates whether the radio is in receive mode.  Just to
 // motor can fail to decode, leaving the shade still while the ESP dead-reckons it as moving.
 // The queue drain checks this floor without blocking; beginTransmit() waits it out (bounded)
 // for the synchronous sends.
-#define TX_FRAME_SILENCE 28
+#define TX_FRAME_SILENCE 35
 
 static int interruptPin = 0;
 // Default TX bit length, refreshed from the radio config by transceiver_config_t::apply().
