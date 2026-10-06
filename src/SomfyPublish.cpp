@@ -70,13 +70,11 @@ void SomfyShade::publishDisco() {
   JsonObject dobj = obj.createNestedObject("device");
   dobj["hw_version"] = settings.fwVersion.name;
   dobj["name"] = settings.hostname;
-  dobj["mf"] = "rstrouse";
+  dobj["mf"] = "Pulpyyyy";
   JsonArray arrids = dobj.createNestedArray("identifiers");
   //snprintf(topic, sizeof(topic), "mqtt_espsomfyrts_%s_shade%d", settings.serverId, this->shadeId);
   snprintf(topic, sizeof(topic), "mqtt_espsomfyrts_%s", settings.serverId);
   arrids.add(topic);
-  //snprintf(topic, sizeof(topic), "ESPSomfy-RTS_%s", settings.serverId);
-  dobj["via_device"] = topic;
   dobj["model"] = "ESPSomfy-RTS MQTT";
   snprintf(topic, sizeof(topic), "%s/status", settings.MQTT.rootTopic);
   obj["availability_topic"] = topic;
@@ -195,7 +193,7 @@ void SomfyShade::unpublishDisco() {
   }
   else
     snprintf(topic, sizeof(topic), "%s/switch/%d/config", settings.MQTT.discoTopic, this->shadeId);
-  mqtt.unpublish(topic);
+  mqtt.unpublishDisco(topic);
 }
 void SomfyShade::publish() {
   if(mqtt.connected()) {
@@ -263,9 +261,9 @@ void SomfyShade::unpublish(uint8_t id) {
     if(settings.MQTT.pubDisco) {
       char topic[128] = "";
       snprintf(topic, sizeof(topic), "%s/cover/%d/config", settings.MQTT.discoTopic, id);
-      mqtt.unpublish(topic);
+      mqtt.unpublishDisco(topic);
       snprintf(topic, sizeof(topic), "%s/switch/%d/config", settings.MQTT.discoTopic, id);
-      mqtt.unpublish(topic);
+      mqtt.unpublishDisco(topic);
     }
   }
 }

@@ -312,17 +312,32 @@ bool MQTTClass::publish(const char *topic, uint16_t val, bool retain) { itoa(val
 bool MQTTClass::publish(const char *topic, int8_t val, bool retain) { itoa(val, g_content, 10); return this->publish(topic, g_content, retain); }
 bool MQTTClass::publish(const char *topic, bool val, bool retain) { return this->publish(topic, val ? "true" : "false", retain); }
 
-bool MQTTClass::publishBuffer(const char *topic, uint8_t *data, uint16_t len, bool retain) {
+bool MQTTClass::publishBuffer(const char *topic, uint8_t *data, uint16_t len, bool retain, bool absolute) {
   if(!mqttClient.connected()) return false;
   esp_task_wdt_reset();
-  mqttClient.beginPublish(makeTopic(topic), len, retain);
+  mqttClient.beginPublish(absolute ? topic : makeTopic(topic), len, retain);
   mqttClient.write(data, len);
   return mqttClient.endPublish();
 }
 
+// Home Assistant only listens on its discovery prefix, so discovery configs are
+// published on the absolute topic, never under the root topic. Since the root
+// topic became mandatory, earlier builds published them as
+// <root>/<discoTopic>/..., where they sat retained and unseen: that stale copy
+// is cleared alongside.
 bool MQTTClass::publishDisco(const char *topic, JsonObject &obj, bool retain) {
   serializeJson(obj, g_content, sizeof(g_content));
-  return this->publishBuffer(topic, (uint8_t *)g_content, strlen(g_content), retain);
+  bool ok = this->publishBuffer(topic, (uint8_t *)g_content, strlen(g_content), retain, true);
+  if(mqttClient.connected()) mqttClient.publish(makeTopic(topic), (const uint8_t *)"", 0, true);
+  return ok;
+}
+
+bool MQTTClass::unpublishDisco(const char *topic) {
+  if(!mqttClient.connected()) return false;
+  esp_task_wdt_reset();
+  bool ok = mqttClient.publish(topic, (const uint8_t *)"", 0, true);
+  mqttClient.publish(makeTopic(topic), (const uint8_t *)"", 0, true);
+  return ok;
 }
 
 bool MQTTClass::connected() { return settings.MQTT.enabled && mqttClient.connected(); }
