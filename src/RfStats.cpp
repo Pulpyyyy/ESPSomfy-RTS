@@ -2,6 +2,9 @@
 #include <LittleFS.h>
 #include <time.h>
 #include "RfStats.h"
+#include "GitOTA.h"
+
+extern GitUpdater git;
 
 extern SomfyShadeController somfy;
 
@@ -200,6 +203,7 @@ bool RfStats::save() {
   // on the next interval, not on every loop pass -- that would hammer the flash
   // and stall the receive path.
   this->lastSave = millis();
+  if(git.lockFS) return false; // the filesystem partition is being flashed
   File f = LittleFS.open(RF_STATS_TEMP_FILE, "w");
   if(!f) return false;
   // Raw struct dump: only ever read back by the same firmware on the same MCU, and the

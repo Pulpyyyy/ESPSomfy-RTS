@@ -1129,6 +1129,14 @@ class Firmware {
 
         xhr.onload = async () => {
             btnCancel.innerText = tr('BT_CLOSE');
+            if (xhr.status !== 200) {
+                // A refused or failed upload: the device keeps running (a failed flash
+                // no longer reboots) and says why. Show it instead of a silent finish.
+                let desc = '';
+                try { desc = JSON.parse(xhr.responseText).desc || ''; } catch (e) { }
+                ui.serviceError(el, desc || `HTTP ${xhr.status}`);
+                return;
+            }
             if (service === '/restore') {
                 await somfy.init();
                 closeOverlay(get('divUploadFile'));

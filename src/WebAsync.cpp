@@ -2,6 +2,8 @@
 #include <LittleFS.h>
 #include <Update.h>
 #include <esp_task_wdt.h>
+#include <esp_ota_ops.h>
+#include <esp_partition.h>
 // Web.h (hence WebServer.h) must come before the async headers: with
 // WEBSERVER_H already defined, ESPAsyncWebServer enables its compatibility
 // guard instead of redeclaring the HTTP_* method enum.
@@ -25,12 +27,53 @@ extern SSDPClass SSDP;
 extern rebootDelay_t rebootDelay;
 extern Network net;
 
-// Async upload gate, mirroring the sync WebRoutesSystem statics: the async_tcp
-// task runs one upload at a time, so a single flag pair is enough. Set at the
-// first chunk (index 0) after the auth check; every later chunk is a no-op
-// when it is false.
-static bool g_asyncUploadAuth = false;
+// Upload gate. The async_tcp task interleaves the chunks of concurrent uploads
+// freely, so a single flag reset by every first chunk let one connection write
+// into, or switch off, another's flash. The request that passes the auth check
+// at its first chunk now owns the upload until it ends; chunks and completion
+// handlers of any other request are refused. All of it under SomfyGuard.
+static AsyncWebServerRequest *g_uploadOwner = nullptr;
+static bool g_asyncUploadAuth = false;  // the owner's upload is still healthy
 static size_t g_asyncUploadBytes = 0;
+static bool g_otaFlashing = false;      // Update.begin() succeeded, not yet ended or aborted
+static bool g_otaIsFs = false;          // ...on the LittleFS partition
+static uint32_t g_uploadActivity = 0;   // millis() of the owner's last chunk
+static void otaFinish(bool ok);
+// Takes the upload for `request`; false when another upload is in progress or
+// the request may not upload.
+static bool uploadClaim(AsyncWebServerRequest *request) {
+  // The owner is released when its request ends (onDisconnect below). Should
+  // that ever be missed, an owner silent for 30s with no flash open is taken
+  // over rather than refusing every upload until a reboot.
+  if(g_uploadOwner && g_uploadOwner != request &&
+     (g_otaFlashing || (uint32_t)(millis() - g_uploadActivity) < 30000)) return false;
+  if(!(webAsync.isSameOrigin(request) && webAsync.isAuthenticated(request, true))) return false;
+  g_uploadOwner = request;
+  g_uploadActivity = millis();
+  g_asyncUploadAuth = true;
+  g_asyncUploadBytes = 0;
+  webServer.uploadSuccess = false;
+  // Runs however the request ends, answered or dropped. A flash still open at
+  // that point was abandoned by the client mid-upload: roll it back now rather
+  // than wait for the stall timeout.
+  request->onDisconnect([request]() {
+    SomfyGuard guard;
+    if(g_uploadOwner != request) return;
+    if(g_otaFlashing) {
+      Update.abort();
+      otaFinish(false);
+      Serial.println("Upload dropped by the client - flash aborted");
+    }
+    g_uploadOwner = nullptr;
+    g_asyncUploadAuth = false;
+  });
+  return true;
+}
+static bool uploadOwned(AsyncWebServerRequest *request) {
+  if(request != g_uploadOwner || !g_asyncUploadAuth) return false;
+  g_uploadActivity = millis();
+  return true;
+}
 #define ASYNC_RESTORE_MAX_UPLOAD (128 * 1024)
 #define ASYNC_SHADECFG_MAX_UPLOAD (64 * 1024)
 
@@ -354,54 +397,115 @@ class SchemaCapture : public Print {
       return len;
     }
 };
+// Closes the flash session; the Update itself is already ended or aborted. A
+// filesystem flash always writes the shades back, into the new image or into
+// a fresh filesystem when the image does not mount. A failed flash is not
+// followed by a reboot, so the radio and MQTT go back to work here.
+static void otaFinish(bool ok) {
+  if(!g_otaFlashing) return;
+  g_otaFlashing = false;
+  if(g_otaIsFs) {
+    git.lockFS = false;
+    somfy.commitAfterFsFlash();
+  }
+  webAsync.otaInProgress = false;
+  if(!ok) {
+    somfy.transceiver.enableReceive();
+    mqtt.begin();
+  }
+}
 // Shared firmware/filesystem flash chunk handler. isApp selects the SPIFFS
 // (LittleFS) partition and its commit()/no-rollback behavior; otherwise the
 // application partition with an OTA-rollback pending marker. Mirrors the sync
 // updateFirmware/updateApplication upload lambdas.
 static void asyncOtaUpload(AsyncWebServerRequest *request, size_t index, uint8_t *data, size_t len, bool final, bool isApp) {
+  esp_task_wdt_reset();
+  // Flash writes run under the lock so a stall abort or a disconnect, which
+  // also run under it, can never interleave with one.
+  SomfyGuard guard;
   if(index == 0) {
-    webServer.uploadSuccess = false;
-    g_asyncUploadAuth = webAsync.isSameOrigin(request) && webAsync.isAuthenticated(request, true);
-    if(g_asyncUploadAuth) {
-      SomfyGuard guard;
-      if(!Update.begin(UPDATE_SIZE_UNKNOWN, isApp ? U_SPIFFS : U_FLASH)) Update.printError(Serial);
-      else {
-        somfy.transceiver.end(); // no radio interrupts during the flash
-        mqtt.end();
-        webAsync.otaInProgress = true; // loop() stops touching somfy until we finish
-      }
+    if(!uploadClaim(request)) return;
+    // Everything that can be checked is checked before the first erase: a
+    // refused file leaves the partition, and the device, untouched.
+    const esp_partition_t *target = isApp
+      ? esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, NULL)
+      : esp_ota_get_next_update_partition(NULL);
+    const char *refusal = nullptr;
+    if(Update.isRunning() || git.status == GIT_UPDATING) refusal = "another update is running";
+    // The multipart body adds a few hundred bytes of framing around the file.
+    else if(!target || request->contentLength() > target->size + 4096) refusal = "the file is larger than the partition";
+    // A LittleFS image opens with its superblock: revision, tag, then "littlefs".
+    else if(isApp && (len < 16 || memcmp(data + 8, "littlefs", 8) != 0)) refusal = "the file is not a LittleFS image";
+    else if(!Update.begin(UPDATE_SIZE_UNKNOWN, isApp ? U_SPIFFS : U_FLASH)) {
+      Update.printError(Serial);
+      refusal = "the update could not start";
     }
+    if(refusal) {
+      Serial.printf("Upload refused: %s\n", refusal);
+      g_asyncUploadAuth = false;
+      return;
+    }
+    g_otaFlashing = true;
+    g_otaIsFs = isApp;
+    somfy.transceiver.end(); // no radio interrupts during the flash
+    mqtt.end();
+    // No file is read or written while the LittleFS partition is rewritten.
+    if(isApp) git.lockFS = true;
+    webAsync.otaInProgress = true; // loop() stops touching somfy until we finish
   }
-  if(!g_asyncUploadAuth) { esp_task_wdt_reset(); return; }
+  if(!uploadOwned(request) || !g_otaFlashing) return;
   webAsync.otaActivity = millis();
-  if(len) {
-    if(Update.write(data, len) != len) { Update.printError(Serial); Update.abort(); }
+  if(len && Update.write(data, len) != len) {
+    Update.printError(Serial);
+    Update.abort();
+    g_asyncUploadAuth = false;
+    otaFinish(false);
+    return;
   }
   if(final) {
-    if(Update.end(true)) {
+    const bool ok = Update.end(true);
+    if(ok) {
       webServer.uploadSuccess = true;
       if(!isApp) OTARollback::markPending(); // application partition flashed
     }
-    else Update.printError(Serial);
-    if(isApp) { SomfyGuard guard; somfy.commitAfterFsFlash(); }
-    webAsync.otaInProgress = false;
+    else {
+      Update.printError(Serial);
+      g_asyncUploadAuth = false;
+    }
+    otaFinish(ok);
   }
-  esp_task_wdt_reset();
+}
+// Completion of /updateFirmware and /updateApplication. Only the owner of the
+// upload gets a verdict, and only a successful flash reboots: after a failure
+// the device keeps running, so the page open in the browser can retry even
+// when the web UI files were lost with the filesystem.
+static void asyncOtaRespond(AsyncWebServerRequest *request, bool isApp) {
+  SomfyGuard guard;
+  if(request != g_uploadOwner) {
+    request->send(409, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Another upload is in progress\"}"));
+    return;
+  }
+  if(!webServer.uploadSuccess) {
+    if(isApp) request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Error updating application: the file system was not updated. Your shades are kept; retry the update before reloading this page.\"}"));
+    else request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Error updating firmware: the device keeps its current version.\"}"));
+    return;
+  }
+  if(isApp) request->send(200, "application/json", F("{\"status\":\"SUCCESS\",\"desc\":\"Successfully updated application\"}"));
+  else request->send(200, "application/json", F("{\"status\":\"SUCCESS\",\"desc\":\"Successfully updated firmware\"}"));
+  rebootDelay.reboot = true;
+  rebootDelay.rebootTime = millis() + 500;
 }
 // Shade-config upload -> /shades.tmp, then loaded/validated. Mirrors the sync
 // updateShadeConfig upload lambda.
 static void asyncShadeConfigUpload(AsyncWebServerRequest *request, size_t index, uint8_t *data, size_t len, bool final) {
-  if(index == 0) {
-    g_asyncUploadAuth = webAsync.isSameOrigin(request) && webAsync.isAuthenticated(request, true);
-    g_asyncUploadBytes = 0;
-    if(g_asyncUploadAuth) {
-      SomfyGuard guard;
-      File fup = LittleFS.open("/shades.tmp", "w");
-      fup.close();
-    }
-  }
-  if(!g_asyncUploadAuth) return;
   SomfyGuard guard;
+  if(index == 0) {
+    if(!uploadClaim(request)) return;
+    if(git.lockFS) { g_asyncUploadAuth = false; return; } // filesystem being flashed
+    File fup = LittleFS.open("/shades.tmp", "w");
+    fup.close();
+  }
+  if(!uploadOwned(request)) return;
   if(len) {
     // The header of a shade config: three space-padded digits then ','.
     if(g_asyncUploadBytes == 0 && len > 0) {
@@ -439,38 +543,38 @@ static void asyncShadeConfigUpload(AsyncWebServerRequest *request, size_t index,
 // Mirrors the sync /restore upload lambda.
 static void asyncRestoreUpload(AsyncWebServerRequest *request, size_t index, uint8_t *data, size_t len, bool final) {
   esp_task_wdt_reset();
-  if(index == 0) {
-    webServer.uploadSuccess = false;
-    g_asyncUploadAuth = webAsync.isSameOrigin(request) && webAsync.isAuthenticated(request, true);
-    g_asyncUploadBytes = 0;
-    if(g_asyncUploadAuth) {
-      SomfyGuard guard;
-      File fup = LittleFS.open("/shades.tmp", "w");
-      fup.close();
-    }
-  }
-  if(!g_asyncUploadAuth) return;
   SomfyGuard guard;
+  if(index == 0) {
+    if(!uploadClaim(request)) return;
+    if(git.lockFS) { g_asyncUploadAuth = false; return; } // filesystem being flashed
+    File fup = LittleFS.open("/shades.tmp", "w");
+    fup.close();
+  }
+  if(!uploadOwned(request)) return;
   if(len) {
     g_asyncUploadBytes += len;
     if(g_asyncUploadBytes > ASYNC_RESTORE_MAX_UPLOAD) {
-      webServer.uploadSuccess = false;
       g_asyncUploadAuth = false;
       return;
     }
+    // A short write would restore a truncated backup: refuse the upload instead.
     File fup = LittleFS.open("/shades.tmp", "a");
-    if(fup) { fup.write(data, len); fup.close(); }
+    const bool written = fup && fup.write(data, len) == len;
+    if(fup) fup.close();
+    if(!written) { g_asyncUploadAuth = false; return; }
   }
   if(final) webServer.uploadSuccess = true;
 }
 void WebAsync::abortStalledOta() {
-  if(!this->otaInProgress) return;
+  SomfyGuard guard; // chunk writes hold it: never abort in the middle of one
+  if(!this->otaInProgress || !g_otaFlashing) return;
   if((int32_t)(millis() - this->otaActivity) < 15000) return;
-  // A flash that has not advanced for 15s is abandoned: drop it and let somfy
-  // resume. The radio stays down until the next reboot (as on an aborted sync
-  // flash); the device stays reachable so the user can retry.
+  // A flash that has not advanced for 15s is abandoned: drop it, write the
+  // shades back if it was the filesystem, and put the radio and MQTT back to
+  // work. The device stays reachable so the user can retry.
   Update.abort();
-  this->otaInProgress = false;
+  g_asyncUploadAuth = false; // any late chunk of that upload is dropped
+  otaFinish(false);
   Serial.println("Async OTA stalled - aborted, releasing somfy");
 }
 void WebAsync::begin() {
@@ -959,10 +1063,7 @@ void WebAsync::begin() {
     [](AsyncWebServerRequest *request) {
       webServer.lastActivity = millis();
       if(!webAsync.ensureAuth(request, true)) return;
-      if(Update.hasError()) request->send(500, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Error updating firmware: \"}");
-      else request->send(200, "application/json", "{\"status\":\"SUCCESS\",\"desc\":\"Successfully updated firmware\"}");
-      rebootDelay.reboot = true;
-      rebootDelay.rebootTime = millis() + 500;
+      asyncOtaRespond(request, false);
     },
     [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
       asyncOtaUpload(request, index, data, len, final, false);
@@ -971,10 +1072,7 @@ void WebAsync::begin() {
     [](AsyncWebServerRequest *request) {
       webServer.lastActivity = millis();
       if(!webAsync.ensureAuth(request, true)) return;
-      if(Update.hasError()) request->send(500, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Error updating application: \"}");
-      else request->send(200, "application/json", "{\"status\":\"SUCCESS\",\"desc\":\"Successfully updated application\"}");
-      rebootDelay.reboot = true;
-      rebootDelay.rebootTime = millis() + 500;
+      asyncOtaRespond(request, true);
     },
     [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
       asyncOtaUpload(request, index, data, len, final, true);
@@ -998,7 +1096,9 @@ void WebAsync::begin() {
     [](AsyncWebServerRequest *request) {
       webServer.lastActivity = millis();
       if(!webAsync.ensureAuth(request, true)) return;
-      if(webServer.uploadSuccess) {
+      bool mine;
+      { SomfyGuard guard; mine = request == g_uploadOwner && webServer.uploadSuccess; }
+      if(mine) {
         request->send(200, "application/json", "{\"status\":\"Success\",\"desc\":\"Restoring Shade settings\"}");
         restore_options_t opts;
         if(request->hasParam("data", true)) {

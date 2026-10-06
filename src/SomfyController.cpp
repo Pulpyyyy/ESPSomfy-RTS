@@ -118,8 +118,14 @@ void SomfyShadeController::commitAfterFsFlash() {
   if(git.lockFS) return;
   LittleFS.end();
   if(!LittleFS.begin()) {
-    Serial.println("Cannot mount the new file system: shade config NOT saved!");
-    return;
+    // The image does not mount: the flash failed part-way. Format the partition
+    // so the shades, still in memory, survive; the web UI files then have to be
+    // flashed again.
+    Serial.println("The new file system does not mount: formatting it to keep the shade config");
+    if(!LittleFS.begin(true)) {
+      Serial.println("Cannot format the file system: shade config NOT saved!");
+      return;
+    }
   }
   this->commit();
 }

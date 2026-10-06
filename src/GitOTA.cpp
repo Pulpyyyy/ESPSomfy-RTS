@@ -487,11 +487,20 @@ bool GitUpdater::beginUpdate(const char *version) {
       delay(100);
       Serial.println("Committing Configuration...");
       somfy.commitAfterFsFlash();
+      OTARollback::markPending(); // The application partition has been flashed.
+      rebootDelay.reboot = true;
+      rebootDelay.rebootTime = millis() + 500;
     }
-
-    OTARollback::markPending(); // The application partition has been flashed.
-    rebootDelay.reboot = true;
-    rebootDelay.rebootTime = millis() + 500;
+    else {
+      // The filesystem partition is partly rewritten. Save the shades (into a
+      // fresh filesystem if need be) and stay on the running firmware, whose
+      // page is still open in the browser, so the update can simply be
+      // retried: rebooting would start the new firmware with no web UI.
+      Serial.println("Filesystem update failed: keeping the running firmware");
+      somfy.commitAfterFsFlash();
+      const esp_partition_t *running = esp_ota_get_running_partition();
+      if(running) esp_ota_set_boot_partition(running);
+    }
   }
 
   this->status = GIT_UPDATE_COMPLETE;
@@ -506,14 +515,17 @@ bool GitUpdater::recoverFilesystem() {
   this->lockFS = true;
   this->error = this->downloadFile();
   this->lockFS = false;
-  if(this->error == 0) {
-    delay(100);
-    Serial.println("Committing Configuration...");
-    somfy.commitAfterFsFlash();
-  }
+  delay(100);
+  Serial.println("Committing Configuration...");
+  // Into the recovered image, or into a fresh filesystem when it failed.
+  somfy.commitAfterFsFlash();
   this->status = GIT_UPDATE_COMPLETE;
-  rebootDelay.reboot = true;
-  rebootDelay.rebootTime = millis() + 500;
+  // A failed recovery keeps the device running: the page that asked for it is
+  // still open and can try again.
+  if(this->error == 0) {
+    rebootDelay.reboot = true;
+    rebootDelay.rebootTime = millis() + 500;
+  }
   return true;
 }
 bool GitUpdater::endUpdate() { return true; }
@@ -536,6 +548,7 @@ int8_t GitUpdater::downloadFile() {
       size_t len = https.getSize();
       size_t total = 0;
       uint8_t pct = 0;
+      int8_t endError = 0;
       Serial.printf("[HTTPS] GET... code: %d - %d\n", httpCode, len);
       if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_FOUND) {
         WiFiClient *stream = https.getStreamPtr();
@@ -580,6 +593,7 @@ int8_t GitUpdater::downloadFile() {
               if (Update.write(buff, c) != c) {
                 Update.printError(Serial);
                 Serial.printf("Upload of %s aborted invalid size %d\n", url, c);
+                Update.abort(); // left open, the session refused every later update until a reboot
                 https.end();
                 sclient.stop();
                 return -(Update.getError() + UPDATE_ERR_OFFSET);
@@ -596,6 +610,8 @@ int8_t GitUpdater::downloadFile() {
                 if(!Update.end(true)) {
                   Serial.println("Error downloading update...");
                   Update.printError(Serial);
+                  // Reported as success before: the caller then recorded the version and rebooted.
+                  endError = -(Update.getError() + UPDATE_ERR_OFFSET);
                 }
                 else {
                   Serial.println("Update.end Called...");
@@ -617,10 +633,9 @@ int8_t GitUpdater::downloadFile() {
               delay(100);
             }
           }
+          if(endError) return endError;
           if(len > total) {
             Update.abort();
-            if(this->partition == U_SPIFFS) somfy.commitAfterFsFlash();
-            else somfy.commit();
             Serial.println("Error downloading file!!!");
             return -42;
           }
