@@ -100,11 +100,12 @@ bool BaseSettings::saveFile(const char *filename) {
   return true;
 }
 bool BaseSettings::parseValueString(JsonObject &obj, const char *prop, char *pdest, size_t size) {
-  if(obj.containsKey(prop)) strlcpy(pdest, obj[prop], size);
+  // A non-string value would convert to nullptr and fault strlcpy: keep the current value.
+  if(obj[prop].is<const char*>()) strlcpy(pdest, obj[prop], size);
   return true;
 }
 bool BaseSettings::parseIPAddress(JsonObject &obj, const char *prop, IPAddress *pdest) {
-  if(obj.containsKey(prop)) {
+  if(obj[prop].is<const char*>()) {
     char buff[16];
     strlcpy(buff, obj[prop], sizeof(buff));
     pdest->fromString(buff);

@@ -305,9 +305,12 @@ void Web::handleLogin(WebRequest &req) {
       }
       else {
           JsonObject objin = docin.as<JsonObject>();
-          if(objin.containsKey("username") && objin["username"]) strlcpy(username, objin["username"], sizeof(username));
-          if(objin.containsKey("password") && objin["password"]) strlcpy(password, objin["password"], sizeof(password));
-          if(objin.containsKey("pin") && objin["pin"]) strlcpy(pin, objin["pin"], sizeof(pin));
+          // `| ""` because a non-string value (a number, true, null) converts to
+          // nullptr, and strlcpy from nullptr faults: an anonymous {"pin":1}
+          // used to reboot the device.
+          strlcpy(username, objin["username"] | "", sizeof(username));
+          strlcpy(password, objin["password"] | "", sizeof(password));
+          strlcpy(pin, objin["pin"] | "", sizeof(pin));
       }
     }
     else {
