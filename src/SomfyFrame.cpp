@@ -210,7 +210,7 @@ void somfy_frame_t::decodeFrame(somfy_rx_t *rx) {
   this->decodeFrame(rx->payload);
 }
 byte somfy_frame_t::encode80Byte7(byte start, uint8_t repeat) { return somfy_codec::encode80Byte7(start, repeat); }
-void somfy_frame_t::encode80BitFrame(byte *frame, uint8_t repeat) {
+void somfy_frame_t::encode80BitFrame(byte *frame, uint8_t repeat, bool header) {
   switch(this->cmd) {
     // Step up and down commands encode the step size into the last 3 bytes.
     case somfy_commands::StepUp:
@@ -244,8 +244,13 @@ void somfy_frame_t::encode80BitFrame(byte *frame, uint8_t repeat) {
       frame[9] |= this->calc80Checksum(frame[7], frame[8], frame[9]);
       break;
     case somfy_commands::Toggle:
-      frame[0] = 164;
-      frame[1] |= 0xF0;
+      // Header bytes only on the clear frame: OR-ing 0xF0 into the obfuscated
+      // byte 1 of a repeat decoded as command 0x5 with a bad checksum, so every
+      // Toggle repeat was rejected and only the first frame counted.
+      if(header) {
+        frame[0] = 164;
+        frame[1] |= 0xF0;
+      }
       frame[7] = this->encode80Byte7(196, repeat);
       frame[8] = 0;
       frame[9] = 0x10;
@@ -369,7 +374,7 @@ void somfy_frame_t::encodeFrame(byte *frame) {
     
   }
   else {
-    if(this->bitLength == 80) this->encode80BitFrame(&frame[0], this->repeats);
+    if(this->bitLength == 80) this->encode80BitFrame(&frame[0], this->repeats, true);
   }
   // Checksum integration
   frame[1] |= somfy_codec::checksumPlain(frame);
