@@ -165,7 +165,14 @@ void Network::loop() {
   sockEmit.loop();
   mqtt.loop();
   if(settings.ssdpBroadcast && this->connected()) {
-    if(!SSDP.isStarted) SSDP.begin();
+    // SSDP.begin() waits up to 50ms for the clock and gives up until NTP has
+    // synced (never, on a network without internet): retry every 5s, not on
+    // every loop pass.
+    static uint32_t lastSsdpTry = 0;
+    if(!SSDP.isStarted && (lastSsdpTry == 0 || (uint32_t)(millis() - lastSsdpTry) >= 5000)) {
+      lastSsdpTry = millis();
+      SSDP.begin();
+    }
     if(SSDP.isStarted) SSDP.loop();
   }
   else if(!settings.ssdpBroadcast && SSDP.isStarted) SSDP.end();
