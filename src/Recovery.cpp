@@ -4,6 +4,7 @@
 #include <Preferences.h>
 #include <sdkconfig.h>
 #include <WiFi.h>
+#include <esp_system.h>
 #include "Somfy.h"
 #include "ConfigSettings.h"
 #include "Recovery.h"
@@ -27,6 +28,18 @@ void handlePowerCycleReset() {
   if (LED_PIN != -1) pinMode(LED_PIN, OUTPUT);
 
   Preferences p;
+  // Only power-ups count. A crash or watchdog loop in the first seconds used to
+  // count too and, at the third reset, turned security off and erased the WiFi
+  // credentials on its own (at the sixth, everything). Unplugging and plugging
+  // back, or pressing EN, reports POWERON, EXT or, on a quick replug, BROWNOUT.
+  const esp_reset_reason_t why = esp_reset_reason();
+  if (why != ESP_RST_POWERON && why != ESP_RST_EXT && why != ESP_RST_BROWNOUT) {
+    p.begin("rst_logic", false);
+    p.putInt("c", 0);
+    p.end();
+    Serial.printf("\n[BOOT] Reset reason %d: power-cycle count cleared\n", (int)why);
+    return;
+  }
   p.begin("rst_logic", false);
   int count = p.getInt("c", 0) + 1;
   p.putInt("c", count);
