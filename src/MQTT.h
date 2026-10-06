@@ -21,7 +21,11 @@ public:
   // loop task, so loop() performs the disconnect and the normal reconnect
   // logic then picks up the freshly saved settings.
   volatile bool reconnectPending = false;
-  char clientId[32] = {'\0'};
+  // As long as settings.MQTT.clientId (65): a longer configured id used to be
+  // cut to 31 characters, so two controllers could end up with the same id and
+  // keep kicking each other off the broker. The CONNECT packet still fits
+  // PubSubClient's 256-byte buffer with every field at its maximum (~228).
+  char clientId[65] = {'\0'};
 
   bool begin();
   bool loop();
