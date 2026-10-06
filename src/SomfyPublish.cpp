@@ -457,7 +457,9 @@ void SomfyShade::emitCommand(uint8_t num, somfy_commands cmd, const char *source
   json->addElem("remoteAddress", (uint32_t)this->getRemoteAddress());
   json->addElem("cmd", translateSomfyCommand(cmd).c_str());
   json->addElem("source", source);
-  json->addElem("rcode", (uint32_t)this->lastRollingCode);
+  // No rolling code: this event goes to every socket client, authenticated or
+  // not, and the remote address plus the current code is what it takes to
+  // clone the remote. Neither the UI nor Home Assistant reads it.
   json->addElem("sourceAddress", (uint32_t)sourceAddress);
   json->endObject();
   sockEmit.endEmit(num);
