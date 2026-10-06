@@ -71,6 +71,9 @@ bool MQTTClass::loop() {
   if(this->reconnectPending) {
     this->reconnectPending = false;
     this->disconnect();
+    // New settings (or an OTA ending): try again now, not after the backoff.
+    this->lastConnect = 0;
+    this->retryDelay = 10000;
   }
   if(settings.MQTT.enabled && !rebootDelay.reboot && !this->suspended && !mqttClient.connected()) {
     esp_task_wdt_reset();
@@ -152,7 +155,8 @@ void MQTTClass::receive(const char *topic, byte* payload, uint32_t length) {
         else if(val > 0) group->sendCommand(somfy_commands::Down);
         else group->sendCommand(somfy_commands::My);
       }
-      else if(strcmp(command, "sunFlag") == 0) group->sendCommand(val > 0 ? somfy_commands::Flag : somfy_commands::SunFlag);
+      // Same sense as shades and as the group's published sunFlag: 1 turns sun mode on.
+      else if(strcmp(command, "sunFlag") == 0) group->sendCommand(val > 0 ? somfy_commands::SunFlag : somfy_commands::Flag);
       else if(strcmp(command, "sunny") == 0) group->sendSensorCommand(-1, constrain(val, 0, 1), group->repeats);
       else if(strcmp(command, "windy") == 0) group->sendSensorCommand(constrain(val, 0, 1), -1, group->repeats);
     }
@@ -170,7 +174,11 @@ bool MQTTClass::connect() {
   // holds a millis() value; the subtractive compare stays correct across the 49.7-day
   // wrap, where the old `lastConnect + 10000 > millis()` would have blocked forever.
   // lastConnect == 0 is the "connect now" sentinel used by reset().
-  if(this->lastConnect != 0 && (uint32_t)(millis() - this->lastConnect) < 10000) return false;
+  if(this->lastConnect != 0 && (uint32_t)(millis() - this->lastConnect) < this->retryDelay) return false;
+  // The handshake blocks the loop for up to tens of seconds when the broker or
+  // its DNS does not answer, and with it the timed STOP of a shade moving to a
+  // position: wait until every shade is idle, as the GitHub update check does.
+  if(!somfy.allIdle()) return false;
   this->lastConnect = millis();
 
   // Use the user-configured client id when set; otherwise fall back to a unique
@@ -224,9 +232,19 @@ bool MQTTClass::connect() {
     // back meanwhile so the web UI keeps answering; `connecting` keeps every
     // other user of the client away until the handshake returns.
     SomfyUnlock unlock;
+    // A host name is resolved first, and the core waits up to 15s for a DNS
+    // server that does not answer (30s if a lookup is already running): longer
+    // than the 15s task watchdog, which then rebooted the device on every
+    // attempt. Every step is bounded by its own timeout, so the watchdog stands
+    // down for the handshake only.
+    esp_task_wdt_delete(NULL);
     ok = mqttClient.connect(this->clientId, settings.MQTT.username, settings.MQTT.password, makeTopic("status"), 0, true, "offline");
+    esp_task_wdt_add(NULL);
   }
   this->connecting = false;
+  // Back off while the broker stays unreachable: 10s, 20s, ... 5 minutes. Each
+  // failed attempt stalls the loop and, over TLS, churns a 40KB client.
+  this->retryDelay = ok ? 10000 : (this->retryDelay >= 150000 ? 300000 : this->retryDelay * 2);
   if(ok && this->suspended) {
     // An OTA flash started during the handshake.
     mqttClient.disconnect();

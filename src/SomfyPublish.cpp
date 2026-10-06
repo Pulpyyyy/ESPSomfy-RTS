@@ -96,15 +96,19 @@ void SomfyShade::publishDisco() {
   obj["name"] = this->name;
   snprintf(topic, sizeof(topic), "mqtt_%s_shade%d", settings.serverId, this->shadeId);
   obj["unique_id"] = topic;
+  // flipPosition only mirrors the published positions (transformPosition), so
+  // position_open/closed follow it. The direction is published and received
+  // unflipped (-1 up, 1 down) whatever flipPosition says: flipping the payloads
+  // too made Home Assistant's open button close the shade.
   switch(this->shadeType) {
     case shade_types::blind:
       obj["device_class"] = "blind";
-      obj["payload_close"] = this->flipPosition ? "-1" : "1";
-      obj["payload_open"] = this->flipPosition ? "1" : "-1";
+      obj["payload_close"] = "1";
+      obj["payload_open"] = "-1";
       obj["position_open"] = this->flipPosition ? 100 : 0;
       obj["position_closed"] = this->flipPosition ? 0 : 100;
-      obj["state_closing"] = this->flipPosition ? "-1" : "1";
-      obj["state_opening"] = this->flipPosition ? "1" : "-1";
+      obj["state_closing"] = "1";
+      obj["state_opening"] = "-1";
       break;
     case shade_types::lgate:
     case shade_types::cgate:
@@ -116,52 +120,52 @@ void SomfyShade::publishDisco() {
     case shade_types::rdrapery:
     case shade_types::cdrapery:
       obj["device_class"] = "curtain";
-      obj["payload_close"] = this->flipPosition ? "-1" : "1";
-      obj["payload_open"] = this->flipPosition ? "1" : "-1";
+      obj["payload_close"] = "1";
+      obj["payload_open"] = "-1";
       obj["position_open"] = this->flipPosition ? 100 : 0;
       obj["position_closed"] = this->flipPosition ? 0 : 100;
-      obj["state_closing"] = this->flipPosition ? "-1" : "1";
-      obj["state_opening"] = this->flipPosition ? "1" : "-1";
+      obj["state_closing"] = "1";
+      obj["state_opening"] = "-1";
       break;
     case shade_types::garage1:
     case shade_types::garage3:
       obj["device_class"] = "garage";
-      obj["payload_close"] = this->flipPosition ? "-1" : "1";
-      obj["payload_open"] = this->flipPosition ? "1" : "-1";
+      obj["payload_close"] = "1";
+      obj["payload_open"] = "-1";
       obj["position_open"] = this->flipPosition ? 100 : 0;
       obj["position_closed"] = this->flipPosition ? 0 : 100;
-      obj["state_closing"] = this->flipPosition ? "-1" : "1";
-      obj["state_opening"] = this->flipPosition ? "1" : "-1";
+      obj["state_closing"] = "1";
+      obj["state_opening"] = "-1";
       break;
     case shade_types::awning:
       obj["device_class"] = "awning";
-      obj["payload_close"] = this->flipPosition ? "1" : "-1";
-      obj["payload_open"] = this->flipPosition ? "-1" : "1";
+      obj["payload_close"] = "-1";
+      obj["payload_open"] = "1";
       obj["position_open"] = this->flipPosition ? 0 : 100;
       obj["position_closed"] = this->flipPosition ? 100 : 0;
-      obj["state_closing"] = this->flipPosition ? "1" : "-1";
-      obj["state_opening"] = this->flipPosition ? "-1" : "1";
+      obj["state_closing"] = "-1";
+      obj["state_opening"] = "1";
       break;
     case shade_types::shutter:
       obj["device_class"] = "shutter";
-      obj["payload_close"] = this->flipPosition ? "-1" : "1";
-      obj["payload_open"] = this->flipPosition ? "1" : "-1";
+      obj["payload_close"] = "1";
+      obj["payload_open"] = "-1";
       obj["position_open"] = this->flipPosition ? 100 : 0;
       obj["position_closed"] = this->flipPosition ? 0 : 100;
-      obj["state_closing"] = this->flipPosition ? "-1" : "1";
-      obj["state_opening"] = this->flipPosition ? "1" : "-1";
+      obj["state_closing"] = "1";
+      obj["state_opening"] = "-1";
       break;
     case shade_types::drycontact2:
     case shade_types::drycontact:
       break;
     default:
       obj["device_class"] = "shade";
-      obj["payload_close"] = this->flipPosition ? "-1" : "1";
-      obj["payload_open"] = this->flipPosition ? "1" : "-1";
+      obj["payload_close"] = "1";
+      obj["payload_open"] = "-1";
       obj["position_open"] = this->flipPosition ? 100 : 0;
       obj["position_closed"] = this->flipPosition ? 0 : 100;
-      obj["state_closing"] = this->flipPosition ? "-1" : "1";
-      obj["state_opening"] = this->flipPosition ? "1" : "-1";
+      obj["state_closing"] = "1";
+      obj["state_opening"] = "-1";
       break;
   }
   if(this->shadeType != shade_types::drycontact && this->shadeType != shade_types::drycontact2) {

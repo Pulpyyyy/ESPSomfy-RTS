@@ -11,6 +11,7 @@ private:
 
 public:
   uint32_t lastConnect = 0;  // millis() of the last attempt; subtractive compare is rollover-safe
+  uint32_t retryDelay = 10000; // wait before the next attempt: doubles on each failure, up to 5 minutes
   bool suspended = false;
   // Set while connect() runs the blocking handshake with the shared-state lock
   // handed back: every other PubSubClient user stays away (see ready()).
