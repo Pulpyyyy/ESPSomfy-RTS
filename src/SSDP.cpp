@@ -227,6 +227,9 @@ UPNPDeviceType* SSDPClass::findDeviceByType(char *devType) {
   return nullptr;
 }
 UPNPDeviceType* SSDPClass::findDeviceByUUID(char *uuid) {
+  // The search target reads "uuid:<id>" while the device stores the bare id:
+  // compared as is, a uuid search never matched.
+  if(strncasecmp(uuid, "uuid:", 5) == 0) uuid += 5;
   for(uint8_t i = 0; i < this->m_cdeviceTypes; i++) {
     if (strcasecmp(uuid, this->deviceTypes[i].uuid) == 0) return &this->deviceTypes[i];
   }
@@ -441,6 +444,20 @@ IPAddress SSDPClass::localIP()
 void SSDPClass::_sendResponse(IPAddress addr, uint16_t port, UPNPDeviceType *d, const char *st, response_types_t responseType) {
   char buffer[1460];
   IPAddress ip = this->localIP();
+  // An ssdp:all search gets one answer per target, each naming its own target
+  // in ST (UPnP 1.1, 1.3.3); echoing "ssdp:all" back left clients unable to
+  // tell the three answers apart.
+  char stAll[SSDP_DEVICE_TYPE_SIZE + 8];
+  if(strcmp(st, "ssdp:all") == 0) {
+    switch(responseType) {
+      case response_types_t::root: st = "upnp:rootdevice"; break;
+      case response_types_t::deviceType: st = d->deviceType; break;
+      default:
+        snprintf(stAll, sizeof(stAll), "uuid:%s", d->uuid);
+        st = stAll;
+        break;
+    }
+  }
   char *pbuff = (char *)malloc(strlen_P(_ssdp_response_template)+1);
   if(!pbuff) {
     #ifdef DEBUG_SSDP
@@ -688,7 +705,7 @@ void SSDPClass::_sendQueuedResponses() {
   for(uint8_t i = 0; i < SSDP_QUEUE_SIZE; i++) {
     if(this->sendQueue[i].waiting) {
       ssdp_response_t *q = &this->sendQueue[i];
-      if(q->sendTime < millis()) {
+      if((int32_t)(millis() - q->sendTime) >= 0) { // rollover-safe
           // Send the response and delete the pointer.
           #ifdef DEBUG_SSDP
             DEBUG_SSDP.print("Sending SSDP queued response ");
@@ -753,22 +770,26 @@ void SSDPClass::_processRequest(AsyncUDPPacket &p) {
       for(uint8_t i = 0; i < this->m_cdeviceTypes; i++) {
         UPNPDeviceType *dev = &this->deviceTypes[i];
         if(strlen(this->deviceTypes[i].deviceType) > 0) {
-          this->_addToSendQueue(p.remoteIP(), p.remotePort(), dev, pkt.st, response_types_t::root, pkt.mx);
-          this->_addToSendQueue(p.remoteIP(), p.remotePort(), dev, pkt.st, response_types_t::uuid, pkt.mx);
-          this->_addToSendQueue(p.remoteIP(), p.remotePort(), dev, pkt.st, response_types_t::deviceType, pkt.mx);
+          this->_addToSendQueue(p.remoteIP(), p.remotePort(), dev, pkt.st, response_types_t::root, pkt.type == MULTICAST ? pkt.mx : 0);
+          this->_addToSendQueue(p.remoteIP(), p.remotePort(), dev, pkt.st, response_types_t::uuid, pkt.type == MULTICAST ? pkt.mx : 0);
+          this->_addToSendQueue(p.remoteIP(), p.remotePort(), dev, pkt.st, response_types_t::deviceType, pkt.type == MULTICAST ? pkt.mx : 0);
         }
       }
     }
+    // Every answer goes back to the searcher's own address and port: a search
+    // response is unicast even when the search was multicast (UPnP 1.1, 1.3.3).
+    // Sent to the multicast group, it never reached a client listening on an
+    // ephemeral port, such as Home Assistant's. All of them go through the
+    // queue, sent from the loop: a multicast search waits its random MX delay,
+    // a unicast one goes out at once, and the 1.5KB packet is no longer built
+    // on the small stack of the UDP task.
     else if(strcmp("upnp:rootdevice", pkt.st) == 0) {
       UPNPDeviceType *dev = &this->deviceTypes[0];
       #ifdef DEBUG_SSDP
       DEBUG_SSDP.println("---------------   ROOT   ---------------------");
       this->_printPacket(&pkt);
       #endif
-      if(pkt.type == MULTICAST) 
-        this->_addToSendQueue(IPAddress(SSDP_MULTICAST_ADDR), SSDP_PORT, dev, pkt.st, response_types_t::root, pkt.mx);
-      else 
-        this->_sendResponse(p.remoteIP(), p.remotePort(), dev, pkt.st, response_types_t::root);
+      this->_addToSendQueue(p.remoteIP(), p.remotePort(), dev, pkt.st, response_types_t::root, pkt.type == MULTICAST ? pkt.mx : 0);
     }
     else {
       UPNPDeviceType *dev = nullptr;
@@ -783,11 +804,10 @@ void SSDPClass::_processRequest(AsyncUDPPacket &p) {
         this->_printPacket(&pkt);
         DEBUG_SSDP.println("--------------   ACCEPT   --------------------");
         #endif
-        if(pkt.type == MULTICAST)
-          this->_addToSendQueue(IPAddress(SSDP_MULTICAST_ADDR), SSDP_PORT, dev, pkt.st, useUUID ? response_types_t::uuid : response_types_t::root, pkt.mx);
-        else {
-          this->_sendResponse(p.remoteIP(), p.remotePort(), dev, pkt.st, useUUID ? response_types_t::uuid : response_types_t::root);
-        }
+        // A device-type search answers with the device-type USN
+        // (uuid:<id>::urn:...), not the root-device one.
+        this->_addToSendQueue(p.remoteIP(), p.remotePort(), dev, pkt.st,
+          useUUID ? response_types_t::uuid : response_types_t::deviceType, pkt.type == MULTICAST ? pkt.mx : 0);
       }
     }
   }
