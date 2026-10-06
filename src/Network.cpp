@@ -594,8 +594,12 @@ void Network::networkEvent(WiFiEvent_t event) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:    Serial.println(F("WiFi connected")); break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       Serial.printf("WiFi disconnected (%d)\n", net.connecting());
+      // Restart the fallback timer only when an established link drops. Every
+      // failed attempt fires this event too: resetting the timer there kept a
+      // device whose router rejects it (password changed, MAC filter) from ever
+      // reaching CONNECT_TIMEOUT and opening the recovery AP.
+      if(net.connType == conn_types_t::wifi) net.disconnectTime = millis();
       net.connType = conn_types_t::unset;
-      net.disconnectTime = millis();
       net.clearConnecting();
       break;
     case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE: Serial.println(F("WiFi auth changed")); break;
@@ -620,8 +624,8 @@ void Network::networkEvent(WiFiEvent_t event) {
     case ARDUINO_EVENT_ETH_CONNECTED:    Serial.println(F("Ethernet connected")); break;
     case ARDUINO_EVENT_ETH_DISCONNECTED:
       Serial.println(F("Ethernet disconnected"));
+      if(net.connType == conn_types_t::ethernet) net.disconnectTime = millis(); // see WIFI_STA_DISCONNECTED
       net.connType = conn_types_t::unset;
-      net.disconnectTime = millis();
       net.clearConnecting();
       break;
     case ARDUINO_EVENT_ETH_START:
