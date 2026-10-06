@@ -976,6 +976,9 @@ void SomfyShade::processInternalCommand(somfy_commands cmd, uint8_t repeat) {
   // any linked remotes that may happen to be on the same ESPSomfy RTS
   // device can trigger the appropriate actions.
   if(this->shadeId == 255) return; 
+  // A group command supersedes a positioning or a My recording in progress
+  // (see SomfyShade::sendCommand).
+  this->settingPos = this->settingMyPos = false;
   const uint32_t curTime = millis();
   int8_t dir = 0;
   this->moveStart = this->tiltStart = curTime;

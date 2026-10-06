@@ -279,6 +279,9 @@ void SomfyShade::checkMovement() {
         }
         else
           if(this->target != 100.0) SomfyRemote::sendCommand(somfy_commands::My, this->repeats);
+        // The positioning is done: left set, a later step would send a stray My
+        // on arrival, which a stopped motor takes as "go to favorite".
+        this->settingPos = false;
       }
       this->p_direction(0);
       this->tiltStart = curTime;
@@ -344,6 +347,7 @@ void SomfyShade::checkMovement() {
         }
         else
           if(this->target != 0.0) SomfyRemote::sendCommand(somfy_commands::My, this->repeats);
+        this->settingPos = false; // positioning done, see the down direction
       }
       this->p_direction(0);
       this->tiltStart = curTime;
@@ -662,6 +666,10 @@ void SomfyShade::sendCommand(somfy_commands cmd, uint8_t repeat, uint8_t stepSiz
   // This sendCommand function will always be called externally. sendCommand at the remote level
   // is expected to be called internally when the motor needs commanded.
   if(this->bitLength == 0) this->bitLength = somfy.transceiver.config.type;
+  // An external command supersedes a positioning or a My recording in progress;
+  // left set, the arrival would send a stray My or record the wrong favorite.
+  // The set-My flow itself only uses the internal SomfyRemote::sendCommand.
+  this->settingPos = this->settingMyPos = false;
   if(cmd == somfy_commands::Up) {
     if(this->tiltType == tilt_types::euromode) {
       // In euromode we need to long press for 2 seconds on the
