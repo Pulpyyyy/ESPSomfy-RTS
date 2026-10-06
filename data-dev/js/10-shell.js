@@ -367,6 +367,14 @@ function navSyncSaveButtons() {
 function navSuppress() { _navSuppress = true; setTimeout(() => { _navSuppress = false; }, 900); }
 function navClearDirty() { _navDirty = false; navSyncSaveButtons(); }
 function navMarkDirty() { if (!_navSuppress) { _navDirty = true; navSyncSaveButtons(); } }
+// −/+ steppers and the radio precision arrows write the field value from code,
+// so the edit only surfaces as an untrusted event (or none at all): the click
+// on the button itself is the user edit. The step-granularity chips
+// (.radioStepButtons) only change the slider increment and are not edits.
+const NAV_STEPPER_SEL = '.step-buttons button, .radioBtnPrec';
+function navIsStepperClick(e) {
+    return e.type === 'click' && e.isTrusted && !!(e.target && e.target.closest && e.target.closest(NAV_STEPPER_SEL));
+}
 function navGuardSetup() {
     navSyncSaveButtons();
     // After a save click, consider the edits persisted unless a validation error
@@ -379,14 +387,17 @@ function navGuardSetup() {
     const mark = (e) => {
         if (!e.isTrusted) return;                       // programmatic change events are not user edits
         const t = e.target;
-        if (!t || !t.matches || !t.matches('input,select,textarea')) return;
+        if (!t || !t.closest) return;
+        // A click only counts on a stepper: focusing a field is not an edit.
+        if (e.type === 'click' ? !navIsStepperClick(e) : !(t.matches && t.matches('input,select,textarea'))) return;
         if (t.classList.contains('pin-digit')) return;  // PIN entry (login or security page) is not a config edit
-        if (t.closest && t.closest('#divUnauthenticated')) return;  // nothing on the login screen counts
-        if (t.closest && t.closest('#divHomePnl')) return;  // dashboard controls act immediately, there is nothing to save
+        if (t.closest('#divUnauthenticated')) return;  // nothing on the login screen counts
+        if (t.closest('#divHomePnl, #divVirtualRemote')) return;  // these controls act immediately, there is nothing to save
         navMarkDirty();
     };
     document.addEventListener('input', mark, true);
     document.addEventListener('change', mark, true);
+    document.addEventListener('click', mark, true);
     // Closing or reloading the tab must warn too, not just in-app navigation.
     window.addEventListener('beforeunload', (e) => {
         if (_navDirty) { e.preventDefault(); e.returnValue = ''; }

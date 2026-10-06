@@ -184,10 +184,11 @@ class Somfy {
                 // Any trusted edit in the panel (sliders included) flips the status line
                 // to the save-required hint: the sliders preview their new value
                 // instantly and nothing else said the radio still runs the old one.
+                // Stepper and precision-arrow clicks count too (see navIsStepperClick).
                 // Property assignment so socket reconnects do not stack listeners.
                 const panel = get('divTransceiverSettings');
-                panel.oninput = panel.onchange = (e) => {
-                    if (e.isTrusted) txtStatus.textContent = tr('RADIO_SAVE_REQUIRED');
+                panel.oninput = panel.onchange = panel.onclick = (e) => {
+                    if (e.type === 'click' ? navIsStepperClick(e) : e.isTrusted) txtStatus.textContent = tr('RADIO_SAVE_REQUIRED');
                 };
                 updateRadioText();
 
