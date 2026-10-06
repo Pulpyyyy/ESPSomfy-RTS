@@ -7,10 +7,14 @@
 class MQTTClass {
 private:
   const char* makeTopic(const char* topic);
+  bool ready();
 
 public:
   uint32_t lastConnect = 0;  // millis() of the last attempt; subtractive compare is rollover-safe
   bool suspended = false;
+  // Set while connect() runs the blocking handshake with the shared-state lock
+  // handed back: every other PubSubClient user stays away (see ready()).
+  volatile bool connecting = false;
   // Set by /connectmqtt (which may run in the async_tcp task) instead of
   // calling disconnect() directly: every PubSubClient call must stay in the
   // loop task, so loop() performs the disconnect and the normal reconnect

@@ -40,17 +40,8 @@ class JsonAsyncResponse : public JsonResponse {
     void discard(); // drop an unsent overflow stream (error/abort paths)
 };
 
-// Async handlers run in the async_tcp task, concurrently with loop(). Every
-// touch of shared state (somfy, rfStats, settings, config files) must hold
-// this lock; loop() holds it around its somfy/rfStats processing. Recursive,
-// so helpers may nest. Keep the critical sections short: long work (OTA
-// writes, GitHub TLS, frequency scans) stays on the flag->loop patterns.
-extern SemaphoreHandle_t g_somfyLock;
-class SomfyGuard {
-  public:
-    SomfyGuard() { xSemaphoreTakeRecursive(g_somfyLock, portMAX_DELAY); }
-    ~SomfyGuard() { xSemaphoreGiveRecursive(g_somfyLock); }
-};
+// The shared-state lock (SomfyGuard) lives in SomfyLock.h.
+#include "SomfyLock.h"
 
 // WebRequest bound to an async request. The shared handlers run in the
 // async_tcp task under the SomfyGuard taken by the registration shim. First

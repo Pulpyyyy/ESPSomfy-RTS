@@ -34,6 +34,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
   Serial.println("Startup/Boot....");
+  somfyLockInit();
   OTARollback::checkBoot();
   handlePowerCycleReset();
   Serial.println("Mounting File System...");
@@ -66,7 +67,16 @@ void loop() {
   // Single evaluation per pass: a reboot armed later in this pass fires at the top of the
   // next one a few ms later, which is what the 500-1000ms grace the callers arm is for --
   // it lets the HTTP response that requested the reboot flush first.
-  if(rebootDelay.reboot && (int32_t)(millis() - rebootDelay.rebootTime) >= 0) {
+  // Read under the lock: the async handlers set reboot and rebootTime as a pair
+  // under it, so a reboot never fires on a stale rebootTime before its response
+  // has gone out.
+  bool rebootNow;
+  {
+    SomfyGuard guard;
+    rebootNow = rebootDelay.reboot && (int32_t)(millis() - rebootDelay.rebootTime) >= 0;
+  }
+  if(rebootNow) {
+    SomfyGuard guard; // the async side must not touch MQTT, sockets or files while they close
     Serial.print("Rebooting after ");
     Serial.print(rebootDelay.rebootTime);
     Serial.println("ms");
@@ -81,22 +91,30 @@ void loop() {
   }
   uint32_t timing = millis();
 
-  net.loop();
+  {
+    // Network upkeep pumps MQTT (whose receive callback drives the shades) and
+    // the socket server, both shared with the async handlers.
+    SomfyGuard guard;
+    net.loop();
+  }
   if(millis() - timing > 100) Serial.printf("Timing Net: %ldms\n", millis() - timing);
   timing = millis();
   esp_task_wdt_reset();
   // Release the OTA gate if a flash stalled (browser dropped mid-upload), so
   // somfy does not stay frozen waiting for a final chunk that never comes.
   webAsync.abortStalledOta();
-  if(!webAsync.otaInProgress) {
+  {
     // Async HTTP handlers run concurrently in the async_tcp task; everything
     // touching the somfy/rfStats world is serialized on this lock. During an
     // async OTA flash the radio is shut down and somfy must stay quiescent,
     // exactly as it does on the sync path (which blocks the loop task for the
-    // whole upload), so skip this block until the flash completes.
+    // whole upload), so skip this block until the flash completes. The flag is
+    // read under the lock, where the upload handler sets it.
     SomfyGuard guard;
-    somfy.loop();
-    rfStats.loop();
+    if(!webAsync.otaInProgress) {
+      somfy.loop();
+      rfStats.loop();
+    }
   }
   if(millis() - timing > 100) Serial.printf("Timing Somfy: %ldms\n", millis() - timing);
   timing = millis();

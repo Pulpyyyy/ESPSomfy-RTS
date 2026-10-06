@@ -9,6 +9,7 @@
 #include "GitOTA.h"
 #include "GitCerts.h"
 #include "Rollback.h"
+#include "SomfyLock.h"
 #include "Utils.h"
 #include "Sockets.h"
 #include "Somfy.h"
@@ -348,6 +349,7 @@ void GitUpdater::toJSON(JsonResponse &json) {
   json.endObject();
 }
 void GitUpdater::emitUpdateCheck(uint8_t num) {
+  SomfyGuard guard; // shared emit buffer and socket server
   JsonSockEvent *json = sockEmit.beginEmit("fwStatus");
   json->beginObject();
   json->addElem("available", this->updateAvailable);
@@ -406,6 +408,7 @@ int GitUpdater::checkInternet() {
 }
 void GitUpdater::emitDownloadProgress(size_t total, size_t loaded, const char *evt) { this->emitDownloadProgress(255, total, loaded, evt); }
 void GitUpdater::emitDownloadProgress(uint8_t num, size_t total, size_t loaded, const char *evt) {
+  SomfyGuard guard; // shared emit buffer and socket server
   JsonSockEvent *json = sockEmit.beginEmit(evt);
   json->beginObject();
   json->addElem("ver", this->targetRelease);

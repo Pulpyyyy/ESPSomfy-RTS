@@ -11,6 +11,7 @@
 #include "ConfigFile.h"
 #include "GitOTA.h"
 #include "RfStats.h"
+#include "SomfyLock.h"
 
 // SomfyShadeController implementation, split out of Somfy.cpp: startup and the
 // legacy NVS load, persistence (commit/writeBackup), id and address management,
@@ -87,6 +88,7 @@ bool SomfyShadeController::begin() {
   return true;
 }
 void SomfyShadeController::commit() {
+  SomfyGuard guard; // also reached from the unlocked GitHub update path
   if(git.lockFS) return;
   esp_task_wdt_reset(); // Make sure we don't reset inadvertently.
   ShadeConfigFile file;
@@ -112,6 +114,7 @@ void SomfyShadeController::commit() {
 // where the new image does not look and the shades vanish on the next boot.
 // Remounting first makes the write go into the new image.
 void SomfyShadeController::commitAfterFsFlash() {
+  SomfyGuard guard;
   if(git.lockFS) return;
   LittleFS.end();
   if(!LittleFS.begin()) {
@@ -121,6 +124,7 @@ void SomfyShadeController::commitAfterFsFlash() {
   this->commit();
 }
 void SomfyShadeController::writeBackup() {
+  SomfyGuard guard;
   if(git.lockFS) return;
   esp_task_wdt_reset(); // Make sure we don't reset inadvertently.
   ShadeConfigFile file;

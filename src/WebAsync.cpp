@@ -474,7 +474,7 @@ void WebAsync::abortStalledOta() {
   Serial.println("Async OTA stalled - aborted, releasing somfy");
 }
 void WebAsync::begin() {
-  if(!g_somfyLock) g_somfyLock = xSemaphoreCreateRecursiveMutex();
+  somfyLockInit();
   asyncServer.on("/", ASYNC_HTTP_GET, serveIndex);
   asyncServer.on("/index.html", ASYNC_HTTP_GET, serveIndex);
   // Explicit asset routes through the fast file responder, mirroring the sync

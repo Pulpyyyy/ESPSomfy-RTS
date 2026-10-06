@@ -10,6 +10,7 @@
 #include "GitCerts.h"
 #include "MQTT.h"
 #include "Somfy.h"
+#include "SomfyLock.h"
 #include "Network.h"
 #include "Utils.h"
 
@@ -216,7 +217,23 @@ bool MQTTClass::connect() {
   // a reachable network could freeze the device long enough to trigger a panic reboot.
   // Over TLS the CONNACK travels behind a record layer, so allow a little more.
   mqttClient.setSocketTimeout(useTLS ? 4 : 2);
-  if(mqttClient.connect(this->clientId, settings.MQTT.username, settings.MQTT.password, makeTopic("status"), 0, true, "offline")) {
+  bool ok;
+  this->connecting = true;
+  {
+    // DNS, TCP, TLS and the CONNACK wait block for up to seconds. Hand the lock
+    // back meanwhile so the web UI keeps answering; `connecting` keeps every
+    // other user of the client away until the handshake returns.
+    SomfyUnlock unlock;
+    ok = mqttClient.connect(this->clientId, settings.MQTT.username, settings.MQTT.password, makeTopic("status"), 0, true, "offline");
+  }
+  this->connecting = false;
+  if(ok && this->suspended) {
+    // An OTA flash started during the handshake.
+    mqttClient.disconnect();
+    _releaseTLSClient();
+    return false;
+  }
+  if(ok) {
     if(useTLS) Serial.printf("MQTT connected to %s over TLS, certificate validated (%u bytes of heap free)\n", settings.MQTT.hostname, ESP.getFreeHeap());
     this->publish("status", "online", true);
     this->publish("ipAddress", settings.IP.ip.toString().c_str(), true);
@@ -260,6 +277,10 @@ bool MQTTClass::connect() {
 }
 
 bool MQTTClass::disconnect() {
+  // Mid-handshake the client and its TLS session belong to connect(): leave
+  // them alone and let the loop drop the session right after (end() has also
+  // set `suspended`, which connect() checks once the handshake returns).
+  if(this->connecting) { this->reconnectPending = true; return true; }
   if(mqttClient.connected()) {
     this->unsubscribe("shades/+/target/set");
     this->unsubscribe("shades/+/direction/set");
@@ -284,24 +305,24 @@ bool MQTTClass::disconnect() {
 }
 
 bool MQTTClass::subscribe(const char *topic) {
-  if(!mqttClient.connected()) return false;
+  if(!this->ready()) return false;
   esp_task_wdt_reset();
   return mqttClient.subscribe(makeTopic(topic));
 }
 
 bool MQTTClass::unsubscribe(const char *topic) {
-  if(!mqttClient.connected()) return false;
+  if(!this->ready()) return false;
   return mqttClient.unsubscribe(makeTopic(topic));
 }
 
 bool MQTTClass::publish(const char *topic, const char *payload, bool retain) {
-  if(!mqttClient.connected()) return false;
+  if(!this->ready()) return false;
   esp_task_wdt_reset();
   return mqttClient.publish(makeTopic(topic), payload, retain);
 }
 
 bool MQTTClass::unpublish(const char *topic) {
-  if(!mqttClient.connected()) return false;
+  if(!this->ready()) return false;
   esp_task_wdt_reset();
   return mqttClient.publish(makeTopic(topic), (const uint8_t *)"", 0, true);
 }
@@ -313,7 +334,7 @@ bool MQTTClass::publish(const char *topic, int8_t val, bool retain) { itoa(val, 
 bool MQTTClass::publish(const char *topic, bool val, bool retain) { return this->publish(topic, val ? "true" : "false", retain); }
 
 bool MQTTClass::publishBuffer(const char *topic, uint8_t *data, uint16_t len, bool retain, bool absolute) {
-  if(!mqttClient.connected()) return false;
+  if(!this->ready()) return false;
   esp_task_wdt_reset();
   mqttClient.beginPublish(absolute ? topic : makeTopic(topic), len, retain);
   mqttClient.write(data, len);
@@ -335,16 +356,19 @@ static void clearLegacyDisco(PubSubClient &client, const char *legacyTopic) {
 bool MQTTClass::publishDisco(const char *topic, JsonObject &obj, bool retain, const char *legacyTopic) {
   serializeJson(obj, g_content, sizeof(g_content));
   bool ok = this->publishBuffer(topic, (uint8_t *)g_content, strlen(g_content), retain, true);
-  if(mqttClient.connected()) clearLegacyDisco(mqttClient, legacyTopic);
+  if(this->ready()) clearLegacyDisco(mqttClient, legacyTopic);
   return ok;
 }
 
 bool MQTTClass::unpublishDisco(const char *topic, const char *legacyTopic) {
-  if(!mqttClient.connected()) return false;
+  if(!this->ready()) return false;
   esp_task_wdt_reset();
   bool ok = mqttClient.publish(topic, (const uint8_t *)"", 0, true);
   clearLegacyDisco(mqttClient, legacyTopic);
   return ok;
 }
 
-bool MQTTClass::connected() { return settings.MQTT.enabled && mqttClient.connected(); }
+// The client is usable: not mid-handshake (which runs with the lock handed back,
+// see connect()) and connected. Callers hold the shared-state lock.
+bool MQTTClass::ready() { return !this->connecting && mqttClient.connected(); }
+bool MQTTClass::connected() { return settings.MQTT.enabled && this->ready(); }

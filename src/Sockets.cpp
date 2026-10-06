@@ -3,6 +3,7 @@
 #include <WebSocketsServer.h>
 #include <esp_task_wdt.h>
 #include "Sockets.h"
+#include "SomfyLock.h"
 #include "ConfigSettings.h"
 #include "Somfy.h"
 #include "Network.h"
@@ -85,8 +86,11 @@ void SocketEmitter::begin() {
   //settings.printAvailHeap();
 }
 void SocketEmitter::loop() {
+  // Pumped from the loop task (network upkeep, update download) and from async
+  // handlers (shade saves): the server and the shared emit buffer need the lock.
+  SomfyGuard guard;
   this->initClients();
-  sockServer.loop();  
+  sockServer.loop();
 }
 JsonSockEvent *SocketEmitter::beginEmit(const char *evt) {
   this->json.beginEvent(&sockServer, evt, g_response, sizeof(g_response));

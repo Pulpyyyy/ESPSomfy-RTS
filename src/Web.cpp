@@ -4,6 +4,7 @@
 #include <Update.h>
 #include <esp_task_wdt.h>
 #include "mbedtls/md.h"
+#include "SomfyLock.h"
 #include "ConfigSettings.h"
 #include "ConfigFile.h"
 #include "Utils.h"
@@ -226,7 +227,12 @@ void Web::loop() {
   // Port 80 is served by the async task now; only the HA API server is polled
   // from here. The delay yields to the idle task (which the watchdog watches)
   // and bounds how long a request waits behind a loop pass.
-  apiServer.handleClient();
+  {
+    // The HA API handlers command shades and write settings from the loop task,
+    // concurrently with the async handlers: same lock as they hold.
+    SomfyGuard guard;
+    apiServer.handleClient();
+  }
   delay(1);
 }
 void Web::sendCORSHeaders(WebServer &server) {
