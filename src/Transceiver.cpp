@@ -811,7 +811,6 @@ void transceiver_config_t::toJSON(JsonObject& obj) {
 */
 void transceiver_config_t::save() {
     pref.begin("CC1101");
-    pref.clear();
     pref.putUChar("type", this->type);
     pref.putUChar("TXPin", this->TXPin);
     pref.putUChar("RXPin", this->RXPin);

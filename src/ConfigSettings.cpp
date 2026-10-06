@@ -10,6 +10,10 @@
 #include "esp_random.h"
 
 
+// Every save() below writes its keys in place and never clear()s the namespace
+// first: a power loss between the clear and the puts left it empty (security
+// back to none, WiFi credentials gone). All keys are written unconditionally,
+// so nothing stale can survive.
 Preferences pref;
 
 void restore_options_t::fromJSON(JsonObject &obj) {
@@ -428,7 +432,6 @@ bool MQTTSettings::save() {
   // configuration file restore, ...).
   this->ensureRootTopic();
   pref.begin("MQTT");
-  pref.clear();
   pref.putString("protocol", this->protocol);
   pref.putString("hostname", this->hostname);
   pref.putShort("port", this->port);
@@ -479,7 +482,6 @@ bool NTPSettings::begin() {
 }
 bool NTPSettings::save() {
   pref.begin("NTP");
-  pref.clear();
   pref.putString("ntpServer", this->ntpServer);
   pref.putString("posixZone", this->posixZone);
   pref.end();
@@ -560,7 +562,6 @@ void IPSettings::toJSON(JsonResponse &json) {
 
 bool IPSettings::save() {
   pref.begin("IP");
-  pref.clear();
   pref.putBool("dhcp", this->dhcp);
   pref.putString("ip", this->ip.toString());
   pref.putString("gateway", this->gateway.toString());
@@ -638,7 +639,6 @@ void SecuritySettings::toJSON(JsonResponse &json) {
 
 bool SecuritySettings::save() {
   pref.begin("SEC");
-  pref.clear();
   pref.putChar("type", static_cast<uint8_t>(this->type));
   pref.putString("username", this->username);
   pref.putString("password", this->password);
@@ -710,7 +710,6 @@ void WifiSettings::toJSON(JsonResponse &json) {
 
 bool WifiSettings::save() {
   pref.begin("WIFI");
-  pref.clear();
   pref.putString("ssid", this->ssid);
   pref.putString("passphrase", this->passphrase);
   pref.putBool("roaming", this->roaming);
@@ -832,7 +831,6 @@ bool EthernetSettings::usesPin(uint8_t pin) {
 }
 bool EthernetSettings::save() {
   pref.begin("ETH");
-  pref.clear();
   pref.putChar("boardType", this->boardType);
   pref.putChar("phyAddress", this->phyAddress);
   pref.putChar("phyType", static_cast<uint8_t>(this->phyType));
