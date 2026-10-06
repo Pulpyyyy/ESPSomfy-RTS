@@ -323,20 +323,27 @@ bool MQTTClass::publishBuffer(const char *topic, uint8_t *data, uint16_t len, bo
 // Home Assistant only listens on its discovery prefix, so discovery configs are
 // published on the absolute topic, never under the root topic. Since the root
 // topic became mandatory, earlier builds published them as
-// <root>/<discoTopic>/..., where they sat retained and unseen: that stale copy
-// is cleared alongside.
-bool MQTTClass::publishDisco(const char *topic, JsonObject &obj, bool retain) {
+// <root>/<legacyTopic>, where they sat retained and unseen: that stale copy is
+// cleared alongside. It lives under this controller's own root topic, so the
+// clear cannot touch another controller's entities.
+static void clearLegacyDisco(PubSubClient &client, const char *legacyTopic) {
+  char top[160];
+  // A truncated topic would clear some other topic: skip rather than guess.
+  if(snprintf(top, sizeof(top), "%s/%s", settings.MQTT.rootTopic, legacyTopic) >= (int)sizeof(top)) return;
+  client.publish(top, (const uint8_t *)"", 0, true);
+}
+bool MQTTClass::publishDisco(const char *topic, JsonObject &obj, bool retain, const char *legacyTopic) {
   serializeJson(obj, g_content, sizeof(g_content));
   bool ok = this->publishBuffer(topic, (uint8_t *)g_content, strlen(g_content), retain, true);
-  if(mqttClient.connected()) mqttClient.publish(makeTopic(topic), (const uint8_t *)"", 0, true);
+  if(mqttClient.connected()) clearLegacyDisco(mqttClient, legacyTopic);
   return ok;
 }
 
-bool MQTTClass::unpublishDisco(const char *topic) {
+bool MQTTClass::unpublishDisco(const char *topic, const char *legacyTopic) {
   if(!mqttClient.connected()) return false;
   esp_task_wdt_reset();
   bool ok = mqttClient.publish(topic, (const uint8_t *)"", 0, true);
-  mqttClient.publish(makeTopic(topic), (const uint8_t *)"", 0, true);
+  clearLegacyDisco(mqttClient, legacyTopic);
   return ok;
 }
 

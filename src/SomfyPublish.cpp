@@ -60,9 +60,22 @@ void SomfyShade::publishState() {
     this->publish("windy", isWindy);
   }
 }
+// Home Assistant discovery topic, <prefix>/<component>/<node_id>/<object_id>/config.
+// The node id carries the controller's serverId: with the shade id alone, two
+// controllers on one broker overwrote each other's shades, and each boot sweep
+// of empty slots deleted the other controller's entities.
+static void discoTopic(char *buf, size_t len, const char *component, uint8_t shadeId) {
+  snprintf(buf, len, "%s/%s/espsomfy_%s/shade%u/config", settings.MQTT.discoTopic, component, settings.serverId, shadeId);
+}
+// The id-only layout of earlier builds, which they published under the root
+// topic; only ever cleared there (see MQTTClass::publishDisco).
+static void legacyDiscoTopic(char *buf, size_t len, const char *component, uint8_t shadeId) {
+  snprintf(buf, len, "%s/%s/%u/config", settings.MQTT.discoTopic, component, shadeId);
+}
 void SomfyShade::publishDisco() {
   if(!mqtt.connected() || !settings.MQTT.pubDisco) return;
   char topic[128] = "";
+  const char *component = "cover";
   DynamicJsonDocument doc(2048);
   JsonObject obj = doc.to<JsonObject>();
   snprintf(topic, sizeof(topic), "%s/shades/%d", settings.MQTT.rootTopic, this->shadeId);
@@ -170,7 +183,7 @@ void SomfyShade::publishDisco() {
       obj["tilt_command_topic"] = "~/tiltTarget/set";
       obj["tilt_status_topic"] = "~/tiltPosition";
     }
-    snprintf(topic, sizeof(topic), "%s/cover/%d/config", settings.MQTT.discoTopic, this->shadeId);
+    component = "cover";
   }
   else {
     obj["payload_on"] = 100;
@@ -179,21 +192,23 @@ void SomfyShade::publishDisco() {
     obj["state_on"] = 100;
     obj["state_topic"] = "~/position";
     obj["command_topic"] = "~/target/set";
-    snprintf(topic, sizeof(topic), "%s/switch/%d/config", settings.MQTT.discoTopic, this->shadeId);
+    component = "switch";
   }
-  
+
   obj["enabled_by_default"] = true;
-  mqtt.publishDisco(topic, obj, true);  
+  char legacy[128];
+  discoTopic(topic, sizeof(topic), component, this->shadeId);
+  legacyDiscoTopic(legacy, sizeof(legacy), component, this->shadeId);
+  mqtt.publishDisco(topic, obj, true, legacy);
 }
 void SomfyShade::unpublishDisco() {
   if(!mqtt.connected() || !settings.MQTT.pubDisco) return;
   char topic[128] = "";
-  if(this->shadeType != shade_types::drycontact && this->shadeType != shade_types::drycontact2) {
-    snprintf(topic, sizeof(topic), "%s/cover/%d/config", settings.MQTT.discoTopic, this->shadeId);
-  }
-  else
-    snprintf(topic, sizeof(topic), "%s/switch/%d/config", settings.MQTT.discoTopic, this->shadeId);
-  mqtt.unpublishDisco(topic);
+  char legacy[128] = "";
+  const char *component = (this->shadeType != shade_types::drycontact && this->shadeType != shade_types::drycontact2) ? "cover" : "switch";
+  discoTopic(topic, sizeof(topic), component, this->shadeId);
+  legacyDiscoTopic(legacy, sizeof(legacy), component, this->shadeId);
+  mqtt.unpublishDisco(topic, legacy);
 }
 void SomfyShade::publish() {
   if(mqtt.connected()) {
@@ -260,10 +275,13 @@ void SomfyShade::unpublish(uint8_t id) {
     SomfyShade::unpublish(id, "sunny");
     if(settings.MQTT.pubDisco) {
       char topic[128] = "";
-      snprintf(topic, sizeof(topic), "%s/cover/%d/config", settings.MQTT.discoTopic, id);
-      mqtt.unpublishDisco(topic);
-      snprintf(topic, sizeof(topic), "%s/switch/%d/config", settings.MQTT.discoTopic, id);
-      mqtt.unpublishDisco(topic);
+      char legacy[128] = "";
+      discoTopic(topic, sizeof(topic), "cover", id);
+      legacyDiscoTopic(legacy, sizeof(legacy), "cover", id);
+      mqtt.unpublishDisco(topic, legacy);
+      discoTopic(topic, sizeof(topic), "switch", id);
+      legacyDiscoTopic(legacy, sizeof(legacy), "switch", id);
+      mqtt.unpublishDisco(topic, legacy);
     }
   }
 }
