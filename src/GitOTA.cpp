@@ -483,7 +483,7 @@ bool GitUpdater::beginUpdate(const char *version) {
       settings.fwVersion.parse(version);
       delay(100);
       Serial.println("Committing Configuration...");
-      somfy.commit();
+      somfy.commitAfterFsFlash();
     }
 
     OTARollback::markPending(); // The application partition has been flashed.
@@ -506,7 +506,7 @@ bool GitUpdater::recoverFilesystem() {
   if(this->error == 0) {
     delay(100);
     Serial.println("Committing Configuration...");
-    somfy.commit();
+    somfy.commitAfterFsFlash();
   }
   this->status = GIT_UPDATE_COMPLETE;
   rebootDelay.reboot = true;
@@ -616,7 +616,8 @@ int8_t GitUpdater::downloadFile() {
           }
           if(len > total) {
             Update.abort();
-            somfy.commit();
+            if(this->partition == U_SPIFFS) somfy.commitAfterFsFlash();
+            else somfy.commit();
             Serial.println("Error downloading file!!!");
             return -42;
           }

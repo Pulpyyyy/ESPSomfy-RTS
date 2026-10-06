@@ -2,6 +2,7 @@
 #include <Preferences.h>
 #include <WebServer.h>
 #include <esp_task_wdt.h>
+#include <LittleFS.h>
 #include "Utils.h"
 #include "ConfigSettings.h"
 #include "Somfy.h"
@@ -104,6 +105,20 @@ void SomfyShadeController::commit() {
   }
   this->isDirty = false;
   this->lastCommit = millis();
+}
+// Writes the in-memory shade config into a LittleFS image that was just flashed
+// over the mounted one. The mount still holds the previous image's state (root
+// metadata revision, free-block lookahead), so a write through it can land
+// where the new image does not look and the shades vanish on the next boot.
+// Remounting first makes the write go into the new image.
+void SomfyShadeController::commitAfterFsFlash() {
+  if(git.lockFS) return;
+  LittleFS.end();
+  if(!LittleFS.begin()) {
+    Serial.println("Cannot mount the new file system: shade config NOT saved!");
+    return;
+  }
+  this->commit();
 }
 void SomfyShadeController::writeBackup() {
   if(git.lockFS) return;

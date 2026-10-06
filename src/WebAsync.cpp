@@ -383,7 +383,7 @@ static void asyncOtaUpload(AsyncWebServerRequest *request, size_t index, uint8_t
       if(!isApp) OTARollback::markPending(); // application partition flashed
     }
     else Update.printError(Serial);
-    if(isApp) { SomfyGuard guard; somfy.commit(); }
+    if(isApp) { SomfyGuard guard; somfy.commitAfterFsFlash(); }
     webAsync.otaInProgress = false;
   }
   esp_task_wdt_reset();

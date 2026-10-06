@@ -303,7 +303,7 @@ void Web::beginSystemRoutes() {
       else if(upload.status == UPLOAD_FILE_ABORTED) {
         Serial.printf("Upload of %s aborted\n", upload.filename.c_str());
         Update.abort();
-        somfy.commit();
+        somfy.commitAfterFsFlash();
       }
       else if (upload.status == UPLOAD_FILE_WRITE) {
         /* flashing littlefs to ESP*/
@@ -317,10 +317,10 @@ void Web::beginSystemRoutes() {
         if (Update.end(true)) { //true to set the size to the current progress
           webServer.uploadSuccess = true;
           Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-          somfy.commit();
+          somfy.commitAfterFsFlash();
         }
         else {
-          somfy.commit();
+          somfy.commitAfterFsFlash();
           Update.printError(Serial);
         }
       }

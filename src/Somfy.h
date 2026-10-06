@@ -403,6 +403,7 @@ class SomfyShadeController {
     void publish();
     void processWaitingFrame();
     void commit();
+    void commitAfterFsFlash();
     void writeBackup();
     bool loadShadesFile(const char *filename);
 };
