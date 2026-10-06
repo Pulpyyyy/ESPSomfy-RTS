@@ -31,6 +31,9 @@ class WebRequest {
     virtual const char *body() = 0;
     virtual void send(int code, const char *contentType, const char *content) = 0;
     virtual bool ensureAuth(bool cfg = false) = 0;
+    // The CSRF / DNS-rebinding check alone, for the routes that authenticate
+    // nobody yet (login): true on the HA API server, which is not browser-driven.
+    virtual bool sameOrigin() = 0;
     // Client address, needed by the handlers that mint API tokens (login,
     // saveSecurity): the HMAC is bound to the caller's IP.
     virtual IPAddress remoteIP() = 0;

@@ -221,6 +221,7 @@ bool WebAsyncRequest::ensureAuth(bool cfg) {
   if(!ok) this->_sent = true;  // ensureAuth answered 403/401 itself
   return ok;
 }
+bool WebAsyncRequest::sameOrigin() { return webAsync.isSameOrigin(this->_request); }
 IPAddress WebAsyncRequest::remoteIP() { return this->_request->client()->remoteIP(); }
 JsonResponse &WebAsyncRequest::beginJson() {
   this->_resp.begin(this->_request, g_asyncContent, sizeof(g_asyncContent));
@@ -252,7 +253,7 @@ bool WebAsync::isAuthenticated(AsyncWebServerRequest *request, bool cfg) {
   return false;
 }
 bool WebAsync::isSameOrigin(AsyncWebServerRequest *request) {
-  return webServer.originAllowed(request->host(), request->header(F("Origin")), request->header(F("Referer")));
+  return webServer.originAllowed(request->host(), request->header(F("Origin")), request->header(F("Referer")), request->header(F("Sec-Fetch-Site")));
 }
 bool WebAsync::ensureAuth(AsyncWebServerRequest *request, bool cfg) {
   // Same order as the sync twin: same-origin first so the anti-rebinding check

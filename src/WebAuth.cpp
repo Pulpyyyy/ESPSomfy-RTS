@@ -46,10 +46,12 @@ bool Web::_loginLocked() {
 }
 void Web::_loginFailed() {
   if(this->_failedLogins < 255) this->_failedLogins++;
-  // Let a few fat-finger attempts through, then back off: 5s, 10s, ... capped at 60s.
+  // Let a few fat-finger attempts through, then back off: 5s, 10s, ... capped at
+  // 5 minutes. A 4-digit PIN has 10,000 values: at the former 60s cap a patient
+  // client went through them all in about a week; at 5 minutes it takes a month.
   if(this->_failedLogins >= 5) {
     uint32_t backoff = (uint32_t)(this->_failedLogins - 4) * 5000;
-    if(backoff > 60000) backoff = 60000;
+    if(backoff > 300000) backoff = 300000;
     this->_lockoutUntil = millis() + backoff;
     if(this->_lockoutUntil == 0) this->_lockoutUntil = 1; // never the "unlocked" sentinel
   }
@@ -131,11 +133,18 @@ static bool csrfIsConfiguredHost(const String &h) {
 // is not browser-driven, so the check is skipped there to avoid breaking it.
 bool Web::isSameOrigin(WebServer &server) {
   if(&server == &apiServer) return true;
-  return this->originAllowed(server.hostHeader(), server.header("Origin"), server.header("Referer"));
+  return this->originAllowed(server.hostHeader(), server.header("Origin"), server.header("Referer"), server.header("Sec-Fetch-Site"));
 }
 // Pure policy, shared verbatim by the sync and async transports so the CSRF
 // decision has a single source of truth.
-bool Web::originAllowed(const String &hostHeader, const String &origin, const String &referer) {
+bool Web::originAllowed(const String &hostHeader, const String &origin, const String &referer, const String &fetchSite) {
+  // (0) The browser itself says the request comes from another site. This is
+  //     the one signal present on the requests (b) cannot see: a GET from an
+  //     <img>, a link or a no-cors fetch carries no Origin, and a page can drop
+  //     its Referer, which let any web page drive the shade commands of a
+  //     device without authentication. Requests typed or bookmarked by the
+  //     user say "none"; the UI's own say "same-origin".
+  if(fetchSite.equalsIgnoreCase("cross-site")) return false;
   String host = csrfExtractHost(hostHeader);
   // (a) Anti DNS-rebinding: the Host must be an IP literal or our own hostname.
   //     An absent Host cannot carry a rebinding attack, so it is allowed through.
@@ -273,6 +282,13 @@ void Web::handleLogin(WebServer &server) { WebSyncRequest req(server); this->han
 void Web::handleLogin(WebRequest &req) {
     webServer.lastActivity = millis();
     if(req.method() == HTTP_OPTIONS) { req.send(200, "OK", ""); return; }
+    // Any web page could post login attempts through the visitor's browser: it
+    // cannot read the answer, but each failure counts toward the lockout and
+    // kept the real user locked out. Same check as every other mutation.
+    if(!req.sameOrigin()) {
+      req.send(403, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"Cross-origin or forbidden host\"}");
+      return;
+    }
     StaticJsonDocument<256> doc;
     JsonObject obj = doc.to<JsonObject>();
     char token[65];

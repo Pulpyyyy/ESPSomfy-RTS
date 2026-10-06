@@ -64,6 +64,7 @@ void WebSyncRequest::send(int code, const char *contentType, const char *content
   this->_server.send(code, contentType, content);
 }
 bool WebSyncRequest::ensureAuth(bool cfg) { return webServer.ensureAuth(this->_server, cfg); }
+bool WebSyncRequest::sameOrigin() { return webServer.isSameOrigin(this->_server); }
 IPAddress WebSyncRequest::remoteIP() { return this->_server.client().remoteIP(); }
 JsonResponse &WebSyncRequest::beginJson() {
   this->_resp.beginResponse(&this->_server, g_content, sizeof(g_content));

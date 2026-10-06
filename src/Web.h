@@ -21,6 +21,7 @@ class WebSyncRequest : public WebRequest {
     const char *body() override;
     void send(int code, const char *contentType, const char *content) override;
     bool ensureAuth(bool cfg = false) override;
+    bool sameOrigin() override;
     IPAddress remoteIP() override;
     JsonResponse &beginJson() override;
     void endJson() override;
@@ -105,7 +106,7 @@ public:
   // Pure origin/host policy shared by the sync and async transports: a single
   // source of truth for the CSRF/anti-rebinding decision (and a native-test
   // candidate once de-Arduino-ized).
-  bool originAllowed(const String &hostHeader, const String &origin, const String &referer);
+  bool originAllowed(const String &hostHeader, const String &origin, const String &referer, const String &fetchSite);
   // Transport-neutral JSON bodies, called by both the sync and async routes.
   void emitLoginContext(JsonResponse &resp);
   void emitRfStats(JsonResponse &resp);
