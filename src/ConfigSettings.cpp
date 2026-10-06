@@ -279,7 +279,16 @@ void ConfigSettings::toJSON(JsonResponse &json) {
 bool ConfigSettings::requiresAuth() { return this->Security.type != security_types::None; }
 bool ConfigSettings::fromJSON(JsonObject &obj) {
     if(obj.containsKey("ssdpBroadcast")) this->ssdpBroadcast = obj["ssdpBroadcast"];
-    if(obj.containsKey("hostname")) this->parseValueString(obj, "hostname", this->hostname, sizeof(this->hostname));
+    if(obj.containsKey("hostname")) {
+      // Same rule as the settings page, which a direct request skips: the name
+      // goes unescaped into mDNS, DHCP and the UPnP description XML, so letters,
+      // digits and dashes only. Anything else keeps the current name.
+      char h[sizeof(this->hostname)] = "";
+      this->parseValueString(obj, "hostname", h, sizeof(h));
+      bool valid = h[0] != '\0';
+      for(const char *c = h; valid && *c; c++) valid = isalnum((unsigned char)*c) || *c == '-';
+      if(valid) strlcpy(this->hostname, h, sizeof(this->hostname));
+    }
     if(obj.containsKey("connType")) this->connType = static_cast<conn_types_t>(obj["connType"].as<uint8_t>());
     // Changez ceci :
     if(obj.containsKey("language")) this->language = obj["language"].as<uint8_t>();
