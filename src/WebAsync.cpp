@@ -38,6 +38,7 @@ static size_t g_asyncUploadBytes = 0;
 static bool g_otaFlashing = false;      // Update.begin() succeeded, not yet ended or aborted
 static bool g_otaIsFs = false;          // ...on the LittleFS partition
 static uint32_t g_uploadActivity = 0;   // millis() of the owner's last chunk
+static const char *g_uploadRefusal = nullptr; // why the owner's file was refused before any erase
 static void otaFinish(bool ok);
 // Takes the upload for `request`; false when another upload is in progress or
 // the request may not upload.
@@ -52,6 +53,7 @@ static bool uploadClaim(AsyncWebServerRequest *request) {
   g_uploadActivity = millis();
   g_asyncUploadAuth = true;
   g_asyncUploadBytes = 0;
+  g_uploadRefusal = nullptr;
   webServer.uploadSuccess = false;
   // Runs however the request ends, answered or dropped. A flash still open at
   // that point was abandoned by the client mid-upload: roll it back now rather
@@ -442,6 +444,7 @@ static void asyncOtaUpload(AsyncWebServerRequest *request, size_t index, uint8_t
     }
     if(refusal) {
       Serial.printf("Upload refused: %s\n", refusal);
+      g_uploadRefusal = refusal;
       g_asyncUploadAuth = false;
       return;
     }
@@ -483,6 +486,13 @@ static void asyncOtaRespond(AsyncWebServerRequest *request, bool isApp) {
   SomfyGuard guard;
   if(request != g_uploadOwner) {
     request->send(409, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Another upload is in progress\"}"));
+    return;
+  }
+  if(g_uploadRefusal) {
+    // Refused before the first erase: nothing changed, the page can reload.
+    char out[160];
+    snprintf(out, sizeof(out), "{\"status\":\"ERROR\",\"desc\":\"Update refused: %s. Nothing was changed.\"}", g_uploadRefusal);
+    request->send(400, "application/json", out);
     return;
   }
   if(!webServer.uploadSuccess) {
