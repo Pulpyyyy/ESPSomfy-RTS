@@ -60,12 +60,13 @@ static void test_pre_release_tag_keeps_the_numbers(void) {
   assertVersion("v3.1.4-beta", 3, 1, 4);
 }
 
-// The suffix field is four bytes including the terminator, and appver_t
+// The suffix field is sixteen bytes including the terminator, and appver_t
 // publishes it as-is in its JSON. A longer tag must be truncated, never spill.
 static void test_suffix_is_captured_and_bounded(void) {
   TEST_ASSERT_EQUAL_STRING("rc1", parsed("v3.1.0-rc1").suffix);
-  TEST_ASSERT_EQUAL_STRING("bet", parsed("v3.1.4-beta").suffix);
-  TEST_ASSERT_EQUAL_STRING("rel", parsed("v3.1.0-releasecandidate").suffix);
+  TEST_ASSERT_EQUAL_STRING("beta", parsed("v3.1.4-beta").suffix);
+  TEST_ASSERT_EQUAL_STRING("beta.10", parsed("v4.1.0-beta.10").suffix);
+  TEST_ASSERT_EQUAL_STRING("releasecandidat", parsed("v3.1.0-releasecandidate").suffix);
   TEST_ASSERT_EQUAL_STRING("", parsed("v3.1.0").suffix);
 }
 
@@ -106,10 +107,29 @@ static void test_compare_orders_on_major_then_minor_then_build(void) {
   TEST_ASSERT_EQUAL_INT8(-1, compareVersion(parsed("v3.1.1"), parsed("v3.1.2")));
 }
 
+// A device on a pre-release must be offered the release it leads to: with the
+// suffix ignored, 4.1.0 and 4.1.0-beta.10 compared equal and the update check
+// stayed silent.
+static void test_release_ranks_above_its_pre_releases(void) {
+  TEST_ASSERT_EQUAL_INT8(1, compareVersion(parsed("v4.1.0"), parsed("v4.1.0-beta.10")));
+  TEST_ASSERT_EQUAL_INT8(-1, compareVersion(parsed("v4.1.0-rc1"), parsed("v4.1.0")));
+  // The numbers still come first: a pre-release of a later version wins.
+  TEST_ASSERT_EQUAL_INT8(1, compareVersion(parsed("v4.2.0-beta.1"), parsed("v4.1.0")));
+}
+
+static void test_pre_releases_compare_in_natural_order(void) {
+  TEST_ASSERT_EQUAL_INT8(1, compareVersion(parsed("v4.1.0-beta.10"), parsed("v4.1.0-beta.9")));
+  TEST_ASSERT_EQUAL_INT8(-1, compareVersion(parsed("v4.1.0-beta.2"), parsed("v4.1.0-beta.10")));
+  TEST_ASSERT_EQUAL_INT8(1, compareVersion(parsed("v4.1.0-rc1"), parsed("v4.1.0-beta.10")));
+  TEST_ASSERT_EQUAL_INT8(1, compareVersion(parsed("v4.1.0-rc10"), parsed("v4.1.0-rc9")));
+  TEST_ASSERT_EQUAL_INT8(0, compareVersion(parsed("v4.1.0-beta.10"), parsed("4.1.0-beta.10")));
+}
+
 // The comparison is used both ways round by the update check, so it has to be
 // antisymmetric over the whole range it can see.
 static void test_compare_is_antisymmetric(void) {
-  const char *tags[] = {"v0.0.0", "v0.0.1", "v0.1.0", "v1.0.0", "v2.6.12", "v3.1.0", "v12.34.56"};
+  const char *tags[] = {"v0.0.0", "v0.0.1", "v0.1.0", "v1.0.0", "v2.6.12", "v3.1.0", "v12.34.56",
+                        "v4.1.0-beta.2", "v4.1.0-beta.9", "v4.1.0-beta.10", "v4.1.0-rc1", "v4.1.0"};
   const size_t n = sizeof(tags) / sizeof(tags[0]);
   for(size_t i = 0; i < n; i++) {
     for(size_t j = 0; j < n; j++) {
@@ -119,12 +139,6 @@ static void test_compare_is_antisymmetric(void) {
       if(i == j) TEST_ASSERT_EQUAL_INT8(0, forward);
     }
   }
-}
-
-// The suffix takes no part in the ordering: v3.1.0-rc1 and v3.1.0 compare equal
-// and the OTA will not offer one over the other.
-static void test_pre_release_compares_equal_to_the_release(void) {
-  TEST_ASSERT_EQUAL_INT8(0, compareVersion(parsed("v3.1.0-rc1"), parsed("v3.1.0")));
 }
 
 int main(int, char **) {
@@ -140,6 +154,7 @@ int main(int, char **) {
   RUN_TEST(test_parsing_resets_the_target);
   RUN_TEST(test_compare_orders_on_major_then_minor_then_build);
   RUN_TEST(test_compare_is_antisymmetric);
-  RUN_TEST(test_pre_release_compares_equal_to_the_release);
+  RUN_TEST(test_release_ranks_above_its_pre_releases);
+  RUN_TEST(test_pre_releases_compare_in_natural_order);
   return UNITY_END();
 }

@@ -32,6 +32,9 @@ int8_t appver_t::compare(appver_t &ver) {
   version_t a, b;
   a.major = this->major; a.minor = this->minor; a.build = this->build;
   b.major = ver.major;   b.minor = ver.minor;   b.build = ver.build;
+  static_assert(sizeof(a.suffix) == sizeof(this->suffix), "appver_t and version_t suffixes must match");
+  memcpy(a.suffix, this->suffix, sizeof(a.suffix));
+  memcpy(b.suffix, ver.suffix, sizeof(b.suffix));
   return compareVersion(a, b);
 }
 void appver_t::copy(appver_t &ver) {

@@ -27,11 +27,12 @@ struct restore_options_t {
   void fromJSON(JsonObject &obj);
 };
 struct appver_t {
-  char name[15] = "";
+  // "v4.1.0-beta.10" already filled the former 15 bytes.
+  char name[24] = "";
   uint8_t major = 0;
   uint8_t minor = 0;
   uint8_t build = 0;
-  char suffix[4] = "";
+  char suffix[16] = ""; // as long as version_t::suffix
   void parse(const char *ver);
   bool toJSON(JsonObject &obj);
   void toJSON(JsonResponse &json);

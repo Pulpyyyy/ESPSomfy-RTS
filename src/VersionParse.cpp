@@ -40,8 +40,35 @@ void parseVersion(const char *ver, version_t &out) {
   }
 }
 
+// Natural order of two pre-release suffixes: digit runs compare as numbers,
+// any other character by its code. Comparing them as plain strings put beta.10
+// below beta.9.
+static int8_t compareSuffix(const char *a, const char *b) {
+  while(*a && *b) {
+    if(isdigit(static_cast<unsigned char>(*a)) && isdigit(static_cast<unsigned char>(*b))) {
+      uint32_t na = 0, nb = 0;
+      while(isdigit(static_cast<unsigned char>(*a))) { if(na < 100000) na = na * 10 + (*a - '0'); a++; }
+      while(isdigit(static_cast<unsigned char>(*b))) { if(nb < 100000) nb = nb * 10 + (*b - '0'); b++; }
+      if(na != nb) return na > nb ? 1 : -1;
+      continue;
+    }
+    if(*a != *b) return static_cast<unsigned char>(*a) > static_cast<unsigned char>(*b) ? 1 : -1;
+    a++; b++;
+  }
+  if(*a) return 1;   // longer with an equal start ranks higher: rc1.1 > rc1
+  if(*b) return -1;
+  return 0;
+}
+
 int8_t compareVersion(const version_t &a, const version_t &b) {
-  if(a.major == b.major && a.minor == b.minor && a.build == b.build) return 0;
+  if(a.major == b.major && a.minor == b.minor && a.build == b.build) {
+    // Same numbers: the suffix decides. It used to take no part, so a device
+    // on 4.1.0-beta.10 saw the 4.1.0 release as its own version and was never
+    // offered the update.
+    const bool aPre = a.suffix[0] != '\0', bPre = b.suffix[0] != '\0';
+    if(aPre != bPre) return aPre ? -1 : 1; // a release ranks above its pre-releases
+    return compareSuffix(a.suffix, b.suffix);
+  }
   if(a.major > b.major) return 1;
   else if(a.major < b.major) return -1;
   else {
