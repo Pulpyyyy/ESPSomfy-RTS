@@ -87,6 +87,9 @@ static uint32_t lastTxEnd = 0;
 // main loop (consumer).  Only the small bookkeeping (length + index[]) is held
 // under this spinlock; the ~1.2KB per-frame copy is always done outside it.
 static portMUX_TYPE rxMux = portMUX_INITIALIZER_UNLOCKED;
+// Bumped by the ISR whenever the frame in progress ends (queued or abandoned),
+// so an RSSI sample taken across that boundary is not credited to the next one.
+static volatile uint8_t rxFrameSeq = 0;
 bool somfy_tx_queue_t::pop(somfy_tx_t *tx) {
   // Read the oldest index.
   for(int8_t i = MAX_TX_BUFFER - 1; i >= 0; i--) {
@@ -291,6 +294,8 @@ void RECEIVE_ATTR Transceiver::handleReceive() {
         else {
             // Reset and start looking for hardware sync again.
             somfy_rx.cpt_synchro_hw = 0;
+            somfy_rx.rssi = RX_RSSI_NONE;
+            rxFrameSeq++;
             // Try to capture the wakeup pulse.
             if(duration > tempo_wakeup_min && duration < tempo_wakeup_max)
             {
@@ -336,6 +341,8 @@ void RECEIVE_ATTR Transceiver::handleReceive() {
             somfy_rx.bit_length = 56;
             somfy_rx.status = waiting_synchro;
             somfy_rx.pulses[0] = duration;
+            somfy_rx.rssi = RX_RSSI_NONE;
+            rxFrameSeq++;
         }
         break;
     default:
@@ -392,7 +399,26 @@ void RECEIVE_ATTR Transceiver::handleReceive() {
         somfy_rx.cpt_bits = 0;
         somfy_rx.pulseCount = 0;
         somfy_rx.status = waiting_synchro;
+        somfy_rx.rssi = RX_RSSI_NONE;
+        rxFrameSeq++;
     }
+}
+// Samples the RSSI while a frame is on the air (from its first hardware sync to
+// its last bit) and keeps the strongest reading on the frame, which the ISR
+// queues with it. The sequence check drops a sample whose frame ended during
+// the SPI read; an ISR running on the other core can still slip in between the
+// check and the write, which at worst skews one frame's reading.
+static void sampleFrameRssi() {
+  static uint32_t lastSample = 0;
+  if((rxmode != 1 && rxmode != 3) || somfy_rx.cpt_synchro_hw == 0) return;
+  if(millis() - lastSample < 2) return;
+  lastSample = millis();
+  const uint8_t seq = rxFrameSeq;
+  const int16_t rssi = static_cast<int16_t>(ELECHOUSE_cc1101.getRssi());
+  portENTER_CRITICAL(&rxMux);
+  if(seq == rxFrameSeq && somfy_rx.cpt_synchro_hw > 0 && (somfy_rx.rssi == RX_RSSI_NONE || rssi > somfy_rx.rssi))
+    somfy_rx.rssi = rssi;
+  portEXIT_CRITICAL(&rxMux);
 }
 // ---------------------------------------------------------------------------
 // Frequency scan v2: two-pass edge calibration.
@@ -459,7 +485,7 @@ void Transceiver::processFrequencyScan(bool received) {
   if(!this->config.enabled || rxmode != 3) return;
   if(scanPhase == 1) {
     if(received) {
-      currRSSI = ELECHOUSE_cc1101.getRssi();
+      currRSSI = this->frame.rssi; // sampled while the frame was on the air
       if(currRSSI > markRSSI) {
         markRSSI = currRSSI;
         markFreq = currFreq;
@@ -489,7 +515,7 @@ void Transceiver::processFrequencyScan(bool received) {
   }
   else if(scanPhase == 2) {
     if(received) {
-      currRSSI = ELECHOUSE_cc1101.getRssi();
+      currRSSI = this->frame.rssi; // sampled while the frame was on the air
       if(currRSSI > fineRssi[fineStep]) fineRssi[fineStep] = (int8_t)currRSSI;
       if(fineDecodes[fineStep] < 255) fineDecodes[fineStep]++;
     }
@@ -1051,6 +1077,7 @@ bool Transceiver::begin() {
     return true;
 }
 void Transceiver::loop() {
+  sampleFrameRssi();
   somfy_rx_t rx;
   if(rxmode == 3) {
     if(this->receive(&rx))

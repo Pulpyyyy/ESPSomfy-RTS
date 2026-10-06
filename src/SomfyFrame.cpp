@@ -206,7 +206,9 @@ void somfy_frame_t::decodeFrame(somfy_rx_t *rx) {
   this->hwsync = rx->cpt_synchro_hw;
   this->pulseCount = rx->pulseCount;
   this->bitLength = rx->bit_length;
-  this->rssi = ELECHOUSE_cc1101.getRssi();
+  // The level measured during the frame; reading the radio now would measure
+  // the silence that follows it. Fallback for a frame too short to be sampled.
+  this->rssi = rx->rssi != RX_RSSI_NONE ? rx->rssi : ELECHOUSE_cc1101.getRssi();
   this->decodeFrame(rx->payload);
 }
 byte somfy_frame_t::encode80Byte7(byte start, uint8_t repeat) { return somfy_codec::encode80Byte7(start, repeat); }

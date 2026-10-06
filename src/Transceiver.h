@@ -50,6 +50,8 @@ typedef enum {
     complete = 2
 } t_status;
 
+// No RSSI sampled for the frame in progress yet.
+#define RX_RSSI_NONE (-32768)
 struct somfy_rx_t {
     void clear() {
       this->status = t_status::waiting_synchro;
@@ -61,6 +63,7 @@ struct somfy_rx_t {
       memset(this->payload, 0, sizeof(this->payload));
       memset(this->pulses, 0, sizeof(this->pulses));
       this->pulseCount = 0;
+      this->rssi = RX_RSSI_NONE;
     }
     // status / cpt_synchro_hw are written by the IRAM receive ISR and polled by
     // the main loop, and pulseCount doubles as the slot-ownership flag shared
@@ -75,6 +78,10 @@ struct somfy_rx_t {
     uint8_t payload[10];
     unsigned int pulses[MAX_TIMINGS];
     volatile uint16_t pulseCount = 0;
+    // Strongest RSSI the loop sampled while this frame was on the air (the ISR
+    // cannot talk SPI). Reading it at decode time measured the silence after
+    // the frame instead.
+    volatile int16_t rssi = RX_RSSI_NONE;
 };
 // A simple FIFO queue to hold rx buffers.  We are using
 // a byte index to make it so we don't have to reorganize
