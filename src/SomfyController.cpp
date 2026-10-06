@@ -67,7 +67,22 @@ bool SomfyShadeController::begin() {
   Serial.printf("App Version:%u.%u.%u\n", settings.appVersion.major, settings.appVersion.minor, settings.appVersion.build);
   if(ShadeConfigFile::exists()) {
     Serial.println("shades.cfg exists so we are using that");
-    ShadeConfigFile::load(this);
+    if(!ShadeConfigFile::load(this)) {
+      // An unreadable shades.cfg used to leave the device empty, and its first
+      // commit then overwrote the only copy. Keep the file aside for a manual
+      // rescue and fall back to /controller.backup, which every backup download
+      // refreshes. Rolling codes come back as max(backup, NVS), never behind.
+      Serial.println("shades.cfg is unreadable: kept as shades.cfg.bad, trying the last backup");
+      LittleFS.remove("/shades.cfg.bad");
+      LittleFS.rename("/shades.cfg", "/shades.cfg.bad");
+      if(LittleFS.exists("/controller.backup")) {
+        restore_options_t opts;
+        opts.shades = true;
+        opts.repeaters = true;
+        if(ShadeConfigFile::restore(this, "/controller.backup", opts)) Serial.println("Shades restored from the last backup");
+        else Serial.println("The last backup is unreadable too: starting clean");
+      }
+    }
   }
   else {
     Serial.println("Starting clean");
