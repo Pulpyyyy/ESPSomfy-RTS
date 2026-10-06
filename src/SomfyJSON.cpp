@@ -3,6 +3,7 @@
 #include "Utils.h"
 #include "ConfigSettings.h"
 #include "Somfy.h"
+#include "ConfigFile.h"
 
 // JSON serialisation for shades, rooms, groups, remotes and the controller,
 // split out of Somfy.cpp.  Pure method moves; declarations stay in Somfy.h.
@@ -83,10 +84,20 @@ int8_t SomfyShade::validateJSON(JsonObject &obj) {
   }
   return ret;
 }
+// Copies a name from JSON, ignoring non-string values (they convert to nullptr,
+// which strlcpy cannot take). shades.cfg separates fields with ',' and records
+// with '\n' and stores names raw, so either character in a name shifted every
+// following field of the record at the next boot: they become spaces.
+static void copyName(char *dest, size_t size, JsonVariant val) {
+  if(!val.is<const char*>()) return;
+  strlcpy(dest, val.as<const char*>(), size);
+  for(char *p = dest; *p; p++)
+    if(*p == CFG_VALUE_SEP || *p == CFG_REC_END || *p == '\r') *p = ' ';
+}
 int8_t SomfyShade::fromJSON(JsonObject &obj) {
   int8_t err = this->validateJSON(obj);
   if(err == 0) {
-    if(obj.containsKey("name")) strlcpy(this->name, obj["name"], sizeof(this->name));
+    copyName(this->name, sizeof(this->name), obj["name"]);
     if(obj.containsKey("roomId")) this->roomId = obj["roomId"];
     if(obj.containsKey("upTime")) this->upTime = obj["upTime"];
     if(obj.containsKey("downTime")) this->downTime = obj["downTime"];
@@ -312,7 +323,7 @@ bool SomfyShade::toJSON(JsonObject &obj) {
 }
 */
 bool SomfyRoom::fromJSON(JsonObject &obj) {
-  if(obj.containsKey("name")) strlcpy(this->name, obj["name"], sizeof(this->name));
+  copyName(this->name, sizeof(this->name), obj["name"]);
   if(obj.containsKey("sortOrder")) this->sortOrder = obj["sortOrder"];
   return true;
 }
@@ -331,7 +342,7 @@ void SomfyRoom::toJSON(JsonResponse &json) {
 }
 
 bool SomfyGroup::fromJSON(JsonObject &obj) {
-  if(obj.containsKey("name")) strlcpy(this->name, obj["name"], sizeof(this->name));
+  copyName(this->name, sizeof(this->name), obj["name"]);
   if(obj.containsKey("roomId")) this->roomId = obj["roomId"];
   if(obj.containsKey("remoteAddress")) this->setRemoteAddress(obj["remoteAddress"]);
   if(obj.containsKey("bitLength")) this->bitLength = obj["bitLength"];

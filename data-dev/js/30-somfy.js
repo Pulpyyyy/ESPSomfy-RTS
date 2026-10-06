@@ -2735,3 +2735,14 @@ class Somfy {
     }
 }
 var somfy = new Somfy();
+// shades.cfg separates its fields with commas, so the firmware turns a comma in a
+// shade, group or room name into a space. Drop it as it is typed instead, so the
+// name that gets saved is the one on screen.
+document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t || !t.matches || !t.matches('#fldShadeName, #fldGroupName, #fldRoomName')) return;
+    if (t.value.indexOf(',') < 0) return;
+    const caret = t.selectionStart - (t.value.slice(0, t.selectionStart).split(',').length - 1);
+    t.value = t.value.replace(/,/g, '');
+    t.setSelectionRange(caret, caret);
+}, true);
