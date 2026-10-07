@@ -162,6 +162,10 @@ class SomfyShade : public SomfyRemote {
     // huge value at the wrap and snapped a moving shade straight to its target.
     uint32_t moveStart = 0;
     uint32_t tiltStart = 0;
+    // Queued command this shade's movement waits on (radio job id, 0 = none)
+    // and since when; see txHold()/txAnchor().
+    uint32_t txWaitJob = 0;
+    uint32_t txWaitSince = 0;
     uint32_t noSunStart = 0;
     uint32_t sunStart = 0;
     uint32_t windStart = 0;
@@ -238,6 +242,8 @@ class SomfyShade : public SomfyRemote {
     uint16_t stepSize = 100;
     bool save();
     bool isIdle();
+    void txHold(uint32_t now);
+    void txAnchor(uint32_t jobId, uint32_t when);
     bool isInGroup();
     uint32_t effectiveLiftTime();
     float curveForward(float pos);  // time-linear internal % -> visible %

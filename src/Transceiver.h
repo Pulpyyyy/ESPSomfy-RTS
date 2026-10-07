@@ -97,34 +97,6 @@ struct somfy_rx_queue_t {
   void push(somfy_rx_t *rx);
   bool pop(somfy_rx_t *rx);
 };
-struct somfy_tx_t {
-  void clear() {
-    this->hwsync = 0;
-    this->bit_length = 0;
-    memset(this->payload, 0x00, sizeof(this->payload));
-  }
-  uint8_t hwsync = 0;
-  uint8_t bit_length = 0;
-  uint8_t payload[10] = {};
-};
-struct somfy_tx_queue_t {
-  somfy_tx_queue_t() { this->clear(); }
-  void clear() {
-    for (uint8_t i = 0; i < MAX_TX_BUFFER; i++) {
-      this->index[i] = 255;
-      this->items[i].clear();
-    }
-    this->length = 0;
-  }
-  unsigned long delay_time = 0;
-  uint8_t length = 0;
-  uint8_t index[MAX_TX_BUFFER] = {255};
-  somfy_tx_t items[MAX_TX_BUFFER];
-  bool pop(somfy_tx_t *tx);
-  void push(somfy_rx_t *rx); // Used for repeats
-  void push(uint8_t hwsync, byte *payload, uint8_t bit_length);
-};
-
 struct somfy_frame_t {
     bool valid = false;
     bool processed = false;
@@ -157,24 +129,48 @@ struct somfy_frame_t {
     void copy(somfy_frame_t &f);
 };
 
-// Non-blocking transmit job.  A normal command's first frame is always sent synchronously so
-// the motor has received a complete command by the time sendCommand() returns (position
-// tracking stays anchored on that moment, exactly as before); the remaining repeat frames are
-// handed to one of these slots.  Transceiver::loop() drains the slots round-robin, one frame
-// per pass, so several shades' repeat trains interleave rather than serialise.  This turns the
-// repeat train into real loop time instead of a frozen loop, so a STOP arriving at target or
-// another shade starting is no longer stuck behind another shade's transmission.  Hold/long-
-// press commands (set-My, tilt) bypass the queue and stay contiguous -- see TX_CONTIGUOUS_REPEATS.
-struct somfy_tx_job_t {
-  bool active = false;
-  somfy_frame_t frame;      // kept so 80-bit repeats can be re-encoded per ordinal
-  byte encoded[10] = {};    // 56-bit repeats reuse this buffer as-is
-  uint8_t bit_length = 56;
-  uint8_t repeatsRemaining = 0;
-  uint8_t ordinal = 0;      // repeat index passed to encode80BitFrame()
-  uint32_t nextSendAt = 0;  // millis() deadline for the next repeat frame
-  void clear() { this->active = false; this->repeatsRemaining = 0; this->ordinal = 0; this->nextSendAt = 0; }
+// A transmission queued for the radio task (see Transceiver::queueCommand()).
+enum class radio_job_kind_t : uint8_t { command = 0, raw = 1 };
+struct radio_job_t {
+  bool used = false;
+  bool inFlight = false;      // the radio task is transmitting it right now
+  bool firstSent = false;
+  bool contiguous = false;    // hold/long press: the whole train in one go
+  bool urgent = false;        // a stop: goes before the other first frames
+  bool cancelRepeats = false; // superseded by a newer order of the same remote
+  radio_job_kind_t kind = radio_job_kind_t::command;
+  uint32_t id = 0;
+  uint32_t remoteAddress = 0;
+  somfy_frame_t frame;        // 80-bit repeats re-encode bytes 7-9 per ordinal
+  byte encoded[10] = {};
+  uint8_t bitLength = 56;
+  uint8_t firstSync = 2;
+  uint8_t repeatSync = 7;
+  uint8_t repeatsLeft = 0;
+  uint8_t ordinal = 1;
+  uint16_t gapMs = 0;         // quiet required after this remote's previous first frame
+  uint32_t enqueuedAt = 0;
+  uint32_t notBefore = 0;     // millis(): earliest first frame
+  uint32_t nextSendAt = 0;    // millis(): earliest next repeat
+  uint32_t lbtSince = 0;      // millis() the channel was first found busy for it
 };
+// Reported by the radio task when a command's first frame has gone out.
+struct radio_tx_event_t {
+  uint32_t jobId = 0;
+  uint32_t firstFrameEnd = 0;
+};
+struct radio_tx_stats_t {
+  uint32_t jobs = 0;          // orders queued
+  uint32_t frames = 0;        // frames transmitted
+  uint32_t lbtDeferred = 0;   // orders that waited for a busy channel
+  uint32_t lbtForced = 0;     // ...and went anyway once the wait hit its cap
+  uint32_t dropped = 0;       // orders lost to a full queue
+  uint32_t delayLast = 0;     // ms from an order to the end of its first frame
+  uint32_t delayMax = 0;
+};
+// RSSI read for the receive path, which must not talk to the radio while the
+// radio task transmits: 0 when the radio is busy.
+int radioReadRssi();
 
 struct transceiver_config_t {
     bool printBuffer = false;
@@ -271,18 +267,25 @@ class Transceiver {
     void enableReceive();
     void disableReceive();
     somfy_frame_t& lastFrame();
-    // interFrameGap keeps the ~27ms trailing silence that separates one frame from the next.
-    // The non-blocking repeat path sends it as false because that gap is now scheduled between
-    // loop passes (nextSendAt) instead of being spun on inside the transmit, with the
-    // TX_FRAME_SILENCE floor guaranteeing the silence across jobs and command bursts alike.
+    // Radio task only. interFrameGap keeps the ~27ms trailing silence that separates the
+    // frames of a contiguous train; queued repeats get their gap between transmissions.
     void sendFrame(byte *frame, uint8_t sync, uint8_t bitLength = 56, bool interFrameGap = true);
     void beginTransmit();
     void endTransmit();
-    // Non-blocking repeat queue helpers.  queueRepeats() registers the frames that must follow a
-    // synchronously-sent first frame into a per-shade slot drained round-robin by loop();
-    // hasQueueSlot() reports whether that shade's command can be queued (free or reusable slot).
-    void queueRepeats(somfy_frame_t &frame, uint8_t repeat);
-    bool hasQueueSlot(uint32_t remoteAddress);
+    // Transmit queue, drained by the radio task. Callers hold SomfyGuard; the
+    // calls return at once (a full queue waits up to 3s, then drops the order).
+    // queueCommand() returns the job id, also left in lastQueuedJob for the
+    // shades that anchor their movement on it, or 0 when nothing was queued.
+    uint32_t queueCommand(somfy_frame_t &frame, uint8_t repeats);
+    uint32_t queueContinuation(somfy_frame_t &frame, uint8_t repeats);
+    void queueRaw(uint8_t hwsync, byte *payload, uint8_t bitLength);
+    uint32_t lastQueuedJob = 0;
+    bool popTxEvent(radio_tx_event_t &evt);
+    bool txIdle();
+    void suspendTx();
+    void resumeTx();
+    void txStatsToJSON(JsonResponse &json);
+    bool radioStep();      // radio task: transmits at most one frame or train
     void emitFrame(somfy_frame_t *frame, somfy_rx_t *rx = nullptr);
     void beginFrequencyScan();
     void endFrequencyScan();

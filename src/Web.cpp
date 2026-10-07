@@ -138,6 +138,10 @@ void Web::emitRfStats(JsonResponse &resp) {
   resp.beginObject();
   resp.addElem("frequency", somfy.transceiver.config.frequency);
   rfStats.toJSON(resp);
+  // The transmit side: queue delays, listen-before-talk waits, lost orders.
+  resp.beginObject("tx");
+  somfy.transceiver.txStatsToJSON(resp);
+  resp.endObject();
   // The board's own link belongs on the same page: a weak or flapping WiFi
   // reads exactly like an RF problem from the user's side.
   resp.beginObject("wifi");

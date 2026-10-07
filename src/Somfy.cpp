@@ -462,7 +462,23 @@ bool SomfyShade::isIdle() {
   // A pending command means the shade is in the middle of a transmission sequence, waiting
   // out the gap between two frames.  That used to happen inside a delay() where nothing
   // could observe the shade at all, so it must not read as idle now that the loop runs.
-  return this->pendingCmd == pending_cmd_t::none && this->isAtTarget() && this->direction == 0 && this->tiltDirection == 0;
+  // Same for a command still waiting in the radio queue.
+  return this->pendingCmd == pending_cmd_t::none && this->txWaitJob == 0 && this->isAtTarget() && this->direction == 0 && this->tiltDirection == 0;
+}
+// A command sent by this controller is queued for the radio task and may go
+// out a little later (other shades first, a busy channel). The motor starts on
+// its first frame, so the position estimate holds still until then, and is
+// anchored on the end of that frame -- the moment commands sent inline used to
+// start tracking from. A job that never reports (radio off) is let go after 30s.
+void SomfyShade::txHold(uint32_t now) {
+  if(this->txWaitJob == 0) return;
+  if(now - this->txWaitSince > 30000) { this->txWaitJob = 0; return; }
+  this->moveStart = this->tiltStart = now;
+}
+void SomfyShade::txAnchor(uint32_t jobId, uint32_t when) {
+  if(this->txWaitJob == 0 || this->txWaitJob != jobId) return;
+  this->txWaitJob = 0;
+  this->moveStart = this->tiltStart = when;
 }
 void SomfyShade::processWaitingFrame() {
   if(this->shadeId == 255) {
@@ -613,6 +629,10 @@ void SomfyShade::processFrame(somfy_frame_t &frame, bool internal) {
   this->startPos = this->currentPos;
   this->startTiltPos = this->currentTiltPos;
   this->startLiftPos = this->liftPos;
+  // Our own command waits for its first frame in the radio queue; a remote's
+  // frame was heard by the motor already.
+  this->txWaitJob = internal ? somfy.transceiver.lastQueuedJob : 0;
+  this->txWaitSince = curTime;
   // If the command is coming from a remote then we are aborting all these positioning operations.
   // A command deferred behind an inter-command gap belongs to one of them, so drop it too and
   // let checkMovement() resume tracking this frame immediately.
@@ -982,6 +1002,9 @@ void SomfyShade::processInternalCommand(somfy_commands cmd, uint8_t repeat) {
   const uint32_t curTime = millis();
   int8_t dir = 0;
   this->moveStart = this->tiltStart = curTime;
+  // The group's frame was just queued: move when it goes out (see txHold()).
+  this->txWaitJob = somfy.transceiver.lastQueuedJob;
+  this->txWaitSince = curTime;
   this->startPos = this->currentPos;
   this->startTiltPos = this->currentTiltPos;
   this->startLiftPos = this->liftPos;
@@ -1248,6 +1271,8 @@ void SomfyRemote::sendCommand(somfy_commands cmd, uint8_t repeat, uint8_t stepSi
   if(this->lastFrame.bitLength == 0) this->lastFrame.bitLength = somfy.transceiver.config.type;
   if(this->lastFrame.rollingCode == 0) Serial.println("ERROR: Setting rcode to 0");
   this->p_lastRollingCode(this->lastFrame.rollingCode);
+  // Set again by the radio queue below; stays 0 for the GPIO protocols.
+  somfy.transceiver.lastQueuedJob = 0;
   // We have to set the processed to clear this if we are sending
   // another command.
   this->lastFrame.processed = false;
@@ -1303,19 +1328,8 @@ void SomfyRemote::repeatFrame(uint8_t repeat) {
     this->triggerGPIOs(this->lastFrame);
     return;
   }
-  somfy.transceiver.beginTransmit();
-  byte frm[10];
-  this->lastFrame.encodeFrame(frm);
-  this->lastFrame.repeats++;
-  somfy.transceiver.sendFrame(frm, this->bitLength == 56 ? 2 : 12, this->bitLength);
-  for(uint8_t i = 0; i < repeat; i++) {
-    this->lastFrame.repeats++;
-    if(this->lastFrame.bitLength == 80) this->lastFrame.encode80BitFrame(&frm[0], this->lastFrame.repeats);
-    somfy.transceiver.sendFrame(frm, this->bitLength == 56 ? 7 : 6, this->bitLength);
-    esp_task_wdt_reset();
-  }
-  somfy.transceiver.endTransmit();
-  //somfy.processFrame(this->lastFrame, true);
+  // One contiguous train continuing this press (Transceiver::queueContinuation()).
+  somfy.transceiver.queueContinuation(this->lastFrame, repeat);
 }
 uint16_t SomfyRemote::getNextRollingCode() {
   pref.begin("ShadeCodes");

@@ -62,6 +62,10 @@ struct rf_epoch_t {
   void toJSON(JsonFormatter &json);
 };
 class RfStats {
+  public:
+    // Long-term noise floor in dBm, 0 until sampled. Read by the radio task's
+    // carrier sense (a plain float read).
+    float noiseBaselineDbm() const { return this->noiseSamples > 0 ? this->noiseBaseline : 0.0f; }
   protected:
     rf_stats_entry_t entries[RF_STATS_MAX_ENTRIES];
     rf_epoch_t epochCur;

@@ -413,7 +413,7 @@ static void otaFinish(bool ok) {
   }
   webAsync.otaInProgress = false;
   if(!ok) {
-    somfy.transceiver.enableReceive();
+    somfy.transceiver.resumeTx(); // receive and the queued transmissions
     mqtt.begin();
   }
 }

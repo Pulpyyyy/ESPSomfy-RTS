@@ -73,13 +73,9 @@ static const uint32_t tempo_if_gap = 30415;  // Gap between frames
 static int16_t  bitMin = SYMBOL * TOLERANCE_MIN;
 static somfy_rx_t somfy_rx;
 static somfy_rx_queue_t rx_queue;
-static somfy_tx_queue_t tx_queue;
-// In-flight repeat jobs (see somfy_tx_job_t), one slot per shade so several shades can have a
-// repeat train draining at once. The single radio drains them round-robin, one frame per loop
-// pass, so their trains interleave rather than serialise: three shades commanded together each
-// pay only their synchronous first frame, then their repeats interleave in the background.
-static somfy_tx_job_t txJobs[SOMFY_MAX_SHADES];
-static uint8_t txCursor = 0;  // round-robin position across txJobs
+// Millis() at the end of the last frame received; the radio task keeps quiet
+// for RADIO_RX_HOLDOFF after it (a remote held down repeats every ~27ms).
+static volatile uint32_t lastRxFrameEnd = 0;
 // End of the last frame's data on the air (stamped before any spun trailing silence), the
 // reference point TX_FRAME_SILENCE is measured from.
 static uint32_t lastTxEnd = 0;
@@ -90,52 +86,53 @@ static portMUX_TYPE rxMux = portMUX_INITIALIZER_UNLOCKED;
 // Bumped by the ISR whenever the frame in progress ends (queued or abandoned),
 // so an RSSI sample taken across that boundary is not credited to the next one.
 static volatile uint8_t rxFrameSeq = 0;
-bool somfy_tx_queue_t::pop(somfy_tx_t *tx) {
-  // Read the oldest index.
-  for(int8_t i = MAX_TX_BUFFER - 1; i >= 0; i--) {
-    if(this->index[i] < MAX_TX_BUFFER) {
-      uint8_t ndx = this->index[i];
-      memcpy(tx, &this->items[ndx], sizeof(somfy_tx_t));
-      this->items[ndx].clear();
-      if(this->length > 0) this->length--;
-      this->index[i] = 255;
-      return true;
-    }
-  }
-  return false;
-}
-void somfy_tx_queue_t::push(somfy_rx_t *rx) { this->push(rx->cpt_synchro_hw, rx->payload, rx->bit_length); }
-void somfy_tx_queue_t::push(uint8_t hwsync, uint8_t *payload, uint8_t bit_length) {
-  if(this->length >= MAX_TX_BUFFER) {
-    // We have overflowed the buffer simply empty the last item
-    // in this instance we will simply throw it away.
-    uint8_t ndx = this->index[MAX_TX_BUFFER - 1];
-    if(ndx < MAX_TX_BUFFER) this->items[ndx].clear();
-    this->index[MAX_TX_BUFFER - 1] = 255;
-    this->length--;
-  }
-  uint8_t first = 0;
-  // Place this record in the first empty slot.  There will
-  // be one since we cleared a space above should there
-  // be an overflow.
-  for(uint8_t i = 0; i < MAX_TX_BUFFER; i++) {
-    if(this->items[i].bit_length == 0) {
-      first = i;
-      this->items[i].bit_length = bit_length;
-      this->items[i].hwsync = hwsync;
-      memcpy(&this->items[i].payload, payload, sizeof(this->items[i].payload));
-      break;
-    }
-  }
-  // Move the index so that it is the at position 0.  The oldest item will fall off.
-  for(uint8_t i = MAX_TX_BUFFER - 1; i > 0; i--) {
-    this->index[i] = this->index[i - 1];
-  }
-  this->length++;
-  // When popping from the queue we always pull from the end
-  this->index[0] = first;
-  this->delay_time = millis() + TX_QUEUE_DELAY; // We do not want to process this frame until a full frame beat has passed.
-}
+
+// ---------------------------------------------------------------------------
+// Radio task.
+//
+// Every transmission is queued and sent by a task pinned to core 1, so the
+// HTTP, MQTT and socket handlers only queue an order and answer at once, and
+// the bit-banged frames run away from the WiFi stack on core 0. The task owns
+// the radio while it transmits (g_radioLock), never takes the shared-state
+// lock (SomfyGuard), and reports each command's first frame back to the loop
+// (popTxEvent) so position tracking starts when the motor heard the order.
+//
+// It listens before talking: RTS has no acknowledgement and two overlapping
+// frames are both lost, so it waits while a frame is being received, for
+// RADIO_RX_HOLDOFF after one, and while the RSSI says the channel is busy --
+// each wait capped, so a stuck channel cannot hold an order forever.
+// ---------------------------------------------------------------------------
+#define RADIO_MAX_JOBS 16
+#define RADIO_RX_HOLDOFF 150         // ms of quiet after a received frame
+#define RADIO_LBT_MAX_RX 3000        // longest wait behind decoded RTS traffic
+#define RADIO_LBT_MAX_URGENT 500     // ... for a stop
+#define RADIO_LBT_MAX_CARRIER 500    // longest wait behind an undecoded carrier
+#define RADIO_CARRIER_MARGIN 10.0f   // dB over the noise baseline that means busy
+#define RADIO_SAME_REMOTE_GAP 200    // ms after a remote's first frame before its next order
+#define RADIO_AIRTIME_BUDGET 300000  // ms per hour, under the 10% (360s) duty cycle
+#define RADIO_TASK_PRIORITY 2        // above loop() (1): the bit timing is not preempted by it
+static SemaphoreHandle_t g_radioLock = nullptr; // recursive: the CC1101 and the RX interrupt
+static SemaphoreHandle_t g_jobLock = nullptr;   // the job table
+static QueueHandle_t g_txEvents = nullptr;
+static TaskHandle_t g_radioTask = nullptr;
+static radio_job_t g_jobs[RADIO_MAX_JOBS];
+static uint32_t g_nextJobId = 1;
+static volatile bool g_txSuspended = false;
+static volatile bool g_scanAbortRequested = false;
+static radio_tx_stats_t g_txStats;
+static uint32_t g_airtime[60] = {};             // ms on the air per minute, last hour
+static uint32_t g_airtimeMinute = 0;
+// The radio lock, held around every CC1101 access. wait 0 tries once.
+class RadioGuard {
+  private:
+    bool _held;
+  public:
+    explicit RadioGuard(TickType_t wait = portMAX_DELAY)
+      : _held(g_radioLock != nullptr && xSemaphoreTakeRecursive(g_radioLock, wait) == pdTRUE) {}
+    ~RadioGuard() { if(this->_held) xSemaphoreGiveRecursive(g_radioLock); }
+    // Before Transceiver::begin() there is no lock and nothing else to contend with.
+    bool held() const { return this->_held || g_radioLock == nullptr; }
+};
 void somfy_rx_queue_t::init() { 
   Serial.println("Initializing RX Queue");
   for (uint8_t i = 0; i < MAX_RX_BUFFER; i++)
@@ -401,6 +398,7 @@ void RECEIVE_ATTR Transceiver::handleReceive() {
         somfy_rx.status = waiting_synchro;
         somfy_rx.rssi = RX_RSSI_NONE;
         rxFrameSeq++;
+        lastRxFrameEnd = millis();
     }
 }
 // Samples the RSSI while a frame is on the air (from its first hardware sync to
@@ -412,6 +410,8 @@ static void sampleFrameRssi() {
   static uint32_t lastSample = 0;
   if((rxmode != 1 && rxmode != 3) || somfy_rx.cpt_synchro_hw == 0) return;
   if(millis() - lastSample < 2) return;
+  RadioGuard radio(0); // the radio task is transmitting: nothing to sample anyway
+  if(!radio.held()) return;
   lastSample = millis();
   const uint8_t seq = rxFrameSeq;
   const int16_t rssi = static_cast<int16_t>(ELECHOUSE_cc1101.getRssi());
@@ -461,6 +461,7 @@ static uint8_t fineStep = 0;
 static uint32_t stepStart = 0;
 static float scanFineFreq(uint8_t step) { return fineCenter - SCAN_FINE_HALF_SPAN + (float)step * SCAN_FINE_STEP; }
 void Transceiver::beginFrequencyScan() {
+  RadioGuard radio;
   if(this->config.enabled) {
     this->disableReceive();
     rxmode = 3;
@@ -483,6 +484,7 @@ void Transceiver::beginFrequencyScan() {
 }
 void Transceiver::processFrequencyScan(bool received) {
   if(!this->config.enabled || rxmode != 3) return;
+  RadioGuard radio;
   if(scanPhase == 1) {
     if(received) {
       currRSSI = this->frame.rssi; // sampled while the frame was on the air
@@ -559,6 +561,7 @@ void Transceiver::processFrequencyScan(bool received) {
   // scanPhase == 3: hold the result on screen until the user ends the scan.
 }
 void Transceiver::endFrequencyScan() {
+  RadioGuard radio;
   // Also runs when a transmission killed the scan (rxmode left 3 via
   // disableReceive): the state machine must still be reset and the configured
   // frequency/bandwidth restored, otherwise the radio stays parked on the scan
@@ -666,6 +669,7 @@ void Transceiver::clearReceived(void) {
       attachInterrupt(interruptPin, handleReceive, CHANGE);
 }
 void Transceiver::enableReceive(void) {
+    RadioGuard radio;
     uint32_t timing = millis();
     if(rxmode > 0) return;
     if(this->config.enabled) {
@@ -678,7 +682,8 @@ void Transceiver::enableReceive(void) {
       Serial.printf("Enabled receive on Pin #%d Timing: %ld\n", this->config.RXPin, millis() - timing);
     }
 }
-void Transceiver::disableReceive(void) { 
+void Transceiver::disableReceive(void) {
+  RadioGuard radio;
   rxmode = 0;
   if(interruptPin > 0) detachInterrupt(interruptPin); 
   interruptPin = 0;
@@ -722,6 +727,8 @@ bool Transceiver::save() {
     return true;
 }
 bool Transceiver::end() {
+    // Also holds the queued transmissions (OTA flash, reboot): resumeTx() restarts both.
+    this->suspendTx();
     this->disableReceive();
     return true;
 }
@@ -970,6 +977,7 @@ void transceiver_config_t::load() {
     //this->printBuffer = somfy.transceiver.printBuffer;
 }
 void transceiver_config_t::apply() {
+    RadioGuard radio; // waits for a transmission in progress
     somfy.transceiver.disableReceive();
     bit_length = this->type;    
     if(this->enabled) {
@@ -1070,13 +1078,32 @@ void transceiver_config_t::apply() {
     */
     //somfy.transceiver.printBuffer = this->printBuffer;
 }
+static void radioTaskMain(void *arg) {
+  Transceiver *radio = static_cast<Transceiver *>(arg);
+  for(;;) {
+    // Woken by every queued order; the timeout re-checks deadlines and the
+    // listen-before-talk waits.
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5));
+    while(radio->radioStep()) {}
+  }
+}
 bool Transceiver::begin() {
+    if(!g_radioLock) g_radioLock = xSemaphoreCreateRecursiveMutex();
+    if(!g_jobLock) g_jobLock = xSemaphoreCreateMutex();
+    if(!g_txEvents) g_txEvents = xQueueCreate(RADIO_MAX_JOBS, sizeof(radio_tx_event_t));
     this->config.load();
     this->config.apply();
     rx_queue.init();
+    if(!g_radioTask) xTaskCreatePinnedToCore(radioTaskMain, "radio", 5120, this, RADIO_TASK_PRIORITY, &g_radioTask, 1);
     return true;
 }
 void Transceiver::loop() {
+  // The radio task does not transmit while a frequency scan runs; it asks the
+  // loop to end the scan, whose socket emit needs the shared-state lock.
+  if(g_scanAbortRequested) {
+    g_scanAbortRequested = false;
+    if(rxmode == 3) this->endFrequencyScan();
+  }
   sampleFrameRssi();
   somfy_rx_t rx;
   if(rxmode == 3) {
@@ -1088,7 +1115,7 @@ void Transceiver::loop() {
   else if (this->receive(&rx)) {
     for(uint8_t i = 0; i < SOMFY_MAX_REPEATERS; i++) {
       if(somfy.repeaters[i] == frame.remoteAddress) {
-        tx_queue.push(&rx);
+        this->queueRaw(rx.cpt_synchro_hw, rx.payload, rx.bit_length);
         Serial.println("Queued repeater frame...");
         break;
       }
@@ -1103,87 +1130,21 @@ void Transceiver::loop() {
     static uint32_t lastNoiseSample = 0;
     if(rxmode == 1 && somfy_rx.status == waiting_synchro && somfy_rx.cpt_synchro_hw == 0
       && millis() - lastNoiseSample > RF_STATS_NOISE_INTERVAL) {
-      lastNoiseSample = millis();
-      rfStats.recordNoise(ELECHOUSE_cc1101.getRssi());
-    }
-    // Non-blocking repeat trains: emit at most ONE queued repeat frame per pass so the loop is
-    // never held for more than a single ~113ms frame, and rotate through the job slots so that
-    // several shades' trains interleave instead of one draining fully before the next starts.
-    // cpt_synchro_hw guards against stepping on an inbound frame (rx has priority), exactly like
-    // the repeater path below. beginTransmit/endTransmit bracket each frame here (rather than a
-    // whole job) so the radio state stays correct across the interleaving and when an urgent
-    // frame -- a STOP sent synchronously from checkMovement -- goes out between repeats.
-    // The TX_FRAME_SILENCE check keeps interleaved jobs from butting their frames against each
-    // other; a pass that arrives too early simply leaves the frame for a later one, so this
-    // path never blocks on the floor the way beginTransmit() does for synchronous sends.
-    bool sentRepeat = false;
-    const uint32_t now = millis();
-    if(somfy_rx.cpt_synchro_hw == 0 && now - lastTxEnd >= TX_FRAME_SILENCE) {
-      for(uint8_t k = 0; k < SOMFY_MAX_SHADES; k++) {
-        uint8_t idx = (txCursor + k) % SOMFY_MAX_SHADES;
-        somfy_tx_job_t &job = txJobs[idx];
-        if(!job.active || (int32_t)(now - job.nextSendAt) < 0) continue;
-        // 80-bit repeats re-encode per ordinal; 56-bit reuse the buffer captured at queue time.
-        if(job.bit_length == 80) job.frame.encode80BitFrame(job.encoded, job.ordinal);
-        this->beginTransmit();
-        this->sendFrame(job.encoded, job.bit_length == 56 ? 7 : 6, job.bit_length, false);
-        this->endTransmit();
-        esp_task_wdt_reset();
-        job.ordinal++;
-        if(job.repeatsRemaining > 0) job.repeatsRemaining--;
-        if(job.repeatsRemaining == 0) job.clear();
-        else job.nextSendAt = millis() + TX_REPEAT_GAP;
-        txCursor = (idx + 1) % SOMFY_MAX_SHADES;  // resume the rotation after this slot next pass
-        sentRepeat = true;
-        break;
+      RadioGuard radio(0); // skipped while the radio task transmits
+      if(radio.held()) {
+        lastNoiseSample = millis();
+        rfStats.recordNoise(ELECHOUSE_cc1101.getRssi());
       }
-    }
-    // Check to see if there is anything in the repeater buffer. Only when we did not just emit a
-    // repeat frame above, so we never transmit two frames in one pass. The TX_FRAME_SILENCE
-    // check mirrors the drain above so a repeated frame never rides the tail of another one.
-    if(!sentRepeat && tx_queue.length > 0 && (int32_t)(millis() - tx_queue.delay_time) >= 0 && somfy_rx.cpt_synchro_hw == 0
-      && millis() - lastTxEnd >= TX_FRAME_SILENCE) {
-      this->beginTransmit();
-      somfy_tx_t tx;
-      
-      tx_queue.pop(&tx);
-      Serial.printf("Sending frame %d - %d-BIT [", tx.hwsync, tx.bit_length);
-      for(uint8_t j = 0; j < 10; j++) {
-        Serial.print(tx.payload[j]);
-        if(j < 9) Serial.print(", ");
-      }
-      Serial.println("]");
-      this->sendFrame(tx.payload, tx.hwsync, tx.bit_length);
-      tx_queue.delay_time = millis() + TX_QUEUE_DELAY;
-      
-      /*
-      while(tx_queue.length > 0 && tx_queue.pop(&tx)) {
-        Serial.printf("Sending frame %d - %d-BIT [", tx.hwsync, tx.bit_length);
-        for(uint8_t j = 0; j < 10; j++) {
-          Serial.print(tx.payload[j]);
-          if(j < 9) Serial.print(", ");
-        }
-        Serial.println("]");
-        this->sendFrame(tx.payload, tx.hwsync, tx.bit_length);
-      }
-      */
-      this->endTransmit();
     }
   }
 }
 somfy_frame_t& Transceiver::lastFrame() { return this->frame; }
 void Transceiver::beginTransmit() {
     if(this->config.enabled) {
-      // A command issued while a frequency scan runs must not go out on the scan
-      // frequency (up to 0.5MHz off, possibly at 58kHz bandwidth).  Abort the scan
-      // cleanly first: config.apply() retunes the radio, the emit tells the UI.
-      if(rxmode == 3) this->endFrequencyScan();
-      // Enforce the inter-frame silence before opening the air. A burst of commands used to
-      // put each handler's first frame right on the tail of the previous frame (only the
-      // mutex handoff apart), which motors can fail to decode. The wait is bounded by
-      // TX_FRAME_SILENCE and delay() yields the task, so it costs at most one frame-gap on
-      // the ~100ms a synchronous send already takes. The queue drain pre-checks the floor
-      // and never reaches this wait.
+      // Never on the scan frequency: the radio task does not transmit while a
+      // frequency scan runs (rxmode 3), the loop ends the scan first.
+      // Inter-frame silence floor. radioStep() already waited it out; this is
+      // the safety net, bounded by TX_FRAME_SILENCE.
       uint32_t sinceTx = millis() - lastTxEnd;
       if(sinceTx < TX_FRAME_SILENCE) delay(TX_FRAME_SILENCE - sinceTx);
       this->disableReceive();
@@ -1199,34 +1160,323 @@ void Transceiver::endTransmit() {
       this->enableReceive();
     }
 }
-bool Transceiver::hasQueueSlot(uint32_t remoteAddress) {
-  // A command can be queued if there is a free slot, or if a slot for the same remote is already
-  // draining -- queueRepeats() reuses that one, so the same shade never needs two slots.
-  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) if(!txJobs[i].active) return true;
-  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++)
-    if(txJobs[i].active && txJobs[i].frame.remoteAddress == remoteAddress) return true;
+int radioReadRssi() {
+  RadioGuard radio(0);
+  return radio.held() ? ELECHOUSE_cc1101.getRssi() : 0;
+}
+// Airtime of the last hour, in one-minute buckets.
+static uint32_t airtimeLastHour(uint32_t now) {
+  const uint32_t minute = now / 60000;
+  if(minute != g_airtimeMinute) {
+    const uint32_t gap = minute - g_airtimeMinute;
+    for(uint32_t i = 1; i <= gap && i <= 60; i++) g_airtime[(g_airtimeMinute + i) % 60] = 0;
+    g_airtimeMinute = minute;
+  }
+  uint32_t total = 0;
+  for(uint8_t i = 0; i < 60; i++) total += g_airtime[i];
+  return total;
+}
+// 0 when the channel is clear, 1 while RTS traffic is being received or just
+// was, 2 when the RSSI shows an undecoded carrier.
+static uint8_t channelBusy() {
+  if(rxmode != 1) return 0;  // not listening: nothing to defer to
+  if(somfy_rx.cpt_synchro_hw > 0) return 1;
+  if(lastRxFrameEnd != 0 && millis() - lastRxFrameEnd < RADIO_RX_HOLDOFF) return 1;
+  const float base = rfStats.noiseBaselineDbm();
+  if(base < 0.0f) {
+    RadioGuard radio;
+    if(ELECHOUSE_cc1101.getRssi() > base + RADIO_CARRIER_MARGIN) return 2;
+  }
+  return 0;
+}
+// Caller holds g_jobLock. True while an older job of this remote still has to
+// go first (first frame pending, or a transmission in progress).
+static bool olderJobPending(const radio_job_t &j) {
+  for(uint8_t i = 0; i < RADIO_MAX_JOBS; i++) {
+    const radio_job_t &o = g_jobs[i];
+    if(!o.used || o.id == j.id || o.kind != radio_job_kind_t::command || o.remoteAddress != j.remoteAddress) continue;
+    if((int32_t)(o.id - j.id) < 0 && (!o.firstSent || o.inFlight)) return true;
+  }
   return false;
 }
-void Transceiver::queueRepeats(somfy_frame_t &frame, uint8_t repeat) {
-  // Register the repeat frames that follow a synchronously-sent first frame. A slot already
-  // draining for this remote is reused so a new command on a shade supersedes its previous
-  // command's leftover repeats (whose older rolling code the motor would ignore anyway) instead
-  // of trailing them and consuming a second slot; otherwise the first free slot is taken.
-  if(repeat == 0) return;
-  int8_t slot = -1;
-  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++)
-    if(txJobs[i].active && txJobs[i].frame.remoteAddress == frame.remoteAddress) { slot = i; break; }
-  if(slot < 0) for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) if(!txJobs[i].active) { slot = i; break; }
-  if(slot < 0) return;  // queue full; caller sent contiguously instead (hasQueueSlot() gate)
-  somfy_tx_job_t &job = txJobs[slot];
-  // Plain value copy of the whole frame (cmd, stepSize, rollingCode, address, encKey, proto,
-  // bitLength). somfy_frame_t::copy() is the RX accumulator with repeat detection and does not
-  // copy every field encode80BitFrame() needs, so a struct assignment is what we want here.
-  job.frame = frame;
+// Millis() of the last first frame sent for each recent remote, for the gap a
+// remote's next order has to leave (the motor needs it, e.g. after a stop and
+// before the long My press that records a position).
+struct radio_remote_tx_t { uint32_t address; uint32_t firstEnd; };
+static radio_remote_tx_t g_remoteTx[8] = {};
+static void noteFirstFrame(uint32_t address, uint32_t when) {
+  if(address == 0) return;
+  uint8_t slot = 0;
+  for(uint8_t i = 0; i < 8; i++) {
+    if(g_remoteTx[i].address == address) { slot = i; break; }
+    if((int32_t)(g_remoteTx[i].firstEnd - g_remoteTx[slot].firstEnd) < 0) slot = i;
+  }
+  g_remoteTx[slot].address = address;
+  g_remoteTx[slot].firstEnd = when;
+}
+static bool remoteGapElapsed(uint32_t address, uint16_t gapMs, uint32_t now) {
+  if(gapMs == 0 || address == 0) return true;
+  for(uint8_t i = 0; i < 8; i++)
+    if(g_remoteTx[i].address == address) return now - g_remoteTx[i].firstEnd >= gapMs;
+  return true;
+}
+// Caller holds g_jobLock. Stops first, then first frames in order of arrival,
+// then the repeats, the one waiting longest first.
+static int8_t pickJob(uint32_t now, bool overBudget) {
+  int8_t best = -1;
+  uint8_t bestRank = 255;
+  for(uint8_t i = 0; i < RADIO_MAX_JOBS; i++) {
+    radio_job_t &j = g_jobs[i];
+    if(!j.used || j.inFlight) continue;
+    uint8_t rank;
+    if(!j.firstSent) {
+      if((int32_t)(now - j.notBefore) < 0) continue;
+      if(j.kind == radio_job_kind_t::command && (olderJobPending(j) || !remoteGapElapsed(j.remoteAddress, j.gapMs, now))) continue;
+      rank = j.urgent ? 0 : 1;
+    }
+    else {
+      if(j.cancelRepeats || j.repeatsLeft == 0 || (int32_t)(now - j.nextSendAt) < 0) continue;
+      rank = 2;
+    }
+    if(overBudget && rank != 0) continue;
+    if(rank < bestRank) { best = i; bestRank = rank; continue; }
+    if(rank != bestRank) continue;
+    if(rank < 2 ? (int32_t)(j.id - g_jobs[best].id) < 0 : (int32_t)(j.nextSendAt - g_jobs[best].nextSendAt) < 0) best = i;
+  }
+  return best;
+}
+static int8_t jobSlot(uint32_t id) {
+  for(uint8_t i = 0; i < RADIO_MAX_JOBS; i++) if(g_jobs[i].used && g_jobs[i].id == id) return i;
+  return -1;
+}
+static void postTxEvent(uint32_t id, uint32_t when) {
+  radio_tx_event_t evt;
+  evt.jobId = id;
+  evt.firstFrameEnd = when;
+  if(g_txEvents) xQueueSend(g_txEvents, &evt, 0);
+}
+// Radio switched off: drop everything, releasing the shades that wait for a first frame.
+static void dropAllJobs() {
+  xSemaphoreTake(g_jobLock, portMAX_DELAY);
+  for(uint8_t i = 0; i < RADIO_MAX_JOBS; i++) {
+    if(!g_jobs[i].used) continue;
+    if(!g_jobs[i].firstSent) postTxEvent(g_jobs[i].id, millis());
+    g_jobs[i].used = false;
+  }
+  xSemaphoreGive(g_jobLock);
+}
+static uint32_t enqueueJob(Transceiver *radio, radio_job_t &job) {
+  if(!radio->config.enabled || !g_jobLock) return 0;
+  // An order must not go out on the scan frequency: end the scan here, where
+  // the caller holds the shared-state lock its socket emit needs.
+  if(rxmode == 3) radio->endFrequencyScan();
+  const uint32_t deadline = millis() + 3000;
+  for(;;) {
+    xSemaphoreTake(g_jobLock, portMAX_DELAY);
+    int8_t slot = -1;
+    for(uint8_t i = 0; i < RADIO_MAX_JOBS; i++) if(!g_jobs[i].used) { slot = i; break; }
+    if(slot >= 0) {
+      job.id = g_nextJobId++;
+      if(g_nextJobId == 0) g_nextJobId = 1;
+      job.used = true;
+      job.enqueuedAt = millis();
+      if(job.kind == radio_job_kind_t::command) {
+        // A newer order of this remote supersedes the repeats of the older ones
+        // (their older rolling code would be ignored after it anyway). An older
+        // order whose first frame has not gone yet still goes first.
+        for(uint8_t i = 0; i < RADIO_MAX_JOBS; i++) {
+          radio_job_t &o = g_jobs[i];
+          if(!o.used || o.kind != radio_job_kind_t::command || o.remoteAddress != job.remoteAddress) continue;
+          if(o.firstSent && !o.inFlight) o.used = false;
+          else o.cancelRepeats = true;
+        }
+      }
+      g_jobs[slot] = job;
+      g_txStats.jobs++;
+      const uint32_t id = job.id;
+      xSemaphoreGive(g_jobLock);
+      if(g_radioTask) xTaskNotifyGive(g_radioTask);
+      return id;
+    }
+    xSemaphoreGive(g_jobLock);
+    if((int32_t)(millis() - deadline) >= 0) {
+      g_txStats.dropped++;
+      Serial.println("Radio queue full: order dropped");
+      return 0;
+    }
+    vTaskDelay(pdMS_TO_TICKS(10)); // the radio task needs no lock the caller holds
+  }
+}
+uint32_t Transceiver::queueCommand(somfy_frame_t &frame, uint8_t repeats) {
+  radio_job_t job;
+  job.kind = radio_job_kind_t::command;
+  job.remoteAddress = frame.remoteAddress;
   frame.encodeFrame(job.encoded);
-  job.bit_length = frame.bitLength;
-  job.repeatsRemaining = repeat;
-  job.ordinal = 1;  // the synchronous first frame was ordinal 0; repeats continue from 1
-  job.nextSendAt = millis() + TX_REPEAT_GAP;
-  job.active = true;
+  job.frame = frame; // plain copy: every field encode80BitFrame() needs
+  job.bitLength = frame.bitLength;
+  job.firstSync = frame.bitLength == 56 ? 2 : 12;
+  job.repeatSync = frame.bitLength == 56 ? 7 : 6;
+  job.repeatsLeft = repeats;
+  job.ordinal = 1; // the first frame is ordinal 0; repeats continue from 1
+  job.contiguous = repeats >= TX_CONTIGUOUS_REPEATS;
+  job.urgent = !job.contiguous && (frame.cmd == somfy_commands::My || frame.cmd == somfy_commands::Stop);
+  job.gapMs = RADIO_SAME_REMOTE_GAP;
+  this->lastQueuedJob = enqueueJob(this, job);
+  return this->lastQueuedJob;
+}
+uint32_t Transceiver::queueContinuation(somfy_frame_t &frame, uint8_t repeats) {
+  // More of the press in progress, as one contiguous train continuing its
+  // 80-bit ordinals; no gap behind the frames it continues.
+  radio_job_t job;
+  job.kind = radio_job_kind_t::command;
+  job.remoteAddress = frame.remoteAddress;
+  frame.encodeFrame(job.encoded);
+  frame.repeats++;
+  job.ordinal = frame.repeats + 1;
+  frame.repeats += repeats;
+  job.frame = frame;
+  job.bitLength = frame.bitLength;
+  job.firstSync = frame.bitLength == 56 ? 2 : 12;
+  job.repeatSync = frame.bitLength == 56 ? 7 : 6;
+  job.repeatsLeft = repeats;
+  job.contiguous = true;
+  job.gapMs = 0;
+  return enqueueJob(this, job);
+}
+void Transceiver::queueRaw(uint8_t hwsync, byte *payload, uint8_t bitLength) {
+  radio_job_t job;
+  job.kind = radio_job_kind_t::raw;
+  memcpy(job.encoded, payload, sizeof(job.encoded));
+  job.bitLength = bitLength;
+  job.firstSync = hwsync;
+  job.notBefore = millis() + TX_QUEUE_DELAY; // a full frame beat after the original
+  enqueueJob(this, job);
+}
+bool Transceiver::popTxEvent(radio_tx_event_t &evt) {
+  return g_txEvents != nullptr && xQueueReceive(g_txEvents, &evt, 0) == pdTRUE;
+}
+bool Transceiver::txIdle() {
+  if(!g_jobLock) return true;
+  xSemaphoreTake(g_jobLock, portMAX_DELAY);
+  bool idle = true;
+  for(uint8_t i = 0; i < RADIO_MAX_JOBS && idle; i++) if(g_jobs[i].used) idle = false;
+  xSemaphoreGive(g_jobLock);
+  return idle;
+}
+void Transceiver::suspendTx() {
+  g_txSuspended = true;
+  RadioGuard radio; // let a transmission in progress finish
+}
+void Transceiver::resumeTx() {
+  g_txSuspended = false;
+  this->enableReceive();
+  if(g_radioTask) xTaskNotifyGive(g_radioTask);
+}
+void Transceiver::txStatsToJSON(JsonResponse &json) {
+  uint8_t pending = 0;
+  uint32_t airtime = 0;
+  if(g_jobLock) {
+    xSemaphoreTake(g_jobLock, portMAX_DELAY); // the airtime buckets are the radio task's too
+    for(uint8_t i = 0; i < RADIO_MAX_JOBS; i++) if(g_jobs[i].used) pending++;
+    airtime = airtimeLastHour(millis());
+    xSemaphoreGive(g_jobLock);
+  }
+  json.addElem("jobs", g_txStats.jobs);
+  json.addElem("frames", g_txStats.frames);
+  json.addElem("pending", pending);
+  json.addElem("lbtDeferred", g_txStats.lbtDeferred);
+  json.addElem("lbtForced", g_txStats.lbtForced);
+  json.addElem("dropped", g_txStats.dropped);
+  json.addElem("delayLast", g_txStats.delayLast);
+  json.addElem("delayMax", g_txStats.delayMax);
+  json.addElem("airtimeHour", airtime);
+}
+bool Transceiver::radioStep() {
+  if(!g_jobLock) return false;
+  if(!this->config.enabled) { dropAllJobs(); return false; }
+  if(g_txSuspended) return false;
+  if(rxmode == 3) { g_scanAbortRequested = true; return false; }
+  uint32_t now = millis();
+  if(now - lastTxEnd < TX_FRAME_SILENCE) return false;
+  // Pick, then listen without holding the job table: the RSSI read waits for the radio lock.
+  xSemaphoreTake(g_jobLock, portMAX_DELAY);
+  int8_t slot = pickJob(now, airtimeLastHour(now) >= RADIO_AIRTIME_BUDGET);
+  const uint32_t id = slot >= 0 ? g_jobs[slot].id : 0;
+  xSemaphoreGive(g_jobLock);
+  if(slot < 0) return false;
+  const uint8_t busy = channelBusy();
+  radio_job_t job;
+  xSemaphoreTake(g_jobLock, portMAX_DELAY);
+  slot = jobSlot(id);
+  if(slot < 0) { xSemaphoreGive(g_jobLock); return true; } // superseded meanwhile: pick again
+  radio_job_t &j = g_jobs[slot];
+  now = millis();
+  if(busy) {
+    if(j.lbtSince == 0) { j.lbtSince = now ? now : 1; g_txStats.lbtDeferred++; }
+    const uint32_t cap = busy == 2 ? RADIO_LBT_MAX_CARRIER : (j.urgent ? RADIO_LBT_MAX_URGENT : RADIO_LBT_MAX_RX);
+    if(now - j.lbtSince < cap) { xSemaphoreGive(g_jobLock); return false; }
+    g_txStats.lbtForced++;
+  }
+  j.inFlight = true;
+  job = j;
+  xSemaphoreGive(g_jobLock);
+
+  const bool first = !job.firstSent;
+  uint32_t firstEnd = 0;
+  uint8_t frames = 0;
+  const uint32_t txStart = millis();
+  {
+    RadioGuard radio;
+    this->beginTransmit();
+    if(job.kind == radio_job_kind_t::raw) {
+      this->sendFrame(job.encoded, job.firstSync, job.bitLength);
+      frames++;
+    }
+    else if(first) {
+      this->sendFrame(job.encoded, job.firstSync, job.bitLength, job.contiguous);
+      firstEnd = lastTxEnd;
+      frames++;
+      // Report now, not after a hold's whole train: the motor started here.
+      postTxEvent(job.id, firstEnd);
+      if(job.contiguous) {
+        for(uint8_t i = 0; i < job.repeatsLeft; i++) {
+          if(job.bitLength == 80) job.frame.encode80BitFrame(job.encoded, job.ordinal + i);
+          this->sendFrame(job.encoded, job.repeatSync, job.bitLength, true);
+          frames++;
+        }
+      }
+    }
+    else {
+      if(job.bitLength == 80) job.frame.encode80BitFrame(job.encoded, job.ordinal);
+      this->sendFrame(job.encoded, job.repeatSync, job.bitLength, false);
+      frames++;
+    }
+    this->endTransmit();
+  }
+  const uint32_t txEnd = millis();
+
+  xSemaphoreTake(g_jobLock, portMAX_DELAY);
+  g_txStats.frames += frames;
+  airtimeLastHour(txEnd);
+  g_airtime[g_airtimeMinute % 60] += txEnd - txStart;
+  slot = jobSlot(id);
+  if(slot >= 0) {
+    radio_job_t &d = g_jobs[slot];
+    d.inFlight = false;
+    d.lbtSince = 0;
+    if(first && d.kind == radio_job_kind_t::command) {
+      d.firstSent = true;
+      noteFirstFrame(d.remoteAddress, firstEnd);
+      g_txStats.delayLast = firstEnd - d.enqueuedAt;
+      if(g_txStats.delayLast > g_txStats.delayMax) g_txStats.delayMax = g_txStats.delayLast;
+    }
+    else if(!first) {
+      if(d.repeatsLeft > 0) d.repeatsLeft--;
+      d.ordinal++;
+    }
+    if(d.kind == radio_job_kind_t::raw || d.contiguous || d.cancelRepeats || d.repeatsLeft == 0) d.used = false;
+    else d.nextSendAt = txEnd + TX_REPEAT_GAP;
+  }
+  xSemaphoreGive(g_jobLock);
+  return true;
 }

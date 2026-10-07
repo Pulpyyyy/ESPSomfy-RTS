@@ -442,41 +442,11 @@ SomfyGroup *SomfyShadeController::addGroup() {
 }
 
 void SomfyShadeController::sendFrame(somfy_frame_t &frame, uint8_t repeat) {
-  byte frm[10];
-  frame.encodeFrame(frm);
-  const uint8_t firstSync = frame.bitLength == 56 ? 2 : 12;
-  const uint8_t repeatSync = frame.bitLength == 56 ? 7 : 6;
-  // Fully-synchronous contiguous send. Used for:
-  //  - no repeats (nothing to offload),
-  //  - hold/long-press commands (repeat >= TX_CONTIGUOUS_REPEATS: set-My, tilt holds, euromode)
-  //    which the motor only registers from an uninterrupted frame train, and
-  //  - the rare case where every queue slot is busy.
-  // A brief loop freeze here is acceptable: set-My is a deliberate, infrequent action and holds
-  // block the same way they always did. This path is byte-for-byte the original send.
-  if(repeat == 0 || repeat >= TX_CONTIGUOUS_REPEATS || !this->transceiver.hasQueueSlot(frame.remoteAddress)) {
-    this->transceiver.beginTransmit();
-    this->transceiver.sendFrame(frm, firstSync, frame.bitLength);
-    for(uint8_t i = 0; i < repeat; i++) {
-      // For each 80-bit frame we need to adjust the byte encoding for the silence.
-      if(frame.bitLength == 80) frame.encode80BitFrame(&frm[0], i + 1);
-      this->transceiver.sendFrame(frm, repeatSync, frame.bitLength);
-      esp_task_wdt_reset();
-    }
-    this->transceiver.endTransmit();
-    return;
-  }
-  // Non-blocking path (approach a): transmit the first frame synchronously so the motor has
-  // received a complete command by the time this returns -- the caller (processFrame, run right
-  // after) anchors moveStart/startPos on this moment, so position tracking starts as it always
-  // did. Only the repeat train is handed to the queue, to interleave with other shades'. The
-  // first frame carries no trailing silence (false): that gap is scheduled before the first
-  // queued repeat via nextSendAt, and beginTransmit() itself waits out TX_FRAME_SILENCE so a
-  // burst of commands cannot butt this frame against whatever the radio just sent.
-  // hasQueueSlot() was just checked, so queueRepeats() succeeds.
-  this->transceiver.beginTransmit();
-  this->transceiver.sendFrame(frm, firstSync, frame.bitLength, false);
-  this->transceiver.endTransmit();
-  this->transceiver.queueRepeats(frame, repeat);
+  // Queued for the radio task (Transceiver::queueCommand()), which sends it
+  // when the channel is clear; the caller answers at once. The shades driven
+  // by this frame hold their position tracking until its first frame is on
+  // the air (SomfyShade::txHold()/txAnchor()).
+  this->transceiver.queueCommand(frame, repeat);
 }
 bool SomfyShadeController::deleteShade(uint8_t shadeId) {
   for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
@@ -529,9 +499,17 @@ bool SomfyShadeController::loadShadesFile(const char *filename) { return ShadeCo
 
 void SomfyShadeController::loop() {
   this->transceiver.loop();
+  // Commands whose first frame has gone out: anchor their movement on it.
+  radio_tx_event_t evt;
+  while(this->transceiver.popTxEvent(evt)) {
+    for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++)
+      if(this->shades[i].getShadeId() != 255) this->shades[i].txAnchor(evt.jobId, evt.firstFrameEnd);
+  }
+  const uint32_t now = millis();
   bool allIdle = true;
   for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
     if(this->shades[i].getShadeId() != 255) {
+      this->shades[i].txHold(now);
       this->shades[i].checkMovement();
       this->shades[i].setGPIOs();
       if(!this->shades[i].isIdle()) allIdle = false;
