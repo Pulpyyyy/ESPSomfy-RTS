@@ -76,6 +76,8 @@ static somfy_rx_queue_t rx_queue;
 // Millis() at the end of the last frame received; the radio task keeps quiet
 // for RADIO_RX_HOLDOFF after it (a remote held down repeats every ~27ms).
 static volatile uint32_t lastRxFrameEnd = 0;
+// micros() of the last edge the receive ISR saw, glitches included.
+static volatile uint32_t lastRxEdgeUs = 0;
 // End of the last frame's data on the air (stamped before any spun trailing silence), the
 // reference point TX_FRAME_SILENCE is measured from.
 static uint32_t lastTxEnd = 0;
@@ -108,6 +110,8 @@ static volatile uint8_t rxFrameSeq = 0;
 #define RADIO_LBT_MAX_URGENT 500     // ... for a stop
 #define RADIO_LBT_MAX_CARRIER 500    // longest wait behind an undecoded carrier
 #define RADIO_CARRIER_MARGIN 10.0f   // dB over the noise baseline that means busy
+#define RADIO_RX_EDGE_TIMEOUT_US 20000 // a frame in progress has an edge at least every ~2.6ms
+#define RADIO_TX_SETTLE 50           // ms after our own frame before the RSSI is trusted
 #define RADIO_SAME_REMOTE_GAP 200    // ms after a remote's first frame before its next order
 #define RADIO_AIRTIME_BUDGET 300000  // ms per hour, under the 10% (360s) duty cycle
 #define RADIO_TASK_PRIORITY 2        // above loop() (1): the bit timing is not preempted by it
@@ -252,6 +256,7 @@ void Transceiver::sendFrame(byte *frame, uint8_t sync, uint8_t bitLength, bool i
 void RECEIVE_ATTR Transceiver::handleReceive() {
     static unsigned long last_time = 0;
     const long time = micros();
+    lastRxEdgeUs = time;
     const unsigned int duration = time - last_time;
     if (duration < bitMin) {
         // The incoming bit is < 448us so it is probably a glitch so blow it off.
@@ -1180,12 +1185,27 @@ static uint32_t airtimeLastHour(uint32_t now) {
 // was, 2 when the RSSI shows an undecoded carrier.
 static uint8_t channelBusy() {
   if(rxmode != 1) return 0;  // not listening: nothing to defer to
-  if(somfy_rx.cpt_synchro_hw > 0) return 1;
+  // A frame is coming in: hardware syncs counted and edges still arriving. The
+  // counter is only reset by the next edge, so on a quiet channel one noise
+  // pulse of sync length left it set for good and every order waited out the
+  // full cap behind traffic that did not exist.
+  if(somfy_rx.cpt_synchro_hw > 0 && (uint32_t)(micros() - lastRxEdgeUs) < RADIO_RX_EDGE_TIMEOUT_US) return 1;
   if(lastRxFrameEnd != 0 && millis() - lastRxFrameEnd < RADIO_RX_HOLDOFF) return 1;
+  // Carrier sense. The OOK receiver's RSSI swings from one read to the next,
+  // so a single read over the threshold proved nothing: take the median of
+  // three reads 1ms apart, and none right after our own frame.
   const float base = rfStats.noiseBaselineDbm();
-  if(base < 0.0f) {
-    RadioGuard radio;
-    if(ELECHOUSE_cc1101.getRssi() > base + RADIO_CARRIER_MARGIN) return 2;
+  if(base < 0.0f && millis() - lastTxEnd >= RADIO_TX_SETTLE) {
+    int r[3];
+    for(uint8_t i = 0; i < 3; i++) {
+      {
+        RadioGuard radio;
+        r[i] = ELECHOUSE_cc1101.getRssi();
+      }
+      if(i < 2) vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    const int median = max(min(r[0], r[1]), min(max(r[0], r[1]), r[2]));
+    if(median > base + RADIO_CARRIER_MARGIN) return 2;
   }
   return 0;
 }
@@ -1385,6 +1405,8 @@ void Transceiver::txStatsToJSON(JsonResponse &json) {
   json.addElem("frames", g_txStats.frames);
   json.addElem("pending", pending);
   json.addElem("lbtDeferred", g_txStats.lbtDeferred);
+  json.addElem("lbtRx", g_txStats.lbtRx);
+  json.addElem("lbtCarrier", g_txStats.lbtCarrier);
   json.addElem("lbtForced", g_txStats.lbtForced);
   json.addElem("dropped", g_txStats.dropped);
   json.addElem("delayLast", g_txStats.delayLast);
@@ -1412,7 +1434,12 @@ bool Transceiver::radioStep() {
   radio_job_t &j = g_jobs[slot];
   now = millis();
   if(busy) {
-    if(j.lbtSince == 0) { j.lbtSince = now ? now : 1; g_txStats.lbtDeferred++; }
+    if(j.lbtSince == 0) {
+      j.lbtSince = now ? now : 1;
+      g_txStats.lbtDeferred++;
+      if(busy == 2) g_txStats.lbtCarrier++;
+      else g_txStats.lbtRx++;
+    }
     const uint32_t cap = busy == 2 ? RADIO_LBT_MAX_CARRIER : (j.urgent ? RADIO_LBT_MAX_URGENT : RADIO_LBT_MAX_RX);
     if(now - j.lbtSince < cap) { xSemaphoreGive(g_jobLock); return false; }
     g_txStats.lbtForced++;

@@ -163,6 +163,8 @@ struct radio_tx_stats_t {
   uint32_t jobs = 0;          // orders queued
   uint32_t frames = 0;        // frames transmitted
   uint32_t lbtDeferred = 0;   // orders that waited for a busy channel
+  uint32_t lbtRx = 0;         // ...behind RTS traffic being received
+  uint32_t lbtCarrier = 0;    // ...behind an undecoded carrier
   uint32_t lbtForced = 0;     // ...and went anyway once the wait hit its cap
   uint32_t dropped = 0;       // orders lost to a full queue
   uint32_t delayLast = 0;     // ms from an order to the end of its first frame
