@@ -1240,8 +1240,9 @@ static bool remoteGapElapsed(uint32_t address, uint16_t gapMs, uint32_t now) {
     if(g_remoteTx[i].address == address) return now - g_remoteTx[i].firstEnd >= gapMs;
   return true;
 }
-// Caller holds g_jobLock. Stops first, then first frames in order of arrival,
-// then the repeats, the one waiting longest first.
+// Caller holds g_jobLock. Stops first, then the other orders in order of
+// arrival. Orders go out as contiguous trains (queueCommand()); the repeat
+// rank only serves a job queued with its repeats left to interleave.
 static int8_t pickJob(uint32_t now, bool overBudget) {
   int8_t best = -1;
   uint8_t bestRank = 255;
@@ -1338,8 +1339,15 @@ uint32_t Transceiver::queueCommand(somfy_frame_t &frame, uint8_t repeats) {
   job.repeatSync = frame.bitLength == 56 ? 7 : 6;
   job.repeatsLeft = repeats;
   job.ordinal = 1; // the first frame is ordinal 0; repeats continue from 1
-  job.contiguous = repeats >= TX_CONTIGUOUS_REPEATS;
-  job.urgent = !job.contiguous && (frame.cmd == somfy_commands::My || frame.cmd == somfy_commands::Stop);
+  // Every order goes out as one contiguous train, frames ~27ms apart, the way a
+  // remote sends a button press. Interleaving the repeats of several orders
+  // left each one a lone first frame followed by its repeats at 140ms+
+  // intervals between other shades' frames, and in bursts motors missed those
+  // orders. A burst now takes longer (one train after the other) but each
+  // order arrives whole.
+  job.contiguous = true;
+  // A short My/Stop is a stop; a long My press records the favorite position.
+  job.urgent = repeats < TX_CONTIGUOUS_REPEATS && (frame.cmd == somfy_commands::My || frame.cmd == somfy_commands::Stop);
   job.gapMs = RADIO_SAME_REMOTE_GAP;
   this->lastQueuedJob = enqueueJob(this, job);
   return this->lastQueuedJob;
