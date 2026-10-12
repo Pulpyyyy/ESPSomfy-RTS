@@ -37,6 +37,7 @@ class Somfy {
 
     init() {
         if (this.initialized) return;
+        this.bindShadeTabs();
         this.initialized = true;
     }
     initPins() {
@@ -163,7 +164,7 @@ class Somfy {
                 const cbRadio = get('cbEnableRadio');
                 const txtStatus = get('divRadioEnableStatus');
                 const row = get('divRadioEnableColor');
-                const radioTab = document.querySelector('.tab-container span[data-grpid="divRadioSettings"]');
+                const radioTab = document.querySelector('.nav-item[data-grpid="pgRadio"]');
                 const updateRadioText = () => {
                     const currentState = cbRadio.checked;
                     const isActuallyEnabled = radioTab && !radioTab.classList.contains('radio-error');
@@ -175,12 +176,9 @@ class Somfy {
                     }
                 };
                 const isRadioInit = somfy.transceiver.config.radioInit;
-                const sideNote = get('barsideRadioDisable');
-                if (radioTab) {
-                    radioTab.classList.toggle('radio-error', !isRadioInit);
-                    if (sideNote) sideNote.style.display = isRadioInit ? 'none' : 'inline';
-                    row.classList.toggle('radioOn', !!isRadioInit);
-                }
+                // Both copies of the menu (rail and mobile) flag a radio that failed to start.
+                document.querySelectorAll('.nav-item[data-grpid="pgRadio"]').forEach(n => n.classList.toggle('radio-error', !isRadioInit));
+                if (row) row.classList.toggle('radioOn', !!isRadioInit);
                 // Any trusted edit in the panel (sliders included) flips the status line
                 // to the save-required hint: the sliders preview their new value
                 // instantly and nothing else said the radio still runs the old one.
@@ -289,15 +287,10 @@ class Somfy {
                     ui.successMessage(tr('MSG_SAVE_SUCCESS'));
 
                     const init = res.config.radioInit,
-                    tab = document.querySelector('.tab-container span[data-grpid="divRadioSettings"]'),
-                            sn = get('barsideRadioDisable'),
                             cb = get('cbEnableRadio');
 
-                            if (tab) {
-                                tab.classList.toggle('radio-error', !init);
-                                if (sn) sn.style.display = init ? 'none' : 'inline';
-                                get('divRadioEnableColor').classList.toggle('radioOn', !!init);
-                            }
+                            document.querySelectorAll('.nav-item[data-grpid="pgRadio"]').forEach(n => n.classList.toggle('radio-error', !init));
+                            get('divRadioEnableColor').classList.toggle('radioOn', !!init);
                             get('divRadioEnableStatus').textContent = tr(cb.checked === init ? (cb.checked ? 'RADIO_ENABLED' : 'RADIO_DISABLED') : 'RADIO_SAVE_REQUIRED');
                 });
             };
@@ -647,6 +640,9 @@ class Somfy {
             if (divShadeListContent) divShadeListContent.style.display = visibleShadesCount === 0 ? 'none' : '';
             if (divGroupListContent) divGroupListContent.style.display = visibleGroupsCount === 0 ? 'none' : '';
         }
+        const secGroups = getEl('secHomeGroups');
+        if (secGroups) secGroups.style.display = (!isConfigOpen && visibleGroupsCount > 0) ? '' : 'none';
+        this.updateHomeSummary();
     }
     procRoomAdded(room) {
         let r = _rooms.find(x => x.roomId === room.roomId);
@@ -687,47 +683,43 @@ class Somfy {
         document.querySelectorAll('.room-pill').forEach(pill => {
             const pId = parseInt(pill.getAttribute('data-roomid'), 10);
             pill.classList.toggle('active', pId === roomId);
-            // The active pill is only signalled by colour; expose the state to assistive tech too.
             pill.setAttribute('aria-pressed', pId === roomId ? 'true' : 'false');
         });
-
-        const ctls = document.querySelectorAll('.somfyShadeCtl');
-        ctls.forEach(x => {
-            const rId = parseInt(x.getAttribute('data-roomid'), 10);
-            x.style.display = (roomId === 0 || rId === roomId) ? '' : 'none';
-        });
+        const sel = get('divRoomSelector');
+        if (sel) sel.setAttribute('data-roomid', roomId);
+        const match = el => roomId === 0 || parseInt(el.getAttribute('data-roomid'), 10) === roomId;
+        document.querySelectorAll('.somfyShadeCtl').forEach(x => { x.style.display = match(x) ? '' : 'none'; });
+        document.querySelectorAll('.room-sec').forEach(x => { x.style.display = match(x) ? '' : 'none'; });
+        document.querySelectorAll('.somfyGroupCtl').forEach(x => { x.style.display = match(x) ? '' : 'none'; });
         this.checkEmptyState();
     }
     setRoomsList(rooms) {
         let divCfg = '';
         const homeName = tr('HOME');
         const slider = get('divRoomSelector');
-        // The pill text is the room name, so it already is the accessible name: no aria-label
-        // here, or voice-control users would have to say something they cannot see.
-        let divPills = `<div class="room-pill active" role="button" tabindex="0" aria-pressed="true" data-roomid="0" onclick="somfy.selectRoom(0)">${homeName}</div>`;
-        let divOpts = `<option value="0">${homeName}</option>`;
+        // Room filter chips: real buttons carrying their pressed state; the visible
+        // name is the accessible name (voice control users say what they see).
+        let divPills = `<button type="button" class="chip room-pill active" aria-pressed="true" data-roomid="0" onclick="somfy.selectRoom(0)">${esc(tr('HOME_ALL_ROOMS'))}<span class="chip-count"></span></button>`;
+        // Room 0 means "no room": say so in the room pickers.
+        let divOpts = `<option value="0">${esc(tr('HOME_UNASSIGNED'))}</option>`;
         _rooms = [{ roomId: 0, name: homeName }];
 
         rooms.sort((a, b) => a.sortOrder - b.sortOrder);
         rooms.forEach(room => {
-            divPills += `<div class="room-pill animScale" role="button" tabindex="0" aria-pressed="false" data-roomid="${room.roomId}" onclick="somfy.selectRoom(${room.roomId})">${esc(room.name)}</div>`;
-            // ... foreach room ...
+            divPills += `<button type="button" class="chip room-pill" aria-pressed="false" data-roomid="${room.roomId}" onclick="somfy.selectRoom(${room.roomId})">${esc(room.name)}<span class="chip-count"></span></button>`;
             divCfg += `<div class="somfyRoom room-draggable" data-roomid="${room.roomId}">
             <div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div>
             <div class="room-name"><span class="name-text">${esc(room.name)}</span></div><span class="vr"></span>
             <div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', room.name))} onclick="somfy.openEditRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div>
             <div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', room.name))} onclick="somfy.deleteRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div>
             </div>`;
-
             divOpts += `<option value="${room.roomId}">${esc(room.name)}</option>`;
             _rooms.push(room);
         });
 
         slider.innerHTML = divPills;
-        slider.style.display = 'flex';
-
         const navContainer = document.querySelector('.room-nav-container');
-        if(navContainer) navContainer.style.display = rooms.length === 0 ? 'none' : 'flex';
+        if (navContainer) navContainer.style.display = rooms.length === 0 ? 'none' : '';
 
         get('divRoomList').innerHTML = divCfg;
         get('selShadeRoom').innerHTML = divOpts;
@@ -743,51 +735,13 @@ class Somfy {
                 else this.updateRoomsList();
             });
         });
-        this.initRoomScroll(slider);
+        // Shades are grouped by room: re-render them in the new room order.
+        if (this.shades) this.setShadesList(this.shades);
     }
-    initRoomScroll(c) {
-        const update = () => {
-            const btnL = get('btnScrollLeft'), btnR = get('btnScrollRight');
-            if (c && btnL && btnR) {
-                const canL = c.scrollLeft > 10;
-                const canR = c.scrollWidth > (c.scrollLeft + c.clientWidth + 10);
-                btnL.style.display = canL ? 'block' : 'none';
-                btnR.style.display = canR ? 'block' : 'none';
-                // Edge fades signaling that more rooms are scrolled off-screen.
-                c.classList.toggle('can-left', canL);
-                c.classList.toggle('can-right', canR);
-            }
-        };
-        let isDown = 0, startX, scrollLeft;
-
-        c.addEventListener('wheel', (e) => {
-            if (e.deltaY) { e.preventDefault(); c.scrollLeft += e.deltaY; }
-        }, { passive: false });
-
-        c.onmousedown = (e) => {
-            isDown = 1;
-            c.style.cursor = 'grabbing';
-            startX = e.pageX - c.offsetLeft;
-            scrollLeft = c.scrollLeft;
-        };
-
-        const stop = () => { isDown = 0; c.style.cursor = 'grab'; };
-        c.onmouseleave = c.onmouseup = stop;
-
-        c.onmousemove = (e) => {
-            if (!isDown) return;
-            e.preventDefault();
-            c.scrollLeft = scrollLeft - (e.pageX - c.offsetLeft - startX) * 2;
-        };
-
-        c.onscroll = update;
-        window.onresize = update;
-        setTimeout(update, 150);
-        this.checkArrows = update;
-    }
-    scrollRooms(dir) {
-        get('divRoomSelector')?.scrollBy({ left: dir * 200, behavior: 'smooth' });
-    }
+    // The room chips wrap instead of scrolling sideways, so the old drag/wheel
+    // scrolling (which captured the page's vertical wheel) is gone.
+    initRoomScroll() { this.checkArrows = () => {}; }
+    scrollRooms() {}
     setRepeaterList(addresses) {
         let divCfg = '';
         if (typeof addresses !== 'undefined') {
@@ -802,12 +756,10 @@ class Somfy {
     setShadesList(shades) {
         this.shades = shades;
         let divCfg = '';
-        let divCtl = '';
         shades.sort((a, b) => { return a.sortOrder - b.sortOrder });
         if(DBG) console.log(shades);
         let roomId = document.querySelector('.room-pill.active') ? parseInt(document.querySelector('.room-pill.active').getAttribute('data-roomid'), 10) : 0;
         let vrList = get('selVRMotor');
-        // First get the optiongroup for the shades.
         let optGroup = get('optgrpVRShades');
         if (typeof shades === 'undefined' || shades.length === 0) {
             if (optGroup && typeof optGroup !== 'undefined') optGroup.remove();
@@ -823,62 +775,39 @@ class Somfy {
                 optGroup.innerHTML = '';
             }
         }
+        // Home: one section per room (in room order), "unassigned" last.
+        const byRoom = new Map();
+        for (const shade of shades) {
+            const known = _rooms.some(r => r.roomId === shade.roomId && r.roomId !== 0);
+            const rId = known ? shade.roomId : 0;
+            if (!byRoom.has(rId)) byRoom.set(rId, []);
+            byRoom.get(rId).push(shade);
+        }
+        const roomOrder = _rooms.filter(r => r.roomId !== 0).map(r => r.roomId).concat([0]);
+        let divCtl = '';
+        for (const rId of roomOrder) {
+            const list = byRoom.get(rId);
+            if (!list || !list.length) continue;
+            const room = _rooms.find(x => x.roomId === rId);
+            const rName = rId === 0 ? tr('HOME_UNASSIGNED') : room.name;
+            divCtl += `<section class="room-sec" data-roomid="${rId}" aria-labelledby="roomHead${rId}" style="--n:${Math.min(list.length, 4)};${roomId === 0 || roomId === rId ? '' : 'display:none'}">
+            <div class="room-sec-head">
+            <h2 class="h2-lg" id="roomHead${rId}">${esc(rName)}${list.length > 1 ? ' <span class="room-sec-sum muted"></span>' : ''}</h2>
+            ${list.length > 1 ? `<div class="room-sec-actions">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'up')">${tr('HOME_OPEN_ALL')}<span class="sr-only"> — ${esc(rName)}</span></button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'down')">${tr('HOME_CLOSE_ALL')}<span class="sr-only"> — ${esc(rName)}</span></button>
+            </div>` : ''}
+            </div>
+            <div class="tile-grid">`;
+            for (const shade of list) divCtl += this.tileHtml(shade, roomId);
+            divCtl += `</div></section>`;
+        }
         for (let i = 0; i < shades.length; i++) {
             let shade = shades[i];
             let room = _rooms.find(x => x.roomId === shade.roomId) || { roomId: 0, name: '' };
-            let isLightOn = (shade.flags & 0x08);
-            let isSunOn = (shade.flags & 0x01);
-            let st = this.shadeTypes.find(x => x.type === shade.shadeType) || { type: shade.shadeType, ico: 'svg-window-shade' };
-
             divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', shade.name))} onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', shade.name))} onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
-            // --- SECTION CONTROLE ---
-            divCtl += `<div class="somfyShadeCtl" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"
-            data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
-            <div class="shadectl-side-handle" ${a11yBtn(trf('A11Y_SET_POS', shade.name))} onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});"><svg class="handle-icon"><use href="#svg-arrowRight"></use></svg></div>
-            <div class="shadectl-right-content">
-            <div class="shadectl-main-content">
-            <div class="shadectl-header-row"><span class="shadectl-name">${esc(shade.name)}</span></div>
-            <div class="shade-icon" data-shadeid="${shade.shadeId}">
-            <svg class="somfy-shade-icon" data-shadeid="${shade.shadeId}" style="--shade-position:${shade.flipPosition ? 100 - shade.position : shade.position}; --fpos:${shade.flipPosition ? 100 - shade.position : shade.position}%">
-            <use href="#${st.ico}"></use>
-            </svg>
-            </div>
-            <div class="shade-name">
-            <span class="shadectl-room">${esc(room.name)}</span>`;
-            divCtl += `<span class="shadectl-mypos"><span class="val-pos">${tr('SHADE_POS')}${shadePosLabel(shade.position, shade.flipPosition)}</span>`;
-            if (shade.tiltType !== 0) divCtl += `<span class="val-pos"> ${tr('SHADE_TILT')}${shade.tiltPosition}%</span>`;
-            // Surface the hidden long-press actions (set My / tilt) as tooltips.
-            const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
-            divCtl += `</span></div>
-            <div class="shadectl-buttons" data-shadeType="${shade.shadeType}">
-            <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_UP', shade.name))} data-cmd="up" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-up"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_MY', shade.name))} data-cmd="my" data-shadeid="${shade.shadeId}" title="${tr('TT_HOLD_MY')}"><svg><use href="#svg-my"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_DOWN', shade.name))} data-cmd="down" data-shadeid="${shade.shadeId}"${tiltTitle}><svg><use href="#svg-down"></use></svg></div>
-            <div class="button-outline cmd-button btn-somfy-svg-wide animScale" ${a11yBtn(trf('A11Y_CMD_TOGGLE', shade.name))} data-cmd="toggle" data-shadeid="${shade.shadeId}"><svg><use href="#svg-toggle"></use></svg></div>
-            </div>
-            <div class="shadectl-status-bar">
-            <div class="shadectl-status-left">
-            <div class="indicator indicator-wind"><svg><use href="#indic-wind"></use></svg></div>
-            <div class="indicator indicator-sun"><svg><use href="#indic-sun"></use></svg></div>
-            <div class="val-my myShade-badge">My: ${shade.myPos === -1 ? '---' : shade.myPos + '%'}</div>`;
-            if (shade.tiltType !== 0) divCtl += `<div class="val-tilt myShade-badge">${tr('SHADE_MY_TILT')}${shade.myTiltPos === -1 ? '---' : shade.myTiltPos + '%'}</div>`;
-            divCtl += `</div>
-            <div class="status-group-right">
-            <div class="button-light cmd-button" ${a11yBtn(trf('A11Y_CMD_LIGHT', shade.name))} data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}">
-            <svg><use href="#svg-lightbulb"></use></svg>
-            </div>`;
-            if (shade.sunSensor) {
-                divCtl += `<div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', shade.name))} data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}">
-                <svg><use href="#svg-sun"></use></svg>
-                </div>`;
-            }
-            divCtl += `<div class="button-my" ${a11yBtn(trf('A11Y_SET_MY', shade.name))} onclick="event.stopPropagation(); somfy.openSetMyPosition(${shade.shadeId});">
-            <svg><use href="#svg-favori"></use></svg>
-            </div></div></div></div></div></div></div>`;
-
             let opt = document.createElement('option');
             opt.textContent = shade.name;
-
             opt.setAttribute('data-address', shade.remoteAddress);
             opt.setAttribute('data-type', 'shade');
             opt.setAttribute('data-shadetype', shade.shadeType);
@@ -891,13 +820,14 @@ class Somfy {
         get('divShadeList').innerHTML = divCfg;
         let shadeControls = get('divShadeControls');
         shadeControls.innerHTML = divCtl;
+        shadeControls.querySelectorAll('.somfyShadeCtl').forEach(d => this.renderTileState(d));
         this.checkEmptyState();
         // Long-press handling for the shade command buttons.  Mouse and touch share
         // the same handlers so the two input methods behave identically: a tap sends
         // the command, holding 2s triggers the secondary action (set My / tilt).
         // While armed, an accent ring grows on the button (.lp-hold) so the user can
         // see that keeping it pressed does something.
-        let btns = shadeControls.querySelectorAll('div.cmd-button');
+        let btns = shadeControls.querySelectorAll('.cmd-button');
         const lpClear = (btn) => {
             if (this.btnTimer) { clearTimeout(this.btnTimer); this.btnTimer = null; }
             btn.classList.remove('lp-hold');
@@ -909,7 +839,7 @@ class Somfy {
         const onCmdDown = (event) => {
             lpClear(event.currentTarget);
             if(DBG) console.log({ msg: 'cmd-down', evt: event });
-            let elShade = event.currentTarget.closest('div.somfyShadeCtl');
+            let elShade = event.currentTarget.closest('.somfyShadeCtl');
             let cmd = event.currentTarget.getAttribute('data-cmd');
             let shadeId = parseInt(event.currentTarget.getAttribute('data-shadeid'), 10);
             this.btnDown = new Date().getTime();
@@ -965,22 +895,131 @@ class Somfy {
             btns[i].addEventListener('click', (event) => { if (event.detail === 0) onCmdUp(event); });
         }
         this.setListDraggable(get('divShadeList'), '.shade-draggable', (list) => {
-            // Get the shade order
             let items = list.querySelectorAll('.shade-draggable');
             let order = [];
-            for (let i = 0; i < items.length; i++) {
-                order.push(parseInt(items[i].getAttribute('data-shadeid'), 10));
-                // Reorder the shades on the main page.
-            }
-            putJSONBusy('/shadeSortOrder', order, (err) => {
-                for (let i = order.length - 1; i >= 0; i--) {
-                    let el = shadeControls.querySelector(`.somfyShadeCtl[data-shadeid="${order[i]}"`);
-                    if (el) {
-                        shadeControls.prepend(el);
-                    }
-                }
-            });
+            for (let i = 0; i < items.length; i++) order.push(parseInt(items[i].getAttribute('data-shadeid'), 10));
+            // Home groups the shades by room, so it is rebuilt from the new order.
+            putJSONBusy('/shadeSortOrder', order, () => this.updateShadeList());
         });
+    }
+    // Shade types whose motor has no travel position (a pulse or a toggle).
+    isPulseType(shadeType) { return [5, 9, 10, 14, 15, 16].includes(parseInt(shadeType, 10)); }
+    // Types drawn as a slatted apron in the tile; the others keep their own icon.
+    isApronType(shadeType) { return [0, 1, 4].includes(parseInt(shadeType, 10)); }
+    tileHtml(shade, roomId) {
+        const st = this.shadeTypes.find(x => x.type === shade.shadeType) || { type: shade.shadeType, ico: 'svg-window-shade' };
+        const isLightOn = (shade.flags & 0x08);
+        const isSunOn = (shade.flags & 0x01);
+        const pulse = this.isPulseType(shade.shadeType);
+        const p = shade.flipPosition ? 100 - shade.position : shade.position;
+        const viz = this.isApronType(shade.shadeType)
+            ? `<span class="shutter"></span>`
+            : `<svg class="somfy-shade-icon" data-shadeid="${shade.shadeId}" aria-hidden="true" style="--shade-position:${p}; --fpos:${p}%"><use href="#${st.ico}"></use></svg>`;
+        const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
+        return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
+        <div class="tile-head">
+        <div class="tile-id">
+        <h3 class="tile-name shadectl-name" id="shName${shade.shadeId}">${esc(shade.name).replace(/_/g, '_<wbr>')}</h3>
+        <span class="status tile-status"><span class="dot pulse" aria-hidden="true"></span><span class="val-pos"></span></span>
+        </div>
+        <span class="tile-pct"><span class="pct-num"></span><small aria-hidden="true"> %</small><span class="sr-only"> ${tr('HOME_PCT_OPEN')}</span></span>
+        </div>
+        <button type="button" class="viz shade-viz" data-shadeid="${shade.shadeId}" aria-label="${esc(trf('A11Y_SET_POS', shade.name))}" ${pulse ? 'disabled' : ''} onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});">
+        ${viz}
+        <span class="viz-flags"><span class="badge warn indicator indicator-sun"><svg aria-hidden="true"><use href="#indic-sun"></use></svg>${tr('VR_SUN')}</span><span class="badge danger indicator indicator-wind"><svg aria-hidden="true"><use href="#indic-wind"></use></svg>${tr('VR_WIND')}</span></span>
+        </button>
+        <span class="tile-tools">
+        <div class="button-light cmd-button" ${a11yBtn(trf('A11Y_CMD_LIGHT', shade.name))} data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}"><svg aria-hidden="true"><use href="#svg-lightbulb"></use></svg></div>
+        ${shade.sunSensor ? `<div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', shade.name))} data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}"><svg aria-hidden="true"><use href="#svg-sun"></use></svg></div>` : ''}
+        ${pulse ? '' : `<div class="button-my" ${a11yBtn(trf('A11Y_SET_MY', shade.name))} title="${tr('TT_HOLD_MY')}" onclick="event.stopPropagation(); somfy.openSetMyPosition(${shade.shadeId});"><svg aria-hidden="true"><use href="#svg-favori"></use></svg></div>`}
+        </span>
+        <div class="cmd-row shadectl-buttons" data-shadeType="${shade.shadeType}">
+        <div class="btn button-outline cmd-button" ${a11yBtn(trf('A11Y_CMD_UP', shade.name))} data-cmd="up" data-shadeid="${shade.shadeId}"${tiltTitle}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></div>
+        <div class="btn btn-stack button-outline cmd-button cmd-my" role="button" tabindex="0" data-cmd="my" data-shadeid="${shade.shadeId}" title="${tr('TT_HOLD_MY')}"><span class="my-label">My</span><span class="btn-sub val-my"></span><span class="sr-only">${esc(trf('A11Y_CMD_MY', shade.name))}</span></div>
+        <div class="btn button-outline cmd-button" ${a11yBtn(trf('A11Y_CMD_DOWN', shade.name))} data-cmd="down" data-shadeid="${shade.shadeId}"${tiltTitle}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
+        <div class="btn button-outline cmd-button cmd-toggle" role="button" tabindex="0" data-cmd="toggle" data-shadeid="${shade.shadeId}">${tr('BT_TRIGGER')}<span class="sr-only"> ${esc(shade.name)}</span></div>
+        </div>
+        <div class="tile-foot">
+        <span class="val-tilt small muted"></span>
+        </div>
+        </article>`;
+    }
+    // Paints the live state of one tile from its data-* attributes (kept current by
+    // procShadeState): open percentage, apron height, status line, My / Stop label.
+    renderTileState(d) {
+        const flip = makeBool(d.getAttribute('data-flipposition'));
+        const num = (a, dflt) => { const v = parseInt(d.getAttribute(a), 10); return isNaN(v) ? dflt : v; };
+        const pos = num('data-position', 0), target = num('data-target', pos), myPos = num('data-mypos', -1);
+        const dir = num('data-direction', 0);
+        const open = shadeOpenness(pos, flip);
+        const pulse = d.classList.contains('is-pulse');
+        const moving = dir !== 0;
+        d.classList.toggle('is-moving', moving);
+        const pct = d.querySelector('.pct-num');
+        if (pct) pct.textContent = open;
+        d.querySelector('.tile-pct')?.toggleAttribute('hidden', pulse);
+        const sh = d.querySelector('.shutter');
+        if (sh) sh.style.height = (100 - open) + '%';
+        const myOpen = myPos >= 0 ? shadeOpenness(myPos, flip) : -1;
+        let status;
+        if (moving) status = `${tr(dir < 0 ? 'ST_OPENING' : 'ST_CLOSING')} · ${trf('ST_TOWARDS', shadeOpenness(target, flip))}`;
+        else if (pulse) status = '';
+        else if (myOpen >= 0 && open === myOpen && open !== 0 && open !== 100) status = tr('ST_AT_MY');
+        else status = open <= 0 ? tr('POS_CLOSED') : open >= 100 ? tr('POS_OPEN') : tr('ST_PARTIAL');
+        const s = d.querySelector('.val-pos');
+        if (s) s.textContent = status;
+        const lbl = d.querySelector('.my-label');
+        if (lbl) lbl.textContent = moving ? tr('BT_STOP_MY') : 'My';
+        const vm = d.querySelector('.val-my');
+        if (vm) vm.textContent = moving ? '' : (myOpen >= 0 ? `${myOpen} %` : '—');
+        const tilt = parseInt(d.getAttribute('data-tilt'), 10) || 0;
+        const vt = d.querySelector('.val-tilt');
+        if (vt) {
+            const tp = num('data-tiltposition', -1), mt = num('data-mytiltpos', -1);
+            vt.textContent = tilt ? `${tr('SHADE_TILT')}${tp >= 0 ? tp + ' %' : '—'}${mt >= 0 ? ` · ${tr('SHADE_MY_TILT')}${mt} %` : ''}` : '';
+        }
+    }
+    // "3 volets · 2 ouverts" under the Home title and next to each room heading.
+    updateHomeSummary() {
+        const describe = (tiles) => {
+            const shades = tiles.filter(t => !t.classList.contains('is-pulse'));
+            const open = shades.filter(t => shadeOpenness(parseInt(t.getAttribute('data-position'), 10) || 0, makeBool(t.getAttribute('data-flipposition'))) > 0).length;
+            return { total: tiles.length, open: open, shades: shades.length };
+        };
+        const all = describe(Array.from(document.querySelectorAll('#divShadeControls .somfyShadeCtl')));
+        const sum = get('homeSummary');
+        if (sum) sum.textContent = all.total ? `${trf(all.total === 1 ? 'HOME_DEVICES_1' : 'HOME_DEVICES_N', all.total)} · ${this.openText(all.open, all.shades)}` : '';
+        document.querySelectorAll('.room-sec').forEach(sec => {
+            const d = describe(Array.from(sec.querySelectorAll('.somfyShadeCtl')));
+            const el = sec.querySelector('.room-sec-sum');
+            if (el) el.textContent = `· ${this.openText(d.open, d.shades)}`;
+        });
+        document.querySelectorAll('.room-pill').forEach(p => {
+            const rId = parseInt(p.getAttribute('data-roomid'), 10);
+            const n = rId === 0 ? all.total : document.querySelectorAll(`#divShadeControls .somfyShadeCtl[data-roomid="${rId}"]`).length;
+            const c = p.querySelector('.chip-count');
+            if (c) c.textContent = n ? ` ${n}` : '';
+        });
+    }
+    openText(open, total) {
+        if (open === 0) return tr('HOME_ALL_CLOSED');
+        if (open === total) return tr('HOME_ALL_OPEN');
+        return open === 1 ? tr('HOME_ONE_OPEN') : trf('HOME_N_OPEN', open);
+    }
+    // "Open all / Close all" of a room: one command per shade of the section; the
+    // radio task queues them, so they go out as a burst of contiguous trains.
+    roomCommand(roomId, cmd) {
+        const tiles = Array.from(document.querySelectorAll(`.room-sec[data-roomid="${roomId}"] .somfyShadeCtl`))
+            .filter(t => !t.classList.contains('is-pulse'));
+        tiles.forEach(t => this.sendCommand(parseInt(t.getAttribute('data-shadeid'), 10), cmd));
+        const room = _rooms.find(r => r.roomId === roomId);
+        this.announce(trf(cmd === 'up' ? 'LIVE_ROOM_OPEN' : 'LIVE_ROOM_CLOSE', room && roomId !== 0 ? room.name : tr('HOME_UNASSIGNED')));
+    }
+    announce(msg) {
+        const el = get('homeLive');
+        if (!el) return;
+        el.textContent = '';
+        setTimeout(() => { el.textContent = msg; }, 50);
     }
     setListDraggable(list, cl, cb) {
         let el = null, gh = null, ch = false, sA = null;
@@ -1149,23 +1188,18 @@ class Somfy {
             for (let i = 0; i < groups.length; i++) {
                 let group = groups[i];
                 let room = _rooms.find(x => x.roomId === group.roomId) || { roomId: 0, name: '' };
-                // --- Section Configuration ---
                 divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', group.name))} onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', group.name))} onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" style="color: var(--danger-color, red);"><use href=#svg-close></use></svg></div></div>`;
-                // --- Control section (divCtl) ---
-                divCtl += `<div class="somfyGroupCtl" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-groupId="${group.groupId}" data-roomid="${group.roomId}" data-remoteaddress="${group.remoteAddress}">
-                <div class="group-name">
-                <span class="groupctl-room">${esc(room.name)}</span>
-                <span class="groupctl-name">${esc(group.name)}</span>
-                <div class="groupctl-shades">`;
-                if (typeof group.linkedShades !== 'undefined') {
-                    divCtl += `<label>Members:</label><span>${group.linkedShades.length}</span>`;
-                }
-                divCtl += `</div></div>
-                <div class="groupctl-buttons">
-                <div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', group.name))} data-cmd="sunflag" data-groupid="${group.groupId}" data-on="${(group.flags & 0x01) ? 'true' : 'false'}" style="${!group.sunSensor ? 'display:none' : ''}"><svg><use href="#svg-sun"></use></svg></div>
-                <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_UP', group.name))} data-cmd="up" data-groupid="${group.groupId}"><svg><use href="#svg-up"></use></svg></div>
-                <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_MY', group.name))} data-cmd="my" data-groupid="${group.groupId}"><svg><use href="#svg-my"></use></svg></div>
-                <div class="button-outline cmd-button btn-somfy-svg animScale" ${a11yBtn(trf('A11Y_CMD_DOWN', group.name))} data-cmd="down" data-groupid="${group.groupId}"><svg><use href="#svg-down"></use></svg></div>
+                const members = typeof group.linkedShades !== 'undefined' ? group.linkedShades.length : 0;
+                divCtl += `<div class="somfyGroupCtl gtile" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-groupId="${group.groupId}" data-roomid="${group.roomId}" data-remoteaddress="${group.remoteAddress}">
+                <div class="gtile-text">
+                <span class="gtile-name groupctl-name">${esc(group.name)}</span>
+                <span class="small muted">${room.roomId ? esc(room.name) + ' · ' : ''}${trf(members === 1 ? 'GROUP_MEMBERS_1' : 'GROUP_MEMBERS_N', members)}</span>
+                </div>
+                <div class="gtile-buttons groupctl-buttons">
+                <div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', group.name))} data-cmd="sunflag" data-groupid="${group.groupId}" data-on="${(group.flags & 0x01) ? 'true' : 'false'}" style="${!group.sunSensor ? 'display:none' : ''}"><svg aria-hidden="true"><use href="#svg-sun"></use></svg></div>
+                <div class="btn btn-icon cmd-button" ${a11yBtn(trf('A11Y_CMD_UP', group.name))} data-cmd="up" data-groupid="${group.groupId}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></div>
+                <div class="btn cmd-button" role="button" tabindex="0" data-cmd="my" data-groupid="${group.groupId}">My<span class="sr-only">${esc(trf('A11Y_CMD_MY', group.name))}</span></div>
+                <div class="btn btn-icon cmd-button" ${a11yBtn(trf('A11Y_CMD_DOWN', group.name))} data-cmd="down" data-groupid="${group.groupId}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
                 </div>
                 </div>`;
 
@@ -1184,40 +1218,29 @@ class Somfy {
         let groupControls = get('divGroupControls');
         groupControls.innerHTML = divCtl;
         this.checkEmptyState();
-        // Attach the timer for setting the My Position for the Group.
-        let btns = groupControls.querySelectorAll('div.cmd-button');
+        let btns = groupControls.querySelectorAll('.cmd-button');
         for (let i = 0; i < btns.length; i++) {
             btns[i].addEventListener('click', (event) => {
-                if(DBG) console.log(this);
-                if(DBG) console.log(event);
                 let groupId = parseInt(event.currentTarget.getAttribute('data-groupid'), 10);
                 let cmd = event.currentTarget.getAttribute('data-cmd');
+                const g = (this.groups || []).find(x => x.groupId === groupId);
                 if (cmd === 'sunflag') {
                     if (makeBool(event.currentTarget.getAttribute('data-on')))
                         this.sendGroupCommand(groupId, 'flag');
                     else
                         this.sendGroupCommand(groupId, 'sunflag');
                 }
-                else
+                else {
                     this.sendGroupCommand(groupId, cmd);
+                    if (g) this.announce(trf('LIVE_CMD_SENT', g.name));
+                }
             }, true);
         }
         this.setListDraggable(get('divGroupList'), '.group-draggable', (list) => {
-            // Get the shade order
             let items = list.querySelectorAll('.group-draggable');
             let order = [];
-            for (let i = 0; i < items.length; i++) {
-                order.push(parseInt(items[i].getAttribute('data-groupid'), 10));
-                // Reorder the shades on the main page.
-            }
-            putJSONBusy('/groupSortOrder', order, (err) => {
-                for (let i = order.length - 1; i >= 0; i--) {
-                    let el = groupControls.querySelector(`.somfyGroupCtl[data-groupid="${order[i]}"`);
-                    if (el) {
-                        groupControls.prepend(el);
-                    }
-                }
-            });
+            for (let i = 0; i < items.length; i++) order.push(parseInt(items[i].getAttribute('data-groupid'), 10));
+            putJSONBusy('/groupSortOrder', order, () => this.updateGroupList());
         });
     }
     closeShadePositioners() {
@@ -1230,7 +1253,7 @@ class Somfy {
     openSetMyPosition(shadeId) {
         if (typeof shadeId === 'undefined') return;
 
-        const shade = document.querySelector(`div.somfyShadeCtl[data-shadeid="${shadeId}"]`);
+        const shade = document.querySelector(`.somfyShadeCtl[data-shadeid="${shadeId}"]`);
         if (!shade) return;
 
         const arrowUse = shade.querySelector('.handle-icon use');
@@ -1428,10 +1451,10 @@ class Somfy {
                 target: state.target,
                 mypos: state.myPos,
                 windy: (state.flags & 0x10) === 0x10,
-                          sunny: (state.flags & 0x20) === 0x20,
-                          mytiltpos: state.myTiltPos ?? -1
+                sunny: (state.flags & 0x20) === 0x20,
+                mytiltpos: state.myTiltPos ?? -1
             });
-
+            if (typeof state.flipPosition !== 'undefined') d.dataset.flipposition = state.flipPosition ? 'true' : 'false';
             if (state.tiltType !== 0) {
                 Object.assign(d.dataset, {
                     tiltdirection: state.tiltDirection,
@@ -1439,18 +1462,9 @@ class Somfy {
                     tilttarget: state.tiltTarget
                 });
             }
-
-            const spans = d.querySelectorAll('.val-pos');
-            if (spans[0]) spans[0].innerText = `${tr('SHADE_POS')}${shadePosLabel(state.position, state.flipPosition)}`;
-            if (state.tiltType !== 0 && spans[1]) spans[1].innerText = `${tr('SHADE_TILT')}${state.tiltPosition}%`;
-
-            const upTxt = (sel, pre, val) => {
-                const el = d.querySelector(sel);
-                if (el) el.innerText = `${pre}${val !== undefined && val >= 0 ? val + '%' : '---'}`;
-            };
-            upTxt('.val-my', 'My: ', state.myPos);
-            upTxt('.val-tilt', tr('SHADE_MY_TILT'), state.myTiltPos);
+            this.renderTileState(d);
         });
+        this.updateHomeSummary();
     }
     procRemoteFrame(frame) {
         const qs = (s) => get(s);
@@ -1613,7 +1627,7 @@ class Somfy {
     openEditRoom(roomId) {
         if (typeof roomId === 'undefined') {
             if (_rooms.length >= 15) {
-                ui.errorMessage(get('divSomfySettings'), tr('ERR_ROOM_LIMIT_REACHED'));
+                ui.errorMessage(get('divConfigPnl'), tr('ERR_ROOM_LIMIT_REACHED'));
                 return;
             }
             get('btnSaveRoom').innerText = tr('BT_CREATE');
@@ -1643,6 +1657,59 @@ class Somfy {
             });
         }
     }
+    // Travel times are typed in milliseconds (the firmware unit); each field echoes
+    // the value in seconds underneath, which is how people read a travel time.
+    msHelpsRefresh() {
+        ['fldShadeUpTime', 'fldShadeDownTime', 'fldShadeLiftTime', 'fldTiltTime'].forEach(id => {
+            const f = get(id);
+            if (!f) return;
+            let h = get(id + 'Sec');
+            if (!h) {
+                h = document.createElement('p');
+                h.id = id + 'Sec';
+                h.className = 'help ms-sec';
+                h.setAttribute('aria-live', 'off');
+                f.insertAdjacentElement('afterend', h);
+                f.setAttribute('aria-describedby', h.id);
+                f.addEventListener('input', () => this.msHelpsRefresh());
+            }
+            const v = parseInt(f.value, 10);
+            h.textContent = isNaN(v) ? '' : trf('MS_AS_SECONDS', (v / 1000).toLocaleString(document.documentElement.lang || 'fr', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+        });
+    }
+    // Tabs of the device record (General, Travel, Sensors, Remotes, Advanced).
+    shSelectTab(name) {
+        document.querySelectorAll('#somfyShade .sh-tabs [data-shtab]').forEach(b => {
+            const on = b.getAttribute('data-shtab') === name;
+            b.classList.toggle('selected', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+            b.tabIndex = on ? 0 : -1;
+            const p = get('shp' + b.getAttribute('data-shtab'));
+            if (p) p.style.display = on ? '' : 'none';
+        });
+    }
+    bindShadeTabs() {
+        const strip = document.querySelector('#somfyShade .sh-tabs');
+        if (!strip) return;
+        strip.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-shtab]');
+            if (b) this.shSelectTab(b.getAttribute('data-shtab'));
+        });
+        strip.addEventListener('keydown', (e) => {
+            const tabs = Array.from(strip.querySelectorAll('[data-shtab]')).filter(t => !t.hidden);
+            const i = tabs.indexOf(document.activeElement);
+            if (i < 0) return;
+            let n = -1;
+            if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+            else if (e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
+            else if (e.key === 'Home') n = 0;
+            else if (e.key === 'End') n = tabs.length - 1;
+            if (n < 0) return;
+            e.preventDefault();
+            tabs[n].focus();
+            this.shSelectTab(tabs[n].getAttribute('data-shtab'));
+        });
+    }
     openEditShade(shadeId) {
         const g = get,
         isNew = shadeId === undefined,
@@ -1650,7 +1717,7 @@ class Somfy {
         btns = ['btnPairShade', 'btnUnpairShade', 'btnLinkRemote', 'hrSetRollingC', 'btnSetRollingCode'];
 
         if (isNew && this.shades?.length >= 30)
-            return ui.errorMessage(g('divSomfySettings'), tr('ERR_DEVICE_LIMIT_REACHED'));
+            return ui.errorMessage(g('divConfigPnl'), tr('ERR_DEVICE_LIMIT_REACHED'));
 
         const s = (id, d) => { const e = g(id); if(e) e.style.display = d; };
 
@@ -1698,6 +1765,11 @@ class Somfy {
             g('spanShadeId').innerText = isNew ? '*' : shadeId;
 
             ui.toElement(g('somfyShade'), shade);
+            this.msHelpsRefresh();
+            if (g('shEditTitle')) g('shEditTitle').textContent = isNew ? tr('SH_NEW') : shade.name;
+            // A new device has no remote to link yet: its tab would be empty.
+            if (g('shtabRemotes')) g('shtabRemotes').hidden = isNew;
+            this.shSelectTab('General');
             if (g('selShadeBitLength')) g('somfyShade').setAttribute('data-bitlength', g('selShadeBitLength').value);
             this.onShadeTypeChanged(g('selShadeType'));
             this.showEditShade(true);
@@ -1719,7 +1791,7 @@ class Somfy {
         blocPairParent = g('blocPairGroup');
 
         if (isNew && this.groups?.length >= 14)
-            return ui.errorMessage(g('divSomfySettings'), tr('ERR_GROUP_LIMIT_REACHED'));
+            return ui.errorMessage(g('divConfigPnl'), tr('ERR_GROUP_LIMIT_REACHED'));
 
         const s = (idOrElem, d) => { const e = (typeof idOrElem === 'string') ? g(idOrElem) : idOrElem; if(e) e.style.display = d; };
 
@@ -1818,7 +1890,7 @@ class Somfy {
         let obj = ui.fromElement(get('somfyRoom'));
         let valid = true;
         if (valid && (typeof obj.name !== 'string' || obj.name === '' || obj.name.length > 20)) {
-            ui.errorMessage(get('divSomfySettings'), tr('ERR_ROOM_NAME_INVALID'));
+            ui.errorMessage(get('divConfigPnl'), tr('ERR_ROOM_NAME_INVALID'));
             valid = false;
         }
         if (valid) {
@@ -1857,7 +1929,7 @@ class Somfy {
         const g = get,
         sId = parseInt(g('spanShadeId').innerText, 10),
         obj = ui.fromElement(g('somfyShade')),
-        settings = g('divSomfySettings');
+        settings = g('divConfigPnl');
 
         // Empty field, or firmware older than the UI (JSON without liftTime): 0 = original behaviour.
         if (isNaN(obj.liftTime)) obj.liftTime = 0;
@@ -2049,7 +2121,7 @@ class Somfy {
     }
     setRollingCode(shadeId, rollingCode) {
         putJSONBusy('/setRollingCode', { shadeId: shadeId, rollingCode: rollingCode }, (err, shade) => {
-            if (err) ui.serviceError(get('divSomfySettings'), err);
+            if (err) ui.serviceError(get('divConfigPnl'), err);
             else {
                 let dlg = get('divRollingCode');
                 if (dlg) dlg.remove();
@@ -2235,12 +2307,15 @@ class Somfy {
     // Brief visual acknowledgment that the radio order left the device; pure-RTS
     // shades have no position feedback, so without it a tap looks like a failure.
     flashCommandSent(shadeId) {
-        document.querySelectorAll(`.somfy-shade-icon[data-shadeid="${shadeId}"]`).forEach(el => {
+        document.querySelectorAll(`.somfy-shade-icon[data-shadeid="${shadeId}"], .shade-viz[data-shadeid="${shadeId}"]`).forEach(el => {
             el.classList.remove('cmd-sent');
             void el.offsetWidth;  // restart the CSS animation on rapid re-taps
             el.classList.add('cmd-sent');
             setTimeout(() => el.classList.remove('cmd-sent'), 950);
         });
+        // Screen readers get the same acknowledgment the pulse gives sighted users.
+        const name = document.querySelector(`#shName${shadeId}`);
+        if (name) this.announce(trf('LIVE_CMD_SENT', name.textContent));
     }
     sendCommandRepeat(shadeId, command, repeat, cb) {
         //console.log(`Sending Shade command ${shadeId}-${command}`);
@@ -2663,7 +2738,7 @@ class Somfy {
         if(DBG) console.log('Opening Shade Positioner');
         if (typeof shadeId === 'undefined') return;
 
-        let shade = document.querySelector(`div.somfyShadeCtl[data-shadeid="${shadeId}"]`);
+        let shade = document.querySelector(`.somfyShadeCtl[data-shadeid="${shadeId}"]`);
         if (!shade) return;
 
         let arrowUse = shade.querySelector('.handle-icon use');

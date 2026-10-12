@@ -104,6 +104,7 @@ async function initSockets() {
             tConnect = null;
             if(DBG) console.log({ msg: 'open', evt: evt });
             document.body.classList.add('socket-on');
+            navConnRender();
             sockIsOpen = true;
             connecting = false;
             connects++;
@@ -137,6 +138,7 @@ async function initSockets() {
         };
         socket.onclose = (evt) => {
             document.body.classList.remove('socket-on');
+            navConnRender();
             wifi.procWifiStrength({ ssid: '', channel: -1, strength: -100 });
             wifi.procEthernet({ connected: false, speed: 0, fullduplex: false });
             if (document.getElementsByClassName('socket-wait').length === 0)
@@ -196,161 +198,191 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     clearOverlays();
 });
+// --- Navigation: pages and their tabs ---------------------------------------
+// The config panel holds one <section class="page"> per menu entry; a page may
+// carry a tab strip (.subtab-container) switching between its .subtab-content
+// panels. Everything goes through navGo(), whether the target is a page, a tab
+// of a page, or Home, so the menu, the hash and the panels never disagree.
+const NAV_HOME = 'divHomePnl';
+let _navPage = NAV_HOME;
+function navTarget(id) {
+    if (!id || id === NAV_HOME) return { page: NAV_HOME, tab: null };
+    const el = get(id);
+    if (!el) return null;
+    if (el.classList.contains('page')) return { page: id, tab: null };
+    const pg = el.closest('.page');
+    return pg ? { page: pg.id, tab: id } : null;
+}
+function navSetActive(pageId) {
+    document.querySelectorAll('.nav-item[data-grpid]').forEach(a => {
+        if (a.getAttribute('data-grpid') === pageId) a.setAttribute('aria-current', 'page');
+        else a.removeAttribute('aria-current');
+    });
+}
+function navCloseMenu() {
+    document.querySelectorAll('details.mmenu[open]').forEach(d => d.removeAttribute('open'));
+}
+function navSelectTab(page, tabId) {
+    const strip = page.querySelector(':scope > .subtab-container');
+    if (!strip) return;
+    strip.querySelectorAll('[data-grpid]').forEach(b => {
+        const on = b.getAttribute('data-grpid') === tabId;
+        b.classList.toggle('selected', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+        const panel = get(b.getAttribute('data-grpid'));
+        if (panel) panel.style.display = on ? '' : 'none';
+    });
+}
+function navCurrentTab(page) {
+    const strip = page.querySelector(':scope > .subtab-container');
+    if (!strip) return null;
+    const sel = strip.querySelector('[aria-selected="true"]') || strip.querySelector('[data-grpid]');
+    return sel ? sel.getAttribute('data-grpid') : null;
+}
 /**
- * Keeps the sidebar and the tab strip on the same selection.
- * @param {string} groupId - id of the group to activate
- * @param {boolean} isSubTab - true when the target is a sub-tab
+ * Shows a page (or one tab of it, or Home).
+ * @param {string} id - page id, tab panel id, or 'divHomePnl'
+ * @param {object} opts - force: skip the unsaved-changes prompt; fromHash: do not
+ *                        push a history entry; after: callback once the page is up
  */
-function syncNavigationState(groupId, isSubTab = false) {
-    if (!groupId) return;
-    if (!isSubTab) {
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.getAttribute('data-grpid') === groupId));
-        document.querySelectorAll('.submenu').forEach(s => {
-            const isTarget = s.previousElementSibling?.getAttribute('data-grpid') === groupId;
-            s.style.display = isTarget ? 'flex' : 'none';
-            // Drive the .open class too so the chevron rotates (main.css .nav-group.open .arrow-icon).
-            if (s.closest('.nav-group')) s.closest('.nav-group').classList.toggle('open', isTarget);
-
-            if (isTarget) {
-                const firstSub = s.querySelector('.sub-nav-item');
-                if (firstSub) {
-                    s.querySelectorAll('.sub-nav-item').forEach(sub => sub.classList.remove('active'));
-                    firstSub.classList.add('active');
-                }
-            }
-        });
-        document.querySelectorAll('.tab-container > span').forEach(t => t.classList.toggle('selected', t.getAttribute('data-grpid') === groupId));
-        const targetPanel = get(groupId);
-        const firstSubTab = targetPanel ? targetPanel.querySelector('.subtab-container > span') : null;
-        if (firstSubTab) {
-            firstSubTab.click();          // the sub-tab sync below writes the hash
-        } else {
-            navUpdateHash(groupId);
-        }
-    } else {
-        document.querySelectorAll('.sub-nav-item').forEach(i => i.classList.toggle('active', i.getAttribute('data-grpid') === groupId));
-        document.querySelectorAll('.subtab-container > span').forEach(t => t.classList.toggle('selected', t.getAttribute('data-grpid') === groupId));
-        // Visible page title ("Somfy › Volets"): after a scroll on mobile the selected
-        // pill is off-screen, leaving no cue of where the user is.
-        const panel = get(groupId);
-        const subItem = document.querySelector(`.sub-nav-item[data-grpid="${groupId}"]`);
-        if (panel && subItem) {
-            const grp = subItem.closest('.nav-group')?.querySelector('.nav-item > span');
-            let h = panel.querySelector(':scope > .panel-title');
-            if (!h) { h = document.createElement('h2'); h.className = 'panel-title'; panel.prepend(h); }
-            h.textContent = grp ? `${grp.textContent} › ${subItem.textContent}` : subItem.textContent;
-        }
-        navUpdateHash(groupId);
+function navGo(id, opts = {}) {
+    const t = navTarget(id);
+    if (!t) return;
+    if (!opts.force && !navConfirmLeave(() => navGo(id, Object.assign({}, opts, { force: true })))) return;
+    navClearDirty(); navSuppress();
+    clearOverlays();
+    navCloseMenu();
+    if (t.page === NAV_HOME) {
+        if (typeof somfy !== 'undefined') { somfy.showEditShade(false); somfy.showEditGroup(false); }
+        ui.setHomePanel();
+        _navPage = NAV_HOME;
+        navSetActive(NAV_HOME);
+        if (!opts.fromHash) navUpdateHash(NAV_HOME);
+        if (opts.after) opts.after();
+        return;
     }
+    if (!ui.isConfigOpen()) {
+        if (typeof security !== 'undefined' && !security.authenticated && security.type !== 0) {
+            get('divContainer').addEventListener('afterlogin', () => {
+                if (security.authenticated) navGo(id, Object.assign({}, opts, { force: true }));
+            }, { once: true });
+            security.authUser();
+            return;
+        }
+        ui.setConfigPanel();
+    }
+    // Leaving a page closes the editors it may have open.
+    if (_navPage !== t.page && typeof somfy !== 'undefined') {
+        if (_navPage === 'pgShades') somfy.showEditShade(false);
+        if (_navPage === 'pgRoomsGroups') { somfy.showEditGroup(false); somfy.showEditRoom(false); }
+    }
+    document.querySelectorAll('#divConfigPnl > .page').forEach(p => { p.style.display = p.id === t.page ? '' : 'none'; });
+    const page = get(t.page);
+    const tab = t.tab || navCurrentTab(page);
+    if (tab) navSelectTab(page, tab);
+    if (t.page === 'pgNetwork' && typeof wifi !== 'undefined') wifi.loadNetwork();
+    // The RF statistics load lazily when their panel comes up, whichever way it was reached.
+    if (tab === 'divRFDiagnostics' && typeof rfdiag !== 'undefined') rfdiag.load();
+    const changed = _navPage !== t.page;
+    _navPage = t.page;
+    navSetActive(t.page);
+    if (!opts.fromHash) navUpdateHash(t.tab ? `${t.page}/${t.tab}` : t.page);
+    if (changed && !opts.fromHash) window.scrollTo(0, 0);
+    if (opts.after) opts.after();
 }
 function bindNavigation() {
-    document.querySelectorAll('.nav-item, .sub-nav-item').forEach(item => {
-        // These are anchors without an href, which browsers do not treat as focusable,
-        // so the whole menu was unreachable by keyboard. Expose them as buttons; the
-        // delegated role="button" handler takes care of Enter/Space.
-        if (!item.hasAttribute('tabindex')) item.setAttribute('tabindex', '0');
-        if (!item.hasAttribute('role')) item.setAttribute('role', 'button');
-        item.addEventListener('click', (e) => {
+    // Menu entries, brand, welcome steps: real links, so they open in a new tab on
+    // middle-click and are announced as links; a plain click stays in the app.
+    document.addEventListener('click', (e) => {
+        const a = e.target.closest && e.target.closest('a[data-grpid]');
+        if (!a || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        e.preventDefault();
+        const action = a.getAttribute('data-action');
+        navGo(a.getAttribute('data-grpid'), {
+            after: action === 'addShade' ? () => { somfy.showEditShade(true); somfy.openEditShade(); } : null
+        });
+    });
+    // Tab strips: click, and arrow keys move between tabs (automatic activation).
+    document.querySelectorAll('.page > .subtab-container').forEach(strip => {
+        const page = strip.closest('.page');
+        const pick = (b) => {
+            if (!b) return;
+            const id = b.getAttribute('data-grpid');
+            if (b.getAttribute('aria-selected') === 'true') return;
+            if (!navConfirmLeave(() => pick(b))) return;
+            navClearDirty(); navSuppress();
+            if (page.id === 'pgRoomsGroups' && typeof somfy !== 'undefined') { somfy.showEditGroup(false); somfy.showEditRoom(false); }
+            navSelectTab(page, id);
+            navUpdateHash(`${page.id}/${id}`);
+        };
+        strip.addEventListener('click', (e) => pick(e.target.closest('[data-grpid]')));
+        strip.addEventListener('keydown', (e) => {
+            const tabs = Array.from(strip.querySelectorAll('[data-grpid]'));
+            const i = tabs.indexOf(document.activeElement);
+            if (i < 0) return;
+            let n = -1;
+            if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+            else if (e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
+            else if (e.key === 'Home') n = 0;
+            else if (e.key === 'End') n = tabs.length - 1;
+            if (n < 0) return;
             e.preventDefault();
-            // Clicking the chevron just folds/unfolds the group; navigation (and its
-            // data loads) only happens when the label itself is clicked.
-            if (e.target.closest && e.target.closest('.arrow-icon')) {
-                const grp = item.closest('.nav-group');
-                const sub = grp ? grp.querySelector('.submenu') : null;
-                if (sub) {
-                    const open = sub.style.display !== 'none';
-                    sub.style.display = open ? 'none' : 'flex';
-                    grp.classList.toggle('open', !open);
-                }
-                return;
-            }
-            if (!navConfirmLeave(() => item.click())) return;
-            navClearDirty(); navSuppress();
-            clearOverlays();
-            const groupId = item.getAttribute('data-grpid');
-            const isSub = item.classList.contains('sub-nav-item');
-
-            if (groupId === 'divHomePnl') {
-                if (typeof ui !== 'undefined') ui.setHomePanel();
-                syncNavigationState(groupId);
-                return;
-            }
-            if (typeof ui !== 'undefined' && !ui.isConfigOpen()) {
-                if (typeof security !== 'undefined' && !security.authenticated && security.type !== 0) {
-                    get('divContainer').addEventListener('afterlogin', () => {
-                        if (security.authenticated) {
-                            ui.setConfigPanel();
-                            item.click();
-                        }
-                    }, { once: true });
-                    security.authUser();
-                    return;
-                }
-                ui.setConfigPanel();
-            }
-            const selector = isSub ? `.subtab-container > span[data-grpid="${groupId}"]` : `.tab-container > span[data-grpid="${groupId}"]`;
-            const originalTab = document.querySelector(selector);
-
-            if (originalTab) {
-                originalTab.click();
-            } else if (!isSub) {
-                syncNavigationState(groupId);
-                const firstSub = item.nextElementSibling?.querySelector('.sub-nav-item');
-                if (firstSub) firstSub.click();
-            }
+            tabs[n].focus();
+            pick(tabs[n]);
         });
     });
-    document.querySelectorAll('.tab-container > span, .subtab-container > span').forEach(tab => {
-        tab.addEventListener('click', (evt) => {
-            if (!navConfirmLeave(() => tab.click())) return;
-            navClearDirty(); navSuppress();
-            const groupId = tab.getAttribute('data-grpid');
-            const isSub = tab.parentElement.classList.contains('subtab-container');
-            // Explicit "Home" entry in the mobile tab bar: leave the config view.
-            if (groupId === 'divHomePnl') {
-                if (typeof ui !== 'undefined') ui.setHomePanel();
-                syncNavigationState(groupId);
-                return;
-            }
-            syncNavigationState(groupId, isSub);
-            if (!isSub) {
-                if (groupId !== 'divSomfySettings' && typeof somfy !== 'undefined') {
-                    somfy.showEditShade(false); somfy.showEditGroup(false);
-                }
-                if (groupId === 'divNetworkSettings' && typeof wifi !== 'undefined') wifi.loadNetwork();
-                document.querySelectorAll('.tab-container > span').forEach(t => {
-                    const panel = get(t.getAttribute('data-grpid'));
-                    if (panel) panel.style.display = (t.getAttribute('data-grpid') === groupId) ? '' : 'none';
-                });
-            } else {
-                if (typeof ui !== 'undefined') ui.selectTab(tab);
-            }
-        });
+    // The mobile menu closes on Escape and on any click outside of it.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const open = document.querySelector('details.mmenu[open]');
+        if (open) { open.removeAttribute('open'); open.querySelector('summary').focus(); }
     });
+    document.addEventListener('click', (e) => {
+        if (e.target.closest && !e.target.closest('details.mmenu')) navCloseMenu();
+    });
+    // Hidden save buttons stay in the DOM for the save bar; keep them out of the tab order.
+    document.querySelectorAll(NAV_SAVE_SEL).forEach(b => { b.tabIndex = -1; b.setAttribute('aria-hidden', 'true'); });
+    get('savebarSave')?.addEventListener('click', () => { const b = navFindSaveButton(); if (b) b.click(); });
+    get('savebarCancel')?.addEventListener('click', () => { navClearDirty(); navReloadPanels(); });
     navGuardSetup();
 }
 // --- Deep-linking ----------------------------------------------------------
-// The current panel is reflected in the URL hash (#divSomfyMotors, ...) so that
-// reload keeps the page, panels can be bookmarked, and the browser back button
-// steps through panels instead of leaving the app (essential on mobile).
+// The current page (and tab) is reflected in the URL hash (#pgNetwork/divDHCP) so
+// a reload keeps the page, pages can be bookmarked, and the browser back button
+// steps through pages instead of leaving the app. Hashes of the previous layout
+// (#divSomfyMotors...) still resolve, since every panel kept its id.
 let _navFromHash = false;
 function navApplyHash() {
-    const id = decodeURIComponent((location.hash || '').replace(/^#/, ''));
-    const target = id && id !== 'divHomePnl'
-        ? document.querySelector(`.sub-nav-item[data-grpid="${id}"], .subtab-container > span[data-grpid="${id}"], .nav-item[data-grpid="${id}"], .tab-container > span[data-grpid="${id}"]`)
-        : document.querySelector('.nav-item[data-grpid="divHomePnl"]');
-    if (!target) return;
+    const raw = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+    const parts = raw.split('/');
+    const id = parts[1] || parts[0];
     _navFromHash = true;
-    try { target.click(); } finally { _navFromHash = false; }
+    try { navGo(id && navTarget(id) ? id : NAV_HOME, { fromHash: true }); } finally { _navFromHash = false; }
 }
-function navUpdateHash(groupId) {
-    if (_navFromHash || !groupId) return;
-    const h = groupId === 'divHomePnl' ? '' : '#' + groupId;
+function navUpdateHash(target) {
+    if (_navFromHash || !target) return;
+    const h = target === NAV_HOME ? '' : '#' + target;
     if ((location.hash || '') === h) return;
     if (h) history.pushState(null, '', h);
     else history.pushState(null, '', location.pathname + location.search);
 }
-window.addEventListener('popstate', () => navApplyHash());
+// Until the security context is known (type still reads 0 = none), a page change
+// would open the configuration unauthenticated; init() applies the hash once ready.
+window.addEventListener('popstate', () => { if (typeof security !== 'undefined' && !security.ready) return; navApplyHash(); });
+// --- Connection status in the menu -------------------------------------------
+const _conn = { type: 'wifi', rssi: null };
+function navConnRender() {
+    const on = document.body.classList.contains('socket-on');
+    let txt = tr('NAV_DISCONNECTED');
+    if (on) {
+        const kind = _conn.type === 'wifi' ? 'Wi-Fi' : _conn.type.toUpperCase();
+        const rssi = _conn.type === 'wifi' && _conn.rssi !== null ? ` ${String(_conn.rssi).replace('-', '−')} dBm` : '';
+        txt = `${tr('NAV_CONNECTED')} · ${kind}${rssi}`;
+    }
+    document.querySelectorAll('.conn-text').forEach(e => { e.textContent = txt; });
+    document.querySelectorAll('.conn-status .dot, .conn-dot').forEach(d => d.classList.toggle('off', !on));
+}
 // --- Unsaved-changes navigation guard --------------------------------------
 // Marks the page dirty on real user input; on navigation, if dirty, prompts to
 // save / discard / cancel. A suppression window swallows the change events that
@@ -361,12 +393,38 @@ let _navDirty = false, _navSuppress = false;
 // underneath as a guard against programmatic clicks.  #btnLogin is excluded
 // on purpose.
 const NAV_SAVE_SEL = '[id^="btnSave"], #btnConnectMQTT';
+// The page save buttons are no longer shown: a single save bar appears on the
+// first edit, names what changed, and drives the page's own save button (kept in
+// the DOM, visually hidden, so every panel keeps its own save logic).
+const _navDirtyFields = new Set();
+function navFieldLabel(t) {
+    const txt = el => (el && el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (t.labels && t.labels.length && txt(t.labels[0])) return txt(t.labels[0]);
+    const row = t.closest('.uniRow, .gpio-card, .field');
+    const lbl = row && row.querySelector('.uniLabel, .label, .input-label');
+    if (txt(lbl)) return txt(lbl);
+    const blk = t.closest('div');
+    return txt(blk && blk.querySelector('label.label')) || '';
+}
 function navSyncSaveButtons() {
     document.querySelectorAll(NAV_SAVE_SEL).forEach(b => { b.disabled = !_navDirty; b.classList.toggle('save-idle', !_navDirty); });
+    const bar = get('savebar');
+    if (bar) bar.hidden = !_navDirty;
+    document.querySelectorAll('.nav-item[data-grpid]').forEach(a => a.classList.toggle('is-dirty', _navDirty && a.getAttribute('data-grpid') === _navPage));
+    const f = get('savebarFields');
+    if (f) {
+        const names = Array.from(_navDirtyFields);
+        f.textContent = _navDirty && names.length ? ` : ${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''}` : '';
+    }
 }
 function navSuppress() { _navSuppress = true; setTimeout(() => { _navSuppress = false; }, 900); }
-function navClearDirty() { _navDirty = false; navSyncSaveButtons(); }
-function navMarkDirty() { if (!_navSuppress) { _navDirty = true; navSyncSaveButtons(); } }
+function navClearDirty() { _navDirty = false; _navDirtyFields.clear(); navSyncSaveButtons(); }
+function navMarkDirty(label) {
+    if (_navSuppress) return;
+    _navDirty = true;
+    if (label) _navDirtyFields.add(label);
+    navSyncSaveButtons();
+}
 // −/+ steppers and the radio precision arrows write the field value from code,
 // so the edit only surfaces as an untrusted event (or none at all): the click
 // on the button itself is the user edit. The step-granularity chips
@@ -390,10 +448,10 @@ function navGuardSetup() {
         if (!t || !t.closest) return;
         // A click only counts on a stepper: focusing a field is not an edit.
         if (e.type === 'click' ? !navIsStepperClick(e) : !(t.matches && t.matches('input,select,textarea'))) return;
-        if (t.classList.contains('pin-digit')) return;  // PIN entry (login or security page) is not a config edit
         if (t.closest('#divUnauthenticated')) return;  // nothing on the login screen counts
-        if (t.closest('#divHomePnl, #divVirtualRemote')) return;  // these controls act immediately, there is nothing to save
-        navMarkDirty();
+        if (t.closest('#divHomePnl, #divVirtualRemote, #divRFDiagnostics, #divFrameLog')) return;  // these act immediately, there is nothing to save
+        if (t.closest('.inst-overlay, .prompt-message, .info-message')) return;  // dialogs carry their own buttons
+        navMarkDirty(t.classList.contains('pin-digit') ? tr('SECURITY_PIN_CODE') : navFieldLabel(t));
     };
     document.addEventListener('input', mark, true);
     document.addEventListener('change', mark, true);
@@ -932,11 +990,9 @@ async function init() {
     somfy.setStep('deviation', 1);
 
     bindNavigation();
-    if (typeof ui !== 'undefined' && !ui.isConfigOpen()) {
-        const hBtn = document.querySelector('.nav-item[data-grpid="divHomePnl"]');
-        if (hBtn) syncNavigationState('divHomePnl');
-    }
-    // Deep link: restore the panel named in the URL hash (bookmark / reload / back).
+    navSetActive(NAV_HOME);
+    navConnRender();
+    // Deep link: restore the page named in the URL hash (bookmark / reload / back).
     if (location.hash.length > 1) navApplyHash();
 }
 class UIBinder {
@@ -1419,23 +1475,8 @@ class UIBinder {
         }
     }
     selectTab(elTab) {
-        const groupId = elTab.getAttribute('data-grpid');
-        if (!groupId) return;
-
-        const siblings = elTab.parentElement.querySelectorAll('span, a');
-        for (let sibling of siblings) {
-            sibling.classList.remove('selected', 'active');
-
-            let sid = sibling.getAttribute('data-grpid');
-            if (sid && sid !== groupId) {
-                let section = get(sid);
-                if (section) section.style.display = 'none';
-            }
-        }
-        elTab.classList.add(elTab.classList.contains('sub-nav-item') ? 'active' : 'selected');
-
-        const targetSection = get(groupId);
-        if (targetSection) targetSection.style.display = '';
+        const groupId = elTab && elTab.getAttribute('data-grpid');
+        if (groupId) navGo(groupId);
     }
     wizSetPrevStep(el) { this.wizSetStep(el, Math.max(this.wizCurrentStep(el) - 1, 1)); }
     wizSetNextStep(el) { this.wizSetStep(el, this.wizCurrentStep(el) + 1); }
@@ -1529,7 +1570,6 @@ class UIBinder {
         divHome.style.display = 'none';
         divCfg.style.display = '';
         somfy.checkEmptyState();
-        document.querySelector('#btnConfig use').setAttribute('href', '#svg-tabHome');
 
         if (sockIsOpen) socket.send('join:0' + (security.apiKey ? ':' + security.apiKey : ''));
         let overlay = ui.waitMessage(get('divSecurityOptions'));
@@ -1550,54 +1590,20 @@ class UIBinder {
         divHome.style.display = '';
         divCfg.style.display = 'none';
         somfy.checkEmptyState();
-        document.querySelector('#btnConfig use').setAttribute('href', '#svg-tabSettings');
         if (sockIsOpen) socket.send('leave:0');
         general.setSecurityConfig({ type: 0, username: '', permissions: 0 });
-        navUpdateHash('divHomePnl');
     }
-    toggleConfig() {
-        if (this.isConfigOpen())
-            this.setHomePanel();
-        else {
-            if (!security.authenticated && security.type !== 0) {
-                get('divContainer').addEventListener('afterlogin', (evt) => {
-                    if (security.authenticated) this.setConfigPanel();
-                }, { once: true });
-                    security.authUser();
-            }
-            else this.setConfigPanel();
-        }
-        somfy.showEditShade(false);
-        somfy.showEditGroup(false);
-    }
-    showNetworkConfig() {
-        this.setConfigPanel();
-        const tab = document.querySelector('.tab-container [data-grpid="divNetworkSettings"]');
-        if (tab) {
-            this.selectTab(tab);
-            if (typeof wifi !== 'undefined') wifi.loadNetwork();
-        }
-    }
-    showRadioConfig() {
-        this.setConfigPanel();
-        const tab = document.querySelector('.tab-container [data-grpid="divRadioSettings"]');
-        if (tab) this.selectTab(tab);
-    }
-    showSystemConfig() {
-        this.setConfigPanel();
-        const tab = document.querySelector('.tab-container [data-grpid="divSystemSettings"]');
-        if (tab) this.selectTab(tab);
-    }
+    toggleConfig() { navGo(this.isConfigOpen() ? NAV_HOME : 'pgShades'); }
+    showNetworkConfig() { navGo('pgNetwork'); }
+    showRadioConfig() { navGo('pgRadio'); }
+    showSystemConfig() { navGo('pgPreferences'); }
     showShadeConfig() {
-        this.setConfigPanel();
-        const parentTab = document.querySelector('.tab-container [data-grpid="divSomfySettings"]');
-        if (parentTab) this.selectTab(parentTab);
-        const motorTab = document.querySelector('.subtab-container [data-grpid="divSomfyMotors"]');
-        if (motorTab) this.selectTab(motorTab);
-        if (typeof somfy !== 'undefined') {
-            somfy.showEditShade(true);
-            somfy.openEditShade();
-        }
+        navGo('pgShades', { after: () => {
+            if (typeof somfy !== 'undefined') {
+                somfy.showEditShade(true);
+                somfy.openEditShade();
+            }
+        } });
     }
 }
 var ui = new UIBinder();

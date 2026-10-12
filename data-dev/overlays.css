@@ -1,7 +1,3 @@
-.lang-loaded .sidebar,
-.lang-loaded .top-bar-right {
-    opacity: 1;
-}
 /* flip */
 .flip {
     transform: scaleX(-1);
@@ -35,7 +31,7 @@ i.icss-anim:after {
     50% { opacity: 0.5; }
     100% { opacity: 1; }
 }
-.somfyShadeCtl[data-windy="true"] .indicator-wind {
+.somfyShadeCtl[data-windy="true"] .viz .indicator-wind {
     animation: pulse-warning 1.5s infinite;
 }
 /* Reverse animation */
@@ -922,52 +918,6 @@ cursor: pointer;
     line-height: 1.4;
     display: list-item;
 }
-/* Home: rooms, shade cards and groups */
-.room-nav-container {
-    display: none;
-    position: relative;
-    align-items: center;
-    width: 100%;
-    background: var(--barreRoomBg);
-    overflow: hidden;
-    margin-bottom: 30px;
-}
-    .room-nav-container .icon-svg {
-        color: var(--soustxt-color);
-    }
-    .room-nav-container .icon-svg:hover {
-        color: var(--accent-text);
-    }
-    .nav-arrow {
-        display: none;
-        cursor: pointer;
-        padding: 0 var(--sp-12);
-        transition: color 0.2s;
-        z-index: 5;
-    }
-        .nav-arrow:hover {
-            color: var(--accent-text);
-        }
-    .nav-arrow .icon-svg {
-        width: 24px;
-        height: 24px;
-        display: block;
-    }
-.room-pill {
-    flex: 0 0 auto !important;
-    padding: var(--sp-8) 18px;
-    background: var(--room-pill);
-    border-radius: var(--radius-button);
-    color: var(--color);
-    font-size: var(--fs-sm);
-    font-weight: 500;
-    cursor: pointer;
-    user-select: none;
-}
-.room-pill.active {
-    background: var(--accent-color);
-    color: var(--on-accent);
-}
 .empty-state-container {
     flex-direction: column;
     padding: 40px var(--sp-20);
@@ -1068,7 +1018,6 @@ cursor: pointer;
 }
 .cfg-room {
     font-size: var(--fs-xs);
-    opacity: 0.6;
     line-height: 1.2;
 }
 .somfyShade[data-roomid="0"] .cfg-room,
@@ -1155,229 +1104,6 @@ cursor: pointer;
 }
 .divEditDelete-svg:hover {
     opacity: 0.7;
-}
-#divShadeControls {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 8%;
-    width: 100%;
-    justify-content: space-between;
-    max-width: 1006px;
-    margin: 0 auto;
-}
-.somfyShadeCtl {
-    height: 155px;
-    max-width: 450px;
-    position: relative;
-    display: flex;
-    align-items: stretch;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    background: var(--unibloc-color);
-    margin: 25px 0;
-    border-radius: var(--radius-bloc);
-    overflow: hidden;
-    width: 46%;
-    border: 1px solid var(--borderShadeCtl);
-    box-shadow: 0 1px 8px 0px var(--shadowShadeCtl);
-    flex-grow: 0;
-}
-#divShadeControls:has(> .somfyShadeCtl:last-child:first-child) {
-    justify-content: center;
-}
-.shadectl-side-handle {
-    width: 16px;
-    background: var(--side-handle);
-    cursor: pointer;
-    flex-shrink: 0;
-    align-self: stretch;
-    transition: background 0.2s ease, width 0.2s ease;
-    cursor: pointer;
-}
-.shadectl-side-handle:hover {
-    background: var(--side-handleHov);
-}
-.shadectl-side-handle:hover .handle-icon {
-    transform: translateX(1px) scale(1.1);
-    transition: all 0.2s ease;
-}
-.handle-icon {
-    width: 16px;
-    height: 16px;
-    color: var(--cfg-SvgRight-inner);;
-}
-.shadectl-right-content {
-    flex: 1;
-    min-width: 0;
-}
-.shadectl-main-content {
-    padding: var(--sp-8);
-    width: 100%;
-    flex-wrap: wrap;
-}
-.shadectl-header-row {
-    flex: 0 0 100%;
-    text-align: center;
-}
-.shadectl-name {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: var(--color);
-    margin-left: -16px;
-}
-.somfyShadeCtl .shade-name {
-    justify-content: center;
-    flex: 1;
-    padding-left: var(--sp-12);
-}
-.somfyShadeCtl .shadectl-buttons {
-    flex-direction: row;
-    margin-left: auto;
-    gap: 7px;
-}
-.somfyShadeCtl .shadectl-status-bar {
-    width: 100%;
-    padding: 5px 5px 0 5px;
-}
-    .shadectl-status-left {
-        gap: 5px;
-        color: var(--soustxt-color);
-    }    .indicator-wind { color: #ff4500; }
-    .indicator-sun { color: darkorange; }
-    .indicator-wind svg,
-    .indicator-sun svg { width:18px; height:18px; }
-
-    .somfyShadeCtl[data-sunny="false"] .indicator-sun,
-    .somfyShadeCtl:not([data-sunny]) .indicator-sun,
-    .somfyShadeCtl[data-windy="false"] .indicator-wind,
-    .somfyShadeCtl:not([data-windy]) .indicator-wind {
-        display: none;
-    }
-    .somfyShadeCtl[data-windy="true"] .indicator-wind {
-        animation: pulse-warning 1.5s infinite;
-    }
-.status-group-right{
-    gap: var(--sp-4);
-    justify-content: flex-end;
-}
-    .button-my,
-    .button-light,
-    .button-sunflag,
-    .button-remote {
-        cursor: pointer;
-        width: 32px;
-        height: 32px;
-    }
-    .button-my svg,
-    .button-light svg,
-    .button-sunflag svg,
-    .button-remote svg {
-        width: 32px;
-        height: 32px;
-        transition: all 0.3s ease;
-        --icon-color: var(--unibloc-color);
-    }
-    .button-my:hover,
-    .button-light:hover,
-    .button-sunflag:hover,
-    .button-remote:hover {
-        filter: brightness(1.2);
-    }
-    .contactBulbe-fill {
-        fill: var(--background-color);
-        fill: color-mix(in srgb, yellow var(--fpos), var(--background-color));
-        transition: fill 0.3s ease;
-    }
-    svg[data-position="0"] .contactBulbe-fill {
-        fill: var(--background-color, #888);
-    }
-    .button-light[data-on="true"] svg,
-    .button-sunflag[data-on="true"] svg {
-        --icon-color: #ffde2f;
-    }
-    .button-my:active svg { --icon-color: var(--buttonMy); }
-
-.somfyShadeCtl .shadectl-room {
-    margin: 0;
-    line-height: 1.2;
-    color: var(--accent-text);
-}
-.somfyShadeCtl .shadectl-mypos {
-    display: flex;
-    flex-direction: column;
-    font-size: var(--fs-xs);
-    color: var(--soustxt-color);
-    margin-top: 2px;
-    line-height: 1.2;
-    font-weight: bold;
-}
-.myShade-badge {
-    color: var(--soustxt-color);
-    padding: 2px var(--sp-8);
-    border-radius: var(--radius-card);
-    font-size: var(--fs-xs);
-    font-weight: bold;
-    border: 1px solid var(--button2-color);
-    white-space: nowrap;
-    height: 16px;
-}
-.somfyGroupCtl {
-    flex-direction:row;
-    vertical-align:middle;
-    position:relative;
-    height:80px;
-    max-width: 964px;
-    padding: var(--sp-8);
-    margin: 19px auto;
-    border-radius: var(--radius-bloc);
-    border: 1px solid var(--borderShadeCtl);
-    background: var(--unibloc-color);
-}
-.somfyShadeCtl .shade-icon {
-    flex-shrink: 0;
-}
-.somfyGroupCtl .button-sunflag {
-    margin-right: 7px;
-}
-.somfyGroupCtl .group-name {
-    display:inline-block;
-    padding:7px;
-    vertical-align:middle;
-    width:100%;
-}
-.somfyGroupCtl .groupctl-shades {
-    font-size:var(--fs-xs);
-    margin-top:0px;
-}
-.somfyGroupCtl .groupctl-shades > label {
-    margin-right:3px;
-}
-.somfyGroupCtl .groupctl-name,
-.somfyShadeCtl .shadectl-name {
-    font-size: 1.37em;
-    color: var(--color);
-    display: block;
-    width: 100%;
-}
-.somfyGroupCtl label,
-.somfyShadeCtl label {
-    color: var(--soustxt-color);
-}
-.somfyGroupCtl .groupctl-room {
-    font-size:var(--fs-xs);
-    font-weight: bold;
-    margin-bottom:-3px;
-    display:block;
-    color:darkorange;
-}
-.somfyGroupCtl[data-roomid="0"] .groupctl-room,
-.somfyShadeCtl[data-roomid="0"] .shadectl-room {
-    display:none;
-}
-.somfyGroupCtl .groupctl-buttons {
-    margin-top:0;
-    gap: var(--sp-4);
 }
 /*Popup openSetMyPosition and openSetPosition*/
 .shade-positioner {
@@ -1689,22 +1415,6 @@ div.eth-setting-line label {
             width:20px;
             height:20px
         }
-@media screen and (max-width: 1280px) {
-    .somfyShadeCtl {
-        width: 48%;
-    }
-    #divShadeControls {
-        gap: 4%;
-    }
-}
-@media screen and (max-width: 1024px) {
-    #divShadeControls {
-        justify-content: center;
-    }
-    .somfyShadeCtl {
-        width: 100%;
-    }
-}
 @media (max-width: 780px) {
     .inst-overlay {
         position: fixed !important;
@@ -1778,35 +1488,6 @@ div.eth-setting-line label {
     #divSidebarUpdate {
         display: none !important;
     }
-    #divShadeControls {
-        display: flex;
-        flex-direction: column;
-    }
-    .somfyShadeCtl {
-        width: 76%;
-        height: 140px;
-        max-width: none;
-        margin: 6px auto;
-    }
-    .somfyShadeCtl .shadectl-buttons {
-        gap: 2px;
-    }
-    .footer-overlay {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        display: flex;
-        visibility: hidden;
-        transform: translateY(100%);
-        background: var(--unibloc-color);
-        padding: var(--sp-8) var(--sp-20);
-        box-shadow: 0 -5px 15px rgba(0,0,0,0.2);
-        z-index: 9999;
-        margin: 0;
-        border-top: 1px solid var(--help);
-        animation: slideUpFooter 0.6s cubic-bezier(0.25, 1, 0.5, 1) 0.1s forwards;
-    }
     .release-notes-preview {
         max-height: 50%;
     }
@@ -1842,9 +1523,6 @@ div.eth-setting-line label {
     }
 }
 @media screen and (max-width: 640px) {
-    .somfyShadeCtl {
-        width: 100%;
-    }
     .idRemoteAddress {
         display: none !important;
     }

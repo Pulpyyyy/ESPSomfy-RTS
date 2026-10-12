@@ -1,25 +1,17 @@
-﻿:root {
+:root {
     color-scheme: light dark;
-    --accent-color: #1a5fb4;
-    --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 34%);
-    --accent-colorUniDark: color-mix(in srgb, var(--accent-color) 20%, var(--unibloc-color));
-    /* Text on an accent surface; flipped by applyAccent() for light accents. */
-    --on-accent: #fff;
-    --accent-sucess: #069800;
     /* Layout tokens */
-    --topbar-height: 100px;
-    /* Type scale (rem, root 16px): every absolute font-size maps to one of
-       these seven steps — do not introduce new px/pt sizes. */
-    --fs-xs: 0.75rem;    /* 12px — hints, badges (legibility floor) */
+    --topbar-height: 0px;
+    --rail-width: 272px;
+    /* Type scale (rem, root 16px). 13px is the floor for running text. */
+    --fs-xs: 0.8125rem;  /* 13px — hints, badges */
     --fs-sm: 0.875rem;   /* 14px — secondary text, labels */
     --fs-md: 1rem;       /* 16px — primary content */
     --fs-lg: 1.125rem;   /* 18px — subtitles, emphasis */
     --fs-xl: 1.375rem;   /* 22px — section titles */
     --fs-xxl: 1.75rem;   /* 28px — dialog titles */
     --fs-xxxl: 2rem;     /* 32px — display */
-    /* Spacing scale (M3 4px grid) for padding/margin/gap — geometry (width,
-       height, offsets) stays in raw px. The legacy 10/15px house steps were
-       snapped up to 12/16 (never down): new spacing must use these tokens. */
+    /* Spacing scale (4px grid) for padding/margin/gap. */
     --sp-4: 4px;
     --sp-8: 8px;
     --sp-12: 12px;
@@ -27,15 +19,15 @@
     --sp-20: 20px;
     --sp-24: 24px;
     --sp-32: 32px;
-    /* Corner radius scale: pick the token matching the component role. */
-    --radius-chip: 4px;
-    --radius-input: 6px;
+    /* Corner radius scale: a short ladder, cards 16, controls 10, pills round. */
+    --radius-chip: 6px;
+    --radius-input: 10px;
     --radius-badge: 8px;
-    --radius-card: 12px;
-    --radius-panel: 15px;
-    --radius-button: 20px;
-    --radius-bloc: 25px;
-    --radius-round: 30px;
+    --radius-card: 16px;
+    --radius-panel: 12px;
+    --radius-button: 10px;
+    --radius-bloc: 16px;
+    --radius-round: 999px;
     /* Stacking scale: keep every z-index on this ladder. */
     --z-topbar: 1000;
     --z-overlay: 1000;
@@ -43,151 +35,194 @@
     --z-toast: 9999;
     --z-banner: 10000;
     --z-inst-mobile: 99999;
+    --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 /* ---- Themes: ONE block per theme (single source of truth). ----------------
-   MD3 color roles (derived from the blue seed #1a5fb4) drive the shared app
-   variables; the remaining tokens are component-specific. Do not re-declare a
-   variable in a second block: this file is the only place a theme value lives. */
+   Every text colour is checked at 4.5:1 or more on the surfaces it sits on, and
+   field borders, focus ring and meaningful graphics at 3:1 or more (WCAG 2.2 AA),
+   in both themes. The legacy variable names are kept and mapped onto the new
+   roles, so components written against them follow the palette. */
 :root[data-theme="light"] {
-    /* Native widgets (select popup, scrollbars) follow the app theme, not the OS. */
     color-scheme: light;
-    /* MD3 roles */
-    --md-primary:#1a5fb4; --md-on-primary:#ffffff;
-    --md-primary-container:#d7e3ff; --md-on-primary-container:#001b3f;
-    --md-secondary-container:#dae2f9; --md-on-secondary-container:#131c2b;
-    --md-surface:#faf9fd; --md-surface-container:#eeedf1;
-    --md-surface-container-high:#e8e7ec; --md-surface-container-highest:#e3e1e6;
-    --md-on-surface:#1b1b1f; --md-on-surface-variant:#45464f;
-    --md-outline:#767680; --md-outline-variant:#c6c5d0;
-    --md-error:#ba1a1a; --md-on-error:#ffffff;
-    --md-error-container:#ffdad6; --md-on-error-container:#410002;
-    --md-elevation-1:0 1px 2px rgba(0,0,0,.20), 0 1px 3px 1px rgba(0,0,0,.10);
-    --md-elevation-2:0 1px 2px rgba(0,0,0,.20), 0 2px 6px 2px rgba(0,0,0,.12);
-    /* App roles mapped onto MD3 */
-    --accent-color:var(--md-primary);
-    --body-color:var(--md-surface);
-    --background-color:var(--md-surface-container);
-    --unibloc-color:var(--md-surface);
-    --fond-color:var(--md-surface-container);
-    --color:var(--md-on-surface);
-    --soustxt-color:var(--md-on-surface-variant);
-    --input:var(--md-surface-container-high);
-    --inputNumber:var(--md-surface-container-high);
-    --border:var(--md-outline-variant);
-    --hr-color:var(--md-outline-variant);
-    --help:var(--md-outline);
-    --danger-color:var(--md-error);
-    --border-lbc:var(--md-outline-variant);
-    /* Component-specific tokens */
-    --invertxt-color: #e4e3e8;
-    --txtwarning-color: #c62828;
-    /* Readable-accent guard: the accent is user-chosen (any lightness), so text
-       drawn in it is mixed towards the surface's opposite pole. */
-    --accent-text: color-mix(in srgb, var(--accent-color) 60%, #000);
-    /* Status hues, tuned per theme: the vivid #4caf50/#ff9800/#f44336 family
-       fails WCAG on light surfaces (1.8-3.1), so light gets the deep variants. */
-    --status-good: #2e7d32;
-    --status-warn: #b26a00;
-    --status-bad: #c62828;
-    --hr-soft: rgba(2, 2, 2, 0.1);
-    --switch-border: #cdcdcd;
-    --switch-checked: #9c9c9c;
-    --bg-switch-color: #ccc;
-    --tb-color: #c7cad1;
-    --bg-switch-ch-color: #595d60;
-    --button-color: #5e5e5e;
-    --button2-color: #4a4a4a;
+    --bg: #EEF1F4;
+    --surface: #FFFFFF;
+    --surface-2: #F6F8FA;
+    --tonal: #E6EBF1;
+    --tonal-hover: #DCE3EA;
+    --ink: #12161B;
+    --ink-2: #4A5562;
+    --line: #D9DEE4;            /* decorative card borders only */
+    --field: #7A8592;           /* input borders: 3.3:1 or more */
+    --accent-color: var(--accent-l, #1D5FC4);
+    --on-accent: var(--on-accent-l, #FFFFFF);
+    --accent-soft: color-mix(in srgb, var(--accent-color) 12%, #fff);
+    --ok: #1E6B3A; --ok-soft: #E2F2E7; --ok-dot: #1E8A4C;
+    --warn: #8A4B00; --warn-soft: #FBEEDB; --warn-dot: #C05A00;
+    --danger: #B3261E; --danger-soft: #FBE4E2;
+    --sky: #DCE7F3;
+    --slat: #6E7B8A;            /* 3.45:1 against --sky */
+    --slat-2: #5E6B78;
+    --todo: #7A8592;
+    --inverse: #12161B;
+    --on-inverse: #FFFFFF;
+    --on-inverse-2: #C4CCD6;
+    --shadow-1: 0 1px 2px rgba(18, 22, 27, .08);
+    /* Legacy roles */
+    --md-primary: var(--accent-color); --md-on-primary: var(--on-accent);
+    --md-primary-container: var(--accent-soft); --md-on-primary-container: var(--ink);
+    --md-secondary-container: var(--tonal); --md-on-secondary-container: var(--ink);
+    --md-surface: var(--surface); --md-surface-container: var(--bg);
+    --md-surface-container-high: var(--surface-2); --md-surface-container-highest: var(--tonal);
+    --md-on-surface: var(--ink); --md-on-surface-variant: var(--ink-2);
+    --md-outline: var(--field); --md-outline-variant: var(--line);
+    --md-error: var(--danger); --md-on-error: #FFFFFF;
+    --md-error-container: var(--danger-soft); --md-on-error-container: var(--danger);
+    --md-elevation-1: var(--shadow-1);
+    --md-elevation-2: 0 2px 8px rgba(18, 22, 27, .12);
+    --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 34%);
+    --accent-colorUniDark: var(--accent-soft);
+    --accent-sucess: var(--ok-dot);
+    --accent-text: color-mix(in srgb, var(--accent-color) 80%, #000);
+    --body-color: var(--surface);
+    --background-color: var(--bg);
+    --unibloc-color: var(--surface);
+    --fond-color: var(--bg);
+    --color: var(--ink);
+    --soustxt-color: var(--ink-2);
+    --input: var(--surface);
+    --inputNumber: var(--surface);
+    --border: var(--line);
+    --hr-color: var(--line);
+    --help: var(--ink-2);
+    --danger-color: var(--danger);
+    --border-lbc: var(--line);
+    --invertxt-color: #E4E3E8;
+    --txtwarning-color: var(--danger);
+    --status-good: var(--ok);
+    --status-warn: var(--warn);
+    --status-bad: var(--danger);
+    --hr-soft: var(--line);
+    --switch-border: var(--field);
+    --switch-checked: var(--field);
+    --bg-switch-color: var(--tonal);
+    --tb-color: var(--ink-2);
+    --bg-switch-ch-color: var(--ink-2);
+    --button-color: var(--tonal-hover);
+    --button2-color: var(--field);
     --degrad-boutons: 0 -8px 20px rgba(0, 0, 0, 0.08);
-    --border-boutons: 1px solid rgba(0, 0, 0, 0.06);
-    --cfg-SvgRightBg: #808080;
-    --cfg-SvgRight-inner: #f0f0f0;
+    --border-boutons: 1px solid var(--line);
+    --cfg-SvgRightBg: var(--ink-2);
+    --cfg-SvgRight-inner: var(--surface-2);
     --svg-shade0: #101010;
     --svg-shade1: #5e5d5d;
     --svg-shade2: #343333;
     --svg-shade3: #434343;
     --svg-shade4: #332b28;
     --svg-shade5: #515255;
-    --barreRoomBg: #d9d9d9;
-    --room-pill: #fffdfd;
-    --side-handle: #5e5d5d;
-    --side-handleHov: #8e8c8c;
-    --borderShadeCtl: #999;
-    --shadowShadeCtl: rgba(125, 125, 125, 0.6);
-    --wait-overlay: rgba(236, 236, 236, 0.3);
-    --buttonMy: #c3c3c3;
-    --crlIndicator: #5e5d5d;
-    --hover-brightness: 0.9;
-    --shadow: #ababab;
+    --barreRoomBg: var(--bg);
+    --room-pill: var(--surface);
+    --side-handle: var(--tonal);
+    --side-handleHov: var(--tonal-hover);
+    --borderShadeCtl: var(--line);
+    --shadowShadeCtl: rgba(18, 22, 27, 0.08);
+    --wait-overlay: rgba(238, 241, 244, 0.6);
+    --buttonMy: var(--tonal-hover);
+    --crlIndicator: var(--ink-2);
+    --hover-brightness: 0.95;
+    --shadow: rgba(18, 22, 27, .2);
 }
 :root[data-theme="dark"] {
-    /* Native widgets (select popup, scrollbars) follow the app theme, not the OS. */
     color-scheme: dark;
-    /* MD3 roles */
-    --md-primary:#adc6ff; --md-on-primary:#002e69;
-    --md-primary-container:#004494; --md-on-primary-container:#d7e3ff;
-    --md-secondary-container:#3b4858; --md-on-secondary-container:#dae2f9;
-    --md-surface:#121316; --md-surface-container:#1e1f23;
-    --md-surface-container-high:#282a2d; --md-surface-container-highest:#333438;
-    --md-on-surface:#e4e1e6; --md-on-surface-variant:#c6c5d0;
-    --md-outline:#90909a; --md-outline-variant:#45464f;
-    --md-error:#ffb4ab; --md-on-error:#690005;
-    --md-error-container:#93000a; --md-on-error-container:#ffdad6;
-    --md-elevation-1:0 1px 2px rgba(0,0,0,.50), 0 1px 3px 1px rgba(0,0,0,.30);
-    --md-elevation-2:0 1px 2px rgba(0,0,0,.50), 0 2px 6px 2px rgba(0,0,0,.30);
-    /* App roles mapped onto MD3 */
-    --accent-color:var(--md-primary);
-    --body-color:var(--md-surface);
-    --background-color:var(--md-surface-container);
-    --unibloc-color:var(--md-surface);
-    --fond-color:var(--md-surface-container);
-    --color:var(--md-on-surface);
-    --soustxt-color:var(--md-on-surface-variant);
-    --input:var(--md-surface-container-high);
-    --inputNumber:var(--md-surface-container-high);
-    --border:var(--md-outline-variant);
-    --hr-color:var(--md-outline-variant);
-    --help:var(--md-outline);
-    --danger-color:var(--md-error);
-    --border-lbc:var(--md-outline-variant);
-    /* Component-specific tokens */
+    --bg: #0F1216;
+    --surface: #181C22;
+    --surface-2: #1D222A;
+    --tonal: #252B34;
+    --tonal-hover: #2E3540;
+    --ink: #ECEFF3;
+    --ink-2: #A3ADB9;
+    --line: #2A3039;
+    --field: #7D8794;
+    --accent-color: var(--accent-d, #8DB8F8);
+    --on-accent: #0F1216;
+    --accent-soft: color-mix(in srgb, var(--accent-color) 18%, #181C22);
+    --ok: #7BD69C; --ok-soft: #173326; --ok-dot: #4CC27E;
+    --warn: #F2B266; --warn-soft: #3A2A14; --warn-dot: #F2A24B;
+    --danger: #FFB4AB; --danger-soft: #3B1D1B;
+    --sky: #22324A;
+    --slat: #8592A2;            /* 4.09:1 against --sky */
+    --slat-2: #6F7C8C;
+    --todo: #5D6773;
+    --inverse: #ECEFF3;
+    --on-inverse: #0F1216;
+    --on-inverse-2: #3A424D;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
+    /* Legacy roles */
+    --md-primary: var(--accent-color); --md-on-primary: var(--on-accent);
+    --md-primary-container: var(--accent-soft); --md-on-primary-container: var(--ink);
+    --md-secondary-container: var(--tonal); --md-on-secondary-container: var(--ink);
+    --md-surface: var(--surface); --md-surface-container: var(--bg);
+    --md-surface-container-high: var(--surface-2); --md-surface-container-highest: var(--tonal);
+    --md-on-surface: var(--ink); --md-on-surface-variant: var(--ink-2);
+    --md-outline: var(--field); --md-outline-variant: var(--line);
+    --md-error: var(--danger); --md-on-error: #0F1216;
+    --md-error-container: var(--danger-soft); --md-on-error-container: var(--danger);
+    --md-elevation-1: var(--shadow-1);
+    --md-elevation-2: 0 2px 8px rgba(0, 0, 0, .5);
+    --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 45%);
+    --accent-colorUniDark: var(--accent-soft);
+    --accent-sucess: var(--ok-dot);
+    --accent-text: var(--accent-color);
+    --body-color: var(--surface);
+    --background-color: var(--bg);
+    --unibloc-color: var(--surface);
+    --fond-color: var(--bg);
+    --color: var(--ink);
+    --soustxt-color: var(--ink-2);
+    --input: var(--surface);
+    --inputNumber: var(--surface);
+    --border: var(--line);
+    --hr-color: var(--line);
+    --help: var(--ink-2);
+    --danger-color: var(--danger);
+    --border-lbc: var(--line);
     --invertxt-color: #000000;
-    --txtwarning-color: #ef7d78;
-    --accent-text: color-mix(in srgb, var(--accent-color) 40%, #fff);
-    --status-good: #4caf50;
-    --status-warn: #ff9800;
-    --status-bad: #f44336;
-    --hr-soft: rgba(255, 255, 255, 0.1);
-    --switch-border: #434243;
-    --switch-checked: #505050;
-    --bg-switch-color: #646368;
-    --tb-color: #0f0f0f;
-    --bg-switch-ch-color: #ababab;
-    --button-color: #2d2d2f;
-    --button2-color: #4a4a4a;
+    --txtwarning-color: var(--danger);
+    --status-good: var(--ok);
+    --status-warn: var(--warn);
+    --status-bad: var(--danger);
+    --hr-soft: var(--line);
+    --switch-border: var(--field);
+    --switch-checked: var(--field);
+    --bg-switch-color: var(--tonal);
+    --tb-color: var(--ink-2);
+    --bg-switch-ch-color: var(--ink-2);
+    --button-color: var(--tonal-hover);
+    --button2-color: var(--field);
     --degrad-boutons: 0 -12px 30px rgba(0, 0, 0, 0.8);
-    --border-boutons: 1px solid rgba(255, 255, 255, 0.12);
-    --cfg-SvgRightBg: #4a4a4a;
-    --cfg-SvgRight-inner: #9a999e;
+    --border-boutons: 1px solid var(--line);
+    --cfg-SvgRightBg: var(--tonal-hover);
+    --cfg-SvgRight-inner: var(--ink-2);
     --svg-shade0: #fff;
     --svg-shade1: #dedede;
     --svg-shade2: #b8b8b8;
     --svg-shade3: #b4b4b4;
     --svg-shade4: #616161;
     --svg-shade5: #818181;
-    --barreRoomBg: #0f0f0f;
-    --room-pill: #4a4a4a;
-    --side-handle: #4a4a4a;
-    --side-handleHov: #313131;
-    --borderShadeCtl: #333;
-    --shadowShadeCtl: rgba(0, 0, 0, 0.6);
-    --wait-overlay: rgba(0, 0, 0, 0.35);
-    --buttonMy: #5e5e5e;
-    --crlIndicator: #4a4a4a;
-    --hover-brightness: 1.3;
-    --shadow: #090909;
+    --barreRoomBg: var(--bg);
+    --room-pill: var(--surface);
+    --side-handle: var(--tonal);
+    --side-handleHov: var(--tonal-hover);
+    --borderShadeCtl: var(--line);
+    --shadowShadeCtl: rgba(0, 0, 0, 0.5);
+    --wait-overlay: rgba(15, 18, 22, 0.6);
+    --buttonMy: var(--tonal-hover);
+    --crlIndicator: var(--ink-2);
+    --hover-brightness: 1.15;
+    --shadow: #000;
 }
-/* Typography: prefer Roboto (MD3), fall back to the platform UI font. */
-body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif; }
+/* Typography: the platform UI font — nothing to download, works offline. */
+body { font-family: var(--font-ui); }
 
 /* Layout utilities: shared patterns extracted from component rules.
    Use .u-* directly in new markup; legacy selectors are grouped here. */
@@ -374,7 +409,7 @@ html, body {
    deflated 12.5% below their documented values (--fs-xs rendered 10.5px, under
    the 11px M3 floor).  body alone carries the default size, and the Roboto
    stack above is no longer overridden by a later Helvetica declaration. */
-body { font-size: var(--fs-sm); line-height: 1.45; }
+body { font-size: 0.9375rem; line-height: 1.45; background: var(--bg); }
 * {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
@@ -438,12 +473,12 @@ form {
     width: 100%;
     margin-top: var(--sp-16);
     border-radius: var(--radius-bloc);
-    padding: var(--sp-12) var(--sp-20);
+    padding: var(--sp-16) var(--sp-20);
 }
 .unibloc {
     background: var(--unibloc-color);
     border: 1px solid var(--border);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-1);
 }
 .uniblocStep {
     gap: var(--sp-16);
@@ -461,25 +496,28 @@ form {
 }
 .label {
     font-size: var(--fs-sm);
+    font-weight: 600;
     color: var(--color);
     word-break: break-word;
     margin: 0;
 }
-.unibloc .inputAndSelect {
-    font-size: var(--fs-xs);
-    color: var(--soustxt-color);
-    background: rgb(252, 252, 252);
-    background: transparent;
-    border: none;
-    margin: -19px 0 0px 0;
+.unibloc .inputAndSelect,
+.field .inputAndSelect,
+.login-card .inputAndSelect {
+    font-size: var(--fs-md);
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--field);
+    margin: 6px 0 0 0;
     width: 100%;
-    padding: 23px 0 0 0;
+    min-height: 44px;
+    padding: 8px 12px;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
-    cursor: pointer;
-    border-radius: 0;
+    border-radius: var(--radius-input);
 }
+.unibloc select.inputAndSelect { cursor: pointer; padding-right: 40px; }
 .unibloc > div {position: relative;}
 
 .firmwarblocupdate,
@@ -509,7 +547,7 @@ select.inputAndSelect {
     appearance: none;
     background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 9 7 6 7-6'/%3E%3C/svg%3E") !important;
     background-repeat: no-repeat !important;
-    background-position: right 0px center !important;
+    background-position: right 12px center !important;
 }
 /* Option list of native select popups: themed surface instead of UA defaults. */
 select.inputAndSelect option {
@@ -527,10 +565,12 @@ select.inputAndSelect option {
 .mqttSelect {
     width: 100%;
     appearance: none;
-    padding: var(--sp-8);
-    border-radius: var(--radius-panel);
+    min-height: 44px;
+    padding: var(--sp-8) var(--sp-12);
+    border-radius: var(--radius-input);
     color: var(--color);
-    border: 1px solid #555;
+    background: var(--surface) !important;
+    border: 1px solid var(--field);
     background: transparent;
     cursor: pointer;
 }
@@ -645,42 +685,42 @@ input[type=text] {
     margin-bottom: 14px;
     appearance: none;
     color: var(--color);
-    background: #f0f0f0;
-    background-color: transparent;
-    border: 1px solid #555;
-    padding: var(--sp-8);
-    border-radius: var(--radius-panel);
+    background-color: var(--surface);
+    border: 1px solid var(--field);
+    min-height: 44px;
+    padding: var(--sp-8) var(--sp-12);
+    border-radius: var(--radius-input);
 }
 input[type="password"].pin-digit {
     margin: 0 0.3rem;
     font-size: var(--fs-xl);
-    border: 1px solid #555;
-    box-shadow: 0 0 15px rgba(200, 200, 200, 0.5);
-    background: transparent;
+    border: 1px solid var(--field);
+    box-shadow: none;
+    background: var(--surface);
     color: var(--color);
-    border-radius: 50%;
-    width: 60px;
+    border-radius: var(--radius-panel);
+    width: 56px;
     height: 60px;
     text-align: center;
     display: inline-block;
 }
 input[type="password"].pin-digit:focus {
     margin: 0 0.3rem;
-    padding: 0.5rem;
-    border: 2px solid var(--accent-color);
-    background: var(--background-color);
+    border-color: var(--accent-color);
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
 }
 input[type=number],
 input[type=text] {
     width: 100%;
 }
-select:focus,
-input[type=password]:focus,
-input[type=number]:focus,
-input[type=text]:focus {
+select:focus-visible,
+input[type=password]:focus-visible,
+input[type=number]:focus-visible,
+input[type=text]:focus-visible {
     border-color: var(--accent-color);
-    outline: 2px solid color-mix(in srgb, var(--accent-color) 30%, transparent);
-    outline-offset: 0;
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
 }
 /* Immediate validation feedback: once the user has edited a field, an
    out-of-bounds value (native min/max/step/pattern) is flagged in place
@@ -755,8 +795,8 @@ input[type="radio"]:hover {
 }
 .input-number-custom {
     background-color: var(--inputNumber);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-bloc);
+    border: 1px solid var(--field);
+    border-radius: var(--radius-input);
     padding: var(--sp-4) 6px var(--sp-4) var(--sp-16);
     height: 44px;
     box-sizing: border-box;
@@ -764,6 +804,8 @@ input[type="radio"]:hover {
 }
 .input-number-custom:focus-within {
     border-color: var(--accent-color);
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
 }
 .input-number-custom:has(.step-select-arrow) {
     padding-right: var(--sp-16);
@@ -963,7 +1005,7 @@ fieldset {
     width: 44px;
     min-width: 44px;
     height: 24px;
-    border-radius: var(--radius-card);
+    border-radius: var(--radius-round);
     border: 2px solid var(--switch-checked);
     background: var(--unibloc-color);
 
@@ -990,7 +1032,8 @@ fieldset {
     filter: brightness(var(--hover-brightness));
 }
 .switch:has(input:checked) {
-    background: var(--switch-checked);
+    background: var(--accent-color);
+    border-color: var(--accent-color);
 }
 .switch input:checked + div {
     width: 20px;
@@ -1005,7 +1048,7 @@ fieldset {
     left: 7px;
     width: 4px;
     height: 8px;
-    border: solid #a09f9f;
+    border: solid var(--accent-color);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
 }
@@ -1055,45 +1098,46 @@ fieldset {
 button {
     display: inline-block;
     width: 100%;
-    padding: var(--sp-12);
+    min-height: 44px;
+    padding: 10px var(--sp-16);
     text-align: center;
-    text-transform: uppercase;
+    text-transform: none;
+    font: inherit;
     font-size: var(--fs-sm);
-    font-weight: bold;
+    font-weight: 600;
+    line-height: 1.2;
     cursor: pointer;
-    border-radius: var(--radius-round);
-    border: none;
-    color: #fff;
+    border-radius: var(--radius-button);
+    border: 1px solid transparent;          /* visible in forced-colors mode */
+    color: var(--on-accent);
     background: var(--accent-color);
     user-select: none;
-    transition: all 250ms ease, transform 0.2s ease-in-out;
+    transition: background 150ms ease, transform 120ms ease;
 }
     button:hover {
-        background: color-mix(in srgb, var(--accent-color), #060606 20%);
+        background: color-mix(in srgb, var(--accent-color), #000 12%);
     }
     button:active {
-        transform: scale(0.95);
-        opacity: 0.7;
-        background: color-mix(in srgb, var(--accent-color), black 3%);
+        transform: scale(0.98);
     }
 button[line] {
-    border: 2px solid #555;
-    color: #555;
-    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ink);
+    background: var(--tonal);
 }
     button[line]:hover {
-        background: var(--button-color, #555);
-        color: white;
-        border-color: transparent;
+        background: var(--tonal-hover);
+        color: var(--ink);
     }
     button[line]:active {
-        background: #555;
-        color: white;
+        background: var(--tonal-hover);
+        color: var(--ink);
     }
 button[pop] {
-    padding: 1px var(--sp-8);
+    min-height: 36px;
+    padding: 6px var(--sp-12);
     font-size: var(--fs-sm);
-    border-radius: var(--radius-panel);
+    border-radius: var(--radius-button);
     font-weight: 500;
     text-transform: none;
     width: auto;
@@ -1118,8 +1162,12 @@ button:disabled:active {
 /* Dirty-flag save buttons (navSyncSaveButtons) while there is nothing to save:
    visibility rather than display so their slot is kept and footers do not
    reflow when the button appears on the first edit. */
-button.save-idle {
-    visibility: hidden !important;
+#divConfigPnl [id^="btnSave"],
+#divConfigPnl #btnConnectMQTT {
+    position: absolute !important;
+    width: 1px !important; height: 1px !important; min-height: 0 !important;
+    padding: 0 !important; margin: -1px !important; border: 0 !important;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
 .buttonUpdate,
 .unibutton,
@@ -1412,11 +1460,6 @@ button.save-idle {
     opacity: 0.8;
 }
 @media screen and (max-width: 780px) {
-    body {
-        color: var(--color);
-        font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
-        font-size: var(--fs-sm);
-    }
     .somfy-shade-icon  {
         width: 52px;
         height: 52px;
@@ -1454,7 +1497,7 @@ button.save-idle {
 /* Keyboard focus was invisible everywhere: buttons only styled :hover/:active, and the
    nav items are hrefless anchors. :focus-visible keeps the ring off mouse clicks. */
 :focus-visible {
-    outline: 2px solid var(--accent-color);
+    outline: 3px solid var(--accent-color);
     outline-offset: 2px;
 }
 
@@ -1487,7 +1530,4 @@ button.save-idle {
     transform: translate(-50%, -50%);
 }
 
-/* The topbar is a fixed 100px, which eats a sixth of a phone screen at all times. */
-@media (max-width: 480px) {
-    :root { --topbar-height: 72px; }
-}
+

@@ -1,24 +1,30 @@
-// The accent is user-chosen: text drawn ON an accent surface must flip with the
-// accent's luminance (white on dark accents, near-black on light ones).  Both
-// custom properties are set together so no caller can forget one.
+// The accent is user-chosen. Each accent has a light-theme and a dark-theme tone:
+// the four offered swatches come with a hand-checked dark tone (WCAG AA on the
+// dark surfaces); any other stored colour gets a lightened mix. The theme blocks
+// in base.css pick the pair. Text drawn ON the light tone flips with its luminance.
+const ACCENT_DARK = { '#1d5fc4': '#8db8f8', '#1a5fb4': '#8db8f8', '#1e6b3a': '#7bd69c', '#8a4b00': '#f2b266', '#6b3fa0': '#c9a7f5' };
 function applyAccent(color) {
     const r = document.documentElement.style;
-    r.setProperty('--accent-color', color);
-    const m = /^#?([0-9a-f]{6})$/i.exec(String(color).trim());
-    if (m) {
-        const [cr, cg, cb] = [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16) / 255)
-            .map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
-        const lum = 0.2126 * cr + 0.7152 * cg + 0.0722 * cb;
-        r.setProperty('--on-accent', lum > 0.18 ? '#1b1b1f' : '#fff');
-    }
+    const c = String(color || '').trim().toLowerCase();
+    const m = /^#([0-9a-f]{6})$/.exec(c);
+    if (!m) return;
+    r.setProperty('--accent-l', c);
+    r.setProperty('--accent-d', ACCENT_DARK[c] || `color-mix(in srgb, ${c} 45%, #fff)`);
+    const [cr, cg, cb] = [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16) / 255)
+        .map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+    const lum = 0.2126 * cr + 0.7152 * cg + 0.0722 * cb;
+    r.setProperty('--on-accent-l', lum > 0.18 ? '#12161b' : '#fff');
+    document.querySelectorAll('.accent-swatch input').forEach(i => { i.checked = i.value === c || (c === '#1a5fb4' && i.value === '#1d5fc4'); });
 }
 class Security {
     type = 0;
     authenticated = false;
     apiKey = '';
     permissions = 0;
+    ready = false;
     async init() {
         await this.loadContext();
+        this.ready = true;
         if (this.type === 0 || (this.permissions & 0x01) === 0x01) { // No login required or only the config is protected.
             if (typeof socket === 'undefined' || !socket) (async () => { await initSockets(); })();
             //ui.setMode(mode);
@@ -181,7 +187,7 @@ class Security {
 var security = new Security();
 class General {
     initialized = false;
-    appVersion = 'v3.5.0-beta.1';
+    appVersion = 'v4.2.0-beta.2-ui2026';
     reloadApp = false;
     init() {
         if (this.initialized) return;
@@ -195,7 +201,7 @@ class General {
         this.setAppVersion();
         this.setTimeZones();
         if (sockIsOpen && ui.isConfigOpen()) socket.send('join:0' + (security.apiKey ? ':' + security.apiKey : ''));
-        ui.toElement(get('divSystemSettings'), {
+        ui.toElement(get('divSystemOptions'), {
             general: { hostname: 'ESPSomfyRTS', username: '', password: '', posixZone: 'UTC0', ntpServer: 'pool.ntp.org' }
         });
 
@@ -356,6 +362,7 @@ class General {
             if (typeof somfy !== 'undefined') somfy.initPins();
 
             get('spanFwVersion').innerText = settings.fwVersion;
+            document.querySelectorAll('.navFwVersion').forEach(el => { el.textContent = settings.fwVersion; });
             get('spanHwVersion').innerText = settings.chipModel.length > 0 ? '-' + settings.chipModel : '';
             get('divContainer').setAttribute('data-chipmodel', settings.chipModel);
 
@@ -405,7 +412,7 @@ class General {
     }
     setGeneral() {
         let valid = true;
-        let pnl = get('divSystemSettings');
+        let pnl = get('divSystemOptions');
         let obj = ui.fromElement(pnl).general;
         const msg = tr('ERR_HOSTNAME');
         if (typeof obj.hostname === 'undefined' || !obj.hostname || obj.hostname === '') {
@@ -565,6 +572,14 @@ class General {
     }
     secError(title, desc) {
         ui.errorMessage(tr(title)).querySelector('.sub-message').innerHTML = tr(desc);
+    }
+    // Accent swatches (Preferences): previewed at once, stored with the other
+    // general settings when the page is saved.
+    pickAccent(color) {
+        const fld = get('fldAccentColor');
+        if (fld) fld.value = color;
+        applyAccent(color);
+        localStorage.setItem('accentColor', color);
     }
     showHAOverlay() {
         const div = document.createElement('div');
@@ -873,10 +888,9 @@ class Wifi {
         options.forEach(opt => {
             opt.classList.toggle('active', opt.getAttribute('data-conn') === activeType);
         });
-        // Mirror the active type into the compact mobile indicator (the top-bar
-        // badges are hidden below 780px).
-        const mc = get('mobileConnStatus');
-        if (mc) mc.querySelector('.conn-type').textContent = activeType.toUpperCase();
+        // The menu shows the active link type next to the connection state.
+        _conn.type = activeType;
+        navConnRender();
     }
     setConnectionType(isEthernet) {
         get('cbHardwired').checked = isEthernet;
@@ -1169,6 +1183,8 @@ class Wifi {
         if (elChan) elChan.innerHTML = isNaN(strength.channel) || strength.channel < 0 ? '--' : strength.channel;
         if (elStrength) elStrength.innerHTML = isNaN(sVal) || sVal <= -100 ? '----' : sVal;
 
+        _conn.rssi = (isNaN(sVal) || sVal >= 0 || sVal <= -100) ? null : sVal;
+        navConnRender();
         let level = (isNaN(sVal) || sVal >= 0 || sVal <= -100) ? -1 : this.calcWaveStrength(sVal);
         if (level >= 3) level = 3;
 
