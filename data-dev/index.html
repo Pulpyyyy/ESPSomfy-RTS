@@ -475,7 +475,7 @@
 </div>
 </div>
 <div class="footer-overlay">
-                                <button id="btnBtnShadeGoBack" line type="button" onclick="somfy.showEditShade(false);" tr="BT_CLOSE"></button>
+                                <button id="btnBtnShadeGoBack" line type="button" onclick="somfy.closeEditor('Shade');" tr="BT_CLOSE"></button>
                                 <button id="btnSaveShade"  type="button" onclick="somfy.saveShade();" tr="BT_SAVE"></button>
                             </div>
 </div>
@@ -512,7 +512,7 @@
                                 <input id="fldRoomName" class="inputAndSelect" name="roomName" data-bind="name" type="text" length=20  tr="ROOM_NAME_PHL" placeholder="Entrer un nom de pièce">
                             </div>
                             <div class="footer-overlay">
-                                <button id="btnRoomGoBack" line type="button" onclick="somfy.showEditRoom(false);" tr="BT_CLOSE"></button>
+                                <button id="btnRoomGoBack" line type="button" onclick="somfy.closeEditor('Room');" tr="BT_CLOSE"></button>
                                 <button id="btnSaveRoom"  type="button" onclick="somfy.saveRoom();" tr="BT_SAVE"></button>
                             </div>
                         </div>
@@ -618,7 +618,7 @@
                                 </div>
                             </div>
                             <div class="button-container-row">
-                                <button id="btnGroupGoBack" line type="button" onclick="somfy.showEditGroup(false);" tr="BT_CLOSE"></button>
+                                <button id="btnGroupGoBack" line type="button" onclick="somfy.closeEditor('Group');" tr="BT_CLOSE"></button>
                                 <button id="btnSaveGroup"  type="button" onclick="somfy.saveGroup();" tr="BT_SAVE"></button>
                             </div>
                         </div>
@@ -1613,7 +1613,7 @@
                             <hr>
                             <div>
                                 <label class="label" for="langSelect" tr="GENERAL_LANGUAGE"></label>
-                                <select id="langSelect" class="inputAndSelect" onchange="general.onLanguageChanged(this.value)">
+                                <select id="langSelect" class="inputAndSelect" data-nodirty onchange="general.onLanguageChanged(this.value)">
                                     <option value="en" tr="GENERAL_OPT_EN"></option>
                                     <option value="fr" tr="GENERAL_OPT_FR"></option>
                                     <option value="de" tr="GENERAL_OPT_DE"></option>

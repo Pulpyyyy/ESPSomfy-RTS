@@ -441,6 +441,7 @@ class General {
                 } else {
                     this.posPresets = this.parsePosPresets(obj.posPresets) || this.posPresets;
                     ui.successMessage(tr('MSG_SAVE_SUCCESS'));
+                    navSaved();
                     if(DBG) console.log(response);
                 }
             });
@@ -464,6 +465,8 @@ class General {
         this.onSecurityTypeChanged();
     }
     rebootDevice() {
+        // The page reloads after the reboot: settle pending edits first.
+        if (!navConfirmLeave(() => this.rebootDevice())) return;
         ui.promptMessage(get('divContainer'), tr('PROMPT_REBOOT_CONFIRM'), () => {
             putJSONBusy('/reboot', {}, (err, response) => {
                 get('btnSaveGeneral').classList.remove('disabled');
@@ -483,6 +486,12 @@ class General {
     }
     onLanguageChanged(lang, reload = true) {
         const sel = get('langSelect');
+        // Switching reloads the page: other pending edits are saved or dropped first
+        // (the browser's own "leave site?" box used to come up instead).
+        if (reload && !navConfirmLeave(() => this.onLanguageChanged(lang, reload))) {
+            if (sel) sel.value = localStorage.getItem('selectedLang') || sel.value;
+            return;
+        }
         if (sel) sel.disabled = true;
         localStorage.setItem('selectedLang', lang);
 
@@ -504,21 +513,6 @@ class General {
             console.error("Language switch failed:", err);
             if (sel) sel.disabled = false;
         });
-    }
-    onModeThemeChanged() {
-        const sel = get('selThemeMode');
-        const val = sel.value;
-
-        localStorage.setItem('themeMode', val);
-
-        if (val === '1') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-        } else if (val === '2') {
-            document.documentElement.setAttribute('data-theme', 'light');
-        } else {
-            const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-        }
     }
     onSecurityTypeChanged() {
         let pnl = get('divSecurityOptions'),
@@ -566,6 +560,8 @@ class General {
                     // The token is derived from the credentials; adopt the new one first so
                     // the refresh below is sent with a valid session.
                     if (resp && typeof resp.apiKey !== 'undefined') security.apiKey = resp.apiKey;
+                    ui.successMessage(tr('MSG_SAVE_SUCCESS'));
+                    navSaved();
                     // Refresh the panel so typed secrets are cleared from the DOM
                     // and the presence placeholders reflect the new state.
                     getJSON('/getSecurity', (err, sec) => { if (!err) this.setSecurityConfig(sec); });
@@ -1132,6 +1128,7 @@ class Wifi {
                 ui.serviceError(err);
             } else {
                 ui.successMessage(tr('MSG_SAVE_SUCCESS'));
+                navSaved();
                 if(DBG) console.log(response);
             }
         });
@@ -1213,6 +1210,7 @@ class Wifi {
                 ui.serviceError(err);
             } else {
                 ui.successMessage(tr('MSG_SAVE_SUCCESS'));
+                navSaved();
                 if(DBG) console.log("Network settings updated:", response);
             }
         });

@@ -442,7 +442,17 @@ function navFieldLabel(t) {
 function navSyncSaveButtons() {
     document.querySelectorAll(NAV_SAVE_SEL).forEach(b => { b.disabled = !_navDirty; b.classList.toggle('save-idle', !_navDirty); });
     const bar = get('savebar');
-    if (bar) bar.hidden = !_navDirty;
+    if (bar) {
+        const appearing = _navDirty && bar.hidden;
+        bar.hidden = !_navDirty;
+        // Same verb as the page's own button: "Create" for a record not saved yet.
+        const own = navFindSaveButton(), sb = get('savebarSave');
+        if (appearing && sb) sb.textContent = own && own.id.startsWith('btnSave') && own.textContent.trim() ? own.textContent.trim() : tr('BT_SAVE');
+        // The bar comes up over the bottom of the screen, where the field being typed
+        // in often is (phones): bring that field back above it.
+        const a = document.activeElement;
+        if (appearing && a && a.matches && a.matches('input,select,textarea')) a.scrollIntoView({ block: 'nearest' });
+    }
     document.querySelectorAll('.nav-item[data-grpid]').forEach(a => a.classList.toggle('is-dirty', _navDirty && a.getAttribute('data-grpid') === _navPage));
     const f = get('savebarFields');
     if (f) {
@@ -452,8 +462,12 @@ function navSyncSaveButtons() {
 }
 function navSuppress() { _navSuppress = true; setTimeout(() => { _navSuppress = false; }, 900); }
 function navClearDirty() { _navDirty = false; _navDirtyFields.clear(); navSyncSaveButtons(); }
+// The theme applies (and is stored) the moment it is picked, so discarding the edits
+// must put back the one in use before them.
+let _navThemeBefore = null;
 function navMarkDirty(label) {
     if (_navSuppress) return;
+    if (!_navDirty) _navThemeBefore = localStorage.getItem('themeMode') || '0';
     _navDirty = true;
     if (label) _navDirtyFields.add(label);
     navSyncSaveButtons();
@@ -466,14 +480,22 @@ const NAV_STEPPER_SEL = '.step-buttons button, .radioBtnPrec';
 function navIsStepperClick(e) {
     return e.type === 'click' && e.isTrusted && !!(e.target && e.target.closest && e.target.closest(NAV_STEPPER_SEL));
 }
+// The edits count as saved when the board accepted them: every save function calls
+// navSaved() on success. Guessing it from "no error box 300 ms after the click"
+// cleared the flag on a field hint, a confirmation answered "No" or a late reply.
+// _navAfterSave: where the leave prompt's "Save" goes once the save went through.
+let _navAfterSave = null;
+function navSaved() {
+    navClearDirty();
+    const go = _navAfterSave;
+    _navAfterSave = null;
+    if (go) go();
+}
 function navGuardSetup() {
     navSyncSaveButtons();
-    // After a save click, consider the edits persisted unless a validation error
-    // surfaced (same heuristic as the leave-prompt Save path above).
+    // A save started by hand never carries an earlier, abandoned navigation along.
     document.addEventListener('click', (e) => {
-        const b = e.target && e.target.closest && e.target.closest(NAV_SAVE_SEL);
-        if (!b) return;
-        setTimeout(() => { if (!document.querySelector('.error-message')) navClearDirty(); }, 300);
+        if (e.target && e.target.closest && e.target.closest(NAV_SAVE_SEL)) _navAfterSave = null;
     }, true);
     const mark = (e) => {
         if (!e.isTrusted) return;                       // programmatic change events are not user edits
@@ -505,12 +527,34 @@ function navFindSaveButton() {
 // if they were the device's active settings.
 function navReloadPanels() {
     navSuppress();
+    // An open record keeps its own copy of the values: read it again from the board.
+    const openId = (pnl, span) => {
+        const p = get(pnl);
+        if (!p || p.style.display === 'none') return null;
+        const id = parseInt(get(span).innerText, 10);
+        return isNaN(id) || id >= 255 || (pnl === 'somfyRoom' && id === 0) ? undefined : id;   // undefined: a new, unsaved record
+    };
+    const shadeId = openId('somfyShade', 'spanShadeId');
+    const roomId = openId('somfyRoom', 'spanRoomId');
+    const groupId = openId('somfyGroup', 'spanGroupId');
+    const theme = _navThemeBefore;
+    _navThemeBefore = null;
     (async () => {
         try {
             await general.loadGeneral();
             await somfy.loadSomfy();
             const authed = (typeof security === 'undefined') || security.type === 0 || security.authenticated;
-            if (authed) { await wifi.loadNetwork(); await mqtt.loadMQTT(); }
+            if (authed) {
+                await wifi.loadNetwork(); await mqtt.loadMQTT();
+                getJSON('/getSecurity', (err, sec) => { if (!err) general.setSecurityConfig(sec); });
+            }
+            if (shadeId !== null) somfy.openEditShade(shadeId);
+            if (roomId !== null) somfy.openEditRoom(roomId);
+            if (groupId !== null) somfy.openEditGroup(groupId);
+            if (theme !== null && theme !== (localStorage.getItem('themeMode') || '0')) {
+                localStorage.setItem('themeMode', theme);
+                general.applyTheme(theme);
+            }
         } catch (err) { console.error(err); }
     })();
 }
@@ -530,18 +574,15 @@ function navConfirmLeave(proceed) {
     openDialog(div);
     const done = () => { closeDialog(div); div.remove(); };
     div.querySelector('#navCancel').onclick = done;
-    div.querySelector('#navDiscard').onclick = () => { navClearDirty(); done(); navReloadPanels(); proceed(); };
+    // proceed() first: a record it closes must not be reopened by the reload.
+    div.querySelector('#navDiscard').onclick = () => { navClearDirty(); done(); proceed(); navReloadPanels(); };
     div.querySelector('#navSave').onclick = () => {
         const b = navFindSaveButton(); done();
         if (!b) { navClearDirty(); proceed(); return; }
         b.click();
-        // Validation failures surface synchronously as an .error-message modal; in that
-        // case stay on the page (still dirty) so the user can fix the field instead of
-        // navigating away and silently losing the input.
-        setTimeout(() => {
-            if (document.querySelector('.error-message')) return;
-            navClearDirty(); proceed();
-        }, 60);
+        // Leave only once the board confirms (navSaved). A field error, a refused
+        // confirmation or a failed request keep the user on the page, edits intact.
+        _navAfterSave = proceed;
     };
     return false;
 }

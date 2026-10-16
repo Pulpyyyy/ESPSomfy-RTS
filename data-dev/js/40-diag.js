@@ -481,6 +481,7 @@ class MQTT {
                 ui.serviceError(err);
             } else {
                 ui.successMessage(tr('MSG_SAVE_SUCCESS'));
+                navSaved();
                 if(DBG) console.log(response);
             }
         });

@@ -292,6 +292,7 @@ class Somfy {
                     if (err) return ui.serviceError(err);
 
                     ui.successMessage(tr('MSG_SAVE_SUCCESS'));
+                    navSaved();
 
                     const init = res.config.radioInit,
                             cb = get('cbEnableRadio');
@@ -2050,6 +2051,13 @@ class Somfy {
             this.showEditGroup(true);
         });
     }
+    // "Close" of the shade, room and group records goes through the unsaved-changes
+    // guard like a page change; closing also drops the flag, or the save bar would
+    // stay up over the list with nothing left to save.
+    closeEditor(kind) {
+        const close = () => { navClearDirty(); this['showEdit' + kind](false); };
+        if (navConfirmLeave(close)) close();
+    }
     showEditRoom(bShow) {
         let el = get('divLinking');
         if (el) el.remove();
@@ -2127,6 +2135,7 @@ class Somfy {
                         get('btnSaveRoom').innerText = tr('BT_SAVE');
                         get('btnSaveRoom').style.display = 'inline-block';
                         this.updateRoomsList();
+                        navSaved();
                     }
                 });
             }
@@ -2138,6 +2147,7 @@ class Somfy {
                     } else {
                         ui.successMessage(tr('MSG_SAVE_SUCCESS'));
                         this.updateRoomsList();
+                        navSaved();
                     }
                     if(DBG) console.log(room);
                 });
@@ -2187,6 +2197,7 @@ class Somfy {
             ui.successMessage(msg);
             this.updateShadeList();
             this.openEditShade(shade.shadeId);
+            navSaved();
         });
     }
     saveGroup() {
@@ -2213,6 +2224,7 @@ class Somfy {
             ui.successMessage(msg);
             this.openEditGroup(group.groupId);
             this.updateGroupList();
+            navSaved();
         });
     }
     updateRoomsList() {
