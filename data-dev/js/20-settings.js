@@ -365,12 +365,15 @@ class General {
             document.querySelectorAll('.navFwVersion').forEach(el => { el.textContent = settings.fwVersion; });
             get('spanHwVersion').innerText = settings.chipModel.length > 0 ? '-' + settings.chipModel : '';
             get('divContainer').setAttribute('data-chipmodel', settings.chipModel);
+            this.posPresets = this.parsePosPresets(settings.posPresets) || General.POS_PRESETS_DEFAULT.slice();
+            this.posPresetsEdit = this.posPresets.slice();
 
             this.setAppVersion();
 
             loadLang(() => {
 
                 ui.toElement(pnl, { general: settings });
+                this.renderPosPresets();
 
                 const langSelect = get('langSelect');
                 if (langSelect) {
@@ -436,6 +439,7 @@ class General {
                 if (err) {
                     ui.serviceError(err);
                 } else {
+                    this.posPresets = this.parsePosPresets(obj.posPresets) || this.posPresets;
                     ui.successMessage(tr('MSG_SAVE_SUCCESS'));
                     if(DBG) console.log(response);
                 }
@@ -572,6 +576,73 @@ class General {
     }
     secError(title, desc) {
         ui.errorMessage(tr(title)).querySelector('.sub-message').innerHTML = tr(desc);
+    }
+    // Position presets: the shortcuts of the position panel, in % open, shared by
+    // every shade. posPresets is the saved list the panel uses; the Preferences
+    // editor works on a copy that reaches the device with the page's save.
+    static POS_PRESETS_DEFAULT = [0, 25, 50, 75, 100];
+    static POS_PRESETS_MAX = 6;
+    posPresets = General.POS_PRESETS_DEFAULT.slice();
+    posPresetsEdit = General.POS_PRESETS_DEFAULT.slice();
+    parsePosPresets(str) {
+        if (typeof str !== 'string' || str.trim() === '') return null;
+        const vals = str.split(',').map(x => x.trim());
+        if (vals.some(x => !/^\d{1,3}$/.test(x) || +x > 100)) return null;
+        const list = [...new Set(vals.map(Number))].sort((a, b) => a - b);
+        return list.length && list.length <= General.POS_PRESETS_MAX ? list : null;
+    }
+    posPresetLabel(v) {
+        return v === 0 ? tr('POS_CLOSED') : v === 100 ? tr('POS_OPEN') : `${v} %`;
+    }
+    renderPosPresets() {
+        const ul = get('posPresetList');
+        if (!ul) return;
+        const list = this.posPresetsEdit, last = list.length <= 1;
+        ul.innerHTML = list.map(v => `<li class="preset-item"><span>${esc(this.posPresetLabel(v))}</span>` +
+            `<button type="button" class="btn btn-icon preset-del" data-val="${v}"${last ? ' disabled' : ''} aria-label="${esc(trf('POSP_PRESETS_REMOVE', this.posPresetLabel(v)))}">` +
+            `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></li>`).join('');
+        ul.querySelectorAll('.preset-del').forEach(b => b.addEventListener('click', () => this.removePosPreset(+b.dataset.val)));
+        const full = list.length >= General.POS_PRESETS_MAX;
+        get('fldPosPresetNew').disabled = full;
+        get('btnPosPresetAdd').disabled = full;
+        get('fldPosPresets').value = list.join(',');
+        const msg = get('posPresetsMsg');
+        if (msg && !msg.classList.contains('is-error')) msg.textContent = full ? trf('POSP_PRESETS_FULL', General.POS_PRESETS_MAX) : trf('POSP_PRESETS_COUNT', list.length, General.POS_PRESETS_MAX);
+    }
+    posPresetMessage(key, isError) {
+        const msg = get('posPresetsMsg');
+        msg.classList.toggle('is-error', !!isError);
+        msg.textContent = tr(key);
+        get('fldPosPresetNew').setAttribute('aria-invalid', isError ? 'true' : 'false');
+    }
+    setPosPresetsEdit(list) {
+        this.posPresetsEdit = list;
+        get('posPresetsMsg').classList.remove('is-error');
+        get('fldPosPresetNew').setAttribute('aria-invalid', 'false');
+        this.renderPosPresets();
+        navMarkDirty(tr('POSP_PRESETS_TITLE'));
+    }
+    addPosPreset() {
+        const fld = get('fldPosPresetNew'), raw = fld.value.trim();
+        if (this.posPresetsEdit.length >= General.POS_PRESETS_MAX) return;
+        if (!/^\d{1,3}$/.test(raw) || +raw > 100) { this.posPresetMessage('POSP_PRESETS_INVALID', true); fld.focus(); return; }
+        if (this.posPresetsEdit.includes(+raw)) { this.posPresetMessage('POSP_PRESETS_DUP', true); fld.focus(); return; }
+        fld.value = '';
+        this.setPosPresetsEdit([...this.posPresetsEdit, +raw].sort((a, b) => a - b));
+        // Keep the keyboard where it was; once the list is full, land on it.
+        (fld.disabled ? get('posPresetList').querySelector('.preset-del') : fld).focus();
+    }
+    removePosPreset(v) {
+        if (this.posPresetsEdit.length <= 1) return;
+        const i = this.posPresetsEdit.indexOf(v);
+        this.setPosPresetsEdit(this.posPresetsEdit.filter(x => x !== v));
+        // Focus the next remove button, or the field, so it is not lost with the item.
+        const dels = get('posPresetList').querySelectorAll('.preset-del');
+        (dels[Math.min(i, dels.length - 1)] || get('fldPosPresetNew')).focus();
+    }
+    resetPosPresets() {
+        get('fldPosPresetNew').value = '';
+        this.setPosPresetsEdit(General.POS_PRESETS_DEFAULT.slice());
     }
     // Accent swatches (Preferences): previewed at once, stored with the other
     // general settings when the page is saved.

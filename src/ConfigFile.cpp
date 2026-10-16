@@ -815,6 +815,19 @@ bool ShadeConfigFile::readSettingsRecord() {
     } else {
       settings.language = 0; // Anglais par défaut pour les versions antérieures
     }
+    // Position presets were appended after the language without a format bump: older
+    // firmware skips them with the rest of the record. They are there when the language
+    // ended on a value separator; an older backup ends the record on it and restores
+    // the defaults.
+    strlcpy(settings.posPresets, POS_PRESETS_DEFAULT, sizeof(settings.posPresets));
+    if(this->header.version >= 25 && this->file.position() < startPos + this->header.settingsRecordSize) {
+      this->file.seek(this->file.position() - 1);
+      if(this->readChar() == CFG_VALUE_SEP) {
+        char presets[sizeof(settings.posPresets)] = "";
+        this->readVarString(presets, sizeof(presets));
+        settings.setPosPresets(presets);
+      }
+    }
     if(this->file.position() != startPos + this->header.settingsRecordSize) {
       Serial.println("Reading to end of settings record");
       this->seekChar(CFG_REC_END);
@@ -1122,7 +1135,8 @@ bool ShadeConfigFile::writeSettingsRecord() {
   this->writeVarString(settings.accentColor);
   this->writeBool(settings.ssdpBroadcast);
   this->writeBool(settings.checkForUpdate);
-  this->writeUInt8(settings.language,CFG_REC_END);
+  this->writeUInt8(settings.language);
+  this->writeVarString(settings.posPresets, CFG_REC_END);
   return true;
 }
 bool ShadeConfigFile::writeNetRecord() {

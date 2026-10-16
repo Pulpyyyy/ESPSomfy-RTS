@@ -208,6 +208,9 @@ bool ConfigSettings::load() {
   this->ssdpBroadcast = pref.getBool("ssdpBroadcast", true);
   this->checkForUpdate = pref.getBool("checkForUpdate", true);
   pref.getString("accentColor", this->accentColor, sizeof(this->accentColor));
+  char presets[sizeof(this->posPresets)] = "";
+  pref.getString("posPresets", presets, sizeof(presets));
+  if(!this->setPosPresets(presets)) strlcpy(this->posPresets, POS_PRESETS_DEFAULT, sizeof(this->posPresets));
   this->language = pref.getUChar("language", 0);
   this->swShowGpio = pref.getBool("swShowGpio", false);
   this->connType = static_cast<conn_types_t>(pref.getChar("connType", 0x00));
@@ -251,6 +254,7 @@ bool ConfigSettings::save() {
   pref.putChar("connType", static_cast<uint8_t>(this->connType));
   pref.putBool("checkForUpdate", this->checkForUpdate);
   pref.putString("accentColor", this->accentColor);
+  pref.putString("posPresets", this->posPresets);
   pref.putUChar("language", this->language);
   pref.putBool("swShowGpio", this->swShowGpio);
   pref.end();
@@ -265,6 +269,7 @@ bool ConfigSettings::toJSON(JsonObject &obj) {
   obj["checkForUpdate"] = this->checkForUpdate;
 
   obj["accentColor"] = this->accentColor;
+  obj["posPresets"] = this->posPresets;
   obj["swShowGpio"] = this->swShowGpio;
   return true;
 }
@@ -276,6 +281,7 @@ void ConfigSettings::toJSON(JsonResponse &json) {
   json.addElem("chipModel", this->chipModel);
   json.addElem("checkForUpdate", this->checkForUpdate);
   json.addElem("accentColor", this->accentColor);
+  json.addElem("posPresets", this->posPresets);
   json.addElem("swShowGpio", this->swShowGpio);
 }
 
@@ -297,6 +303,8 @@ bool ConfigSettings::fromJSON(JsonObject &obj) {
     if(obj.containsKey("language")) this->language = obj["language"].as<uint8_t>();
     if(obj.containsKey("checkForUpdate")) this->checkForUpdate = obj["checkForUpdate"];
     if(obj.containsKey("accentColor")) this->parseValueString(obj, "accentColor",this->accentColor, sizeof(this->accentColor));
+    // An invalid list keeps the current one.
+    if(obj.containsKey("posPresets") && obj["posPresets"].is<const char *>()) this->setPosPresets(obj["posPresets"].as<const char *>());
     if(obj.containsKey("swShowGpio")) this->swShowGpio = obj["swShowGpio"];
     return true;
 }
@@ -320,7 +328,36 @@ uint16_t ConfigSettings::calcSettingsRecSize() {
     + strlen(this->accentColor) + 3
     + 6  // ssdpBroadcast
     + 6  // checkForUpdate
-    + 4; // language
+    + 4  // language
+    + strlen(this->posPresets) + 3;
+}
+// Position presets: whole values 0 to 100, comma separated, at most POS_PRESETS_MAX once
+// duplicates are merged. Stored sorted. A list with a malformed item, too many values or
+// none at all is refused, so neither a bad request nor a forged backup can leave the
+// panel without shortcuts.
+bool ConfigSettings::setPosPresets(const char *val) {
+  if(!val) return false;
+  bool seen[101] = {false};
+  uint8_t count = 0;
+  const char *p = val;
+  while(*p) {
+    while(*p == ' ') p++;
+    int v = 0, digits = 0;
+    while(*p >= '0' && *p <= '9') { if(digits < 4) v = v * 10 + (*p - '0'); digits++; p++; }
+    while(*p == ' ') p++;
+    if(digits == 0 || v > 100 || (*p != ',' && *p != 0)) return false;
+    if(!seen[v]) { seen[v] = true; count++; }
+    if(*p == ',') p++;
+  }
+  if(count == 0 || count > POS_PRESETS_MAX) return false;
+  char out[sizeof(this->posPresets)] = "";
+  size_t len = 0;
+  for(int v = 0; v <= 100; v++) {
+    if(!seen[v]) continue;
+    len += snprintf(out + len, sizeof(out) - len, len ? ",%d" : "%d", v);
+  }
+  strlcpy(this->posPresets, out, sizeof(this->posPresets));
+  return true;
 }
 uint16_t ConfigSettings::calcNetRecSize() {
   return 4 // connType

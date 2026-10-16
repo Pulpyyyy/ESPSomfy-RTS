@@ -451,6 +451,7 @@ function navGuardSetup() {
         if (t.closest('#divUnauthenticated')) return;  // nothing on the login screen counts
         if (t.closest('#divHomePnl, #divVirtualRemote, #divRFDiagnostics, #divFrameLog')) return;  // these act immediately, there is nothing to save
         if (t.closest('.inst-overlay, .prompt-message, .info-message')) return;  // dialogs carry their own buttons
+        if (t.closest('[data-nodirty]')) return;        // a draft value that only counts once added
         navMarkDirty(t.classList.contains('pin-digit') ? tr('SECURITY_PIN_CODE') : navFieldLabel(t));
     };
     document.addEventListener('input', mark, true);

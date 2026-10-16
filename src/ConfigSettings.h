@@ -171,9 +171,13 @@ class MQTTSettings: BaseSettings {
     void toJSON(JsonResponse &json);
     bool fromJSON(JsonObject &obj);
 };
+// Shortcuts of the position panel, in % open. Shared by every shade.
+#define POS_PRESETS_DEFAULT "0,25,50,75,100"
+#define POS_PRESETS_MAX 6
 class ConfigSettings: BaseSettings {
   public:
     static void printAvailHeap();
+    bool setPosPresets(const char *val);
     char serverId[10] = "";
     // Random HMAC key for API tokens, generated once and persisted in NVS.
     // Never exposed via any endpoint or JSON (unlike serverId).
@@ -181,6 +185,7 @@ class ConfigSettings: BaseSettings {
     char hostname[32] = "ESPSomfyRTS";
     char chipModel[10] = "ESP32";
     char accentColor[8] = "#1a5fb4";
+    char posPresets[24] = POS_PRESETS_DEFAULT; // "a,b,c", see setPosPresets()
     conn_types_t connType = conn_types_t::unset;
     appver_t fwVersion;
     appver_t appVersion;

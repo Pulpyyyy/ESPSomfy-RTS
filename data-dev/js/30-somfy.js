@@ -1232,106 +1232,270 @@ class Somfy {
             putJSONBusy('/groupSortOrder', order, () => this.updateGroupList());
         });
     }
-    closeShadePositioners() {
-        let ctls = document.querySelectorAll('.shade-positioner');
-        for (let i = 0; i < ctls.length; i++) {
-            if(DBG) console.log('Closing shade positioner');
-            ctls[i].remove();
-        }
+    // --- Position panel ---------------------------------------------------------
+    // One panel for both things the tile leads to: moving the shade (tap on the apron)
+    // and recording its My position (star button, or My held 2 s). It replaces two
+    // sliders as wide as the tile, about 1.3 px per % on a phone, with a tall apron to
+    // pull, presets and 1 % steps. Values read as % open, like the tile; the API keeps
+    // its own orientation and shadeOpenness, its own inverse, converts both ways.
+    // Tilt-only shades drive their tilt with the apron, in the API's own scale.
+    closeShadePositioners() { this.closePosPanel(); }
+    openSetPosition(shadeId) { this.openPosPanel(shadeId, 'move'); }
+    openSetMyPosition(shadeId) { this.openPosPanel(shadeId, 'my'); }
+    posShade(shadeId) {
+        const d = document.querySelector(`.somfyShadeCtl[data-shadeid="${shadeId}"]`);
+        if (!d) return null;
+        const num = (a, dflt) => { const v = parseInt(d.getAttribute(a), 10); return isNaN(v) ? dflt : v; };
+        const flip = makeBool(d.getAttribute('data-flipposition'));
+        const tiltType = num('data-tilt', 0);
+        const pos = num('data-position', 0), tilt = num('data-tiltposition', 0), myPos = num('data-mypos', -1);
+        const s = {
+            d, flip, tiltType,
+            tiltOnly: tiltType === 3,
+            name: d.querySelector('.tile-name')?.textContent || '',
+            status: d.querySelector('.val-pos')?.textContent || '',
+            moving: num('data-direction', 0) !== 0 || num('data-tiltdirection', 0) !== 0,
+            tilt: tilt,
+            myTilt: num('data-mytiltpos', -1)
+        };
+        // The main axis: the travel, or the tilt of a tilt-only shade.
+        if (s.tiltOnly) Object.assign(s, { cur: tilt, target: num('data-tilttarget', tilt), my: s.myTilt });
+        else Object.assign(s, {
+            cur: shadeOpenness(pos, flip),
+            target: shadeOpenness(num('data-target', pos), flip),
+            my: myPos >= 0 ? shadeOpenness(myPos, flip) : -1
+        });
+        return s;
     }
-    openSetMyPosition(shadeId) {
+    openPosPanel(shadeId, tab) {
         if (typeof shadeId === 'undefined') return;
+        const s = this.posShade(shadeId);
+        if (!s || this.isPulseType(s.d.getAttribute('data-shadetype'))) return;
+        this.closePosPanel();
+        const hasTilt = !s.tiltOnly && s.tiltType > 0;
+        const el = document.createElement('div');
+        el.className = 'pos-scrim';
+        el.setAttribute('data-shadeid', shadeId);
+        el.innerHTML = `
+        <div class="pos-sheet">
+        <div class="pos-grabber" aria-hidden="true"></div>
+        <div class="pos-head">
+        <div class="pos-head-text"><h2 class="pos-title">${esc(s.name)}</h2><span class="pos-state" aria-live="polite"></span></div>
+        <button type="button" class="pos-close" aria-label="${esc(tr('BT_CLOSE'))}"><svg aria-hidden="true"><use href="#svg-close"></use></svg></button>
+        </div>
+        <div class="pos-tabs" role="tablist">
+        <button type="button" role="tab" class="pos-tab" data-tab="move">${esc(tr('POSP_GO_TO'))}</button>
+        <button type="button" role="tab" class="pos-tab" data-tab="my"><svg aria-hidden="true"><use href="#svg-favori"></use></svg>${esc(tr('POSP_MY_TAB'))}</button>
+        </div>
+        <div class="pos-body">
+        <div class="pos-apron-wrap">
+        <div class="pos-apron" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(trf(s.tiltOnly ? 'POSP_SLIDER_TILT' : 'POSP_SLIDER', s.name))}">
+        <span class="shutter"></span>
+        <span class="pos-now"><span></span></span>
+        <span class="pos-grip"></span>
+        </div>
+        <span class="pos-pin" aria-hidden="true"><svg><use href="#svg-favori"></use></svg>My</span>
+        </div>
+        <div class="pos-side">
+        <div class="pos-readout"><span class="pos-big"><span class="pos-val"></span><small> %</small></span><span class="pos-what">${esc(tr(s.tiltOnly ? 'POSP_TILT' : 'POSP_OPEN_PCT'))}</span></div>
+        <div class="pos-chips"></div>
+        <div class="pos-steps">
+        <button type="button" class="pos-chip" data-step="-5">−5</button>
+        <button type="button" class="pos-chip" data-step="-1">−1</button>
+        <button type="button" class="pos-chip" data-step="1">+1</button>
+        <button type="button" class="pos-chip" data-step="5">+5</button>
+        </div>
+        <p class="pos-note"></p>
+        </div>
+        </div>
+        ${hasTilt ? `
+        <div class="pos-tilt">
+        <div class="pos-tilt-head"><span>${esc(tr('POSP_TILT'))}</span><span><b class="pos-tilt-val"></b> %</span></div>
+        <div class="pos-tilt-ctl">
+        <button type="button" class="pos-chip" data-tstep="-1" aria-label="${esc(tr('POSP_TILT_MINUS'))}">−1</button>
+        <input type="range" class="pos-tilt-range" min="0" max="100" step="1" aria-label="${esc(tr('POSP_TILT'))}">
+        <button type="button" class="pos-chip" data-tstep="1" aria-label="${esc(tr('POSP_TILT_PLUS'))}">+1</button>
+        </div>
+        </div>` : ''}
+        <div class="pos-mybox"><p class="pos-mytext"></p><button type="button" class="pos-mybtn"></button></div>
+        <div class="pos-foot"><button type="button" class="pos-link"><svg aria-hidden="true"><use href="#svg-favori"></use></svg>${esc(tr('POSP_AS_MY'))}</button></div>
+        </div>`;
+        document.body.appendChild(el);
+        const p = this.pos = { shadeId, el, tab: 'move', sel: 0, tilt: 0, sendT: null, tiltT: null, dragging: false };
+        const q = (c) => el.querySelector(c);
+        const apron = q('.pos-apron');
 
-        const shade = document.querySelector(`.somfyShadeCtl[data-shadeid="${shadeId}"]`);
-        if (!shade) return;
+        el.addEventListener('click', (e) => { e.stopPropagation(); if (e.target === el) this.closePosPanel(); });
+        el.addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'Esc') { e.preventDefault(); this.closePosPanel(); } });
+        q('.pos-close').addEventListener('click', () => this.closePosPanel());
+        el.querySelectorAll('.pos-tab').forEach(b => b.addEventListener('click', () => this.setPosTab(b.dataset.tab)));
+        q('.pos-chips').addEventListener('click', (e) => {
+            const b = e.target.closest('.pos-chip[data-val]');
+            if (b && !b.disabled) this.setPosSel(parseInt(b.dataset.val, 10), 'now');
+        });
+        el.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => this.setPosSel(p.sel + parseInt(b.dataset.step, 10), 'later')));
 
-        const arrowUse = shade.querySelector('.handle-icon use');
-
-        document.querySelectorAll('.shade-positioner').forEach(el => {
-            el.remove();
-            document.querySelectorAll('.handle-icon use').forEach(u => u.setAttribute('href', '#svg-arrowRight'));
+        // The apron is tall enough for an absolute mapping: where the finger is, the
+        // bottom of the apron goes. The order leaves on release only.
+        const fromY = (e) => { const r = apron.getBoundingClientRect(); return 100 - Math.max(0, Math.min(100, (e.clientY - r.top) / r.height * 100)); };
+        apron.addEventListener('pointerdown', (e) => {
+            if (e.button > 0) return;
+            p.dragging = true;
+            try { apron.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
+            this.setPosSel(fromY(e));
+        });
+        apron.addEventListener('pointermove', (e) => { if (p.dragging) this.setPosSel(fromY(e)); });
+        apron.addEventListener('pointerup', () => { if (!p.dragging) return; p.dragging = false; if (p.tab === 'move') this.setPosSel(p.sel, 'now'); });
+        apron.addEventListener('pointercancel', () => { p.dragging = false; });
+        apron.addEventListener('keydown', (e) => {
+            const k = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key];
+            if (k) this.setPosSel(p.sel + k, 'later');
+            else if (e.key === 'Home') this.setPosSel(0, 'later');
+            else if (e.key === 'End') this.setPosSel(100, 'later');
+            else return;
+            e.preventDefault();
         });
 
-        const currPos = parseInt(shade.getAttribute('data-position'), 10) || 0;
-        const currTiltPos = parseInt(shade.getAttribute('data-tiltposition'), 10) || 0;
-        const myPos = parseInt(shade.getAttribute('data-mypos'), 10);
-        const myTiltPos = parseInt(shade.getAttribute('data-mytiltpos'), 10);
-        const tiltType = parseInt(shade.getAttribute('data-tilt'), 10) || 0;
-        const lbl = makeBool(shade.getAttribute('data-flipposition')) ? `% ${tr('POPUP_OPEN')}` : `% ${tr('POPUP_CLOSED')}`;
+        if (hasTilt) {
+            const range = q('.pos-tilt-range');
+            const setTilt = (v, how) => {
+                p.tilt = Math.max(0, Math.min(100, v));
+                range.value = p.tilt;
+                q('.pos-tilt-val').textContent = p.tilt;
+                if (p.tab !== 'move') { this.renderPosPanel(); return; }
+                clearTimeout(p.tiltT); p.tiltT = null;
+                if (how === 'now') this.sendTiltCommand(shadeId, p.tilt);
+                else if (how === 'later') p.tiltT = setTimeout(() => { p.tiltT = null; this.sendTiltCommand(shadeId, p.tilt); }, 600);
+            };
+            range.addEventListener('input', () => setTilt(parseInt(range.value, 10)));
+            range.addEventListener('change', () => setTilt(parseInt(range.value, 10), 'now'));
+            el.querySelectorAll('[data-tstep]').forEach(b => b.addEventListener('click', () => setTilt(p.tilt + parseInt(b.dataset.tstep, 10), 'later')));
+        }
 
-        const positionSlider = (tiltType !== 3) ? `
-        <div class="slider-group">
-        <div class="slider-header"><span class="title">${tr('POPUP_TARGET_POSITION')}</span><span class="val"><span id="spanShadeTarget">${currPos}</span> ${lbl}</span></div>
-        <input id="slidShadeTarget" type="range" min="0" max="100" step="1" value="${currPos}" oninput="get('spanShadeTarget').innerHTML=this.value;">
-        </div>` : '';
+        q('.pos-mybtn').addEventListener('click', () => {
+            const cur = this.posShade(shadeId);
+            if (!cur || cur.moving) return;
+            const pos = cur.tiltOnly ? 0 : shadeOpenness(p.sel, cur.flip);
+            const tilt = cur.tiltOnly ? p.sel : (cur.tiltType > 0 ? p.tilt : 0);
+            this.closePosPanel();
+            this.sendShadeMyPosition(shadeId, pos, tilt);
+        });
+        // Set the shade where it should be, see it for real, then keep that as My:
+        // the firmware records it without a second move when it is already there.
+        q('.pos-link').addEventListener('click', () => {
+            this.flushPosSend();
+            const keep = p.sel, keepTilt = p.tilt;
+            this.setPosTab('my');
+            p.sel = keep; p.tilt = keepTilt;
+            this.renderPosPanel();
+        });
 
-        const tiltSlider = (tiltType > 0) ? `
-        <div class="slider-group">
-        <div class="slider-header"><span class="title">${tr('POPUP_TARGET_TILT_POSITION')}</span><span class="val"><span id="spanShadeTiltTarget">${currTiltPos}</span> ${lbl}</span></div>
-        <input id="slidShadeTiltTarget" type="range" min="0" max="100" step="1" value="${currTiltPos}" oninput="get('spanShadeTiltTarget').innerHTML=this.value;">
-        </div>` : '';
+        openDialog(el);
+        this.setPosTab(tab, true);
+        apron.focus();
+    }
+    closePosPanel() {
+        const p = this.pos;
+        if (!p) return;
+        this.flushPosSend();
+        this.pos = null;
+        closeOverlay(p.el);
+    }
+    setPosTab(tab, init) {
+        const p = this.pos, s = p && this.posShade(p.shadeId);
+        if (!s) return;
+        p.tab = tab;
+        p.el.querySelectorAll('.pos-tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+        const here = s.moving ? s.target : s.cur;
+        p.sel = (tab === 'my' && init && s.my >= 0) ? s.my : here;
+        p.tilt = (tab === 'my' && init && s.myTilt >= 0) ? s.myTilt : s.tilt;
+        // Presets: the list set in Preferences, then My, or the current position when recording My.
+        // Rebuilt per tab only, so keyboard focus survives the live updates.
+        const ends = s.tiltOnly ? ['0', '100'] : [tr('POS_CLOSED'), tr('POS_OPEN')];
+        const chip = (label, val, aria) => `<button type="button" class="pos-chip" data-val="${val}"${aria ? ` aria-label="${esc(aria)}"` : ''}>${label}</button>`;
+        const presets = (typeof general !== 'undefined' && general.posPresets) || [0, 25, 50, 75, 100];
+        let html = presets.map(v => chip(v === 0 ? esc(ends[0]) : v === 100 ? esc(ends[1]) : String(v), v)).join('');
+        const star = '<svg aria-hidden="true"><use href="#svg-favori"></use></svg>';
+        if (tab === 'my') html += chip(esc(tr('POSP_CURRENT')), here, trf('POSP_CURRENT_A11Y', here));
+        else if (s.my >= 0) html += chip(`${star}${s.my}`, s.my, trf('POSP_GO_MY', s.my));
+        else html += `<button type="button" class="pos-chip" disabled aria-label="${esc(tr('POSP_NO_MY'))}">${star}—</button>`;
+        p.el.querySelector('.pos-chips').innerHTML = html;
+        this.renderPosPanel();
+    }
+    setPosSel(v, how) {
+        const p = this.pos;
+        if (!p) return;
+        p.sel = Math.max(0, Math.min(100, Math.round(v)));
+        if (p.tab === 'move' && how) {
+            clearTimeout(p.sendT); p.sendT = null;
+            // Steps and keys are batched: one radio order instead of one per press.
+            if (how === 'now') this.sendPosTarget(p.sel);
+            else p.sendT = setTimeout(() => { p.sendT = null; this.sendPosTarget(p.sel); }, 600);
+        }
+        this.renderPosPanel();
+    }
+    sendPosTarget(v) {
+        const p = this.pos, s = p && this.posShade(p.shadeId);
+        if (!s || (!s.moving && v === s.cur)) return;
+        if (s.tiltOnly) this.sendTiltCommand(p.shadeId, v);
+        else this.sendCommand(p.shadeId, shadeOpenness(v, s.flip));
+    }
+    flushPosSend() {
+        const p = this.pos;
+        if (!p) return;
+        if (p.sendT) { clearTimeout(p.sendT); p.sendT = null; this.sendPosTarget(p.sel); }
+        if (p.tiltT) { clearTimeout(p.tiltT); p.tiltT = null; this.sendTiltCommand(p.shadeId, p.tilt); }
+    }
+    renderPosPanel() {
+        const p = this.pos;
+        if (!p) return;
+        const s = this.posShade(p.shadeId);
+        if (!s) { this.closePosPanel(); return; }
+        const el = p.el, q = (c) => el.querySelector(c), v = p.sel, my = p.tab === 'my';
+        q('.pos-val').textContent = v;
+        q('.pos-apron .shutter').style.height = (100 - v) + '%';
+        q('.pos-grip').style.top = (100 - v) + '%';
+        const apron = q('.pos-apron');
+        apron.setAttribute('aria-valuenow', v);
+        apron.setAttribute('aria-valuetext', s.tiltOnly ? `${v} %` : trf('POSP_VALUETEXT', v));
+        const now = q('.pos-now');
+        now.hidden = !s.moving && s.cur === v;
+        now.style.top = (100 - s.cur) + '%';
+        now.firstElementChild.textContent = trf('POSP_NOW', s.cur);
+        const pin = q('.pos-pin');
+        pin.hidden = s.my < 0;
+        if (s.my >= 0) pin.style.top = (100 - s.my) + '%';
+        const st = q('.pos-state');
+        st.textContent = s.status;
+        st.classList.toggle('is-moving', s.moving);
+        el.querySelectorAll('.pos-chips .pos-chip').forEach(b => b.setAttribute('aria-pressed', parseInt(b.dataset.val, 10) === v ? 'true' : 'false'));
 
-        const div = document.createElement('div');
-        div.className = 'shade-positioner shade-positioner-popup';
-        div.setAttribute('data-shadeid', shadeId);
-        div.onclick = (e) => e.stopPropagation();
-        div.innerHTML = `
-        <div class="shade-positioner-inner">
-        ${positionSlider}${tiltSlider}
-        <div class="popup-actions">
-        <button id="btnSetMyPosition" pop type="button">${tr("BT_SET_MY_POSITION")}</button>
-        <button id="btnCancelMy" pop line type="button">${tr("BT_CANCEL_1")}</button>
-        </div>
-        </div>`;
+        const range = q('.pos-tilt-range');
+        if (range) {
+            // In "move" the tilt follows the shade, unless the slider is in use.
+            if (!my && document.activeElement !== range && !p.tiltT) p.tilt = s.tilt;
+            if (document.activeElement !== range) range.value = p.tilt;
+            q('.pos-tilt-val').textContent = p.tilt;
+        }
 
-        shade.appendChild(div);
-        if (arrowUse) arrowUse.setAttribute('href', '#svg-arrowLeft');
-
-        const animateClose = () => {
-            div.classList.add('popup-slide-out');
-            if (arrowUse) arrowUse.setAttribute('href', '#svg-arrowRight');
-            setTimeout(() => { div.remove(); }, 300);
-        };
-        const elTarget = div.querySelector('#slidShadeTarget');
-        const elTiltTarget = div.querySelector('#slidShadeTiltTarget');
-        const elBtnSave = div.querySelector('#btnSetMyPosition');
-        const elBtnCancel = div.querySelector('#btnCancelMy');
-        const fnUpdateUI = () => {
-            const pos = elTarget ? parseInt(elTarget.value, 10) : 0;
-            const tilt = elTiltTarget ? parseInt(elTiltTarget.value, 10) : 0;
-            const isSameAsMy = (tiltType === 3) ? (tilt === myTiltPos) : (pos === myPos && (tiltType === 0 || tilt === myTiltPos));
-
-            if (isSameAsMy) {
-                elBtnSave.innerHTML = tr('BT_CLEAR_MY_POSITION');
-                elBtnSave.style.background = 'var(--txtwarning-color)';
-            } else {
-                elBtnSave.innerHTML = tr('BT_SET_MY_POSITION');
-                elBtnSave.style.background = '';
-            }
-        };
-        if (elTarget) elTarget.oninput = () => {
-            get('spanShadeTarget').innerHTML = elTarget.value;
-            fnUpdateUI();
-        };
-        if (elTiltTarget) elTiltTarget.oninput = () => {
-            get('spanShadeTiltTarget').innerHTML = elTiltTarget.value;
-            fnUpdateUI();
-        };
-
-        elBtnCancel.onclick = (e) => { e.preventDefault(); animateClose(); };
-        elBtnSave.onclick = (e) => {
-            e.preventDefault();
-            const pos = elTarget ? parseInt(elTarget.value, 10) : 0;
-            const tilt = elTiltTarget ? parseInt(elTiltTarget.value, 10) : 0;
-            somfy.sendShadeMyPosition(shadeId, pos, tilt);
-            animateClose();
-        };
-
-        setTimeout(() => {
-            document.body.addEventListener('click', animateClose, { once: true });
-        }, 100);
-
-        fnUpdateUI();
+        q('.pos-mybox').hidden = !my;
+        q('.pos-foot').hidden = my;
+        q('.pos-note').textContent = tr(my ? 'POSP_NOTE_MY' : 'POSP_NOTE_MOVE');
+        if (my) {
+            const withTilt = !s.tiltOnly && s.tiltType > 0;
+            // Mirrors SomfyShade::setMyPosition: ignored while moving; asking for the
+            // current My clears it; elsewhere the shade moves first, then records.
+            const clear = s.my >= 0 && v === s.my && (!withTilt || p.tilt === s.myTilt);
+            const here = v === s.cur && (!withTilt || p.tilt === s.tilt);
+            const btn = q('.pos-mybtn');
+            btn.disabled = s.moving;
+            btn.classList.toggle('is-clear', clear);
+            btn.textContent = clear ? tr('POSP_CLEAR_MY') : trf('POSP_SAVE_MY', v);
+            q('.pos-mytext').textContent = s.moving ? tr('POSP_MY_BUSY')
+                : clear ? tr('POSP_MY_CLEAR') + (s.cur !== s.my ? ' ' + trf('POSP_MY_CLEAR_GO', s.my) : '')
+                : here ? tr('POSP_MY_HERE')
+                : trf('POSP_MY_MOVE', v);
+        }
     }
     sendShadeMyPosition(shadeId, pos, tilt) {
         if(DBG) console.log(`Sending My Position for shade id ${shadeId} to ${pos} and ${tilt}`);
@@ -1453,6 +1617,7 @@ class Somfy {
             }
             this.renderTileState(d);
         });
+        if (this.pos && this.pos.shadeId === sId) this.renderPosPanel();
         this.updateHomeSummary();
     }
     procRemoteFrame(frame) {
@@ -2700,20 +2865,6 @@ class Somfy {
         let lvls = [-30, -20, -15, -10, -6, 0, 5, 7, 10, 11, 12];
         get('spanTxPower').innerText = lvls[el.value];
     }
-    processShadeTarget(el, shadeId) {
-        let positioner = document.querySelector(`.shade-positioner[data-shadeid="${shadeId}"]`);
-        if (positioner) {
-            positioner.querySelector(`.shade-target`).innerHTML = el.value;
-            somfy.sendCommand(shadeId, el.value);
-        }
-    }
-    processShadeTiltTarget(el, shadeId) {
-        let positioner = document.querySelector(`.shade-positioner[data-shadeid="${shadeId}"]`);
-        if (positioner) {
-            positioner.querySelector(`.shade-tilt-target`).innerHTML = el.value;
-            somfy.sendTiltCommand(shadeId, el.value);
-        }
-    }
     openSelectRoom() {
         this.closeShadePositioners();
         if(DBG) console.log('Opening rooms');
@@ -2721,80 +2872,6 @@ class Somfy {
         list.style.display = 'block';
         document.body.addEventListener('click', () => {
             list.style.display = '';
-        }, { once: true });
-    }
-    openSetPosition(shadeId) {
-        if(DBG) console.log('Opening Shade Positioner');
-        if (typeof shadeId === 'undefined') return;
-
-        let shade = document.querySelector(`.somfyShadeCtl[data-shadeid="${shadeId}"]`);
-        if (!shade) return;
-
-        let arrowUse = shade.querySelector('.handle-icon use');
-        let existing = shade.querySelector('.shade-positioner');
-
-        if (existing) {
-            existing.classList.add('popup-slide-out');
-            if (arrowUse) arrowUse.setAttribute('href', '#svg-arrowRight');
-            setTimeout(() => { existing.remove(); }, 300);
-            return;
-        }
-        document.querySelectorAll('.shade-positioner').forEach(el => {
-            el.remove();
-            document.querySelectorAll('.handle-icon use').forEach(u => u.setAttribute('href', '#svg-arrowRight'));
-        });
-        switch (parseInt(shade.getAttribute('data-shadetype'), 10)) {
-            case 5: case 9: case 10: case 14: case 15: case 16: return;
-        }
-
-        let tiltType = parseInt(shade.getAttribute('data-tilt'), 10) || 0;
-        let currPos = parseInt(shade.getAttribute('data-target'), 10) || 0;
-        let currTiltPos = parseInt(shade.getAttribute('data-tilttarget'), 10) || 0;
-        let lbl = makeBool(shade.getAttribute('data-flipposition')) ? `% ${tr('POPUP_OPEN')}` : `% ${tr('POPUP_CLOSED')}`;
-
-        const positionSlider = (tiltType !== 3) ? `
-        <div class="slider-group">
-        <div class="slider-header">
-        <span class="title">${tr('POPUP_TARGET_POSITION')}</span>
-        <span class="val"><span id="spanShadeTarget" class="shade-target">${currPos}</span> ${lbl}</span>
-        </div>
-        <input id="slidShadeTarget" name="shadeTarget" type="range" min="0" max="100" step="1" value="${currPos}" onchange="somfy.processShadeTarget(this, ${shadeId});" oninput="get('spanShadeTarget').innerHTML = this.value;" />
-        </div>` : '';
-
-        const tiltSlider = (tiltType > 0) ? `
-        <div class="slider-group" ${(tiltType !== 3) ? 'style="margin-top:10px;"' : ''}>
-        <div class="slider-header">
-        <span class="title">${tr('POPUP_TARGET_TILT_POSITION')}</span>
-        <span class="val"><span id="spanShadeTiltTarget" class="shade-tilt-target">${currTiltPos}</span> ${lbl}</span>
-        </div>
-        <input id="slidShadeTiltTarget" name="shadeTarget" type="range" min="0" max="100" step="1" value="${currTiltPos}" onchange="somfy.processShadeTiltTarget(this, ${shadeId});" oninput="get('spanShadeTiltTarget').innerHTML = this.value;" />
-        </div>` : '';
-
-        let div = document.createElement('div');
-        div.setAttribute('class', 'shade-positioner shade-positioner-popup');
-        div.setAttribute('data-shadeid', shadeId);
-        div.onclick = (event) => { event.stopPropagation(); };
-
-        div.innerHTML = `
-        <div class="shade-positioner-inner">
-        ${positionSlider}
-        ${tiltSlider}
-        </div>`;
-
-        shade.appendChild(div);
-        if (arrowUse) arrowUse.setAttribute('href', '#svg-arrowLeft');
-
-        document.body.addEventListener('click', () => {
-            let ctls = document.querySelectorAll('.shade-positioner');
-            ctls.forEach(ctl => {
-                ctl.classList.add('popup-slide-out');
-                let parentShade = ctl.closest('.somfyShadeCtl');
-                if (parentShade) {
-                    let u = parentShade.querySelector('.handle-icon use');
-                    if (u) u.setAttribute('href', '#svg-arrowRight');
-                }
-                setTimeout(() => { ctl.remove(); }, 300);
-            });
         }, { once: true });
     }
 }

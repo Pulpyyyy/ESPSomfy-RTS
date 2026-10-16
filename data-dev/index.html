@@ -1679,6 +1679,21 @@
 </div>
                             </div>
                         </div>
+                        <div class="unibloc">
+<h2 class="card-title" id="hPosPresets" tr="POSP_PRESETS_TITLE">Préréglages de position</h2>
+                            <p class="preset-help" id="posPresetsHelp" tr="POSP_PRESETS_HELP">Raccourcis du panneau de position, en % d’ouverture. Le bouton My s’ajoute toujours à la suite.</p>
+                            <ul class="preset-list" id="posPresetList" aria-labelledby="hPosPresets" aria-describedby="posPresetsHelp"></ul>
+                            <div class="preset-add" data-nodirty>
+                                <label class="label" for="fldPosPresetNew" tr="POSP_PRESETS_NEW">Nouvelle valeur (% ouvert)</label>
+                                <div class="preset-add-row">
+                                    <input id="fldPosPresetNew" class="inputAndSelect" type="number" min="0" max="100" step="1" inputmode="numeric" aria-describedby="posPresetsMsg" onkeydown="if (event.key === 'Enter') { event.preventDefault(); general.addPosPreset(); }">
+                                    <button id="btnPosPresetAdd" type="button" class="btn" onclick="general.addPosPreset();" tr="POSP_PRESETS_ADD">Ajouter</button>
+                                </div>
+                                <p class="preset-msg" id="posPresetsMsg" role="status" aria-live="polite"></p>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-ghost" onclick="general.resetPosPresets();" tr="POSP_PRESETS_RESET">Valeurs par défaut</button>
+                            <input id="fldPosPresets" name="posPresets" type="hidden" data-bind="general.posPresets"/>
+                        </div>
                         <div class="footer-overlay">
                             <button id="btnRebootGeneral" type="button" line onclick="general.rebootDevice();" tr="BT_REBOOT"></button>
                             <button id="btnSaveGeneral" type="button" tr="BT_SAVE" onclick="general.setGeneral();" ></button>

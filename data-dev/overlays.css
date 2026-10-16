@@ -1105,91 +1105,117 @@ cursor: pointer;
 .divEditDelete-svg:hover {
     opacity: 0.7;
 }
-/*Popup openSetMyPosition and openSetPosition*/
-.shade-positioner {
-    position: absolute;
-    width: 100%;
-    background: #fcfcfc;
-    color: gray;
-    padding: 7px;
-    z-index: 100;
-    height: 100%;
+/* Position panel (somfy.openPosPanel): a bottom sheet on phones, a centred dialog
+   from 700px. The apron is drawn with the tile's .shutter, only taller. Buttons reset
+   the global button look (full width, accent fill) to the panel's own controls. */
+.pos-scrim {
+    position: fixed; inset: 0; z-index: var(--z-modal);
+    display: flex; align-items: flex-end; justify-content: center;
+    background: rgb(8 11 15 / .5);
+    animation: posFade .2s ease-out;
 }
-.shade-positioner-popup {
-    animation: slideFromLeft 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-    position: absolute;
-    left: 16px;
-    top: 0;
-    width: calc(100% - 16px);
-    height: 100%;
-    z-index: 100;
-    background: var(--unibloc-color);
+@keyframes posFade { from { opacity: 0; } }
+.pos-sheet {
+    width: 100%; max-width: 560px; max-height: 94%; overflow: auto; overscroll-behavior: contain;
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 8px max(18px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+    border-radius: 22px 22px 0 0; background: var(--surface); color: var(--ink);
+    box-shadow: 0 12px 40px rgb(0 0 0 / .3);
+    animation: posRise .28s cubic-bezier(.2, .8, .2, 1);
 }
-.shade-positioner-inner {
-    justify-content: center;
-    height: 100%;
-    width: 100%;
-    padding: 0 var(--sp-16);
+@keyframes posRise { from { transform: translateY(40px); opacity: 0; } }
+/* Several parts below are flex or grid; hidden must still win over them. */
+.pos-sheet [hidden] { display: none !important; }
+@media (min-width: 700px) {
+    .pos-scrim { align-items: center; }
+    .pos-sheet { border-radius: 22px; padding-top: 18px; }
+    .pos-grabber { display: none; }
 }
-    .popup-actions {
-        display:flex;
-        justify-content: flex-end;
-        gap: var(--sp-8);
-    }
-.slider-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    width: 100%;
-    margin-bottom: 3px;
+.pos-grabber { width: 40px; height: 4px; border-radius: var(--radius-round); background: var(--line); margin: 0 auto 2px; }
+.pos-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pos-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pos-title { margin: 0; font-size: var(--fs-xl); font-weight: 650; overflow-wrap: anywhere; }
+.pos-state { font-size: var(--fs-xs); font-weight: 600; color: var(--ink-2); min-height: 1.2em; }
+.pos-state.is-moving { color: var(--accent-text); }
+.pos-sheet button { width: auto; min-height: 40px; padding: 0 12px; font-weight: 600; text-transform: none; }
+.pos-sheet .pos-close,
+.pos-sheet .pos-close:hover {
+    flex: none; width: 40px; height: 40px; padding: 0; border-radius: var(--radius-round);
+    display: grid; place-items: center; background: var(--tonal); color: var(--ink);
 }
-.slider-header .title {
-    font-size: 1em;
-    color: var(--color);
-    font-weight: 500;
+.pos-sheet .pos-close:hover { background: var(--tonal-hover); }
+.pos-close svg { width: 18px; height: 18px; }
+
+.pos-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: var(--tonal); }
+.pos-sheet .pos-tab,
+.pos-sheet .pos-tab:hover {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border-radius: 9px; background: transparent; color: var(--ink-2); font-size: var(--fs-sm);
 }
-.slider-header .val {
-    font-size: var(--fs-sm);
-    font-weight: bold;
-    color: var(--soustxt-color);
+.pos-sheet .pos-tab[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
+.pos-tab svg { width: 16px; height: 16px; }
+
+.pos-body { display: grid; grid-template-columns: minmax(118px, 42%) minmax(0, 1fr); gap: 18px; }
+.pos-apron-wrap { position: relative; }
+.pos-apron {
+    position: relative; height: clamp(230px, 44vh, 340px); overflow: hidden;
+    border-radius: 14px; background: var(--sky); box-shadow: inset 0 0 0 1px var(--line);
+    cursor: ns-resize; touch-action: none; user-select: none; -webkit-user-select: none;
 }
-.slider-group {
-    width: 100%;
+.pos-apron:focus-visible { outline: 3px solid var(--accent-color); outline-offset: 3px; }
+.pos-apron .shutter { transition: none; border-bottom: 0; }
+.pos-grip { position: absolute; left: 0; right: 0; height: 22px; transform: translateY(-11px); display: grid; place-items: center; pointer-events: none; }
+.pos-grip::before { content: ""; position: absolute; left: 0; right: 0; top: 9px; height: 4px; background: var(--accent-color); }
+.pos-grip::after { content: ""; position: relative; width: 44px; height: 14px; border-radius: var(--radius-round); background: var(--accent-color); box-shadow: 0 0 0 3px var(--surface); }
+.pos-now { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--ink); opacity: .75; pointer-events: none; }
+.pos-now span { position: absolute; left: 6px; top: 3px; padding: 0 6px; border-radius: 6px; background: var(--surface); color: var(--ink); font-size: var(--fs-xs); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pos-pin { position: absolute; right: -2px; transform: translateY(-50%); display: flex; align-items: center; gap: 2px; color: var(--accent-text); font-size: var(--fs-xs); font-weight: 700; pointer-events: none; }
+.pos-pin::before { content: ""; width: 12px; height: 2px; background: var(--accent-color); }
+.pos-pin svg { width: 14px; height: 14px; }
+
+.pos-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.pos-readout { display: flex; flex-direction: column; gap: 2px; }
+.pos-big { font-size: 3.25rem; font-weight: 700; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.pos-big small { font-size: 1.1rem; font-weight: 600; letter-spacing: 0; color: var(--ink-2); }
+.pos-what { font-size: var(--fs-sm); color: var(--ink-2); }
+.pos-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pos-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pos-sheet .pos-chip,
+.pos-sheet .pos-chip:hover {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0;
+    padding: 0 4px; border: 1px solid var(--field); border-radius: var(--radius-button);
+    background: var(--surface); color: var(--ink); font-size: var(--fs-sm); white-space: nowrap; font-variant-numeric: tabular-nums;
 }
-.slider-header .val span {
-    font-variant-numeric: tabular-nums;
+.pos-sheet .pos-chip:hover { background: var(--tonal); }
+.pos-sheet .pos-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-color); color: var(--accent-text); }
+.pos-sheet .pos-chip:disabled { opacity: .45; cursor: not-allowed; background: var(--surface); }
+.pos-chip svg { width: 14px; height: 14px; flex: none; }
+.pos-note { margin: 0; font-size: var(--fs-xs); color: var(--ink-2); }
+
+.pos-tilt { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.pos-tilt-head { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); }
+.pos-tilt-head span:first-child { font-weight: 600; }
+.pos-tilt-head b { font-variant-numeric: tabular-nums; }
+.pos-tilt-ctl { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
+.pos-tilt-range { width: 100%; margin: 0; accent-color: var(--accent-color); }
+
+.pos-mybox { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); }
+.pos-mytext { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
+.pos-sheet .pos-mybtn { width: 100%; min-height: 44px; }
+.pos-sheet .pos-mybtn.is-clear { background: var(--md-error); color: var(--md-on-error); }
+.pos-sheet .pos-mybtn.is-clear:hover { background: color-mix(in srgb, var(--md-error), #000 12%); }
+.pos-foot { display: flex; justify-content: flex-end; }
+.pos-sheet .pos-link,
+.pos-sheet .pos-link:hover { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--accent-text); }
+.pos-sheet .pos-link:hover { background: var(--accent-soft); }
+.pos-link svg { width: 14px; height: 14px; }
+
+@media (max-width: 420px) {
+    .pos-body { grid-template-columns: minmax(104px, 38%) minmax(0, 1fr); gap: 12px; }
+    .pos-big { font-size: 2.6rem; }
 }
-.shade-positioner input[type=range] {
-    width:100%;
-    margin-top:0px;
-    margin-bottom:0px;
-}
-@keyframes slideFromLeft {
-    0% {
-        opacity: 0;
-        transform: translateX(-100%);
-    }
-    100% {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-@keyframes slideToLeft {
-    0% {
-        opacity: 1;
-        transform: translateX(0);
-    }
-    100% {
-        opacity: 0;
-        transform: translateX(-100%);
-    }
-}
-@keyframes fadeInOverlay {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-.popup-slide-out {
-    animation: slideToLeft 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+@media (forced-colors: active) {
+    .pos-apron .shutter, .pos-grip::before, .pos-grip::after { background: CanvasText; forced-color-adjust: none; }
 }
 /*leboncoin*/
 .box-image-container{
