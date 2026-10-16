@@ -511,6 +511,17 @@ function navConfirmLeave(proceed) {
     };
     return false;
 }
+// Chip family from data-chipmodel. The firmware reports "s3_8mb" / "s3_4mb" (the flash size picks
+// the OTA binary) and "wrover" or "" for a classic ESP32, so the raw string never matched the "s3"
+// pin table: an S3 got the 39-pin ESP32 table and the ESP32 default radio pins. Every pin table or
+// preset lookup goes through here; only the OTA release filter needs the raw string.
+function chipFamily() {
+    const cm = (get('divContainer').getAttribute('data-chipmodel') || "").toLowerCase().trim();
+    if (cm.includes("s3")) return "s3";
+    if (cm.includes("c3")) return "c3";
+    if (cm.includes("s2")) return "s2";
+    return "esp32";
+}
 function stepDeviceGpio(pinKey, direction, prefix, boardSelectId, isManualCallback, pinMaps) {
     const selBoard = get(boardSelectId);
     if (!selBoard) return;
@@ -526,8 +537,7 @@ function stepDeviceGpio(pinKey, direction, prefix, boardSelectId, isManualCallba
         if (isNaN(current)) current = 0;
 
         let next = current + direction;
-        const cm = (get('divContainer').getAttribute('data-chipmodel') || "").toLowerCase();
-        const pm = pinMaps.find(x => x.name === cm) || { maxPins: 39 };
+        const pm = pinMaps.find(x => x.name === chipFamily()) || { maxPins: 39 };
 
         if (next < 0 || next > pm.maxPins) return;
 

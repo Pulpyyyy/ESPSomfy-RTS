@@ -840,6 +840,7 @@ class Firmware {
         getJSONBusy('/getReleases', (err, rel) => {
             if (err) return ui.serviceError(err);
             const div = document.createElement('div'), isMob = this.isMobile();
+            // Raw string, not chipFamily(): release assets are tagged "s3_8mb" / "s3_4mb".
             const chip = (get('divContainer').getAttribute('data-chipmodel') || "").toLowerCase();
             div.id = 'divGitInstall';
             div.className = 'inst-overlay';
