@@ -1290,25 +1290,29 @@ class Somfy {
         const el = document.createElement('div');
         el.className = 'pos-scrim';
         el.setAttribute('data-shadeid', shadeId);
+        // data-nodirty: the panel drives the shade live, nothing in it is a setting to save.
+        // The two modes are a segmented control (aria-pressed), not tabs: the body below
+        // is the same slider either way, only what happens on release changes.
+        el.setAttribute('data-nodirty', '');
         el.innerHTML = `
-        <div class="pos-sheet">
+        <div class="pos-sheet" tabindex="-1">
         <div class="pos-grabber" aria-hidden="true"></div>
         <div class="pos-head">
         <div class="pos-head-text"><h2 class="pos-title">${esc(s.name)}</h2><span class="pos-state" aria-live="polite"></span></div>
-        <button type="button" class="pos-close" aria-label="${esc(tr('BT_CLOSE'))}"><svg aria-hidden="true"><use href="#svg-close"></use></svg></button>
+        <button type="button" class="pos-close" aria-label="${esc(tr('BT_CLOSE'))}"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
-        <div class="pos-tabs" role="tablist">
-        <button type="button" role="tab" class="pos-tab" data-tab="move">${esc(tr('POSP_GO_TO'))}</button>
-        <button type="button" role="tab" class="pos-tab" data-tab="my"><svg aria-hidden="true"><use href="#svg-favori"></use></svg>${esc(tr('POSP_MY_TAB'))}</button>
+        <div class="pos-tabs" role="group">
+        <button type="button" class="pos-tab" data-tab="move">${esc(tr('POSP_GO_TO'))}</button>
+        <button type="button" class="pos-tab" data-tab="my"><svg aria-hidden="true"><use href="#svg-favori"></use></svg>${esc(tr('POSP_MY_TAB'))}</button>
         </div>
         <div class="pos-body">
         <div class="pos-apron-wrap">
-        <div class="pos-apron" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(trf(s.tiltOnly ? 'POSP_SLIDER_TILT' : 'POSP_SLIDER', s.name))}">
+        <div class="pos-apron" role="slider" tabindex="0" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(trf(s.tiltOnly ? 'POSP_SLIDER_TILT' : 'POSP_SLIDER', s.name))}">
         <span class="shutter"></span>
         <span class="pos-now"><span></span></span>
         <span class="pos-grip"></span>
-        </div>
         <span class="pos-pin" aria-hidden="true"><svg><use href="#svg-favori"></use></svg>My</span>
+        </div>
         </div>
         <div class="pos-side">
         <div class="pos-readout"><span class="pos-big"><span class="pos-val"></span><small> %</small></span><span class="pos-what">${esc(tr(s.tiltOnly ? 'POSP_TILT' : 'POSP_OPEN_PCT'))}</span></div>
@@ -1331,7 +1335,7 @@ class Somfy {
         <button type="button" class="pos-chip" data-tstep="1" aria-label="${esc(tr('POSP_TILT_PLUS'))}">+1</button>
         </div>
         </div>` : ''}
-        <div class="pos-mybox"><p class="pos-mytext"></p><button type="button" class="pos-mybtn"></button></div>
+        <div class="pos-mybox"><p class="pos-mytext"></p><button type="button" class="pos-mybtn"></button><button type="button" class="pos-link pos-myclear">${esc(tr('POSP_CLEAR_MY'))}</button></div>
         <div class="pos-foot"><button type="button" class="pos-link"><svg aria-hidden="true"><use href="#svg-favori"></use></svg>${esc(tr('POSP_AS_MY'))}</button></div>
         </div>`;
         document.body.appendChild(el);
@@ -1339,7 +1343,11 @@ class Somfy {
         const q = (c) => el.querySelector(c);
         const apron = q('.pos-apron');
 
-        el.addEventListener('click', (e) => { e.stopPropagation(); if (e.target === el) this.closePosPanel(); });
+        // Close on a tap on the backdrop only: a drag that started inside the sheet and
+        // ends over the backdrop also lands its click there.
+        let downOnScrim = false;
+        el.addEventListener('pointerdown', (e) => { downOnScrim = e.target === el; });
+        el.addEventListener('click', (e) => { e.stopPropagation(); if (e.target === el && downOnScrim) this.closePosPanel(); });
         el.addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'Esc') { e.preventDefault(); this.closePosPanel(); } });
         q('.pos-close').addEventListener('click', () => this.closePosPanel());
         el.querySelectorAll('.pos-tab').forEach(b => b.addEventListener('click', () => this.setPosTab(b.dataset.tab)));
@@ -1360,7 +1368,12 @@ class Somfy {
         });
         apron.addEventListener('pointermove', (e) => { if (p.dragging) this.setPosSel(fromY(e)); });
         apron.addEventListener('pointerup', () => { if (!p.dragging) return; p.dragging = false; if (p.tab === 'move') this.setPosSel(p.sel, 'now'); });
-        apron.addEventListener('pointercancel', () => { p.dragging = false; });
+        // A cancelled drag sends nothing: put the selection back on the shade.
+        apron.addEventListener('pointercancel', () => {
+            p.dragging = false;
+            const cur = this.posShade(shadeId);
+            if (cur && p.tab === 'move') this.setPosSel(cur.moving ? cur.target : cur.cur);
+        });
         apron.addEventListener('keydown', (e) => {
             const k = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key];
             if (k) this.setPosSel(p.sel + k, 'later');
@@ -1381,8 +1394,12 @@ class Somfy {
                 if (how === 'now') this.sendTiltCommand(shadeId, p.tilt);
                 else if (how === 'later') p.tiltT = setTimeout(() => { p.tiltT = null; this.sendTiltCommand(shadeId, p.tilt); }, 600);
             };
+            // A pointer release sends at once; arrow keys fire "change" on every press,
+            // so they are batched like the steps.
+            let rangePtr = false;
+            range.addEventListener('pointerdown', () => { rangePtr = true; });
             range.addEventListener('input', () => setTilt(parseInt(range.value, 10)));
-            range.addEventListener('change', () => setTilt(parseInt(range.value, 10), 'now'));
+            range.addEventListener('change', () => { setTilt(parseInt(range.value, 10), rangePtr ? 'now' : 'later'); rangePtr = false; });
             el.querySelectorAll('[data-tstep]').forEach(b => b.addEventListener('click', () => setTilt(p.tilt + parseInt(b.dataset.tstep, 10), 'later')));
         }
 
@@ -1393,6 +1410,20 @@ class Somfy {
             const tilt = cur.tiltOnly ? p.sel : (cur.tiltType > 0 ? p.tilt : 0);
             this.closePosPanel();
             this.sendShadeMyPosition(shadeId, pos, tilt);
+        });
+        // Clearing My is its own, confirmed action: the motor forgets its favourite
+        // position, which no remote can undo. The firmware clears My when asked to
+        // record the current My, after moving the shade there if it is elsewhere.
+        q('.pos-myclear').addEventListener('click', () => {
+            const cur = this.posShade(shadeId);
+            if (!cur || cur.moving || cur.my < 0) return;
+            const msg = tr('POSP_MY_CLEAR') + (cur.cur !== cur.my ? ' ' + trf('POSP_MY_CLEAR_GO', cur.my) : '');
+            // In <body>, after the panel, so the question stacks above it.
+            ui.promptMessage(document.body, esc(msg), () => {
+                this.closePosPanel();
+                if (cur.tiltOnly) this.sendShadeMyPosition(shadeId, 0, cur.my);
+                else this.sendShadeMyPosition(shadeId, shadeOpenness(cur.my, cur.flip), cur.tiltType > 0 ? cur.myTilt : 0);
+            });
         });
         // Set the shade where it should be, see it for real, then keep that as My:
         // the firmware records it without a second move when it is already there.
@@ -1405,24 +1436,35 @@ class Somfy {
         });
 
         openDialog(el);
-        this.setPosTab(tab, true);
+        // The panel owns one history entry, so Back (the Android gesture above all)
+        // closes it instead of leaving the page underneath.
+        history.pushState({ posPanel: true }, '');
+        this.setPosTab(tab);
         apron.focus();
     }
-    closePosPanel() {
+    // fromHistory: the entry was already popped (Back) or is left behind on purpose
+    // (a page change); otherwise the panel's own history entry is taken back.
+    closePosPanel(fromHistory) {
         const p = this.pos;
         if (!p) return;
         this.flushPosSend();
         this.pos = null;
         closeOverlay(p.el);
+        if (!fromHistory && history.state && history.state.posPanel) navHistoryBack();
     }
-    setPosTab(tab, init) {
+    setPosTab(tab) {
         const p = this.pos, s = p && this.posShade(p.shadeId);
         if (!s) return;
+        // A step still waiting belongs to "go to": send it before leaving that mode,
+        // so nothing leaves later from the My mode, where nothing should move.
+        this.flushPosSend();
         p.tab = tab;
-        p.el.querySelectorAll('.pos-tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+        p.el.querySelectorAll('.pos-tab').forEach(b => b.setAttribute('aria-pressed', b.dataset.tab === tab ? 'true' : 'false'));
+        // Both modes start from where the shade is (or is heading): opening on the
+        // stored My would turn the main button into "clear My".
         const here = s.moving ? s.target : s.cur;
-        p.sel = (tab === 'my' && init && s.my >= 0) ? s.my : here;
-        p.tilt = (tab === 'my' && init && s.myTilt >= 0) ? s.myTilt : s.tilt;
+        p.sel = here;
+        p.tilt = s.tilt;
         // Presets: the list set in Preferences, then My, or the current position when recording My.
         // Rebuilt per tab only, so keyboard focus survives the live updates.
         const ends = s.tiltOnly ? ['0', '100'] : [tr('POS_CLOSED'), tr('POS_OPEN')];
@@ -1468,13 +1510,16 @@ class Somfy {
         const el = p.el, q = (c) => el.querySelector(c), v = p.sel, my = p.tab === 'my';
         q('.pos-val').textContent = v;
         q('.pos-apron .shutter').style.height = (100 - v) + '%';
-        q('.pos-grip').style.top = (100 - v) + '%';
+        // Kept whole inside the apron at both ends (the handle is 22 px tall).
+        q('.pos-grip').style.top = `clamp(11px, ${100 - v}%, calc(100% - 11px))`;
         const apron = q('.pos-apron');
         apron.setAttribute('aria-valuenow', v);
         apron.setAttribute('aria-valuetext', s.tiltOnly ? `${v} %` : trf('POSP_VALUETEXT', v));
         const now = q('.pos-now');
         now.hidden = !s.moving && s.cur === v;
         now.style.top = (100 - s.cur) + '%';
+        // Near the bottom the label would fall out of the apron: put it above the line.
+        now.classList.toggle('is-low', s.cur < 12);
         now.firstElementChild.textContent = trf('POSP_NOW', s.cur);
         const pin = q('.pos-pin');
         pin.hidden = s.my < 0;
@@ -1482,7 +1527,13 @@ class Somfy {
         const st = q('.pos-state');
         st.textContent = s.status;
         st.classList.toggle('is-moving', s.moving);
-        el.querySelectorAll('.pos-chips .pos-chip').forEach(b => b.setAttribute('aria-pressed', parseInt(b.dataset.val, 10) === v ? 'true' : 'false'));
+        // One chip lit at most: "Current" or My can share their value with a preset.
+        let lit = false;
+        el.querySelectorAll('.pos-chips .pos-chip').forEach(b => {
+            const on = !lit && parseInt(b.dataset.val, 10) === v;
+            if (on) lit = true;
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
 
         const range = q('.pos-tilt-range');
         if (range) {
@@ -1498,25 +1549,25 @@ class Somfy {
         if (my) {
             const withTilt = !s.tiltOnly && s.tiltType > 0;
             // Mirrors SomfyShade::setMyPosition: ignored while moving; asking for the
-            // current My clears it; elsewhere the shade moves first, then records.
-            const clear = s.my >= 0 && v === s.my && (!withTilt || p.tilt === s.myTilt);
+            // current My clears it (so recording it again is not offered: clearing has
+            // its own confirmed button); elsewhere the shade moves first, then records.
+            const same = s.my >= 0 && v === s.my && (!withTilt || p.tilt === s.myTilt);
             const here = v === s.cur && (!withTilt || p.tilt === s.tilt);
             const btn = q('.pos-mybtn');
-            btn.disabled = s.moving;
-            btn.classList.toggle('is-clear', clear);
-            btn.textContent = clear ? tr('POSP_CLEAR_MY') : trf('POSP_SAVE_MY', v);
+            btn.disabled = s.moving || same;
+            btn.textContent = same ? tr('POSP_IS_MY') : trf('POSP_SAVE_MY', v);
+            q('.pos-myclear').hidden = s.my < 0 || s.moving;
             q('.pos-mytext').textContent = s.moving ? tr('POSP_MY_BUSY')
-                : clear ? tr('POSP_MY_CLEAR') + (s.cur !== s.my ? ' ' + trf('POSP_MY_CLEAR_GO', s.my) : '')
+                : same ? tr('POSP_MY_SAME')
                 : here ? tr('POSP_MY_HERE')
                 : trf('POSP_MY_MOVE', v);
         }
     }
     sendShadeMyPosition(shadeId, pos, tilt) {
         if(DBG) console.log(`Sending My Position for shade id ${shadeId} to ${pos} and ${tilt}`);
-        let overlay = ui.waitMessage(get('divContainer'));
-        putJSON('/setMyPosition', { shadeId: shadeId, pos: pos, tilt: tilt }, (err, response) => {
-            this.closeShadePositioners();
-            overlay.remove();
+        // putJSONBusy also drops its overlay when a 401 opens the login prompt.
+        putJSONBusy('/setMyPosition', { shadeId: shadeId, pos: pos, tilt: tilt }, (err, response) => {
+            if (err) ui.serviceError(err);
             if(DBG) console.log(response);
         });
     }

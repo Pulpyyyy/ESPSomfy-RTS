@@ -188,6 +188,8 @@ async function initSockets() {
 function clearOverlays() {
     const selectors = ['.inst-overlay', '.info-message', '.prompt-message', '.error-message', '.instructions', '#divGitInstall'];
     selectors.forEach(s => document.querySelectorAll(s).forEach(el => { closeDialog(el); el.remove(); }));
+    // A page change is under way: leave the panel's history entry where it is.
+    if (typeof somfy !== 'undefined') somfy.closePosPanel(true);
 }
 // Overlays could only be dismissed with the mouse, which left keyboard users stuck in
 // an edit dialog or a PIN prompt with no way out.
@@ -391,7 +393,16 @@ function navUpdateHash(target) {
 }
 // Until the security context is known (type still reads 0 = none), a page change
 // would open the configuration unauthenticated; init() applies the hash once ready.
-window.addEventListener('popstate', () => { if (typeof security !== 'undefined' && !security.ready) return; navApplyHash(); });
+// Back while the position panel is open only closes the panel. Closing it from inside
+// takes its history entry back with navHistoryBack, whose popstate is then skipped.
+let _navSkipPop = false;
+function navHistoryBack() { _navSkipPop = true; history.back(); }
+window.addEventListener('popstate', () => {
+    if (_navSkipPop) { _navSkipPop = false; return; }
+    if (typeof somfy !== 'undefined' && somfy.pos) { somfy.closePosPanel(true); return; }
+    if (typeof security !== 'undefined' && !security.ready) return;
+    navApplyHash();
+});
 // --- Connection status in the menu -------------------------------------------
 const _conn = { type: 'wifi', rssi: null };
 function navConnRender() {

@@ -1111,7 +1111,7 @@ cursor: pointer;
 .pos-scrim {
     position: fixed; inset: 0; z-index: var(--z-modal);
     display: flex; align-items: flex-end; justify-content: center;
-    background: rgb(8 11 15 / .5);
+    background: rgb(8 11 15 / .6);
     animation: posFade .2s ease-out;
 }
 @keyframes posFade { from { opacity: 0; } }
@@ -1120,15 +1120,18 @@ cursor: pointer;
     display: flex; flex-direction: column; gap: 14px;
     padding: 8px max(18px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
     border-radius: 22px 22px 0 0; background: var(--surface); color: var(--ink);
+    /* The edge keeps the sheet apart from a dark page, where the shadow is lost. */
+    border: 1px solid var(--line); border-bottom: 0;
     box-shadow: 0 12px 40px rgb(0 0 0 / .3);
     animation: posRise .28s cubic-bezier(.2, .8, .2, 1);
 }
+.pos-sheet:focus { outline: none; }
 @keyframes posRise { from { transform: translateY(40px); opacity: 0; } }
 /* Several parts below are flex or grid; hidden must still win over them. */
 .pos-sheet [hidden] { display: none !important; }
 @media (min-width: 700px) {
     .pos-scrim { align-items: center; }
-    .pos-sheet { border-radius: 22px; padding-top: 18px; }
+    .pos-sheet { border-radius: 22px; border-bottom: 1px solid var(--line); padding-top: 18px; }
     .pos-grabber { display: none; }
 }
 .pos-grabber { width: 40px; height: 4px; border-radius: var(--radius-round); background: var(--line); margin: 0 auto 2px; }
@@ -1144,7 +1147,7 @@ cursor: pointer;
     display: grid; place-items: center; background: var(--tonal); color: var(--ink);
 }
 .pos-sheet .pos-close:hover { background: var(--tonal-hover); }
-.pos-close svg { width: 18px; height: 18px; }
+.pos-close svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
 
 .pos-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: var(--tonal); }
 .pos-sheet .pos-tab,
@@ -1152,7 +1155,7 @@ cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     border-radius: 9px; background: transparent; color: var(--ink-2); font-size: var(--fs-sm);
 }
-.pos-sheet .pos-tab[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
+.pos-sheet .pos-tab[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
 .pos-tab svg { width: 16px; height: 16px; }
 
 .pos-body { display: grid; grid-template-columns: minmax(118px, 42%) minmax(0, 1fr); gap: 18px; }
@@ -1169,9 +1172,10 @@ cursor: pointer;
 .pos-grip::after { content: ""; position: relative; width: 44px; height: 14px; border-radius: var(--radius-round); background: var(--accent-color); box-shadow: 0 0 0 3px var(--surface); }
 .pos-now { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--ink); opacity: .75; pointer-events: none; }
 .pos-now span { position: absolute; left: 6px; top: 3px; padding: 0 6px; border-radius: 6px; background: var(--surface); color: var(--ink); font-size: var(--fs-xs); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pos-pin { position: absolute; right: -2px; transform: translateY(-50%); display: flex; align-items: center; gap: 2px; color: var(--accent-text); font-size: var(--fs-xs); font-weight: 700; pointer-events: none; }
-.pos-pin::before { content: ""; width: 12px; height: 2px; background: var(--accent-color); }
-.pos-pin svg { width: 14px; height: 14px; }
+.pos-now.is-low span { top: auto; bottom: 5px; }
+/* The My mark sits inside the apron, on its right edge, as a small tag. */
+.pos-pin { position: absolute; right: 6px; transform: translateY(-50%); display: flex; align-items: center; gap: 3px; padding: 1px 7px 1px 5px; border-radius: var(--radius-round); background: var(--surface); box-shadow: var(--shadow-1); color: var(--accent-text); font-size: var(--fs-xs); font-weight: 700; pointer-events: none; }
+.pos-pin svg { width: 13px; height: 13px; }
 
 .pos-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .pos-readout { display: flex; flex-direction: column; gap: 2px; }
@@ -1202,8 +1206,9 @@ cursor: pointer;
 .pos-mybox { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); }
 .pos-mytext { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .pos-sheet .pos-mybtn { width: 100%; min-height: 44px; }
-.pos-sheet .pos-mybtn.is-clear { background: var(--md-error); color: var(--md-on-error); }
-.pos-sheet .pos-mybtn.is-clear:hover { background: color-mix(in srgb, var(--md-error), #000 12%); }
+.pos-sheet .pos-myclear,
+.pos-sheet .pos-myclear:hover { align-self: center; color: var(--danger); }
+.pos-sheet .pos-myclear:hover { background: var(--danger-soft); }
 .pos-foot { display: flex; justify-content: flex-end; }
 .pos-sheet .pos-link,
 .pos-sheet .pos-link:hover { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--accent-text); }
@@ -1214,8 +1219,14 @@ cursor: pointer;
     .pos-body { grid-template-columns: minmax(104px, 38%) minmax(0, 1fr); gap: 12px; }
     .pos-big { font-size: 2.6rem; }
 }
+/* Below 380px three chips no longer fit "Geschlossen" and the like. */
+@media (max-width: 380px) {
+    .pos-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (forced-colors: active) {
     .pos-apron .shutter, .pos-grip::before, .pos-grip::after { background: CanvasText; forced-color-adjust: none; }
+    /* Selection was shown by a fill only, which forced colours remove. */
+    .pos-sheet .pos-tab[aria-pressed="true"], .pos-sheet .pos-chip[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
 }
 /*leboncoin*/
 .box-image-container{
