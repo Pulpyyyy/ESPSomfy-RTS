@@ -239,7 +239,9 @@ class RfDiag {
                 const e = entries.find((x) => x.address === r.remoteAddress);
                 if (e && (!best || (e.guided || e.recent) > (best.guided || best.recent))) best = e;
             }
-            const row = document.createElement('label');
+            // A div, not a label: a label would forward any tap on the row to the
+            // "Apply" button inside it and save new repeats by accident.
+            const row = document.createElement('div');
             row.className = 'uniRow rfdiag-reco-row';
             const text = document.createElement('div');
             text.className = 'uniText';
@@ -406,8 +408,9 @@ class MQTT {
     init() { this.initialized = true; }
     async loadMQTT() {
         getJSONBusy('/mqttsettings', (err, settings) => {
-            if (err)
+            if (err) {
                 if(DBG) console.log(err);
+            }
             else {
                 if(DBG) console.log(settings);
                 this.hasPassword = makeBool(settings.hasPassword);

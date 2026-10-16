@@ -246,6 +246,19 @@ function navCurrentTab(page) {
  * @param {object} opts - force: skip the unsaved-changes prompt; fromHash: do not
  *                        push a history entry; after: callback once the page is up
  */
+// After a page change, take focus to the new page's title and name the browser tab
+// after it: keyboard and screen reader users land on what changed, and the menu link
+// they used may sit in a menu that just closed. Only while the user is interacting;
+// on first load focus stays where the browser put it.
+function navFocusPage(root) {
+    const h = root && root.querySelector('h1');
+    if (!h) return;
+    document.title = `${h.textContent.trim()} · ESPSomfy RTS`;
+    const ae = document.activeElement;
+    if (!ae || ae === document.body) return;
+    h.setAttribute('tabindex', '-1');
+    h.focus({ preventScroll: true });
+}
 function navGo(id, opts = {}) {
     const t = navTarget(id);
     if (!t) return;
@@ -256,8 +269,10 @@ function navGo(id, opts = {}) {
     if (t.page === NAV_HOME) {
         if (typeof somfy !== 'undefined') { somfy.showEditShade(false); somfy.showEditGroup(false); }
         ui.setHomePanel();
+        const changed = _navPage !== NAV_HOME;
         _navPage = NAV_HOME;
         navSetActive(NAV_HOME);
+        if (changed) navFocusPage(get(NAV_HOME));
         if (!opts.fromHash) navUpdateHash(NAV_HOME);
         if (opts.after) opts.after();
         return;
@@ -287,6 +302,7 @@ function navGo(id, opts = {}) {
     const changed = _navPage !== t.page;
     _navPage = t.page;
     navSetActive(t.page);
+    if (changed) navFocusPage(page);
     if (!opts.fromHash) navUpdateHash(t.tab ? `${t.page}/${t.tab}` : t.page);
     if (changed && !opts.fromHash) window.scrollTo(0, 0);
     if (opts.after) opts.after();
@@ -302,6 +318,12 @@ function bindNavigation() {
         navGo(a.getAttribute('data-grpid'), {
             after: action === 'addShade' ? () => { somfy.showEditShade(true); somfy.openEditShade(); } : null
         });
+    });
+    // Skip link: focus the content in place. Left to the browser, the #divContainer
+    // fragment would go through popstate and the router would fall back to Home.
+    document.querySelector('.skip-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        get('divContainer').focus();
     });
     // Tab strips: click, and arrow keys move between tabs (automatic activation).
     document.querySelectorAll('.page > .subtab-container').forEach(strip => {
@@ -613,9 +635,12 @@ let _calWiz = null;
 function startShadeCalibration() {
     const g = get, sh = ui.fromElement(g('somfyShade'));
     const sId = parseInt(g('spanShadeId').innerText, 10);
-    if (isNaN(sId) || sId >= 255) { ui.errorMessage(tr('ERR_CAL_SAVE_FIRST')); return; }
-    // The measurement modes need a paired remote; "Recopie" only copies values, so
-    // the pairing is checked when a measurement mode is picked, not up front.
+    // The wizard ends by reloading the record, which would drop unsaved edits.
+    if (isNaN(sId) || sId >= 255 || _navDirty) { ui.errorMessage(tr('ERR_CAL_SAVE_FIRST')); return; }
+    // The measurement modes are timed off the shade's physical remote, so they need
+    // one linked; "Recopie" only copies values, so this is checked when a
+    // measurement mode is picked, not up front.
+    const hasRemote = () => g('divLinkedRemoteList').style.display !== 'none';
     const div = document.createElement('div');
     div.className = 'inst-overlay'; div.id = 'divCalWizard';
     div.innerHTML = '<div class="instructions-content"><div class="overlay-scroll-content">'
@@ -637,7 +662,7 @@ function startShadeCalibration() {
     calWizText(tr('CAL_INTRO'));
     const needPaired = function (fn) {
         return function () {
-            if (sh.paired === false) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
+            if (!hasRemote()) { ui.errorMessage(tr('ERR_CAL_NOT_PAIRED')); return; }
             fn();
         };
     };

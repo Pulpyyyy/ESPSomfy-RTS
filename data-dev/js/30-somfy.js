@@ -38,7 +38,21 @@ class Somfy {
     init() {
         if (this.initialized) return;
         this.bindShadeTabs();
+        this.bindVirtualRemoteKeys();
         this.initialized = true;
+    }
+    // The virtual remote's keys are drawn as divs driven by mousedown/touchstart:
+    // make them focusable buttons, held from the keyboard like a pointer, and name
+    // the icon-only ones (the others carry a translated title).
+    bindVirtualRemoteKeys() {
+        const names = { stop: 'A11Y_VR_STOP', toggle: 'A11Y_VR_TOGGLE', up: 'A11Y_VR_UP', down: 'A11Y_VR_DOWN', my: 'A11Y_VR_MY', StepUp: 'A11Y_VR_STEP_UP', StepDown: 'A11Y_VR_STEP_DOWN' };
+        get('divVirtualRemote').querySelectorAll('[data-cmd]').forEach(el => {
+            el.setAttribute('role', 'button');
+            el.tabIndex = 0;
+            const key = names[el.getAttribute('data-cmd')];
+            if (key) { el.setAttribute('tr-aria', key); translator.translate(el); }
+            bindHoldKeys(el, () => this.sendVRCommand(el));
+        });
     }
     initPins() {
         document
@@ -637,8 +651,8 @@ class Somfy {
         let r = _rooms.find(x => x.roomId === room.roomId);
         if (typeof r === 'undefined' || !r) {
             _rooms.push(room);
-            _rooms.sort((a, b) => { return a.sortOrder - b.sortOrder });
-            this.setRoomsList(_rooms);
+            // _rooms carries the "Home" entry (room 0); setRoomsList adds it back itself.
+            this.setRoomsList(_rooms.filter(x => x.roomId !== 0));
             this.checkEmptyState();
         }
     }
@@ -646,9 +660,7 @@ class Somfy {
         if (room.roomId === 0) return;
         let r = _rooms.find(x => x.roomId === room.roomId);
         if (typeof r !== 'undefined' && r.roomId === room.roomId) {
-            _rooms = _rooms.filter(x => x.roomId === room.roomId);
-            _rooms.sort((a, b) => { return a.sortOrder - b.sortOrder });
-            this.setRoomsList(_rooms);
+            this.setRoomsList(_rooms.filter(x => x.roomId !== room.roomId && x.roomId !== 0));
             this.checkEmptyState();
             let rs = get('divRoomSelector');
             let ss = get('divShadeControls');
@@ -782,7 +794,7 @@ class Somfy {
             divCtl += `<section class="room-sec" data-roomid="${rId}" aria-labelledby="roomHead${rId}" style="--n:${Math.min(list.length, 4)};${roomId === 0 || roomId === rId ? '' : 'display:none'}">
             <div class="room-sec-head">
             <h2 class="h2-lg" id="roomHead${rId}">${esc(rName)}${list.length > 1 ? ' <span class="room-sec-sum muted"></span>' : ''}</h2>
-            ${list.length > 1 ? `<div class="room-sec-actions">
+            ${list.filter(x => this.isCoveringType(x.shadeType)).length > 1 ? `<div class="room-sec-actions">
             <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'up')">${tr('HOME_OPEN_ALL')}<span class="sr-only"> — ${esc(rName)}</span></button>
             <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'down')">${tr('HOME_CLOSE_ALL')}<span class="sr-only"> — ${esc(rName)}</span></button>
             </div>` : ''}
@@ -893,6 +905,8 @@ class Somfy {
     }
     // Shade types whose motor has no travel position (a pulse or a toggle).
     isPulseType(shadeType) { return [5, 9, 10, 14, 15, 16].includes(parseInt(shadeType, 10)); }
+    // Window coverings: "open/close all" must never move a garage door or a gate.
+    isCoveringType(shadeType) { return [0, 1, 2, 3, 4, 7, 8].includes(parseInt(shadeType, 10)); }
     // Types drawn as a slatted apron in the tile; the others keep their own icon.
     isApronType(shadeType) { return [0, 1, 4].includes(parseInt(shadeType, 10)); }
     tileHtml(shade, roomId) {
@@ -995,11 +1009,11 @@ class Somfy {
         if (open === total) return tr('HOME_ALL_OPEN');
         return open === 1 ? tr('HOME_ONE_OPEN') : trf('HOME_N_OPEN', open);
     }
-    // "Open all / Close all" of a room: one command per shade of the section; the
-    // radio task queues them, so they go out as a burst of contiguous trains.
+    // "Open all / Close all" of a room: one command per window covering of the section;
+    // the radio task queues them, so they go out as a burst of contiguous trains.
     roomCommand(roomId, cmd) {
         const tiles = Array.from(document.querySelectorAll(`.room-sec[data-roomid="${roomId}"] .somfyShadeCtl`))
-            .filter(t => !t.classList.contains('is-pulse'));
+            .filter(t => this.isCoveringType(t.getAttribute('data-shadetype')));
         tiles.forEach(t => this.sendCommand(parseInt(t.getAttribute('data-shadeid'), 10), cmd));
         const room = _rooms.find(r => r.roomId === roomId);
         this.announce(trf(cmd === 'up' ? 'LIVE_ROOM_OPEN' : 'LIVE_ROOM_CLOSE', room && roomId !== 0 ? room.name : tr('HOME_UNASSIGNED')));
@@ -2421,6 +2435,7 @@ class Somfy {
             btnProg.addEventListener('mousedown', onP, true);
             // preventDefault stops the synthesized mousedown that would double-send.
             btnProg.addEventListener('touchstart', (e) => { e.preventDefault(); onP(); }, true);
+            bindHoldKeys(btnProg, onP);
         }
         div.querySelectorAll(`#${stopId}, #btnWizEnd`).forEach(btn => {
             btn.onclick = () => closeOverlay(div, clearT);
@@ -2788,6 +2803,7 @@ class Somfy {
             // confirmation. preventDefault avoids the double-fire on short taps.
             btnAction.ontouchstart = (e) => { e.preventDefault(); progDown(); };
             btnAction.ontouchend = (e) => { e.preventDefault(); progUp(); };
+            bindHoldKeys(btnAction, progDown, progUp);
         }
         const urlInit = isUnlink ? `/group?groupId=${groupId}` : `/groupOptions?groupId=${groupId}`;
         getJSONBusy(urlInit, (err, data) => {

@@ -227,7 +227,7 @@ document.addEventListener('keydown', (e) => {
     // (e.g. repeated shade UP frames), so ignore auto-repeat keydowns.
     if (e.repeat) return;
     const t = e.target;
-    if (!t || typeof t.closest !== 'function') return;
+    if (e.defaultPrevented || !t || typeof t.closest !== 'function') return;
     // Never swallow a space typed into a field.
     if (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
     const btn = t.closest('[role="button"]');
@@ -237,6 +237,29 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     btn.click();
 });
+// Hold-to-send controls (Prog, the virtual remote, pairing to a group) start on
+// mousedown/touchstart and repeat while the global mouseDown flag stays set; a
+// keyboard fires neither. Holding Enter or Space does what a held pointer does:
+// down() on press, then on release the flag drops and up() runs. Losing focus
+// mid-press drops the flag too, so a repeat can never run on unattended.
+function bindHoldKeys(el, down, up) {
+    let held = false;
+    const isKey = (e) => e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar';
+    el.addEventListener('keydown', (e) => {
+        if (!isKey(e)) return;
+        e.preventDefault();
+        if (held) return;
+        held = true; mouseDown = true;
+        down(e);
+    });
+    el.addEventListener('keyup', (e) => {
+        if (!isKey(e) || !held) return;
+        e.preventDefault();
+        held = false; mouseDown = false;
+        if (up) up(e);
+    });
+    el.addEventListener('blur', () => { if (held) { held = false; mouseDown = false; } });
+}
 // Normalise a shade's stored position into "openness": 0 = closed, 100 = open.
 // The firmware stores position as "% open" when flipPosition is set and "% closed"
 // when it is not (see the positioner label that reads "% open" vs "% closed"), so the

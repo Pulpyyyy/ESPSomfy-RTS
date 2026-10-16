@@ -331,7 +331,7 @@ class General {
         "Etc/GMT+12|<-12>12",
         "Etc/UTC|UTC0",
         "Europe/Athens|EET-2EEST,M3.5.0/3,M10.5.0/4",
-        "Europe/Berlin|CEST-1CET,M3.2.0/2:00:00,M11.1.0/2:00:00",
+        "Europe/Berlin|CET-1CEST,M3.5.0,M10.5.0/3",
         "Europe/Brussels|CET-1CEST,M3.5.0,M10.5.0/3",
         "Europe/Chisinau|EET-2EEST,M3.5.0,M10.5.0/3",
         "Europe/Dublin|IST-1GMT0,M10.5.0,M3.5.0/1",
