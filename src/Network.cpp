@@ -128,10 +128,12 @@ void Network::loop() {
   }
   if(!this->connecting() && !settings.WIFI.hidden) {
     if((this->softAPOpened && WiFi.softAPgetStationNum() == 0) ||
-      (!this->connected() && ctype == conn_types_t::wifi)) {
+      (!this->softAPOpened && !this->connected() && ctype == conn_types_t::wifi)) {
       // If the Soft AP is opened and there are no clients connected then we need to scan for an AP.  If
       // our target exists we will exit out of the Soft AP and start that connection.  We are also
       // going to continuously scan when there is no connection and our preferred connection is wifi.
+      // Never while a client is on the Soft AP: the block above cancels that scan on the next pass,
+      // so the two would start and cancel scans forever, hopping channels under the client.
       if(ctype == conn_types_t::wifi) {
         // Scan for an AP but only if we are not already scanning.
         if(!_apScanning && WiFi.scanNetworks(true, false, true, 300, 0, settings.WIFI.ssid) == -1) {
