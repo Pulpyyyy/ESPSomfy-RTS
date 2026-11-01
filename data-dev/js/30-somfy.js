@@ -2367,7 +2367,7 @@ class Somfy {
 
             shOverlay(div);
             div.querySelector('#btnCancel').onclick = () => closeOverlay(div);
-            ui.setFocus(btnCancel, true, 'var(--accent-sucess)');
+            ui.setFocus(btnCancel, true, 'var(--ok-dot)');
         });
     }
     // An unpaired shade opens on a card that says so, with the Pair button: it is the

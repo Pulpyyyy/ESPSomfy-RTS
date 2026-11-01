@@ -1103,7 +1103,7 @@ class Wifi {
 
         const getPart = (idNum) => {
             const active = idNum <= level;
-            return `<use href="#svg-wifi-${idNum}" fill="${active ? 'var(--accent-sucess)' : '#ccc'}" style="opacity:${active ? '1' : '0.3'}" />`;
+            return `<use href="#svg-wifi-${idNum}" fill="${active ? 'var(--ok-dot)' : '#ccc'}" style="opacity:${active ? '1' : '0.3'}" />`;
         };
 
         return `
@@ -1227,7 +1227,7 @@ class Wifi {
             chk.onchange = () => {
                 const ok = chk.checked;
                 btn.disabled = !ok;
-                btn.style.background = ok ? "var(--txtwarning-color)" : "#ccc";
+                btn.style.background = ok ? "var(--danger)" : "#ccc";
                 btn.style.cursor = ok ? "pointer" : "not-allowed";
             };
             btn.onclick = () => { this.sendNetworkSettings(obj); closeOverlay(div); };
@@ -1285,7 +1285,7 @@ class Wifi {
         const spanSpeed = get('spanEthernetSpeed');
 
         spanStatus.textContent = tr(ethernet.connected ? 'NAV_CONNECTED' : 'NAV_DISCONNECTED');
-        spanStatus.style.color = ethernet.connected ? 'var(--accent-sucess)' : '';
+        spanStatus.style.color = ethernet.connected ? 'var(--ok-dot)' : '';
         spanSpeed.innerHTML = !ethernet.connected ? '--------' : `${ethernet.speed} Mbps ${ethernet.fullduplex ? 'Full-duplex' : 'Half-duplex'}`;
     }
 }

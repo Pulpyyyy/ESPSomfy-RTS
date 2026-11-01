@@ -85,7 +85,7 @@ div.wait-overlay .wait-label {
 /* "Already on this version" note in the GitHub update dialog. */
 .upToDateNote {
     gap: var(--sp-8);
-    color: var(--accent-sucess);
+    color: var(--ok-dot);
     font-size: var(--fs-sm);
 }
 .upToDateNote svg {
@@ -118,7 +118,7 @@ div.wait-overlay .wait-label {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--color);
+    background: var(--ink);
     margin: -4px 0 0 -4px;
 }
 .lds-roller div:nth-child(1) {
@@ -224,8 +224,8 @@ div.wait-overlay .wait-label {
     left: 50%;
     /* Theme-aware: the old #f0f0f0/#000 pair glowed white in dark mode. */
     background: var(--unibloc-color);
-    color: var(--color);
-    border: 1px solid var(--accent-sucess);
+    color: var(--ink);
+    border: 1px solid var(--ok-dot);
     padding: 9px 21px;
     border-radius: 50px;
     z-index: var(--z-toast);
@@ -235,13 +235,13 @@ div.wait-overlay .wait-label {
     toastPulse 1.5s ease-in-out 0.5s infinite;
 }
     .success-content {
-        color: var(--color);
+        color: var(--ink);
         gap: var(--sp-12);
     }
     .success-content svg {
         width: 20px;
         height: 20px;
-        color: var(--accent-sucess);
+        color: var(--ok-dot);
     }
     .success-toast.hide {
         animation: toastOut 0.3s ease-in forwards;
@@ -264,7 +264,7 @@ div.wait-overlay .wait-label {
     max-height: calc(100% - 20px);
     padding: var(--sp-20);
     overflow-y: auto;
-    color: var(--color);
+    color: var(--ink);
     background: var(--wait-overlay);
     font-size: var(--fs-sm);
     animation: fadeInBlur 0.2s ease-out forwards;
@@ -276,10 +276,10 @@ div.wait-overlay .wait-label {
     padding: 5px 30px 30px 30px;
     display: flex;
     flex-direction: column;
-    color: var(--color);
+    color: var(--ink);
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
 }
 .overlay-scroll-content {
     padding-bottom: var(--sp-20);
@@ -350,10 +350,10 @@ div.wait-overlay .wait-label {
     position: relative;
     width: 90%;
     padding: 5px 30px 30px 30px;
-    color: var(--color);
+    color: var(--ink);
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
 }
 .message-content,
 .error-content {
@@ -373,12 +373,12 @@ div.wait-overlay .wait-label {
 .socket-error .inner-error {
     background: var(--unibloc-color);
     max-width: 560px;
-    color: var(--color);
+    color: var(--ink);
     font-size: var(--fs-lg);
     min-height: 206px;
     border-radius: var(--radius-bloc);
     align-content: center;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
 }
 .instructions .sub-message,
 .prompt-message .sub-message {
@@ -470,7 +470,7 @@ div.error-message {
     }
     .instructionsTxt-badge {
         font-weight: bold;
-        color: var(--color);
+        color: var(--ink);
         font-style: italic;
         margin: 0 5px 0 5px;
     }
@@ -492,7 +492,7 @@ div.error-message {
         .step-text {
             font-size: var(--fs-sm);
             line-height: 1.4;
-            color: var(--color);
+            color: var(--ink);
         }
 .uniblocRollingCode label {
     color: var(--accent-text);
@@ -607,7 +607,7 @@ div.error-message {
     margin: 0;
     font-size: var(--fs-lg);
     font-weight: 600;
-    color: var(--color);
+    color: var(--ink);
     animation: fadeInBlur 0.3s ease-in-out;
 }
 /*content step*/
@@ -620,7 +620,7 @@ div.error-message {
     flex-grow: 1;
 }
 .LinkGroupSelect {
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .blocsteps-row {
@@ -629,13 +629,13 @@ div.error-message {
     margin-top: var(--sp-16);
     background: var(--unibloc-color);
     border-radius: var(--radius-button);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .blocsteps-row .divWizShadeName {
     font-size: var(--fs-md);
     font-weight: bold;
-    color: var(--color);
+    color: var(--ink);
     text-align:center;
     flex: 1;
     margin-right: var(--sp-20);
@@ -684,7 +684,7 @@ div.error-message {
     text-align: left;
     border: none;
     background: transparent;
-    color: var(--color);
+    color: var(--ink);
 }
 .firmware-message {
     display: none;
@@ -695,15 +695,15 @@ div.error-message {
     z-index: var(--z-banner);
 }
 button[line].fw-sidebar-button {
-    border: 2px solid var(--txtwarning-color);
-    color: var(--txtwarning-color);
+    border: 2px solid var(--danger);
+    color: var(--danger);
     background: transparent;
 }
 button[line].fw-sidebar-button:hover,
 .fw-mobile-banner:hover {
-    background: var(--txtwarning-color);
+    background: var(--danger);
     color: #fff;
-    border-color: var(--txtwarning-color);
+    border-color: var(--danger);
     transition: all 0.3s ease-out !important;
 }
 .fw-mobile-banner{
@@ -714,7 +714,7 @@ button[line].fw-sidebar-button:hover,
     font-size: var(--fs-xs);
     font-weight: bold;
     background: #fcfcfc;
-    color: var(--txtwarning-color);
+    color: var(--danger);
     padding: 2px var(--sp-12);
     border-radius: var(--radius-bloc);
     border-top: none;
@@ -722,7 +722,7 @@ button[line].fw-sidebar-button:hover,
     width: fit-content;
     margin: auto;
     margin-top: var(--sp-4);
-    border: 1px solid var(--txtwarning-color);
+    border: 1px solid var(--danger);
 }
 
 #divSidebarUpdate.procFwStatusshow {display: flex !important;}
@@ -734,7 +734,7 @@ button[line].fw-sidebar-button:hover,
 /*github page*/
 .labelgrey {
     font-size: var(--fs-sm);
-    color: var(--help);
+    color: var(--ink-2);
     font-family: monospace;
 }
 .selectCompac {
@@ -774,7 +774,7 @@ button[line].fw-sidebar-button:hover,
     }
     .gitNoteErrorSub {
         font-size: var(--fs-sm);
-        color: var(--soustxt-color);
+        color: var(--ink-2);
     }
 #divGitInstall .hrDivFooter {
     margin: 0 -30px var(--sp-16) -30px;
@@ -807,7 +807,7 @@ margin: 0;
     left: 50%;
     transform: translateX(-50%);
     width: 3px;
-    background: var(--hr-soft);
+    background: var(--line);
     z-index: 1;
 }
 .v-step-right {
@@ -819,7 +819,7 @@ margin: 0;
 .custom-file-upload {
     width:100%;
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: var(--radius-bloc);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -832,7 +832,7 @@ margin: 0;
 }
 .file-name-display {
     font-size: var(--fs-sm);
-    color: var(--color);
+    color: var(--ink);
     flex: 1;
     opacity: 0.6;
     padding-right: var(--sp-12);
@@ -860,7 +860,7 @@ margin: 0;
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: var(--borderShadeCtl);
+    background: var(--line);
     color: #fcfcfc;
     transition: filter 0.2s;
     flex-shrink: 0;
@@ -905,7 +905,7 @@ cursor: pointer;
 .empty-state-container {
     flex-direction: column;
     padding: 40px var(--sp-20);
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     text-align: center;
     opacity: 0.6;
 }
@@ -913,7 +913,7 @@ cursor: pointer;
     width: 100px;
     height: 100px;
     margin-bottom: var(--sp-16);
-    color: var(--barreRoomBg);
+    color: var(--bg);
 }
 .empty-state-container p {
     width: 80%;
@@ -974,7 +974,7 @@ cursor: pointer;
     pointer-events: auto;
 }
     .drag-handle svg{
-        color: var(--bg-switch-ch-color);
+        color: var(--ink-2);
         transition: all 0.2s ease-in-out;
     }
     .drag-handle:hover svg {
@@ -1017,13 +1017,13 @@ cursor: pointer;
     margin-top: var(--sp-16);
 }
 .linkedRheader {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     margin-bottom: var(--sp-12);
     margin-left: -20px;
     margin-right: -20px;
     margin-top: -15px;
     padding: var(--sp-12) var(--sp-20);
-    border-bottom: 1px solid var(--background-color);
+    border-bottom: 1px solid var(--bg);
 }
 .linkedScrollArea {
     overflow-y: auto;
@@ -1037,7 +1037,7 @@ cursor: pointer;
     margin-right: var(--sp-12);
 }
     .linkedWrap svg {
-        color: var(--buttonMy);
+        color: var(--tonal-hover);
     }
 .linkedContent {
     flex-grow: 1;
@@ -1317,7 +1317,7 @@ cursor: pointer;
 }
 .no-wifi > div{
     margin-bottom: var(--sp-20);
-    color: var(--txtwarning-color);
+    color: var(--danger);
     font-weight: bold;
     justify-content: center;
 }
@@ -1338,14 +1338,14 @@ div.eth-setting-line {
 }
 div.eth-setting-line span {
     margin-left:7px;
-    color: var(--txtwarning-color);
+    color: var(--danger);
 }
 div.eth-setting-line label {
     margin-right: var(--sp-4);
     display:inline-block;
     min-width: 130px;
     text-align:right;
-    color: var(--color);
+    color: var(--ink);
 }
 .safety-checkbox-container {
     gap:var(--sp-16);
@@ -1357,7 +1357,7 @@ div.eth-setting-line label {
     display: none;
 }
 .safety-checkbox-container input[type="checkbox"]:checked + .custom-checkbox {
-    background: var(--txtwarning-color);
+    background: var(--danger);
 }
 .safety-checkbox-container input[type="checkbox"]:checked + .custom-checkbox::after {
     transform: rotate(45deg) scale(1);
@@ -1459,7 +1459,7 @@ div.eth-setting-line label {
         width: 100vw;
         height: 100vh;
         height: 100dvh;
-        background-color: var(--background-color);
+        background-color: var(--bg);
         z-index: var(--z-inst-mobile);
         box-sizing: border-box;
         padding: 0;
@@ -1474,7 +1474,7 @@ div.eth-setting-line label {
         overflow: hidden;
         box-sizing: border-box;
         border-radius: 0;
-        background-color: var(--background-color);
+        background-color: var(--bg);
     }
     .overlay-scroll-content {
         flex: 1;
@@ -1498,7 +1498,7 @@ div.eth-setting-line label {
         width: 100%;
         padding: var(--sp-12);
         background: var(--unibloc-color);
-        border-top: 1px solid var(--border);
+        border-top: 1px solid var(--line);
         box-sizing: border-box;
         transform: translateY(100%);
         animation: slideUpFooter 0.6s cubic-bezier(0.25, 1, 0.5, 1) 0.1s forwards;

@@ -8,9 +8,9 @@
 /* Firmware **/
 .status-detail {
     font-size: var(--fs-xs);
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
-#spanFreeMemory { color: var(--soustxt-color) !important;; }
+#spanFreeMemory { color: var(--ink-2) !important;; }
 
 .minMaxFull{
     display: inline-block;
@@ -20,7 +20,7 @@
 }
 #divFirmware .uniRight { gap: 0; }
 #divFirmware .uniText { max-width: 52%; }
-#svg-clear{fill: var(--color) ;}
+#svg-clear{fill: var(--ink) ;}
 
 .devButtonUpdate {
     text-align:left;
@@ -86,7 +86,7 @@
     }
 /* Page Network*/
 .wifi-value {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     margin-left: 5px;
 }
 .wifi-right {
@@ -118,7 +118,7 @@ div.signal {
 }
 #divNetworkStrength use.active,
 div.signal use.active {
-    fill: var(--accent-sucess) !important;
+    fill: var(--ok-dot) !important;
     opacity: 1 !important;
 }
 #divAps {
@@ -129,7 +129,7 @@ div.signal use.active {
 }
 .aps-title {
     font-size: var(--fs-xs);
-    color: var(--bg-switch-ch-color);
+    color: var(--ink-2);
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -137,12 +137,12 @@ div.signal use.active {
 .no-wifi {
     padding: 30px var(--sp-12);
     text-align: center;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     font-size: var(--fs-sm);
 }
 .aps-hr {
     border: 0;
-    border-top: 1px solid var(--hr-color);
+    border-top: 1px solid var(--line);
     margin: 5px 0;
 }
 div.wifiSignal {
@@ -155,8 +155,8 @@ div.wifiSignal {
     transition: background 0.2s;
 }
 #divAps div.wifiSignal:hover {
-    background: var(--hr-color);
-    color: var(--color);
+    background: var(--line);
+    color: var(--ink);
     border-radius: var(--radius-card);
 }
 .msgHotspot span:last-child {
@@ -179,7 +179,7 @@ div.wifiSignal {
 .empty-state {
     text-align: center;
     padding: 40px var(--sp-20);
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
 .empty-icon {
     width: 160px;
@@ -192,7 +192,7 @@ div.wifiSignal {
     --shade-position: 100 !important;
     --accent-color: #a1a1a1;
     --accent-colorDark: color-mix(in srgb, #a1a1a1 41%, #828282);
-    --unibloc-color: var(--background-color);
+    --unibloc-color: var(--bg);
 }
 .empty-subtext {
     font-size: var(--fs-sm);
@@ -200,7 +200,7 @@ div.wifiSignal {
 }
 .dragtxt {
     font-size: 0.95em;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     margin: 23px 0;
     padding: 5px;
 }
@@ -254,13 +254,13 @@ div.wifiSignal {
 .somfy-infoPosTilt {
     justify-content: center;
     font-family: sans-serif;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     font-size: var(--fs-xs);
     font-weight: bold;
     line-height: 1.4;
 }
 #valTilt {
-color: var(--color);
+color: var(--ink);
 }
 #somfyShade #divGPIOControl {
 display: none;
@@ -323,11 +323,11 @@ display: none;
     background: var(--unibloc-color);
     padding: var(--sp-20);
     border-radius: var(--radius-bloc);
-    border: 1px solid var(--borderShadeCtl);
+    border: 1px solid var(--line);
     box-shadow: 0 0 6px 0 var(--shadowShadeCtl);
 }
 .vr-content .unibloc {
-    background: var(--background-color);
+    background: var(--bg);
     margin: 0 0 var(--sp-16);
 }
 .vr-bloctoogle {
@@ -385,9 +385,9 @@ display: none;
     position: relative;
     width: 210px;
     height: 210px;
-    background: var(--background-color);
+    background: var(--bg);
     border-radius: 50%;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .vr-wheel-arrow {
@@ -396,7 +396,7 @@ display: none;
     height: 44px;
     cursor: pointer;
     transition: transform 0.1s;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
 .vr-arrow-up    { top: 10px;  left: 50%; transform: translateX(-50%); }
 .vr-arrow-down  { bottom: 10px; left: 50%; transform: translateX(-50%); }
@@ -404,15 +404,15 @@ display: none;
     width: 20%;
 }
 .vr-upMy, .vr-myDown, .vr-upDown, .vr-all {
-    background: var(--background-color);
+    background: var(--bg);
     cursor: pointer;
     transition: transform 0.1s;
     min-height: 110px;
     backface-visibility: hidden;
     -webkit-font-smoothing: subpixel-antialiased;
     transform-origin: center center;
-    color: var(--soustxt-color);
-    border: 1px solid var(--border);
+    color: var(--ink-2);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .vr-upMy, .vr-upDown      { border-radius: 35px 35px 0 0; margin-bottom: 6px; }
@@ -430,10 +430,10 @@ display: none;
     cursor: pointer;
     transition: transform 0.1s, filter 0.1s;
     text-transform: uppercase;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
-.btn-prog { background: var(--background-color); color: var(--color); }
+.btn-prog { background: var(--bg); color: var(--ink); }
 .btn-fav  { background: var(--accent-color); color: var(--on-accent); border: none; }
 .switch-group { display: flex; gap: 5px; margin-bottom: var(--sp-12); }
 .switch-soleil, .switch-windy { flex: 1; display: flex; }
@@ -445,19 +445,19 @@ display: none;
     font-size: 1em;
     font-weight: bold;
     transition: all 0.2s;
-    background: var(--background-color);
-    color: var(--soustxt-color);
+    background: var(--bg);
+    color: var(--ink-2);
     border-radius: var(--radius-bloc);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .vr-block-centerFlag {
     display: flex;
-    background: var(--background-color);
-    color: var(--soustxt-color);
+    background: var(--bg);
+    color: var(--ink-2);
     height: 44px;
     border-radius:var(--radius-bloc);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .vr-button-sunflagL, .vr-button-sunflagR {
@@ -479,7 +479,7 @@ display: none;
 }
 .vr-step80 {
     position: relative;
-    background: var(--background-color);
+    background: var(--bg);
     border-radius: var(--radius-bloc);
     /* .vr-step80Label is absolute at bottom:10px. It used to sit under a thin slider
        track; the 44px number box reaches into that band, so the row reserves its own
@@ -505,7 +505,7 @@ display: none;
     min-width: 0;
     background: transparent;
     border: none;
-    color: var(--color);
+    color: var(--ink);
     font-size: var(--fs-md);
     font-weight: bold;
     text-align: center;
@@ -549,7 +549,7 @@ display: none;
 .vr-toogle svg { color: var(--accent-color); }
 .btn-fav svg { width: 20px; height: 20px; }
 .segment svg { width: 46px; height: 46px; }
-.vr-step80-arrow svg { width: 46px; height: 46px; color: var(--soustxt-color); }
+.vr-step80-arrow svg { width: 46px; height: 46px; color: var(--ink-2); }
 
 .vr-my-center svg {
     width: 100%;
@@ -560,7 +560,7 @@ display: none;
 .vr-wheel-arrow svg {
     width: 100%;
     height: 100%;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
 .vr-button-sunflagL svg,
 .vr-button-sunflagR svg {
@@ -570,7 +570,7 @@ display: none;
 }
 /* Page Radio*/
 .radioOn {
-    background:  var(--accent-colorUniDark);
+    background:  var(--accent-soft);
     border: 1px solid var(--accent-color);
 }
 #divRadioEnableColor .switch:has(input:checked) {
@@ -595,9 +595,9 @@ display: none;
     gap: 3px;
     white-space: nowrap;
 }
-.gpioRadio-label { color: var(--soustxt-color); }
+.gpioRadio-label { color: var(--ink-2); }
 .gpioRadio-val { color: var(--accent-text); font-weight: bold; }
-.gpioRadio-sep { color: var(--soustxt-color); opacity: 0.6; }
+.gpioRadio-sep { color: var(--ink-2); opacity: 0.6; }
 
 .help-container {
     position: relative;
@@ -608,7 +608,7 @@ display: none;
     height:24px;
     cursor:help;
     vertical-align:middle;
-    color: var(--help);
+    color: var(--ink-2);
     transition: color 0.5s ease;
 }
 .help-container:hover svg {
@@ -629,7 +629,7 @@ display: none;
     padding: var(--sp-12);
     font-size: var(--fs-sm);
     box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
-    border: 1px solid var(--borderShadeCtl);
+    border: 1px solid var(--line);
 }
     .tooltip-text::after {
         content: "";
@@ -669,7 +669,7 @@ display: none;
     gap: var(--sp-4);
 }
 .rssi-left span:last-child {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
 .rssi-right {
     font-size: var(--fs-xxxl);
@@ -700,14 +700,14 @@ display: none;
     font-size: var(--fs-xs);
     border-radius: var(--radius-badge);
     background: transparent;
-    color: var(--help);
+    color: var(--ink-2);
     border: none;
 }
 #stepButtons > .step-btn.active,
 #stepButtonsRx > .step-btn.active,
 #stepButtonsDeviation > .step-btn.active {
-    background: var(--accent-colorUniDark);
-    color: var(--color);
+    background: var(--accent-soft);
+    color: var(--ink);
 }
 .radioBtnPrec {
     background: none;
@@ -800,10 +800,10 @@ div.frame-pulses {
 .rfdiag-name { display: block; overflow: hidden; text-overflow: ellipsis; }
 .rfdiag-addr {
     display: block;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     font-size: var(--fs-xs);
 }
-.rfdiag-unknown .rfdiag-name { color: var(--soustxt-color); font-style: italic; }
+.rfdiag-unknown .rfdiag-name { color: var(--ink-2); font-style: italic; }
 .rfdiag-badge {
     display: inline-block;
     padding: 2px var(--sp-12);
@@ -813,22 +813,22 @@ div.frame-pulses {
 }
 /* Same status hues as .success/.warning/.error so quality reads consistently app-wide.
    Opaque tint: a see-through one took the striped row colour and fell below 4.5:1. */
-.rfdiag-badge.good { color: var(--status-good); background: color-mix(in srgb, var(--status-good) 12%, var(--surface)); }
-.rfdiag-badge.fair { color: var(--status-warn); background: color-mix(in srgb, var(--status-warn) 12%, var(--surface)); }
-.rfdiag-badge.weak { color: var(--status-bad); background: color-mix(in srgb, var(--status-bad) 12%, var(--surface)); }
-.rfdiag-legend { padding: 6px var(--sp-12); font-size: var(--fs-xs); color: var(--soustxt-color); }
+.rfdiag-badge.good { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--surface)); }
+.rfdiag-badge.fair { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--surface)); }
+.rfdiag-badge.weak { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.rfdiag-legend { padding: 6px var(--sp-12); font-size: var(--fs-xs); color: var(--ink-2); }
 /* Scan button lives in the Wi-Fi card header, sized to its label. */
 .wifi-scan-row button { width: auto; padding: var(--sp-8) 18px; white-space: nowrap; }
 #divAps { margin: var(--sp-12) 0 var(--sp-4); }
 .rfdiag-wiz-step { display: flex; align-items: baseline; gap: var(--sp-12); padding: var(--sp-4) var(--sp-12); font-size: var(--fs-sm); }
-.rfdiag-wiz-step .rfdiag-wiz-mark { color: var(--soustxt-color); }
-.rfdiag-wiz-step.done .rfdiag-wiz-mark { color: var(--status-good); font-weight: 600; }
-.rfdiag-wiz-step.done { color: var(--soustxt-color); }
+.rfdiag-wiz-step .rfdiag-wiz-mark { color: var(--ink-2); }
+.rfdiag-wiz-step.done .rfdiag-wiz-mark { color: var(--ok); font-weight: 600; }
+.rfdiag-wiz-step.done { color: var(--ink-2); }
 /* Recommendation rows: compact inline apply button next to the badge. */
 .rfdiag-reco-row { cursor: default; }
 .rfdiag-reco-row .uniRight { gap: var(--sp-12); }
 .rfdiag-reco-row button { width: auto; padding: 6px 14px; white-space: nowrap; }
-.rfdiag-alert { color: var(--status-warn); }
+.rfdiag-alert { color: var(--warn); }
 /* The summary values (frequency, noise floor...) must never wrap under the
    long descriptions on narrow screens. */
 .rfdiag-value { white-space: nowrap; font-weight: 600; font-size: var(--fs-md); }
@@ -847,14 +847,14 @@ div.frame-pulses {
 /* Merged update state carried by the GitHub button. */
 .buttonUpdate.upd-ok { cursor: default; }
 .buttonUpdate.upd-ok .btnArrowRight { display: none; }
-.buttonUpdate.upd-ok #ghUpdTitle { color: var(--status-good); font-weight: 600; }
-.buttonUpdate.upd-available #ghUpdTitle { color: var(--status-warn); font-weight: 600; }
+.buttonUpdate.upd-ok #ghUpdTitle { color: var(--ok); font-weight: 600; }
+.buttonUpdate.upd-available #ghUpdTitle { color: var(--warn); font-weight: 600; }
 /* Security */
 
 .pwd-icon {
     width: 20px;
     height: 20px;
-    color: var(--color);
+    color: var(--ink);
 }
 /* Field wrapper: the anchor for the eye on every page (login, WiFi, MQTT). */
 .password-container {
