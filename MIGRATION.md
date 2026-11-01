@@ -14,11 +14,14 @@ field is read back exactly, and the fields introduced by this fork get
 neutral defaults (`liftTime` 0 = disabled, `curveGain` 0 = no
 correction). Backups from any 2.x release are accepted.
 
-> **Coming from the cjkas fork**: its radio record uses a different
-> layout under the same version number; the firmware detects this and
-> keeps the current radio settings instead of restoring corrupted
-> values. Reconfigure the radio manually if needed: everything else
-> (shades, rooms, rolling codes) restores normally.
+> **Coming from the original project (rstrouse, 2.4.x) or the cjkas
+> fork**: their radio record uses another layout (shorter in
+> rstrouse's, different under the same version number in cjkas'); the
+> firmware detects this and keeps the current radio settings instead
+> of restoring corrupted values. Set the radio up by hand after the
+> restore (step 5): everything else (shades, rooms, groups, repeaters,
+> rolling codes) restores normally. The rstrouse format is recognised
+> by the code but has not been checked with a real backup yet.
 
 ## Before you start
 
@@ -46,6 +49,12 @@ slot instead of 1.31 MB), which leaves room for future updates. A
 partition table cannot be changed over the air, hence this single USB
 flash. Every later update is a classic OTA again.
 
+> Already moved your device to v3.x or later over the air, without a
+> USB flash? It then keeps the old partition table, and its **Updates
+> and backup** page shows **Manual action required**: current images
+> no longer fit. Follow this guide the same way (the step 1 backup is
+> then in **Device › Updates and backup › Backup**).
+
 **Easiest: from the browser** (Chrome or Edge): open the
 [flash page](https://pulpyyyy.github.io/ESPSomfy-RTS/), plug the device
 in over USB, pick your board and click Install. Nothing to install on
@@ -53,13 +62,16 @@ the computer.
 
 **Or with esptool:**
 
-1. Download `SomfyController.onboard.esp32.bin` (or the variant
-   matching your board) from the
-   [releases page](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases).
+1. Download `SomfyController.onboard.esp32.bin.zip` (or the variant
+   matching your board: `esp32wrover`, `esp32c3`, `esp32s2`,
+   `esp32s3_4mb`, `esp32s3_8mb`) from the
+   [releases page](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases)
+   and unzip it. Every archive contains a file named
+   `SomfyController.onboard.bin`.
 2. Connect the device over USB and flash the image at offset 0:
 
    ```
-   esptool.py -p <PORT> write_flash 0x0 SomfyController.onboard.esp32.bin
+   esptool.py -p <PORT> write_flash 0x0 SomfyController.onboard.bin
    ```
 
    Replace `<PORT>` with your serial port (`COM5`, `/dev/ttyUSB0`, ...).
@@ -75,23 +87,29 @@ point:
    (WPA2 password **`espsomfy`**, fixed and documented on purpose,
    it only guards joining the AP).
 2. Open **http://192.168.4.1** in a browser.
-3. Enter your home WiFi credentials and save. The device reboots and
+3. In **Device › Network**, press **Scan Wi-Fi**, pick your network,
+   enter its password and save. The device reboots and
    joins your network; the access point disappears.
 4. Find the device's new address (your router's DHCP client list, or
    the address you had reserved for it) and open the web UI there.
 
-If you use a PIN or password on the UI, set it now: a fresh install
-starts unsecured.
+If you use a PIN or password on the UI, set it now in **Device ›
+Security**: a fresh install starts unsecured.
 
 ## Step 4: Restore your backup
 
 In the **new** web UI:
 
-1. Go to the backup/restore section of the settings.
-2. Upload the backup file from step 1.
-3. Select at least **Shades** (rooms, groups and repeaters are part of
-   it). Restoring network settings is optional: you just configured
-   them, keeping the fresh ones is recommended.
+1. Open **Device › Updates and backup** and press **Restore System**.
+2. Choose the backup file from step 1.
+3. Keep **Restore devices and groups** ticked (shades, rooms and
+   groups) and, if you use any, tick **Restore repeaters**: repeaters
+   are a separate option, unticked by default. Tick **Restore radio
+   settings** too: after the flash the radio is **disabled**; without
+   this option you will have to set it up and turn it on yourself
+   (step 5). Restoring network settings is optional: you just
+   configured them, keeping the fresh ones is recommended. Wi-Fi and
+   MQTT passwords are never part of a backup.
 4. Start the restore. The device reboots.
 
 After the reboot every shade is back: names, rooms, sort order,
@@ -102,7 +120,17 @@ where it left off.
 ## Step 5: Verify, then make a new backup
 
 1. Check that all shades are listed and respond.
-2. Immediately create a **new** backup from this firmware. The new
+2. Open each shade, **Advanced** tab, and check its **Command
+   repeats**: an old backup may bring back 0, and shades then miss
+   orders, especially when several are sent at once. Set at least 2
+   (3 or 4 for a distant shade). Do the same for groups.
+3. Open **Device › Radio**: the radio must be enabled, with the right
+   pins and frequency. If it is not (radio option not ticked, or a
+   backup from the original rstrouse project or the cjkas fork, whose
+   radio is not carried over),
+   choose your board in **GPIO Assignment**, turn the radio on and
+   save.
+4. Immediately create a **new** backup from this firmware. The new
    file uses the current format (per-shade `liftTime` and `curveGain`
    are included) and is the one to keep from now on.
 
@@ -128,7 +156,7 @@ integration; with the official one, add the device by IP address.
   full-size TCP segments are dropped silently. Lower the tunnel MTU
   (e.g. 1380 instead of 1420) or run the migration from a machine on
   the same LAN as the device.
-- **"Not a valid file" when uploading**: the UI checks file *content*
+- **"This file is not a valid ... file" when uploading**: the UI checks file *content*
   (magic bytes), not the file name. Make sure you selected the backup
   file for a restore, the `littlefs` image for a UI update, and the
   firmware image for a firmware update.

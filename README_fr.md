@@ -1,173 +1,77 @@
-[![GitHub Release](https://img.shields.io/github/release/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases) [![GitHub Activity](https://img.shields.io/github/last-commit/Pulpyyyy/ESPSomfy-RTS?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/commits/main) [![PlatformIO](https://img.shields.io/badge/PlatformIO-Compatible-orange?style=for-the-badge&logo=platformio&logoColor=white)](https://platformio.org) [![License](https://img.shields.io/github/license/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](LICENSE) [![Project Maintenance](https://img.shields.io/badge/maintainer-Pulpyyyy-blue.svg?style=for-the-badge)](https://github.com/Pulpyyyy) [![GitHub stars](https://img.shields.io/github/stars/Pulpyyyy/ESPSomfy-RTS?style=for-the-badge&logo=github&color=blue)](https://github.com/Pulpyyyy/ESPSomfy-RTS/stargazers)
-<div align="center">
+[![GitHub Release](https://img.shields.io/github/release/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases) [![GitHub Activity](https://img.shields.io/github/last-commit/Pulpyyyy/ESPSomfy-RTS?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/commits/main) [![PlatformIO](https://img.shields.io/badge/PlatformIO-Compatible-orange?style=for-the-badge&logo=platformio&logoColor=white)](https://platformio.org) [![License](https://img.shields.io/github/license/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](LICENSE) [![Project Maintenance](https://img.shields.io/badge/maintainer-Pulpyyyy-blue.svg?style=for-the-badge)](https://github.com/Pulpyyyy)
 
-  <img src="images/banniereSomfyRTS.png" alt="ESPSomfy-RTS Banner" width="100%">
+# ESPSomfy-RTS
 
-  <br />
- 
-  <p align="center">
-    Contrôlez et gérez facilement vos volets roulants, portails, portes de garage ou tout autre appareil utilisant le protocole RTS 433 MHz.
-    <br />
-    <br />
-    <a href="https://github.com/rstrouse/ESPSomfy-RTS/wiki"><strong>Explorer la documentation »</strong></a>
-    <br />
-    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/issues">Signaler un bug</a>
-    &middot;
-    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/pulls">Demander une fonctionnalité</a>
-  </p>
-</div>
-<br />
+Une carte ESP32 reliée à un module radio CC1101 pilote vos volets, stores, bannes, rideaux, portails et portes de garage **Somfy RTS**, depuis une page web, Home Assistant ou MQTT. Vos télécommandes continuent de fonctionner : la carte les entend et tient chaque position à jour.
 
-<p align="center">
-  <img src="images/exemple.png" alt="ESPSomfy-RTS Screen Shot" width="100%">
-</p>
+**[Documentation (wiki)](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki)** · **[Installer depuis le navigateur](https://pulpyyyy.github.io/ESPSomfy-RTS/)** · **[Versions](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases)** · **[English version](README.md)** · [Signaler un problème](https://github.com/Pulpyyyy/ESPSomfy-RTS/issues)
 
-## À propos du projet
+## Fonctionnalités
 
-Ce projet fait office de contrôleur complet pour les stores et volets Somfy RTS, capable de gérer jusqu'à **30 équipements individuels**, **14 groupes** et **14 pièces**.
+* **Équipements** : jusqu'à 30 volets, stores, bannes, rideaux, portes de garage, portails et contacts secs, avec gestion des lames orientables, rangés dans 14 pièces au plus et pilotés ensemble par 14 groupes au plus (une seule commande radio pour tout le groupe).
+* **Radio** : RTS, RTW et RTV en 433,42 MHz (ou 433,92 MHz, une fréquence par émetteur-récepteur), 56 et 80 bits. Les moteurs sans radio se pilotent par des modules relais.
+* **Vos télécommandes gardent la main** : liez jusqu'à 7 télécommandes ou capteurs par équipement, et les positions suivent ce qu'ils font. Un mode répéteur aide un moteur qui entend mal une télécommande.
+* **Positions justes** : calculées à partir des temps de course, avec un temps de décollage des lames et une correction d'enroulement, et une calibration guidée qui les mesure avec votre propre télécommande.
+* **Home Assistant** : par l'intégration [ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced) (découverte automatique), ou par MQTT avec la découverte Home Assistant. Une API HTTP et un WebSocket sont disponibles pour tout le reste.
+* **Réseau** : Wi-Fi avec itinérance, ou Ethernet filaire (WT32-ETH01, Olimex, LilyGO, wESP32 et d'autres), et un point d'accès de secours.
+* **Sécurité** : code PIN ou mot de passe, pour toute l'interface ou pour la configuration seulement.
+* **Mises à jour sûres** : depuis GitHub en un clic, ou par fichier. Les images sont vérifiées contre la taille réelle des partitions, et un firmware qui ne démarre pas revient tout seul à la version précédente.
+* **Sauvegardes** : sauvegarde et restauration complètes, codes tournants compris. Les sauvegardes du projet d'origine et des forks 2.x sont acceptées : rien à réappairer.
+* **Diagnostic radio** : plancher de bruit, signal de chaque télécommande entendue, alertes de dérive, et un nombre de répétitions conseillé pour chaque équipement.
+* **Interface** : la même sur téléphone, tablette et ordinateur, thèmes clair et sombre, n'importe quelle couleur d'accent, en français, anglais, allemand et espagnol.
 
-#### Protocoles pris en charge
-* **433MHz RTx :** Prise en charge complète des protocoles **RTS, RTW, RTV/L** et **433,92MHz**.
-* **Contraintes de fréquence :** Vous pouvez mélanger les protocoles tant qu'ils se situent dans la même plage de fréquence de base. 
-  > **Note :** Vous ne pouvez pas faire fonctionner simultanément des moteurs 433,92MHz et 433,42MHz sur le même émetteur-récepteur radio.
-* **IO Homecontrol :** Non pris en charge nativement. Cependant, la compatibilité peut être obtenue via le protocole **IO Remote** en s'interfaçant avec une télécommande désossée. 
+## Mise en route
 
-#### Moteurs filaires (Relais)
-Pour les personnes disposant de moteurs "nus" (sans radio intégrée), ce projet inclut la prise en charge des **configurations de modules relais**. Une fois configurés, ces moteurs peuvent être contrôlés via l'interface exactement comme des appareils natifs RTS ou RTW.
+1. **Matériel** : une carte ESP32 (4 Mo de flash au moins) et un module CC1101 433 MHz. Les broches radio se choisissent dans l'interface, avec des préréglages pour les cartes courantes. Guides de câblage : voir [Mise en route](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/fr-Mise-en-route).
+2. **Flashez-la une fois par USB**, depuis la [page de flash](https://pulpyyyy.github.io/ESPSomfy-RTS/) (Chrome ou Edge), ou avec esptool et l'image `SomfyController.onboard.<carte>.bin.zip` de la [dernière version](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases).
+3. **Connectez-la** : rejoignez le réseau Wi-Fi `ESPSomfyRTS` (mot de passe `espsomfy`), ouvrez `http://192.168.4.1` et choisissez votre réseau Wi-Fi.
+4. **Configurez-la** : sécurité, radio, puis vos volets. Toutes les mises à jour suivantes passent par le réseau.
 
-<br />
+### Vous venez de rstrouse/ESPSomfy-RTS ou d'un fork 2.x
 
-### Pourquoi ce projet existe-t-il ?
-
-**ESPSomfy-RTS** est un projet puissant à la base, mais j'ai estimé qu'il avait besoin d'une touche plus moderne et localisée.
-
-Étant français (et donc un grand amateur de pain et de fromage), j'ai trouvé lors de ma toute première utilisation que les explications étaient parfois confuses. Surtout, j'avais l'impression de devoir mettre des lunettes de soleil à chaque fois que j'ouvrais l'interface ! Ce fork est conçu pour vous éviter un aller-retour chez l'ophtalmo et quelques maux de tête linguistiques au passage.
-
-Tout en conservant les **fondations ultra-solides** du projet original, j'ai entièrement repensé l'expérience utilisateur pour la rendre **véritablement responsive** : l'interface est tout aussi agréable à utiliser sur mobile et tablette que sur PC, et la navigation est enfin limpide pour les non-anglophones.
-
-Ce projet vise à rendre la gestion de vos appareils RTS 433 MHZ aussi belle que fonctionnelle.
-
-<br />
-
-## Migration & Mises à jour
-
-Si vous migrez depuis **rstrouse/ESPSomfy-RTS** ou si vous mettez à niveau une ancienne version de ce fork, veuillez lire ce qui suit :
-
-#### De rstrouse à ce Fork (v2.5.0+)
-* **Compatibilité des données :** Vous pouvez restaurer un fichier `.backup` du projet original. Vos volets, groupes et adresses de télécommandes seront migrés avec succès.
-* **⚠️ Paramètres Radio (Action requise) :** En raison du nouveau sélecteur de GPIO dans la v2.5.0, les assignations des broches radio ne sont **pas** restaurées automatiquement à partir des anciens fichiers de sauvegarde. 
-* **Message d'avertissement :** Vous verrez une alerte de compatibilité pendant le processus de restauration. Après l'importation, vous **devez** vérifier et réassigner manuellement vos broches GPIO dans l'onglet **Radio**.
-
-#### Mise à niveau de la v2.4.8 à la v2.5.0
-* **Mise à jour directe :** Vos paramètres existants sont automatiquement migrés et préservés pendant le processus de mise à jour. 
-* **⚠️ Note sur la sauvegarde automatique :** Le fichier de sauvegarde créé par le système *juste avant* la mise à jour est toujours à l'ancien format. 
-* **Restauration après mise à jour :** Si jamais vous devez restaurer cette sauvegarde spécifique pré-mise à jour sur la v2.5.0+, vous déclencherez l'alerte "Compatibilité incomplète" et devrez réassigner vos GPIO Radio manuellement.
-
-#### Mise à niveau vers la v3.x (nouvelle table de partitions)
-* **Mise à jour OTA :** La mise à jour depuis la v2.5.x via l'interface web ou l'updater GitHub continue de fonctionner. Le firmware v3.x remplit environ 97 % de l'ancien slot applicatif de 1,31 Mo ; si une future version ne tenait plus, le garde-fou intégré refuse la mise à jour au lieu de corrompre le boîtier.
-* **Recommandé, un flash USB :** La v3.0.0 introduit une nouvelle table de partitions avec des slots applicatifs de 1,69 Mo et de la marge pour la suite. Une table de partitions ne peut pas être changée par OTA : sauvegardez votre configuration, flashez une fois l'image **onboard** v3.x par USB, puis restaurez votre sauvegarde. Toutes les mises à jour suivantes redeviennent des OTA classiques.
-* **Guide pas à pas :** voir [MIGRATION_fr.md](MIGRATION_fr.md) : la procédure complète, vérifiée de bout en bout avec une vraie sauvegarde v2.5.6 (volets, rolling codes et pièces conservés, aucun ré-appairage).
-
-> [!TIP]
-> Après une mise à jour réussie vers la v2.5.0, nous vous recommandons de créer immédiatement une **nouvelle sauvegarde**. Ce nouveau fichier inclura la cartographie GPIO mise à jour et ne déclenchera plus aucun avertissement à l'avenir.
+Suivez **[MIGRATION_fr.md](MIGRATION_fr.md)** : sauvegarde, un flash USB (la table de partitions a changé en v3.0.0), restauration. Volets, pièces, groupes et codes tournants sont repris, rien à réappairer. Une carte passée en v3.x ou plus par OTA affiche **Action manuelle requise** sur sa page de mise à jour : le même guide s'applique.
 
 ## Home Assistant
 
-Ce firmware est prévu pour fonctionner avec **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)**, l'intégration Home Assistant correspondante.
+* **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)** (recommandée) : faite pour ce firmware. La carte s'annonce en SSDP sous `urn:schemas-pulpyyyy-org:device:Somfy:1` et est découverte automatiquement ; l'intégration se connecte avec votre PIN ou mot de passe.
+* **MQTT** : activez *Publier découverte* dans **Intégrations › Home Assistant et MQTT** ; les volets apparaissent par la découverte MQTT de Home Assistant.
+* L'intégration **officielle ESPSomfy-RTS-HA** fonctionne toujours avec la même API, mais ne reconnaît pas l'annonce de ce firmware : ajoutez la carte par son adresse IP.
 
-L'API n'ayant pas changé, l'intégration officielle ESPSomfy-RTS-HA continue de fonctionner : vos entités, noms et tableaux de bord sont conservés. Une différence compte néanmoins : ce fork s'annonce en SSDP sous `urn:schemas-pulpyyyy-org:device:Somfy:1`, que seule l'intégration Enhanced écoute. Avec l'intégration officielle, le boîtier n'est donc plus découvert automatiquement et doit être ajouté par son adresse IP.
+## Documentation
 
-## Feuille de route du projet ESPSomfy-RTS
+Le **[wiki](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki)** décrit l'interface actuelle, page par page, en français et en anglais :
 
-Vous voulez savoir ce qui arrive ensuite, suivre l'avancement de la version en cours ou voir les fonctionnalités terminées ? J'utilise GitHub Projects pour maintenir une feuille de route en direct et à jour.
+* [Mise en route](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/fr-Mise-en-route) : matériel, flash, premier démarrage.
+* [Pilotage au quotidien](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/fr-Pilotage) : la page d'accueil et le panneau de position.
+* [Volets et stores](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/fr-Volets) : ajout, appairage, calibration, télécommandes liées.
+* [Pièces, groupes et télécommandes](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/fr-Pieces-groupes-telecommandes).
+* [Intégrations](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/fr-Integrations) : Home Assistant, topics MQTT, API HTTP, WebSocket.
+* [Réglages de l'appareil](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/fr-Reglages-appareil) : réseau, radio, sécurité, mises à jour et sauvegarde, préférences.
+* [Diagnostic et dépannage](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/fr-Diagnostic-depannage).
 
-[![ESPSomfy-RTS Roadmap](https://img.shields.io/badge/Voir_en_Direct-Feuille_de_route_🗣️-238636?style=for-the-badge&logo=github)](https://github.com/users/Pulpyyyy/projects/2)
+Le montage matériel est documenté sur le [wiki du projet d'origine](https://github.com/rstrouse/ESPSomfy-RTS/wiki), en anglais ([Simple ESPSomfy-RTS device](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Simple-ESPSomfy-RTS-device), [Mini ESP32-S3 build](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Mini-ESP32s3-Device-Build), [Controlling motors with GPIO](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Controlling-Motors-with-GPIO)). Ses pages sur le logiciel, l'installation et les mises à jour décrivent le firmware d'origine : pour celles-ci, utilisez le wiki de ce projet.
 
-> 💡 **Cliquez sur le badge ci-dessus** pour suivre le développement en temps réel, les jalons actifs, et soumettre des fonctionnalités ou des corrections de bugs directement dans les colonnes de notre flux de travail.
+## Point d'accès de secours
 
-<br />
+Quand la carte ne parvient pas à rejoindre un réseau (premier démarrage, mauvais mot de passe, réseau indisponible), elle ouvre son propre réseau Wi-Fi pour permettre de la reconfigurer :
 
-## 🛠️ Dépannage & Réinitialisation d'usine
+* **SSID** : le nom d'hôte de la carte (`ESPSomfyRTS` par défaut).
+* **Mot de passe (WPA2)** : `espsomfy`.
+* **Adresse** : `http://192.168.4.1`.
 
-Si vous perdez l'accès à l'interface web (erreur de configuration réseau ou mot de passe oublié), une procédure de réinitialisation manuelle est disponible via des cycles d'alimentation (**Power Cycles**).
+Le mot de passe est fixe et public, volontairement : il ne protège que l'accès à ce réseau. L'interface elle-même reste protégée par votre PIN ou mot de passe si vous en avez défini un.
 
-> [!IMPORTANT]
-> La procédure dépend de la version de votre firmware. Un système à deux niveaux a été introduit dans la **v2.5.1** pour permettre de réinitialiser le réseau sans perdre toutes vos configurations (ce qui n'est pas le cas si vous utilisez la version **2.5.0**).
+## Réinitialisation par coupures de courant
 
-### Résumé des procédures
+Si l'interface n'est plus joignable, branchez la carte puis débranchez-la dans les 5 secondes, plusieurs fois de suite :
 
-* **Version v2.5.1+ :**
-    * **3 Cycles :** Réinitialise la configuration Wi-Fi et désactive les paramètres de sécurité.
-    * **6 Cycles :** Réinitialisation d'usine complète (**Full Wipe**).
-* **Version v2.5.0 :**
-    * **4 Cycles :** Réinitialisation d'usine complète (**Full Wipe**).
+* **exactement 3 fois** : les réglages Wi-Fi sont effacés et la sécurité désactivée ; les équipements et les autres réglages sont conservés ;
+* **6 fois ou plus** : retour complet aux réglages d'usine.
 
-> [!TIP]
-> Utilisez toujours ces procédures en dernier recours. Si l'interface est toujours accessible, utilisez plutôt le bouton **Restaurer** dans les paramètres système.
+Détails dans [Diagnostic et dépannage](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/fr-Diagnostic-depannage#réinitialisation-par-coupures-de-courant).
 
----
+## Crédits
 
-## 📸 Captures d'écran
+ESPSomfy-RTS a été créé par [rstrouse](https://github.com/rstrouse). Ce projet est parti du [fork de xkain](https://github.com/xkain/ESPSomfy-RTS).
 
-### 📱 Vue Mobile (Mode Sombre)
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile00.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile01.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile02.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile03.png?raw=true" width="23%" />
-</p>
-
-### 💻 Vue Bureau (Mode Sombre)
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark00.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark02.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark03.png?raw=true" width="80%" />
-</p>
-
-<br>
-
-<details>
-<summary><b>✨ Cliquez ici pour voir les versions en Mode Clair</b></summary>
-  
-### 📱 Vue Mobile 
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile00.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile01.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile02.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile03.png?raw=true" width="23%" />
-</p>
-
-### 💻 Vue Bureau   
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair00.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair02.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair03.png?raw=true" width="80%" />
-</p>
-</details>
-    
----
-
-## 📚 Documentation & Ressources
-
-Puisqu'il s'agit d'un fork, vous pouvez vous appuyer sur la riche documentation originale pour les détails matériels techniques et les intégrations :
-
-* 📖 **[Configuration du logiciel](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Configuring-the-Software)**
-* ⚙️ **[Installation du firmware](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Installing-the-Firmware)**
-* 🔄 **[Comment mettre à jour ESPSomfy RTS](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Updating-ESPSomfy-RTS)**
-* 🔌 **[Intégration Home Assistant](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)**
-
----
-
-## 📶 Point d'accès de secours (Wi‑Fi)
-
-Si le boîtier ne parvient pas à se connecter au Wi‑Fi (première mise en route, mauvais mot de passe, réseau indisponible), il ouvre un **point d'accès de secours** pour permettre la (re)configuration :
-
-* **SSID** : le nom d'hôte du boîtier (`ESPSomfyRTS` par défaut).
-* **Mot de passe (WPA2)** : `espsomfy`
-
-Connecte‑toi à ce réseau puis ouvre `http://192.168.4.1` pour configurer le Wi‑Fi. Le mot de passe de l'AP ne fait que protéger l'accès au réseau ; la configuration et le pilotage restent protégés par ton PIN/mot de passe si tu en as défini un.
-
----
-
-## 🙏 Crédits
-Un merci tout particulier à [rstrouse](https://github.com/rstrouse) pour son travail incroyable sur le projet original ESPSomfy-RTS, à [xkain](https://github.com/xkain) dont ce fork est issu, et à [y-streibel-uiris](https://github.com/y-streibel-uiris) pour l'implémentation du WebSocket HTTPS.
+Merci à [y-streibel-uiris](https://github.com/y-streibel-uiris) pour la prise en charge du WebSocket HTTPS.

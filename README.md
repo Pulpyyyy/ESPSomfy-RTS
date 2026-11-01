@@ -1,178 +1,77 @@
-[![GitHub Release](https://img.shields.io/github/release/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases) [![GitHub Activity](https://img.shields.io/github/last-commit/Pulpyyyy/ESPSomfy-RTS?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/commits/main) [![PlatformIO](https://img.shields.io/badge/PlatformIO-Compatible-orange?style=for-the-badge&logo=platformio&logoColor=white)](https://platformio.org) [![License](https://img.shields.io/github/license/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](LICENSE) [![Project Maintenance](https://img.shields.io/badge/maintainer-Pulpyyyy-blue.svg?style=for-the-badge)](https://github.com/Pulpyyyy) [![GitHub stars](https://img.shields.io/github/stars/Pulpyyyy/ESPSomfy-RTS?style=for-the-badge&logo=github&color=blue)](https://github.com/Pulpyyyy/ESPSomfy-RTS/stargazers)
+[![GitHub Release](https://img.shields.io/github/release/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases) [![GitHub Activity](https://img.shields.io/github/last-commit/Pulpyyyy/ESPSomfy-RTS?style=for-the-badge)](https://github.com/Pulpyyyy/ESPSomfy-RTS/commits/main) [![PlatformIO](https://img.shields.io/badge/PlatformIO-Compatible-orange?style=for-the-badge&logo=platformio&logoColor=white)](https://platformio.org) [![License](https://img.shields.io/github/license/Pulpyyyy/ESPSomfy-RTS.svg?style=for-the-badge)](LICENSE) [![Project Maintenance](https://img.shields.io/badge/maintainer-Pulpyyyy-blue.svg?style=for-the-badge)](https://github.com/Pulpyyyy)
 
-<div align="center">
+# ESPSomfy-RTS
 
-  <img src="images/banniereSomfyRTS.png" alt="ESPSomfy-RTS Banner" width="100%">
+An ESP32 and a CC1101 radio module that control your **Somfy RTS** shades, blinds, awnings, curtains, gates and garage doors, from a web page, Home Assistant or MQTT. Your remotes keep working: the board hears them and keeps every position up to date.
 
-  <br />
- 
-  <p align="center">
-    Easily control and monitor your roller shutters, gates, garage doors, or any other device using the RTS 433 MHz protocol.
-    <br />
-    <br />
-    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/README_fr.md"><strong>README complet en français 🇫🇷 »</strong></a>
-    <br />
-    <a href="https://github.com/rstrouse/ESPSomfy-RTS/wiki"><strong>Explore documentation »</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/Pulpyyyy/ESPSomfy-RTS/pulls">Request Feature</a>
-  </p>
-</div>
+**[Documentation (wiki)](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki)** · **[Install from the browser](https://pulpyyyy.github.io/ESPSomfy-RTS/)** · **[Releases](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases)** · **[Version française](README_fr.md)** · [Report an issue](https://github.com/Pulpyyyy/ESPSomfy-RTS/issues)
 
-<br />
+## Features
 
-<p align="center">
-  <img src="images/exemple.png" alt="ESPSomfy-RTS Screen Shot" width="100%">
-</p>
+* **Devices**: up to 30 shades, blinds, awnings, curtains, garage doors, gates and dry contacts, with tilt support, sorted in up to 14 rooms and driven together by up to 14 groups (one radio command for the whole group).
+* **Radio**: RTS, RTW and RTV on 433.42 MHz (or 433.92 MHz, one frequency per transceiver), 56 and 80 bits. Motors without radio can be driven through relay modules.
+* **Your remotes stay in charge**: link up to 7 remotes or sensors per device, and positions follow what they do. A repeater mode helps a motor that hears a remote badly.
+* **Accurate positions**: computed from travel times, with a slat lift time and a winding correction, and a guided calibration that measures them with your own remote.
+* **Home Assistant**: through the [ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced) integration (found automatically), or through MQTT with Home Assistant discovery. An HTTP API and a WebSocket are available for everything else.
+* **Network**: Wi-Fi with roaming, or wired Ethernet (WT32-ETH01, Olimex, LilyGO, wESP32 and others), and a fallback access point.
+* **Security**: PIN code or password, for the whole interface or for the configuration only.
+* **Safe updates**: from GitHub in one click, or by file. Images are checked against the real partition size, and a firmware that fails to start rolls back on its own.
+* **Backups**: full backup and restore, including rolling codes. Backups from the original project and the 2.x forks are accepted, so nothing needs pairing again.
+* **RF diagnostics**: noise floor, signal of every remote heard, drift alerts, and a recommended number of command repeats for each device.
+* **Interface**: works the same on phone, tablet and computer, light and dark themes, any accent colour, in English, French, German and Spanish.
 
-## About The Project
+## Getting started
 
-This project serves as a comprehensive controller for Somfy RTS blinds and shades, capable of managing up to **30 individual shades** , **14 groups** and **14 rooms**.
+1. **Hardware**: an ESP32 board (4 MB of flash at least) and a CC1101 433 MHz module. The radio pins are chosen in the interface, with presets for common boards. Wiring guides: see [Getting started](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Getting-started).
+2. **Flash it once over USB**, from the [flash page](https://pulpyyyy.github.io/ESPSomfy-RTS/) (Chrome or Edge), or with esptool and the `SomfyController.onboard.<board>.bin.zip` image of the [latest release](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases).
+3. **Connect it**: join the `ESPSomfyRTS` Wi-Fi network (password `espsomfy`), open `http://192.168.4.1` and choose your Wi-Fi network.
+4. **Set it up**: security, radio, then your shades. Every later update goes over the network.
 
-#### Supported Protocols
-* **433MHz RTx:** Full support for **RTS, RTW, RTV/L**, and **433.92MHz** protocols.
-* **Frequency Constraints:** You can mix protocols as long as they reside within the same base frequency range. 
-  > **Note:** You cannot operate 433.92MHz and 433.42MHz motors simultaneously on the same radio transceiver.
-* **IO Home Control:** Not natively supported. However, compatibility can be achieved via the **IO Remote protocol** by interfacing with a dissected remote control. 
+### Coming from rstrouse/ESPSomfy-RTS or a 2.x fork
 
-#### Wired Motors (Relays)
-For those with "bare" motors (no built-in radio), this project includes support for **relay module configurations**. Once set up, these motors can be controlled through the interface exactly like native RTS or RTW devices.
-
-<br />
-
-### Why does this project exist?
-
-**ESPSomfy-RTS** is a powerful project at its core, but I felt it needed a more modern and localized touch.
-
-Being French (and therefore a big fan of bread and cheese), I found during my very first use that the explanations were sometimes confusing. Above all, I felt like I had to put on sunglasses every time I opened the interface! This fork is designed to save you a trip to the eye doctor and a few linguistic headaches along the way.
-
-While keeping the **rock-solid foundations** of the original project, I have completely redesigned the user experience to be **truly responsive**: the interface is just as pleasant to use on mobile and tablet as it is on PC, and navigation is finally crystal clear for non-English speakers.
-
-This project aims to make managing your RTS 433 MHZ devices as beautiful as it is functional.
-
-<br />
-
-## Migration & Updates
-
-If you are migrating from **rstrouse/ESPSomfy-RTS** or upgrading from an older version of this fork, please read the following:
-
-#### From rstrouse to this Fork (v2.5.0+)
-* **Data Compatibility:** You can restore a `.backup` file from the original project. Your shades, groups, and remote addresses will be successfully migrated.
-* **⚠️ Radio Settings (Action Required):** Due to the new GPIO Selector in v2.5.0, radio pin assignments are **not** automatically restored from older backup files. 
-* **Warning Message:** You will see a compatibility alert during the restore process. After the import, you **must** manually verify and re-assign your GPIO pins in the **Radio tab**.
-
-#### Upgrading from v2.4.8 to v2.5.0
-* **Direct Update:** Your existing settings are automatically migrated and preserved during the update process. 
-* **⚠️ Automatic Backup Note:** The backup file created by the system *just before* the update is still in the old format. 
-* **Restoring after Update:** If you ever need to restore that specific pre-update backup onto v2.5.0+, you will trigger the "Incomplete Compatibility" alert and will need to re-assign your Radio GPIOs manually.
-
-#### Upgrading to v3.x (new partition layout)
-* **Over-the-air update:** Updating from v2.5.x through the web interface or the GitHub updater keeps working. The v3.x firmware fills about 97% of the old 1.31 MB application slot; if a future version no longer fits, the built-in size guard refuses the update instead of corrupting the device.
-* **Recommended, one USB flash:** v3.0.0 introduced a new partition table with 1.69 MB application slots and room to grow. A partition table cannot be changed over the air: back up your configuration, flash the v3.x **onboard** image once over USB, then restore your backup. Every later update is a classic OTA again.
-* **Step-by-step guide:** see [MIGRATION.md](MIGRATION.md): the whole procedure, verified end-to-end with a real v2.5.6 backup (shades, rolling codes and rooms all carried over, no re-pairing).
-
-> [!TIP]
-> After a successful update to v2.5.0, we recommend creating a **new backup** immediately. This new file will include the updated GPIO mapping and won't trigger any warnings in the future.
+Follow **[MIGRATION.md](MIGRATION.md)**: back up, flash once over USB (the partition layout changed in v3.0.0), restore. Shades, rooms, groups and rolling codes are carried over, nothing needs pairing again. A device that was moved to v3.x or later over the air shows **Manual action required** on its update page: the same guide applies.
 
 ## Home Assistant
 
-This firmware is designed to run with **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)**, the matching Home Assistant integration.
+* **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)** (recommended): made for this firmware. The board announces itself over SSDP as `urn:schemas-pulpyyyy-org:device:Somfy:1` and is discovered automatically; the integration logs in with your PIN or password.
+* **MQTT**: turn on *Publish Discovery* in **Integrations › Home Assistant and MQTT**; shades appear through Home Assistant's MQTT discovery.
+* The **official ESPSomfy-RTS-HA** integration still works with the same API, but does not recognise this firmware's announcement: add the board by its IP address.
 
-The API is unchanged, so the official ESPSomfy-RTS-HA integration keeps working: your entities, names and dashboards are preserved. One difference matters though: this fork announces itself over SSDP as `urn:schemas-pulpyyyy-org:device:Somfy:1`, which only the Enhanced integration listens for. With the official integration the device is no longer discovered automatically and has to be added by IP.
+## Documentation
 
-## Project ESPSomfy-RTS Roadmap
+The **[wiki](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki)** describes the current interface, page by page, in English and French:
 
-Want to know what's coming next, check current release progress, or see completed features? We use GitHub Projects to maintain a live, up-to-date roadmap.
+* [Getting started](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Getting-started): hardware, flashing, first start.
+* [Daily control](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Daily-control): the Home page and the position panel.
+* [Shades](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Shades): adding, pairing, calibrating, linking remotes.
+* [Rooms, groups and remotes](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Rooms-groups-remotes).
+* [Integrations](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Integrations): Home Assistant, MQTT topics, HTTP API, WebSocket.
+* [Device settings](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Device-settings): network, radio, security, updates and backup, preferences.
+* [Diagnostics and troubleshooting](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Diagnostics-and-troubleshooting).
 
-[![ESPSomfy-RTS Roadmap](https://img.shields.io/badge/View_Live-Roadmap_🗣️-238636?style=for-the-badge&logo=github)](https://github.com/users/Pulpyyyy/projects/2)
+Hardware building is documented on the [original project's wiki](https://github.com/rstrouse/ESPSomfy-RTS/wiki) ([Simple ESPSomfy-RTS device](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Simple-ESPSomfy-RTS-device), [Mini ESP32-S3 build](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Mini-ESP32s3-Device-Build), [Controlling motors with GPIO](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Controlling-Motors-with-GPIO)). Its software, installation and update pages describe the original firmware: use this project's wiki for those.
 
-> 💡 **Click the badge above** to track real-time development, active milestones, and submit features or bug fixes directly into our workflow columns.
+## Fallback access point
 
-<br />
-
-## 🛠️ Troubleshooting & Factory Reset
-
-If you lose access to the web interface (network configuration error or forgotten password), a manual reset procedure is available via (**Power Cycles**).
-
-> [!IMPORTANT]
->The procedure depends on your firmware version. A two-tier system was introduced in **v2.5.1** to allow resetting the network without losing all your configurations (which is not the case if you are using version **2.5.0**).
-
-### Summary of procedures
-
-* **Version v2.5.1+ :**
-    * **3 Cycles :** Resets Wi-Fi configuration and disables security settings.
-    * **6 Cycles :** Full Factory Reset (**Full Wipe**).
-* **Version v2.5.0 :**
-    * **4 Cycles :** Full Factory Reset (**Full Wipe**).
-
-> [!TIP]
-> Always use these procedures as a last resort. If the interface is still accessible, use the **Restore** button in the system settings instead.
-
----
-
-## 📸 Screenshots
-
-### 📱 Mobile View (Dark Mode)
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile00.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile01.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile02.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark-mobile03.png?raw=true" width="23%" />
-</p>
-
-### 💻 Desktop View (Dark Mode)
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark00.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark02.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/dark03.png?raw=true" width="80%" />
-</p>
-
-<br>
-
-<details>
-<summary><b>✨ Click here to see Light Mode versions</b></summary>
-  
-### 📱 Mobile View 
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile00.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile01.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile02.png?raw=true" width="23%" />
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair-mobile03.png?raw=true" width="23%" />
-</p>
-
-### 💻 Desktop View  
-<p align="center">
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair00.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair02.png?raw=true" width="80%" /><br><br>
-  <img src="https://github.com/Pulpyyyy/ESPSomfy-RTS/blob/main/images/clair03.png?raw=true" width="80%" />
-</p>
-</details>
-    
----
-
-## 📚 Documentation & Resources
-
-Since this is a fork, you can rely on the extensive original documentation for technical hardware details and integrations:
-
-* 📖 **[Configuring the Software](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Configuring-the-Software)**
-* ⚙️ **[Installing the Firmware](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Installing-the-Firmware)**
-* 🔄 **[How to Update ESPSomfy RTS](https://github.com/rstrouse/ESPSomfy-RTS/wiki/Updating-ESPSomfy-RTS)**
-* 🔌 **[Home Assistant integration](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)**
-
----
-
-## 📶 Fallback Access Point (Wi‑Fi)
-
-If the device cannot join your Wi‑Fi (first boot, wrong password, network down), it opens a **fallback access point** so you can (re)configure it:
+When the board cannot join a network (first start, wrong password, network down), it opens its own Wi-Fi network so you can set it up again:
 
 * **SSID**: the device hostname (`ESPSomfyRTS` by default).
-* **Password (WPA2)**: `espsomfy`
+* **Password (WPA2)**: `espsomfy`.
+* **Address**: `http://192.168.4.1`.
 
-Connect to that network and open `http://192.168.4.1` to set up Wi‑Fi. The AP password only guards joining the network; the configuration and control are still protected by your PIN/password if one is set.
+The password is fixed and public on purpose: it only guards joining that network. The interface itself stays protected by your PIN or password if you set one.
 
----
+## Reset by power cycles
 
-## 🙏 Credits
-Special thanks to [rstrouse](https://github.com/rstrouse) for the incredible work on the original ESPSomfy-RTS project, to [xkain](https://github.com/xkain) whose fork this one builds on, and to [y-streibel-uiris](https://github.com/y-streibel-uiris) for the HTTPS WebSocket implementation.
+If the interface can no longer be reached, plug the board in and unplug it within 5 seconds, several times in a row:
+
+* **exactly 3 times**: the Wi-Fi settings are erased and security is turned off; devices and other settings are kept;
+* **6 times or more**: full factory reset.
+
+Details in [Diagnostics and troubleshooting](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Diagnostics-and-troubleshooting#reset-by-power-cycles).
+
+## Credits
+
+ESPSomfy-RTS was created by [rstrouse](https://github.com/rstrouse). This project started from [xkain's fork](https://github.com/xkain/ESPSomfy-RTS) of it.
+
+Thanks to [y-streibel-uiris](https://github.com/y-streibel-uiris) for the HTTPS WebSocket support.
