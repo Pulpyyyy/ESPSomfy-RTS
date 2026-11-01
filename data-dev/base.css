@@ -224,10 +224,9 @@
 /* Typography: the platform UI font: nothing to download, works offline. */
 body { font-family: var(--font-ui); }
 
-/* Layout utilities: shared patterns extracted from component rules.
-   Use .u-* directly in new markup; legacy selectors are grouped here. */
+/* Layout patterns shared by component rules (row with space-between, centred box,
+   row, column), grouped by selector. */
 
-.u-row-between,
 .uniRow,
 .buttonUpdate,
 .unibutton,
@@ -236,14 +235,12 @@ body { font-family: var(--font-ui); }
 .blocRadioHeader,
 .rssi-row,
 .blocsteps-row,
-.custom-file-upload,
-.somfyShadeCtl .shadectl-status-bar {
+.custom-file-upload {
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
-.u-row-center,
 input[type="radio"],
 .step-buttons button,
 div.signal,
@@ -272,20 +269,16 @@ div.wait-overlay,
 .empty-state-container,
 .drag-handle,
 .divEditDelete-svg,
-.shadectl-side-handle,
 .indicator,
 .button-my,
 .button-light,
 .button-sunflag,
-.button-remote,
-.box-image-container,
 .wifiConnectScan {
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.u-row,
 #calWizResult .calRow,
 .uniRight,
 .input-number-custom,
@@ -293,11 +286,7 @@ div.wait-overlay,
 .step-buttons,
 .safety-label,
 .warningText,
-.top-bar-left,
-.top-bar-right,
-.uptime-container,
 .nav-item,
-.sidebar-footer,
 .wifi-right,
 .somfy-status-container,
 .vr-step80,
@@ -323,13 +312,8 @@ div.wait-overlay,
 .somfyShade,
 .somfyLinkedRemote,
 .linkedWrap,
-.shadectl-main-content,
 .somfyShadeCtl .shadectl-buttons,
-.shadectl-status-left,
-.status-group-right,
-.myShade-badge,
 .somfyGroupCtl,
-.somfyShadeCtl .shade-icon,
 .somfyGroupCtl .groupctl-buttons,
 .safety-checkbox-container,
 .scanfreqwhat > div:first-child {
@@ -337,17 +321,13 @@ div.wait-overlay,
     align-items: center;
 }
 
-.u-col,
 .firmwarblocupdate,
 .divButton,
 .uniText,
 .uniColumn,
 .gpio-flex-container,
-.uptime-values,
-.sidebar-nav,
 .subtab-content,
 .welcome-container,
-.welcomeCard,
 .devButtonUpdate,
 .somfy-infoPosTilt,
 .vr-block-center,
@@ -360,10 +340,8 @@ div.wait-overlay,
 .vrslidStepSize,
 .error-content,
 .message-content,
-.overlay-content,
 .footer-sticky-content,
 .linkedContent,
-.shadectl-right-content,
 .somfyShadeCtl .shade-name,
 .scanfreqRssiLeft,
 .scanfreqRssiRight {
@@ -371,7 +349,6 @@ div.wait-overlay,
     flex-direction: column;
 }
 
-.u-ellipsis,
 span.ssid,
 .frame-row > span,
 .frame-header > span,
@@ -379,7 +356,6 @@ div.frame-pulses,
 .file-name-display,
 .name-text,
 .repeater-name,
-.linkedshade-name,
 .somfyGroupCtl .groupctl-name,
 .somfyShadeCtl .shadectl-name {
     overflow: hidden;
@@ -1447,17 +1423,6 @@ button:disabled:active {
 .shadectl-buttons[data-shadetype="5"] > .cmd-button[data-cmd="sunflag"],
 .shadectl-buttons[data-shadetype="9"] > .cmd-button[data-cmd="sunflag"]
 {
-    display: none;
-}
-.somfyShadeCtl[data-shadetype="14"] .shadectl-mypos,
-.somfyShadeCtl[data-shadetype="15"] .shadectl-mypos,
-.somfyShadeCtl[data-shadetype="16"] .shadectl-mypos,
-.somfyShadeCtl[data-shadetype="9"] .shadectl-mypos,
-.somfyShadeCtl[data-tilt="3"] .shadectl-mypos .my-pos,
-.somfyShadeCtl:not([data-shadetype="1"]) .shadectl-mypos .my-pos-tilt,
-.somfyShadeCtl[data-tilt="0"] .shadectl-mypos .my-pos-tilt,
-.somfyShadeCtl[data-shadetype="1"][data-tilt="3"] .shadectl-mypos label.my-pos,
-.somfyShadeCtl[data-shadetype="10"] .shadectl-mypos {
     display: none;
 }
 .animScale {

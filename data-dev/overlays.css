@@ -4,12 +4,6 @@
 }
 /* rotate */
 
-/* force animation */
-i.icss-anim,
-i.icss-anim:before,
-i.icss-anim:after {
-    transition: all 1s;
-}
 /* Spin */
 
 /* BELL */
@@ -352,8 +346,7 @@ div.wait-overlay .wait-label {
     animation: fadeInBlur 0.2s ease-out forwards;
 }
 .error-content,
-.message-content,
-.overlay-content{
+.message-content {
     position: relative;
     width: 90%;
     padding: 5px 30px 30px 30px;
@@ -372,14 +365,10 @@ div.wait-overlay .wait-label {
 /* Long content (multi-line errors, notes) must scroll inside the dialog instead of
    pushing the action buttons off-screen. */
 .message-content,
-.error-content,
-.overlay-content {
+.error-content {
     max-height: 85vh;
     max-height: 85dvh;
     overflow-y: auto;
-}
-.overlay-content {
-    max-width: 600px;
 }
 .socket-error .inner-error {
     background: var(--unibloc-color);
@@ -407,7 +396,6 @@ div.wait-overlay .wait-label {
     font-size: var(--fs-xxl);
     margin-bottom: var(--sp-16);
 }
-.promp-message > .inner-error,
 .error-message > .inner-error {
     width:100%;
 }
@@ -419,8 +407,7 @@ div.error-message > .sub-message {
     font-size:var(--fs-sm);
     margin-bottom: 5%;
 }
-div.error-message,
-.prompt-message > .button-container {
+div.error-message {
     text-align:center;
 }
 .instructions-header {
@@ -542,8 +529,6 @@ div.error-message,
 .is-expert #btnSendPairing,
 .is-expert #btnSendUnpairing,
 .is-expert #btnWizMarkSuc,
-.is-expert #btnPairShadeSuc,
-.is-expert #btnSendProg,
 .is-expert #btnOpenMemory,
 .is-expert #btnPairToGroup,
 .is-expert #btnUnpairFromGroup {
@@ -659,8 +644,6 @@ div.error-message,
 #btnSendPairing,
 #btnSendUnpairing,
 #btnWizMarkSuc,
-#btnPairShadeSuc,
-#btnSendProg,
 #btnOpenMemory,
 #btnPairToGroup,
 #btnUnpairFromGroup {
@@ -670,14 +653,11 @@ div.error-message,
     box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4);
     animation: soft-pulse 2s infinite;
 }
-#btnSendProg,
 #btnOpenMemory,
 #btnPairToGroup,
 #btnUnpairFromGroup {
     width: 40%;
 }
-#btnPairShadeSuc,
-#btnSendProg,
 .is-expert #btnOpenMemory,
 .is-expert #btnPairToGroup,
 .is-expert #btnUnpairFromGroup {
@@ -1086,7 +1066,8 @@ cursor: pointer;
     margin: 0;
     padding: 0;
 }
-.name-text, .repeater-name, .linkedshade-name {
+.name-text,
+.repeater-name {
     /* Names read in the interface font, as on Home and in the record; addresses below
        stay monospace. (main.css set this too, but this file loads later and won.) */
     font-family: var(--font-ui);
@@ -1096,9 +1077,7 @@ cursor: pointer;
     font-size: var(--fs-md);
 }
 .group-address,
-.shade-address,
-.linkedremote-address,
-.linkedremote-code {
+.shade-address {
     font-family: monospace;
     font-size: var(--fs-sm);
     display: inline-block;
@@ -1260,13 +1239,7 @@ cursor: pointer;
     /* Borderless step buttons would vanish into the bar. */
     .pos-sheet .pos-step { border: 1px solid ButtonText; }
 }
-/*leboncoin*/
-.box-image-container{
-    width: 100%;
-    height: 110px;
-}
 /* HomeAssistant page */
-.ha-overlay-content { padding: var(--sp-12) var(--sp-16); }
 
 .ha-section-title {
     margin-top: 25px;
@@ -1392,12 +1365,6 @@ div.eth-setting-line label {
 /* Update*/
 #selVersion.inputAndSelect {
     font-size: var(--fs-md);
-}
-#jsHeadFirmware .instructions-headerLogo,
-#jsHeadLittlefs .instructions-headerLogo {
-    right: -17px;
-    bottom: -18px;
-    transform: rotate(-25deg);
 }
 #btnUpdateApplication use,
 .mode-app-update .instructions-header svg use {
@@ -1525,22 +1492,7 @@ div.eth-setting-line label {
     .expert-label {
         display: none;
     }
-    .overlay-content {
-        width: 100%;
-        max-width: 100%;
-        background: var(--background-color);
-        border-radius: 0;
-        border: none;
-        min-height: 100vh;
-        min-height: 100dvh;
-        max-height: none;
-        flex-grow: 1;
-        padding-top: var(--sp-20);
-    }
-    .ha-overlay-content {
-        padding: var(--sp-12) var(--sp-16);
-    }
-    .expert-only-buttons,
+            .expert-only-buttons,
     .button-container-overlay {
         flex-shrink: 0;
         width: 100%;
@@ -1587,10 +1539,7 @@ div.eth-setting-line label {
     }
 }
 @media (max-width: 640px) {
-    .box-image-container {
-        height: 140px !important;
     }
-}
 @media screen and (max-width: 640px) {
     .idRemoteAddress {
         display: none !important;
