@@ -1671,16 +1671,13 @@
                                 </select>
                             </div>
                             <hr>
-                            <div class="uniRow">
+                            <div class="uniRow accent-row">
                                 <div class="uniText">
                                     <div class="uniLabel" tr="GENERAL_COLOR"></div>
                                     <div class="uniStatus" tr="GENERAL_COLOR_DESC"></div>
                                 </div>
-                                <div class="uniRight accent-swatches" role="radiogroup" tr-aria="GENERAL_COLOR">
-<label class="accent-swatch"><input type="radio" name="accentPick" value="#1d5fc4" onchange="general.pickAccent(this.value)"><span class="sw" style="--sw:#1d5fc4" aria-hidden="true"></span><span class="sr-only" tr="ACCENT_BLUE">Bleu</span></label>
-<label class="accent-swatch"><input type="radio" name="accentPick" value="#1e6b3a" onchange="general.pickAccent(this.value)"><span class="sw" style="--sw:#1e6b3a" aria-hidden="true"></span><span class="sr-only" tr="ACCENT_GREEN">Vert</span></label>
-<label class="accent-swatch"><input type="radio" name="accentPick" value="#8a4b00" onchange="general.pickAccent(this.value)"><span class="sw" style="--sw:#8a4b00" aria-hidden="true"></span><span class="sr-only" tr="ACCENT_AMBER">Ambre</span></label>
-<label class="accent-swatch"><input type="radio" name="accentPick" value="#6b3fa0" onchange="general.pickAccent(this.value)"><span class="sw" style="--sw:#6b3fa0" aria-hidden="true"></span><span class="sr-only" tr="ACCENT_VIOLET">Violet</span></label>
+                                <!-- The preset swatches are built from ACCENT_PALETTE (20-settings.js). -->
+                                <div class="uniRight accent-swatches" id="accentSwatches" role="radiogroup" tr-aria="GENERAL_COLOR">
 <label class="accent-swatch accent-custom"><input type="color" value="#1d5fc4" tr-aria="ACCENT_CUSTOM" oninput="general.pickAccent(this.value)"><span class="sw" aria-hidden="true"></span></label>
 <input id="fldAccentColor" name="accentColor" type="hidden" data-bind="general.accentColor"/>
 </div>

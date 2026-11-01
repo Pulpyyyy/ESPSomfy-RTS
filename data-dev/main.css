@@ -1313,6 +1313,9 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 .ha-card-head { display: flex; align-items: center; gap: 10px; }
 .ha-card .svgHA { width: 28px; height: 28px; }
 .accent-swatches { display: flex; gap: 6px; }
+/* Twenty-odd swatches: under the label, full width, wrapping. */
+.accent-row { flex-wrap: wrap; }
+.accent-row .accent-swatches { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; margin-left: -8px; gap: 2px; }
 .accent-swatch { position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; }
 .accent-swatch input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .accent-swatch .sw { width: 28px; height: 28px; border-radius: 50%; background: var(--sw); box-shadow: 0 0 0 1px rgba(0, 0, 0, .2); }

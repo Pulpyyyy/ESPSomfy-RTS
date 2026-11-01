@@ -5,7 +5,22 @@
 // (a little over AA, as it also sits on the slightly darker --accent-soft). A colour that
 // already reads is kept as is. Text drawn ON the light tone flips with its luminance.
 const ACCENT_DARK = { '#1d5fc4': '#8db8f8', '#1a5fb4': '#8db8f8', '#1e6b3a': '#7bd69c', '#8a4b00': '#f2b266', '#6b3fa0': '#c9a7f5' };
-const ACCENT_PRESETS = ['#1d5fc4', '#1e6b3a', '#8a4b00', '#6b3fa0'];
+// Swatches: the four tuned accents first, then the Home Assistant palette (its
+// Material colours, in hue order; deep purple left out, it is the violet above).
+const ACCENT_PALETTE = [
+    ['#1d5fc4', 'ACCENT_BLUE'], ['#1e6b3a', 'ACCENT_GREEN'], ['#8a4b00', 'ACCENT_AMBER'], ['#6b3fa0', 'ACCENT_VIOLET'],
+    ['#f44336', 'COLOR_RED'], ['#e91e63', 'COLOR_PINK'], ['#926bc7', 'COLOR_PURPLE'], ['#3f51b5', 'COLOR_INDIGO'],
+    ['#2196f3', 'COLOR_BLUE'], ['#03a9f4', 'COLOR_LIGHT_BLUE'], ['#00bcd4', 'COLOR_CYAN'], ['#009688', 'COLOR_TEAL'],
+    ['#4caf50', 'COLOR_GREEN'], ['#8bc34a', 'COLOR_LIGHT_GREEN'], ['#cddc39', 'COLOR_LIME'], ['#ffeb3b', 'COLOR_YELLOW'],
+    ['#ffc107', 'COLOR_AMBER'], ['#ff9800', 'COLOR_ORANGE'], ['#ff6f22', 'COLOR_DEEP_ORANGE'], ['#795548', 'COLOR_BROWN'],
+    ['#9e9e9e', 'COLOR_GREY'], ['#607d8b', 'COLOR_BLUE_GREY']
+];
+const ACCENT_PRESETS = ACCENT_PALETTE.map(p => p[0]);
+function renderAccentSwatches() {
+    const box = get('accentSwatches'), custom = box && box.querySelector('.accent-custom');
+    if (!custom || box.querySelector('input[type=radio]')) return;
+    custom.insertAdjacentHTML('beforebegin', ACCENT_PALETTE.map(([c, k]) => `<label class="accent-swatch" tr="${k}" title=""><input type="radio" name="accentPick" value="${c}" onchange="general.pickAccent(this.value)"><span class="sw" style="--sw:${c}" aria-hidden="true"></span><span class="sr-only" tr="${k}"></span></label>`).join(''));
+}
 const hexRgb = (h) => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
 const rgbHex = (a) => '#' + a.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
 function hexLum(h) {
@@ -44,8 +59,9 @@ function applyAccent(color) {
         if (pick) pick.value = c;
     }
 }
-// Applied as soon as the scripts load, so the login (PIN) screen, shown before the
-// settings are read, already wears the colour chosen last time.
+// Applied as soon as the scripts load (they sit in <head>, so before the first paint),
+// so the login (PIN) screen, shown before the settings are read, already wears the
+// colour chosen last time. The swatches need the page: General.init builds them.
 try { const saved = localStorage.getItem('accentColor'); if (saved) applyAccent(saved); } catch (e) { /* storage blocked */ }
 class Security {
     type = 0;
@@ -225,6 +241,7 @@ class General {
 
         const savedTheme = localStorage.getItem('themeMode') || '0';
         this.applyTheme(savedTheme);
+        renderAccentSwatches();
         const savedColor = localStorage.getItem('accentColor');
         if (savedColor) {
             applyAccent(savedColor);
