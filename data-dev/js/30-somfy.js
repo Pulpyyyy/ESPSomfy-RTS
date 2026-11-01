@@ -1318,13 +1318,13 @@ class Somfy {
         <div class="pos-side">
         <div class="pos-readout"><span class="pos-big"><span class="pos-val"></span><small> %</small></span><span class="pos-what">${esc(tr(s.tiltOnly ? 'POSP_TILT' : 'POSP_OPEN_PCT'))}</span></div>
         <div class="pos-chips"></div>
+        <p class="pos-note"></p>
         <div class="pos-steps" role="group" aria-label="${esc(tr('POSP_STEPS'))}">
         <button type="button" class="pos-step" data-step="-5">−5</button>
         <button type="button" class="pos-step" data-step="-1">−1</button>
         <button type="button" class="pos-step" data-step="1">+1</button>
         <button type="button" class="pos-step" data-step="5">+5</button>
         </div>
-        <p class="pos-note"></p>
         </div>
         </div>
         ${hasTilt ? `
