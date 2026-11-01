@@ -1336,7 +1336,8 @@ class Somfy {
         <button type="button" class="pos-step" data-tstep="1" aria-label="${esc(tr('POSP_TILT_PLUS'))}">+1</button>
         </div>
         </div>` : ''}
-        <div class="pos-mybox"><p class="pos-mytext"></p><button type="button" class="pos-mybtn"></button><button type="button" class="pos-myclear">${esc(tr('POSP_CLEAR_MY'))}</button></div>
+        <p class="pos-mytext"></p>
+        <div class="pos-mybox"><button type="button" class="pos-mybtn"></button><button type="button" class="pos-myclear">${esc(tr('POSP_CLEAR_MY'))}</button></div>
         </div>`;
         document.body.appendChild(el);
         const p = this.pos = { shadeId, el, tab: 'move', sel: 0, tilt: 0, sendT: null, tiltT: null, dragging: false };
@@ -1534,7 +1535,7 @@ class Somfy {
             q('.pos-tilt-val').textContent = p.tilt;
         }
 
-        q('.pos-mybox').hidden = !my;
+        q('.pos-mybox').hidden = q('.pos-mytext').hidden = !my;
         q('.pos-note').textContent = tr(my ? 'POSP_NOTE_MY' : 'POSP_NOTE_MOVE');
         if (my) {
             const withTilt = !s.tiltOnly && s.tiltType > 0;

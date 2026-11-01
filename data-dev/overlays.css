@@ -1130,7 +1130,9 @@ cursor: pointer;
 /* Several parts below are flex or grid; hidden must still win over them. */
 .pos-sheet [hidden] { display: none !important; }
 @media (min-width: 700px) {
-    .pos-scrim { align-items: center; }
+    /* Anchored near the top rather than centred: switching to the taller My mode then
+       grows the dialog downwards instead of making it jump up. */
+    .pos-scrim { align-items: flex-start; padding-top: 10vh; }
     .pos-sheet { border-radius: 22px; border-bottom: 1px solid var(--line); padding-top: 18px; }
     .pos-grabber { display: none; }
 }
@@ -1219,7 +1221,14 @@ cursor: pointer;
 .pos-tilt-ctl { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
 .pos-tilt-range { width: 100%; margin: 0; accent-color: var(--accent-color); }
 
-.pos-mybox { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); }
+/* The two My buttons stay in view at the bottom of the sheet: on a small phone the My
+   mode scrolls, and the one action it exists for must not sit below the fold. Only the
+   buttons: with the explanation in it too, the stuck box hid half of the apron. */
+.pos-mybox {
+    display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--surface-2);
+    position: sticky; bottom: 0; z-index: 1; box-shadow: 0 -6px 14px -10px rgb(0 0 0 / .35);
+}
 .pos-mytext { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .pos-sheet .pos-mybtn { width: 100%; min-height: 44px; }
 /* Clearing My: a quiet, red text button (confirmed in a dialog), never the main one. */
