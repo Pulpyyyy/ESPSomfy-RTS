@@ -70,16 +70,10 @@
     --shadow-1: 0 1px 2px rgba(18, 22, 27, .08);
     /* Legacy roles */
     --md-primary: var(--accent-color); --md-on-primary: var(--on-accent);
-    --md-primary-container: var(--accent-soft); --md-on-primary-container: var(--ink);
     --md-secondary-container: var(--tonal); --md-on-secondary-container: var(--ink);
-    --md-surface: var(--surface); --md-surface-container: var(--bg);
-    --md-surface-container-high: var(--surface-2); --md-surface-container-highest: var(--tonal);
-    --md-on-surface: var(--ink); --md-on-surface-variant: var(--ink-2);
-    --md-outline: var(--field); --md-outline-variant: var(--line);
+    --md-outline: var(--field);
     --md-error: var(--danger); --md-on-error: #FFFFFF;
-    --md-error-container: var(--danger-soft); --md-on-error-container: var(--danger);
     --md-elevation-1: var(--shadow-1);
-    --md-elevation-2: 0 2px 8px rgba(18, 22, 27, .12);
     --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 34%);
     --accent-colorUniDark: var(--accent-soft);
     --accent-sucess: var(--ok-dot);
@@ -105,13 +99,11 @@
     --hr-soft: var(--line);
     --switch-border: var(--field);
     --switch-checked: var(--field);
-    --bg-switch-color: var(--tonal);
     --tb-color: var(--ink-2);
     --bg-switch-ch-color: var(--ink-2);
     --button-color: var(--tonal-hover);
     --button2-color: var(--field);
     --degrad-boutons: 0 -8px 20px rgba(0, 0, 0, 0.08);
-    --border-boutons: 1px solid var(--line);
     --cfg-SvgRightBg: var(--ink-2);
     --cfg-SvgRight-inner: var(--surface-2);
     --svg-shade0: #101010;
@@ -159,16 +151,10 @@
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
     /* Legacy roles */
     --md-primary: var(--accent-color); --md-on-primary: var(--on-accent);
-    --md-primary-container: var(--accent-soft); --md-on-primary-container: var(--ink);
     --md-secondary-container: var(--tonal); --md-on-secondary-container: var(--ink);
-    --md-surface: var(--surface); --md-surface-container: var(--bg);
-    --md-surface-container-high: var(--surface-2); --md-surface-container-highest: var(--tonal);
-    --md-on-surface: var(--ink); --md-on-surface-variant: var(--ink-2);
-    --md-outline: var(--field); --md-outline-variant: var(--line);
+    --md-outline: var(--field);
     --md-error: var(--danger); --md-on-error: #0F1216;
-    --md-error-container: var(--danger-soft); --md-on-error-container: var(--danger);
     --md-elevation-1: var(--shadow-1);
-    --md-elevation-2: 0 2px 8px rgba(0, 0, 0, .5);
     --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 45%);
     --accent-colorUniDark: var(--accent-soft);
     --accent-sucess: var(--ok-dot);
@@ -194,13 +180,11 @@
     --hr-soft: var(--line);
     --switch-border: var(--field);
     --switch-checked: var(--field);
-    --bg-switch-color: var(--tonal);
     --tb-color: var(--ink-2);
     --bg-switch-ch-color: var(--ink-2);
     --button-color: var(--tonal-hover);
     --button2-color: var(--field);
     --degrad-boutons: 0 -12px 30px rgba(0, 0, 0, 0.8);
-    --border-boutons: 1px solid var(--line);
     --cfg-SvgRightBg: var(--tonal-hover);
     --cfg-SvgRight-inner: var(--ink-2);
     --svg-shade0: #fff;

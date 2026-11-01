@@ -744,10 +744,6 @@ class Somfy {
         // Shades are grouped by room: re-render them in the new room order.
         if (this.shades) this.setShadesList(this.shades);
     }
-    // The room chips wrap instead of scrolling sideways, so the old drag/wheel
-    // scrolling (which captured the page's vertical wheel) is gone.
-    initRoomScroll() { this.checkArrows = () => {}; }
-    scrollRooms() {}
     setRepeaterList(addresses) {
         let divCfg = '';
         if (typeof addresses !== 'undefined') {
@@ -1274,7 +1270,6 @@ class Somfy {
     // pull, presets and 1 % steps. Values read as % open, like the tile; the API keeps
     // its own orientation and shadeOpenness, its own inverse, converts both ways.
     // Tilt-only shades drive their tilt with the apron, in the API's own scale.
-    closeShadePositioners() { this.closePosPanel(); }
     openSetPosition(shadeId) { this.openPosPanel(shadeId, 'move'); }
     openSetMyPosition(shadeId) { this.openPosPanel(shadeId, 'my'); }
     posShade(shadeId) {
@@ -1733,29 +1728,6 @@ class Somfy {
         qs('divFrames').prepend(row);
         this.frames.push(frame);
     }
-    JSONPretty(obj, indent = 2) {
-        if (Array.isArray(obj)) {
-            let output = '[';
-            for (let i = 0; i < obj.length; i++) {
-                if (i !== 0) output += ',\n';
-                output += this.JSONPretty(obj[i], indent);
-            }
-            output += ']';
-            return output;
-        }
-        else {
-            let output = JSON.stringify(obj, function (k, v) {
-                if (Array.isArray(v)) return JSON.stringify(v);
-                return v;
-            }, indent).replace(/\\/g, '')
-            .replace(/\"\[/g, '[')
-            .replace(/\]\"/g, ']')
-            .replace(/\"\{/g, '{')
-                .replace(/\}\"/g, '}')
-                .replace(/\{\n\s+/g, '{');
-                    return output;
-                }
-        }
     JSONPretty(obj, indent = 2) {
         if (Array.isArray(obj)) {
             let output = '[';
@@ -2274,15 +2246,6 @@ class Somfy {
                 // Create the groups list.
                 this.setGroupsList(groups);
             }
-        });
-    }
-    updateRepeatList() {
-        getJSONBusy('/repeaters', (err, repeaters) => {
-            if (err) {
-                if(DBG) console.log(err);
-                ui.serviceError(err);
-            }
-            else this.setRepeaterList(repeaters);
         });
     }
     deleteRoom(roomId) {
@@ -2971,15 +2934,6 @@ class Somfy {
         if(DBG) console.log(el.value);
         let lvls = [-30, -20, -15, -10, -6, 0, 5, 7, 10, 11, 12];
         get('spanTxPower').innerText = lvls[el.value];
-    }
-    openSelectRoom() {
-        this.closeShadePositioners();
-        if(DBG) console.log('Opening rooms');
-        let list = get('divRoomSelector-list');
-        list.style.display = 'block';
-        document.body.addEventListener('click', () => {
-            list.style.display = '';
-        }, { once: true });
     }
 }
 var somfy = new Somfy();

@@ -284,17 +284,6 @@ class General {
         localStorage.setItem('themeMode', val);
         this.applyTheme(val);
     }
-    getCookie(cname) {
-        let n = cname + '=';
-        let cookies = document.cookie.split(';');
-        if(DBG) console.log(cookies);
-        for (let i = 0; i < cookies.length; i++) {
-            let c = cookies[i];
-            while (c.charAt(0) === ' ') c = c.substring(0);
-            if (c.indexOf(n) === 0) return c.substring(n.length, c.length);
-        }
-        return '';
-    }
     reload() {
         let addMetaTag = (name, content) => {
             let meta = document.createElement('meta');
@@ -827,19 +816,6 @@ class Wifi {
             });
         }
     }
-    loadETHPins(sel, type, selected) {
-        let arr = [];
-        switch (type) {
-            case 'power':
-                arr.push({ val: -1, label: 'None' });
-                break;
-        }
-        for (let i = 0; i < 36; i++) {
-            if (i === 2) continue;
-            arr.push({ val: i, label: `GPIO ${i > 9 ? i : '0' + i}` });
-        }
-        this.loadETHDropdown(sel, arr, selected);
-    }
     loadETHDropdown(sel, arr, selected) {
         if (!sel) return;
         while (sel.firstChild) sel.removeChild(sel.firstChild);
@@ -1269,28 +1245,6 @@ class Wifi {
                 navSaved();
                 if(DBG) console.log("Network settings updated:", response);
             }
-        });
-    }
-    connectWiFi() {
-        if (get('btnConnectWiFi').classList.contains('disabled')) return;
-        get('btnConnectWiFi').classList.add('disabled');
-        let obj = {
-            ssid: document.getElementsByName('ssid')[0].value,
-            passphrase: document.getElementsByName('passphrase')[0].value
-        };
-        if (obj.ssid.length > 64) {
-            ui.errorMessage(tr('ERR_WIFI_SSID_INVALID')).querySelector('.sub-message').innerHTML = tr('ERR_WIFI_SSID_MAX_LENGTH_64');
-            return;
-        }
-        if (obj.passphrase.length > 64) {
-            ui.errorMessage(tr('ERR_WIFI_PASSPHRASE_INVALID')).querySelector('.sub-message').innerHTML = tr('ERR_WIFI_PASSPHRASE_MAX_LENGTH_64');
-            return;
-        }
-        let overlay = ui.waitMessage(get('divNetAdapter'));
-        putJSON('/connectwifi', obj, (err, response) => {
-            overlay.remove();
-            get('btnConnectWiFi').classList.remove('disabled');
-            if(DBG) console.log(response);
         });
     }
     procWifiStrength(strength) {

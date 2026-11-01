@@ -277,13 +277,6 @@ function bindHoldKeys(el, down, up) {
 function shadeOpenness(position, flip) {
     return flip ? position : (100 - position);
 }
-// Show a shade's travel as Closed / Open at the extremes and the open-percentage between.
-function shadePosLabel(position, flip) {
-    const open = shadeOpenness(position, flip);
-    if (open <= 0) return tr('POS_CLOSED');
-    if (open >= 100) return tr('POS_OPEN');
-    return open + '%';
-}
 function loadLang(callback) {
     if (Object.keys(LANG).length > 0) {
         if(DBG) console.log("Language already in memory, using the cache.");
@@ -378,40 +371,6 @@ Date.prototype.toJSON = function () {
     const f = (n, c) => n.toString().padStart(c, '0');
 
     return `${this.getFullYear()}-${f(this.getMonth() + 1, 2)}-${f(this.getDate(), 2)}T${f(this.getHours(), 2)}:${f(this.getMinutes(), 2)}:${f(this.getSeconds(), 2)}.${f(this.getMilliseconds(), 3)}${sign}${f(Math.floor(absTz / 60), 2)}${f(absTz % 60, 2)}`;
-};
-Date.prototype.fmt = function (fmtMask, emptyMask) {
-    const mask = fmtMask || 'MM-dd-yyyy HH:mm:ss';
-    if (mask.match(/[hHmt]/) && this.isDateTimeEmpty?.()) return emptyMask ?? '';
-    if (mask.match(/[Mdy]/) && this.isDateEmpty?.()) return emptyMask ?? '';
-
-    const d = this;
-    const y = d.getFullYear();
-    const H = d.getHours();
-    const m = d.getMonth();
-    const map = {
-        yyyy: y,
-        yy: String(y).slice(-2),
-        MMMM: formatType.MONTHS[m],
-        MMM: formatType.MONTHS[m]?.substring(0, 3),
-        MM: String(m + 1).padStart(2, '0'),
-        M: m + 1,
-        dddd: formatType.DAYS[d.getDay()],
-        ddd: formatType.DAYS[d.getDay()]?.substring(0, 3),
-        dd: String(d.getDate()).padStart(2, '0'),
-        d: d.getDate(),
-        HH: String(H).padStart(2, '0'),
-        H: H,
-        hh: String(H % 12 || 12).padStart(2, '0'),
-        h: (H % 12 || 12),
-        mm: String(d.getMinutes()).padStart(2, '0'),
-        m: d.getMinutes(),
-        ss: String(d.getSeconds()).padStart(2, '0'),
-        s: d.getSeconds(),
-        tt: H < 12 ? 'am' : 'pm',
-        t: H < 12 ? 'a' : 'p'
-    };
-
-    return mask.replace(/yyyy|yy|MMMM|MMM|MM|M|dddd|ddd|dd|d|HH|H|hh|h|mm|m|ss|s|tt|t/g, t => map[t]);
 };
 Number.prototype.round = function (dec) { return Number(Math.round(this + 'e' + dec) + 'e-' + dec); };
 Number.prototype.fmt = function (format, empty) {
@@ -682,79 +641,6 @@ function getJSONBusy(url, cb) {
                 xhr.open('GET', baseUrl.length > 0 ? `${baseUrl}${url}` : url, true);
                 xhr.setRequestHeader('apikey', security.apiKey);
                 xhr.send();
-}
-function getText(url, cb) {
-    let xhr = new XMLHttpRequest();
-    if(DBG) console.log({ get: url });
-    xhr.open('GET', baseUrl.length > 0 ? `${baseUrl}${url}` : url, true);
-    xhr.setRequestHeader('apikey', security.apiKey);
-    xhr.responseType = 'text';
-    xhr.onload = () => {
-        let status = xhr.status;
-        if (status !== 200) {
-            if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
-            let err = xhr.response || {};
-            err.htmlError = status;
-            err.service = `GET ${url}`;
-            if (typeof err.desc === 'undefined') err.desc = xhr.statusText || httpStatusText[xhr.status || 500];
-            cb(err, null);
-        }
-        else
-            cb(null, xhr.response);
-    };
-    xhr.onerror = (evt) => {
-        let err = {
-            htmlError: xhr.status || 500,
-            service: `GET ${url}`
-        };
-        if (typeof err.desc === 'undefined') err.desc = xhr.statusText || httpStatusText[xhr.status || 500];
-        cb(err, null);
-    };
-    xhr.send();
-}
-// Multipart POST with a wait overlay. Currently unused, kept alongside its siblings.
-function postJSONBusy(url, data, cb) {
-    let overlay = ui.waitMessage(get('divContainer'));
-    try {
-        let xhr = new XMLHttpRequest();
-        if(DBG) console.log({ post: url, data: data });
-        let fd = new FormData();
-        for (let name in data) {
-            fd.append(name, data[name]);
-        }
-        xhr.open('POST', baseUrl.length > 0 ? `${baseUrl}${url}` : url, true);
-        xhr.responseType = 'json';
-        xhr.setRequestHeader('Accept', 'application/json');
-        xhr.setRequestHeader('apikey', security.apiKey);
-        xhr.onload = () => {
-            let status = xhr.status;
-            if(DBG) console.log(xhr);
-            if (status !== 200) {
-                if (status === 401 && typeof security !== 'undefined' && security.promptLoginOn401()) { if (typeof overlay !== 'undefined' && overlay) overlay.remove(); return; }
-                let err = xhr.response || {};
-                err.htmlError = status;
-                err.service = `POST ${url}`;
-                err.data = data;
-                if (typeof err.desc === 'undefined') err.desc = xhr.statusText || httpStatusText[xhr.status || 500];
-                cb(err, null);
-            }
-            else {
-                cb(null, xhr.response);
-            }
-            overlay.remove();
-        };
-        xhr.onerror = (evt) => {
-            if(DBG) console.log(xhr);
-            let err = {
-                htmlError: xhr.status || 500,
-                service: `POST ${url}`
-            };
-            if (typeof err.desc === 'undefined') err.desc = xhr.statusText || httpStatusText[xhr.status || 500];
-            cb(err, null);
-            overlay.remove();
-        };
-        xhr.send(fd);
-    } catch (err) { ui.serviceError(get('divContainer'), err); }
 }
 function putJSON(url, data, cb) {
     let xhr = new XMLHttpRequest();

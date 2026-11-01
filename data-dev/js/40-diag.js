@@ -788,12 +788,6 @@ class Firmware {
             }
         }
     }
-    // Extract only the first number after the 'v' (e.g. "v2.5.2" -> 2, "v3.0.0" -> 3, "3.1.2" -> 3)
-    getMainVersion(verStr) {
-        if (!verStr) return 0;
-        const match = verStr.match(/[vV]?(\d+)/);
-        return match ? parseInt(match[1], 10) : 0;
-    }
     // Real partition check (replaces the old "major version 2 -> 3" heuristic):
     // the published images require the enlarged OTA layout (app slots of 1.6875 MB
     // plus a 512 KB LittleFS). A device still on the old, smaller partition table

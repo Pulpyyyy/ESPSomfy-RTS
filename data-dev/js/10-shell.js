@@ -1185,34 +1185,13 @@ class UIBinder {
                 if (ndx >= 0) tval = tval[ndx];
             }
             if (typeof tval !== 'undefined') {
-                if (typeof fld.val === 'function') this.val(tval);
-                else {
-                    switch (fld.getAttribute('data-fmttype')) {
-                        case 'time':
-                        {
-                            var dt = new Date();
-                            dt.setHours(0, 0, 0);
-                            dt.addMinutes(tval);
-                            tval = dt.fmt(fld.getAttribute('data-fmtmask'), fld.getAttribute('data-fmtempty') || '');
-                        }
-                        break;
-                        case 'date':
-                        case 'datetime':
-                        {
-                            let dt = new Date(tval);
-                            tval = dt.fmt(fld.getAttribute('data-fmtmask'), fld.getAttribute('data-fmtempty') || '');
-                        }
-                        break;
-                        case 'number':
-                            if (typeof tval !== 'number') tval = parseFloat(tval);
-                            tval = tval.fmt(fld.getAttribute('data-fmtmask'), fld.getAttribute('data-fmtempty') || '');
-                        break;
-                        case 'duration':
-                            tval = ui.formatDuration(tval, $this.attr('data-fmtmask'));
-                            break;
-                    }
-                    this.setValue(fld, tval);
+                // "number" is the only display format the markup uses (the time, date and
+                // duration ones called helpers that no longer exist, jQuery's among them).
+                if (fld.getAttribute('data-fmttype') === 'number') {
+                    if (typeof tval !== 'number') tval = parseFloat(tval);
+                    tval = tval.fmt(fld.getAttribute('data-fmtmask'), fld.getAttribute('data-fmtempty') || '');
                 }
+                this.setValue(fld, tval);
             }
         });
     }
@@ -1308,54 +1287,13 @@ class UIBinder {
             case 'decimal':
             case 'number':
                 return this.parseNumber(val);
-            case 'date':
-                if (typeof val === 'string') return Date.parseISO(val);
-                else if (typeof val === 'number') return new Date(number);
-                else if (typeof val.getMonth === 'function') return val;
-                return undefined;
-            case 'time':
-                var dt = new Date();
-                if (typeof val === 'number') {
-                    dt.setHours(0, 0, 0);
-                    dt.addMinutes(tval);
-                    return dt;
-                }
-                else if (typeof val === 'string' && val.indexOf(':') !== -1) {
-                    var n = val.lastIndexOf(':');
-                    var min = this.parseNumber(val.substring(n));
-                    var nsp = val.substring(0, n).lastIndexOf(' ') + 1;
-                    var hrs = this.parseNumber(val.substring(nsp, n));
-                    dt.setHours(0, 0, 0);
-                    if (hrs <= 12 && val.substring(n).indexOf('p')) hrs += 12;
-                    dt.addMinutes(hrs * 60 + min);
-                    return dt;
-                }
-                break;
+            // No date or time field exists; those cases called helpers that were never there.
             case 'duration':
                 if (typeof val === 'number') return val;
                 return Math.floor(this.parseNumber(val));
             default:
                 return val;
         }
-    }
-    formatValue(val, dataType, fmtMask, emptyMask) {
-        var v = this.parseValue(val, dataType);
-        if (typeof v === 'undefined') return emptyMask || '';
-        switch (dataType) {
-            case 'int':
-            case 'uint':
-            case 'float':
-            case 'real':
-            case 'double':
-            case 'decimal':
-            case 'number':
-                return v.fmt(fmtMask, emptyMask || '');
-            case 'time':
-            case 'date':
-            case 'dateTime':
-                return v.fmt(fmtMask, emptyMask || '');
-        }
-        return v;
     }
     waitMessage(el, label) {
         let div = document.createElement('div');
@@ -1568,10 +1506,6 @@ class UIBinder {
             el.style.removeProperty('--pulse-color');
         }
     }
-    selectTab(elTab) {
-        const groupId = elTab && elTab.getAttribute('data-grpid');
-        if (groupId) navGo(groupId);
-    }
     wizSetPrevStep(el) { this.wizSetStep(el, Math.max(this.wizCurrentStep(el) - 1, 1)); }
     wizSetNextStep(el) { this.wizSetStep(el, this.wizCurrentStep(el) + 1); }
     wizSetStep(el, step) {
@@ -1686,18 +1620,6 @@ class UIBinder {
         somfy.checkEmptyState();
         if (sockIsOpen) socket.send('leave:0');
         general.setSecurityConfig({ type: 0, username: '', permissions: 0 });
-    }
-    toggleConfig() { navGo(this.isConfigOpen() ? NAV_HOME : 'pgShades'); }
-    showNetworkConfig() { navGo('pgNetwork'); }
-    showRadioConfig() { navGo('pgRadio'); }
-    showSystemConfig() { navGo('pgPreferences'); }
-    showShadeConfig() {
-        navGo('pgShades', { after: () => {
-            if (typeof somfy !== 'undefined') {
-                somfy.showEditShade(true);
-                somfy.openEditShade();
-            }
-        } });
     }
 }
 var ui = new UIBinder();
