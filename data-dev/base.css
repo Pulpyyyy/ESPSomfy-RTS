@@ -4,13 +4,13 @@
     --topbar-height: 0px;
     --rail-width: 272px;
     /* Type scale (rem, root 16px). 13px is the floor for running text. */
-    --fs-xs: 0.8125rem;  /* 13px — hints, badges */
-    --fs-sm: 0.875rem;   /* 14px — secondary text, labels */
-    --fs-md: 1rem;       /* 16px — primary content */
-    --fs-lg: 1.125rem;   /* 18px — subtitles, emphasis */
-    --fs-xl: 1.375rem;   /* 22px — section titles */
-    --fs-xxl: 1.75rem;   /* 28px — dialog titles */
-    --fs-xxxl: 2rem;     /* 32px — display */
+    --fs-xs: 0.8125rem;  /* 13px: hints, badges */
+    --fs-sm: 0.875rem;   /* 14px: secondary text, labels */
+    --fs-md: 1rem;       /* 16px: primary content */
+    --fs-lg: 1.125rem;   /* 18px: subtitles, emphasis */
+    --fs-xl: 1.375rem;   /* 22px: section titles */
+    --fs-xxl: 1.75rem;   /* 28px: dialog titles */
+    --fs-xxxl: 2rem;     /* 32px: display */
     /* Spacing scale (4px grid) for padding/margin/gap. */
     --sp-4: 4px;
     --sp-8: 8px;
@@ -83,7 +83,7 @@
     --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 34%);
     --accent-colorUniDark: var(--accent-soft);
     --accent-sucess: var(--ok-dot);
-    --accent-text: color-mix(in srgb, var(--accent-color) 80%, #000);
+    --accent-text: var(--accent-text-l, color-mix(in srgb, var(--accent-color) 80%, #000));
     --body-color: var(--surface);
     --background-color: var(--bg);
     --unibloc-color: var(--surface);
@@ -221,7 +221,7 @@
     --hover-brightness: 1.15;
     --shadow: #000;
 }
-/* Typography: the platform UI font — nothing to download, works offline. */
+/* Typography: the platform UI font: nothing to download, works offline. */
 body { font-family: var(--font-ui); }
 
 /* Layout utilities: shared patterns extracted from component rules.

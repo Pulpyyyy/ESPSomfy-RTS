@@ -1681,6 +1681,7 @@
 <label class="accent-swatch"><input type="radio" name="accentPick" value="#1e6b3a" onchange="general.pickAccent(this.value)"><span class="sw" style="--sw:#1e6b3a" aria-hidden="true"></span><span class="sr-only" tr="ACCENT_GREEN">Vert</span></label>
 <label class="accent-swatch"><input type="radio" name="accentPick" value="#8a4b00" onchange="general.pickAccent(this.value)"><span class="sw" style="--sw:#8a4b00" aria-hidden="true"></span><span class="sr-only" tr="ACCENT_AMBER">Ambre</span></label>
 <label class="accent-swatch"><input type="radio" name="accentPick" value="#6b3fa0" onchange="general.pickAccent(this.value)"><span class="sw" style="--sw:#6b3fa0" aria-hidden="true"></span><span class="sr-only" tr="ACCENT_VIOLET">Violet</span></label>
+<label class="accent-swatch accent-custom"><input type="color" value="#1d5fc4" tr-aria="ACCENT_CUSTOM" oninput="general.pickAccent(this.value)"><span class="sw" aria-hidden="true"></span></label>
 <input id="fldAccentColor" name="accentColor" type="hidden" data-bind="general.accentColor"/>
 </div>
                             </div>
@@ -2158,7 +2159,7 @@
             <circle cx="12" cy="12" r="10" fill="var(--crlIndicator)" /><path d="m12 4.5c-2.732 0.00331-4.947 2.218-4.95 4.95 0 0.75 0.164 1.467 0.487 2.136 0.564 1.168 1.184 2.493 1.683 3.914h5.56c0.5-1.421 1.12-2.746 1.684-3.914 0.3211-0.6662 0.4873-1.396 0.486-2.136 0-2.73-2.22-4.95-4.95-4.95m-2.5 12.5v2h5v-2z" fill="var(--icon-color, --bg-switch-ch-color)"/>
         </symbol>
         <symbol id="svg-favori" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" fill="var(--crlIndicator)" /><path fill="var(--icon-color, --bg-switch-ch-color)" d="M16.23 18L12 15.45L7.77 18l1.12-4.81l-3.73-3.23l4.92-.42L12 5l1.92 4.53l4.92.42l-3.73 3.23z" />
+            <circle cx="12" cy="12" r="10" fill="var(--accent-color)" /><path fill="var(--on-accent)" d="M16.23 18L12 15.45L7.77 18l1.12-4.81l-3.73-3.23l4.92-.42L12 5l1.92 4.53l4.92.42l-3.73 3.23z" />
         </symbol>
 <!-- Edit -->
         <symbol id="svg-drag" viewBox="0 0 24 24">

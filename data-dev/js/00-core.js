@@ -20,8 +20,8 @@ var baseUrl = window.location.protocol === 'file:' ? `http://${hst}` : basePath;
 var waitLoad;
 var mouseDown = false;
 // Global press tracking: the hold-to-repeat loops (virtual remote, Prog buttons)
-// test `mouseDown`; tracking it at the document level guarantees a release —
-// even off the button or on touch — always stops the radio repeat.
+// test `mouseDown`; tracking it at the document level guarantees a release,
+// even off the button or on touch, that always stops the radio repeat.
 document.addEventListener('mousedown', () => { mouseDown = true; }, true);
 document.addEventListener('mouseup', () => { mouseDown = false; }, true);
 document.addEventListener('touchstart', () => { mouseDown = true; }, { capture: true, passive: true });

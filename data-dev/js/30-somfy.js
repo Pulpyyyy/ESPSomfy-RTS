@@ -796,8 +796,8 @@ class Somfy {
             <div class="room-sec-head">
             <h2 class="h2-lg" id="roomHead${rId}">${esc(rName)}${list.length > 1 ? ' <span class="room-sec-sum muted"></span>' : ''}</h2>
             ${list.filter(x => this.isCoveringType(x.shadeType)).length > 1 ? `<div class="room-sec-actions">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'up')">${tr('HOME_OPEN_ALL')}<span class="sr-only"> — ${esc(rName)}</span></button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'down')">${tr('HOME_CLOSE_ALL')}<span class="sr-only"> — ${esc(rName)}</span></button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'up')">${tr('HOME_OPEN_ALL')}<span class="sr-only">, ${esc(rName)}</span></button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'down')">${tr('HOME_CLOSE_ALL')}<span class="sr-only">, ${esc(rName)}</span></button>
             </div>` : ''}
             </div>
             <div class="tile-grid">`;

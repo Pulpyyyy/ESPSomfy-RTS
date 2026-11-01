@@ -1,4 +1,4 @@
-# ESPSomfy-RTS — firmware sources
+# ESPSomfy-RTS: firmware sources
 
 This directory contains the C++ sources of the ESPSomfy-RTS firmware.
 

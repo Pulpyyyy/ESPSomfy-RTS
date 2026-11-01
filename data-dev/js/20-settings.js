@@ -1,21 +1,52 @@
-// The accent is user-chosen. Each accent has a light-theme and a dark-theme tone:
-// the four offered swatches come with a hand-checked dark tone (WCAG AA on the
-// dark surfaces); any other stored colour gets a lightened mix. The theme blocks
-// in base.css pick the pair. Text drawn ON the light tone flips with its luminance.
+// The accent is user-chosen, any colour. Each accent has a light-theme and a
+// dark-theme tone: the four offered swatches come with a hand-checked dark tone; any
+// other colour is fitted instead, darkened (light theme) or lightened (dark theme)
+// just enough to read on the page: 3:1 for marks and borders, 4.8:1 for accent text
+// (a little over AA, as it also sits on the slightly darker --accent-soft). A colour that
+// already reads is kept as is. Text drawn ON the light tone flips with its luminance.
 const ACCENT_DARK = { '#1d5fc4': '#8db8f8', '#1a5fb4': '#8db8f8', '#1e6b3a': '#7bd69c', '#8a4b00': '#f2b266', '#6b3fa0': '#c9a7f5' };
+const ACCENT_PRESETS = ['#1d5fc4', '#1e6b3a', '#8a4b00', '#6b3fa0'];
+const hexRgb = (h) => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+const rgbHex = (a) => '#' + a.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+function hexLum(h) {
+    const [r, g, b] = hexRgb(h).map(v => v / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function hexContrast(a, b) { const [x, y] = [hexLum(a), hexLum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); }
+function fitContrast(c, bg, min, toward) {
+    const a = hexRgb(c), t = hexRgb(toward);
+    for (let k = 0; k <= 20; k++) {
+        const m = rgbHex(a.map((v, i) => v + (t[i] - v) * k / 20));
+        if (hexContrast(m, bg) >= min) return m;
+    }
+    return toward;
+}
 function applyAccent(color) {
     const r = document.documentElement.style;
-    const c = String(color || '').trim().toLowerCase();
-    const m = /^#([0-9a-f]{6})$/.exec(c);
-    if (!m) return;
-    r.setProperty('--accent-l', c);
-    r.setProperty('--accent-d', ACCENT_DARK[c] || `color-mix(in srgb, ${c} 45%, #fff)`);
-    const [cr, cg, cb] = [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16) / 255)
-        .map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
-    const lum = 0.2126 * cr + 0.7152 * cg + 0.0722 * cb;
-    r.setProperty('--on-accent-l', lum > 0.18 ? '#12161b' : '#fff');
-    document.querySelectorAll('.accent-swatch input').forEach(i => { i.checked = i.value === c || (c === '#1a5fb4' && i.value === '#1d5fc4'); });
+    let c = String(color || '').trim().toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(c)) return;
+    if (c === '#1a5fb4') c = '#1d5fc4';   // the firmware default, same blue
+    // Measured against the grey page (--bg), the lightest-to-darkest worst case of the
+    // light theme: accent text sits on it (About link) as well as on white and tints.
+    const light = fitContrast(c, '#eef1f4', 3, '#000000');
+    r.setProperty('--accent-l', light);
+    r.setProperty('--accent-text-l', fitContrast(light, '#eef1f4', 4.8, '#000000'));
+    r.setProperty('--accent-d', ACCENT_DARK[c] || fitContrast(c, '#181c22', 4.8, '#ffffff'));
+    r.setProperty('--on-accent-l', hexLum(light) > 0.18 ? '#12161b' : '#fff');
+    // Swatches: one of the four, or the custom one showing the colour picked.
+    const preset = ACCENT_PRESETS.includes(c);
+    document.querySelectorAll('.accent-swatch input[type=radio]').forEach(i => { i.checked = i.value === c; });
+    const custom = document.querySelector('.accent-custom');
+    if (custom) {
+        custom.classList.toggle('is-on', !preset);
+        if (!preset) custom.style.setProperty('--sw', c);
+        const pick = custom.querySelector('input');
+        if (pick) pick.value = c;
+    }
 }
+// Applied as soon as the scripts load, so the login (PIN) screen, shown before the
+// settings are read, already wears the colour chosen last time.
+try { const saved = localStorage.getItem('accentColor'); if (saved) applyAccent(saved); } catch (e) { /* storage blocked */ }
 class Security {
     type = 0;
     authenticated = false;

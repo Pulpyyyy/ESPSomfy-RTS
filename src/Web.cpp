@@ -409,7 +409,7 @@ void Web::handleDownloadFirmware(WebServer &server) {
         for(uint8_t i = 0; i < GIT_MAX_RELEASES; i++) {
           if(repo.releases[i].id == 0) continue;
           // Match on the version (tag-derived) as well as the display name, so a
-          // release with a descriptive title ("v3.0.0 — ...") is still found: the
+          // release with a descriptive title ("v3.0.0: ...") is still found: the
           // UI sends version.name, and matching only the title used to fail.
           if(strcmp(repo.releases[i].name, server.arg("ver").c_str()) == 0 ||
              strcmp(repo.releases[i].version.name, server.arg("ver").c_str()) == 0) {

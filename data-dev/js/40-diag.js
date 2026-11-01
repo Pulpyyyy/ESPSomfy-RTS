@@ -191,7 +191,7 @@ class RfDiag {
             [noiseOk, tr('RFDIAG_WIZ_NOISE')],
             [heard.length === shades.length,
                 trf('RFDIAG_WIZ_REMOTES', heard.length, shades.length)
-                + (missing.length ? ` — ${trf('RFDIAG_WIZ_MISSING', missing.join(', '))}` : '')],
+                + (missing.length ? ` · ${trf('RFDIAG_WIZ_MISSING', missing.join(', '))}` : '')],
             [guided.length > 0, trf('RFDIAG_WIZ_GUIDED', guided.length, shades.length)],
         ];
         const rows = get('divRfDiagWizSteps');
@@ -255,8 +255,8 @@ class RfDiag {
                 const reco = this.recoRepeats(margin);
                 const cur = typeof shade.repeats === 'number' ? shade.repeats : DEFAULT_REPEATS;
                 status = trf('RFDIAG_RECO_MARGIN', margin.toFixed(1));
-                status += best.guided ? ' \u{1F4CD}' : ` — ${tr('RFDIAG_RECO_PASSIVE')}`;
-                if (margin < 8) status += ` — ${tr('RFDIAG_RECO_ADVICE')}`;
+                status += best.guided ? ' \u{1F4CD}' : ` · ${tr('RFDIAG_RECO_PASSIVE')}`;
+                if (margin < 8) status += ` · ${tr('RFDIAG_RECO_ADVICE')}`;
                 const badge = document.createElement('span');
                 badge.className = `rfdiag-badge ${margin >= 22 ? 'good' : margin >= 14 ? 'fair' : 'weak'}`;
                 // The ladder is a floor, not a target: a shade already sending more

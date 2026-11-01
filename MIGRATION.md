@@ -4,7 +4,7 @@ This guide walks you through moving an existing ESPSomfy-RTS v2.x device
 (original project by rstrouse, xkain fork or cjkas fork) to this
 firmware. The
 whole point of the procedure is that **you keep everything**: shades,
-rooms, groups, remote addresses and — critically — **rolling codes**, so
+rooms, groups, remote addresses and, critically, **rolling codes**, so
 your shades never need to be re-paired.
 
 The backup format is versioned field by field since the original
@@ -17,7 +17,7 @@ correction). Backups from any 2.x release are accepted.
 > **Coming from the cjkas fork**: its radio record uses a different
 > layout under the same version number; the firmware detects this and
 > keeps the current radio settings instead of restoring corrupted
-> values. Reconfigure the radio manually if needed — everything else
+> values. Reconfigure the radio manually if needed: everything else
 > (shades, rooms, rolling codes) restores normally.
 
 ## Before you start
@@ -28,7 +28,7 @@ correction). Backups from any 2.x release are accepted.
   (`pip install esptool`), or any ESP32 flashing tool you are used to.
 - 10 minutes.
 
-## Step 1 — Back up your current configuration
+## Step 1: Back up your current configuration
 
 In your **current** (v2.x) web UI:
 
@@ -39,14 +39,14 @@ This file contains your shades, rooms, groups, linked remotes,
 repeaters and rolling codes. It is the only thing you need to carry
 over. **Do not skip this step.**
 
-## Step 2 — Flash the v3.x onboard image over USB
+## Step 2: Flash the v3.x onboard image over USB
 
 The v3.x firmware uses a larger application partition (1.69 MB per OTA
 slot instead of 1.31 MB), which leaves room for future updates. A
 partition table cannot be changed over the air, hence this single USB
 flash. Every later update is a classic OTA again.
 
-**Easiest — from the browser** (Chrome or Edge): open the
+**Easiest: from the browser** (Chrome or Edge): open the
 [flash page](https://pulpyyyy.github.io/ESPSomfy-RTS/), plug the device
 in over USB, pick your board and click Install. Nothing to install on
 the computer.
@@ -66,13 +66,13 @@ the computer.
 
 The device boots with a blank configuration.
 
-## Step 3 — First boot and network setup
+## Step 3: First boot and network setup
 
 With a blank configuration the device starts its own WiFi access
 point:
 
 1. On a phone or laptop, join the network **`ESPSomfyRTS`**
-   (WPA2 password: **`espsomfy`** — fixed and documented on purpose,
+   (WPA2 password **`espsomfy`**, fixed and documented on purpose,
    it only guards joining the AP).
 2. Open **http://192.168.4.1** in a browser.
 3. Enter your home WiFi credentials and save. The device reboots and
@@ -80,26 +80,26 @@ point:
 4. Find the device's new address (your router's DHCP client list, or
    the address you had reserved for it) and open the web UI there.
 
-If you use a PIN or password on the UI, set it now — a fresh install
+If you use a PIN or password on the UI, set it now: a fresh install
 starts unsecured.
 
-## Step 4 — Restore your backup
+## Step 4: Restore your backup
 
 In the **new** web UI:
 
 1. Go to the backup/restore section of the settings.
 2. Upload the backup file from step 1.
 3. Select at least **Shades** (rooms, groups and repeaters are part of
-   it). Restoring network settings is optional — you just configured
+   it). Restoring network settings is optional: you just configured
    them, keeping the fresh ones is recommended.
 4. Start the restore. The device reboots.
 
-After the reboot every shade is back — names, rooms, sort order,
+After the reboot every shade is back: names, rooms, sort order,
 remote addresses and rolling codes included. Nothing needs to be
 re-paired: press a paired remote and the frame counter moves on from
 where it left off.
 
-## Step 5 — Verify, then make a new backup
+## Step 5: Verify, then make a new backup
 
 1. Check that all shades are listed and respond.
 2. Immediately create a **new** backup from this firmware. The new
@@ -108,7 +108,7 @@ where it left off.
 
 > **Going back?** Keep the *old* v2.x backup file. A backup written by
 > this firmware uses a newer record layout that a v2.x device rejects
-> (safely — its size check refuses the file). To return to v2.x, flash
+> (safely: its size check refuses the file). To return to v2.x, flash
 > the old onboard image and restore the old backup file.
 
 ## Home Assistant
@@ -124,7 +124,7 @@ integration; with the official one, add the device by IP address.
 
 - **The restore (or any upload) stalls or ends with an empty reply**
   while regular pages load fine: if you reach the device through a
-  VPN or overlay network, this is almost always a path-MTU problem —
+  VPN or overlay network, this is almost always a path-MTU problem:
   full-size TCP segments are dropped silently. Lower the tunnel MTU
   (e.g. 1380 instead of 1420) or run the migration from a machine on
   the same LAN as the device.
@@ -133,6 +133,6 @@ integration; with the official one, add the device by IP address.
   file for a restore, the `littlefs` image for a UI update, and the
   firmware image for a firmware update.
 - **The update is refused with a size error**: the firmware verifies
-  images against the real OTA slot size before writing — this is the
+  images against the real OTA slot size before writing: this is the
   guard working, not a bug. Check you downloaded the image matching
   your partition layout.

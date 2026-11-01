@@ -169,7 +169,7 @@ bool MQTTClass::connect() {
   if(mqttClient.connected()) return true;
   if(!settings.MQTT.enabled || this->suspended) return false;
   // Throttle attempts to once per 10s. Stamping the attempt here (not only on success,
-  // as before) keeps the guard effective when the broker is unreachable — otherwise a
+  // as before) keeps the guard effective when the broker is unreachable; otherwise a
   // down broker triggers a blocking DNS+TCP connect on every loop iteration. lastConnect
   // holds a millis() value; the subtractive compare stays correct across the 49.7-day
   // wrap, where the old `lastConnect + 10000 > millis()` would have blocked forever.

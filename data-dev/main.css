@@ -944,7 +944,7 @@ div.frame-pulses {
         grid-row: 2;
     }
 }
-/* Canonical breakpoints (media queries cannot use CSS variables — keep this
+/* Canonical breakpoints (media queries cannot use CSS variables, so keep this
    ladder in sync by hand): 480 (small phone), 550 (phone), 780 (mobile/desktop
    switch), 900 (dense grids), 1024/1280 (card columns in overlays.css). */
 @media screen and (max-width: 640px) {
@@ -978,7 +978,7 @@ div.frame-pulses {
 }
 
 /* ========================================================================
-   Interface 2026 — app shell, pages and Home.
+   Interface 2026: app shell, pages and Home.
    Breakpoint: 900px switches the sidebar (rail) for the top bar + menu.
    ======================================================================== */
 body {
@@ -1318,6 +1318,9 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 .accent-swatch .sw { width: 28px; height: 28px; border-radius: 50%; background: var(--sw); box-shadow: 0 0 0 1px rgba(0, 0, 0, .2); }
 .accent-swatch:has(input:checked) .sw { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--ink); }
 .accent-swatch:has(input:focus-visible) { outline: 3px solid var(--accent-color); outline-offset: 2px; }
+/* Any other colour: a colour wheel until one is picked, then that colour, ringed. */
+.accent-custom .sw { background: conic-gradient(#e5484d, #f5a524, #f7e04b, #46a758, #3e9bdc, #6e56cf, #e5484d); }
+.accent-custom.is-on .sw { background: var(--sw); box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--ink); }
 .sh-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 8px; }
 .sh-head .h2-lg { margin-right: auto; }
 .sh-panel > :first-child { margin-top: 16px; }

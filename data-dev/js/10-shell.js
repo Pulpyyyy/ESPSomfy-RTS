@@ -22,7 +22,7 @@ async function initSockets() {
         if (window.location.protocol !== 'file:' && basePath.length > 0) {
             // Behind a reverse proxy under a sub-path: tunnel the socket
             // through the proxy at <basePath>/ws on the page's own origin
-            // (wss on HTTPS pages — no mixed content, no direct :8080 access).
+            // (wss on HTTPS pages: no mixed content, no direct :8080 access).
             sockUrl = `${protocol}//${window.location.host}${basePath}/ws`;
         } else {
             const port = window.location.protocol === 'https:' ? '' : ':8080';
