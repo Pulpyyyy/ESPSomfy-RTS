@@ -891,15 +891,19 @@ input[type="radio"]:hover {
     background: rgba(255, 255, 255, 0.08);
     color: var(--color);
 }
-/* Repeat count: the value is typed straight into the field, and the +/- pair sits at the
-   right edge of the row so nudging it by one never costs a keyboard on a phone. The row
-   is a .unibloc child, which is already position: relative. */
-/* Wide enough to clear the 72px stepper parked on the right of the row. */
+/* Repeat count: the value is typed straight into the field, and the +/- pair sits inside
+   its right edge so nudging it by one never costs a keyboard on a phone. The pair is
+   centred on the field itself (.repeat-wrap), not on the row: anchored to the row's
+   bottom it hung below the field, and the help text under it would have moved it. */
+.repeat-wrap { position: relative; }
+.repeat-wrap .repeatField { margin-top: 0; margin-bottom: 0; }
+/* Wide enough to clear the 72px stepper parked on the right of the field. */
 .repeatField { padding-right: 86px !important; }
 .repeatSteps {
     position: absolute;
-    right: 0;
-    bottom: 0;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 /* Validation belongs under the field that failed -- M3 supporting text, switched to the
    error role. The text itself carries the message: colour is never the only signal. */

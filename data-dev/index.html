@@ -456,11 +456,14 @@
 <div class="unibloc">
 <div>
                                     <label class="label" for="fldShadeRepeats" tr="REPEAT_COMMANDS"></label>
-                                    <input id="fldShadeRepeats" class="inputAndSelect repeatField" name="shadeRepeats" type="number" inputmode="numeric" min="0" max="20" step="1" data-bind="repeats" data-datatype="int" placeholder="0 - 20" onchange="somfy.clampRepeats(this);"/>
+                                    <div class="repeat-wrap">
+                                    <input id="fldShadeRepeats" class="inputAndSelect repeatField" name="shadeRepeats" type="number" inputmode="numeric" min="0" max="20" step="1" data-bind="repeats" data-datatype="int" placeholder="0 - 20" aria-describedby="hlpShadeRepeats" onchange="somfy.clampRepeats(this);"/>
                                     <div class="step-buttons repeatSteps">
-                                        <button type="button" onclick="somfy.stepRepeats('fldShadeRepeats', -1);">−</button>
-                                        <button type="button" onclick="somfy.stepRepeats('fldShadeRepeats', 1);">+</button>
+                                        <button type="button" tr-aria="REPEAT_MINUS" onclick="somfy.stepRepeats('fldShadeRepeats', -1);">−</button>
+                                        <button type="button" tr-aria="REPEAT_PLUS" onclick="somfy.stepRepeats('fldShadeRepeats', 1);">+</button>
                                     </div>
+                                    </div>
+                                    <p class="help" id="hlpShadeRepeats" tr="REPEAT_COMMANDS_HELP"></p>
 </div>
 <hr id="hrSetRollingC">
 <div id="btnSetRollingCode">
@@ -610,11 +613,14 @@
                                 <hr>
                                 <div>
                                     <label class="label" for="fldGroupRepeats" tr="REPEAT_COMMANDS"></label>
-                                    <input id="fldGroupRepeats" class="inputAndSelect repeatField" name="groupRepeats" type="number" inputmode="numeric" min="0" max="20" step="1" data-bind="repeats" data-datatype="int" placeholder="0 - 20" onchange="somfy.clampRepeats(this);"/>
+                                    <div class="repeat-wrap">
+                                    <input id="fldGroupRepeats" class="inputAndSelect repeatField" name="groupRepeats" type="number" inputmode="numeric" min="0" max="20" step="1" data-bind="repeats" data-datatype="int" placeholder="0 - 20" aria-describedby="hlpGroupRepeats" onchange="somfy.clampRepeats(this);"/>
                                     <div class="step-buttons repeatSteps">
-                                        <button type="button" onclick="somfy.stepRepeats('fldGroupRepeats', -1);">−</button>
-                                        <button type="button" onclick="somfy.stepRepeats('fldGroupRepeats', 1);">+</button>
+                                        <button type="button" tr-aria="REPEAT_MINUS" onclick="somfy.stepRepeats('fldGroupRepeats', -1);">−</button>
+                                        <button type="button" tr-aria="REPEAT_PLUS" onclick="somfy.stepRepeats('fldGroupRepeats', 1);">+</button>
                                     </div>
+                                    </div>
+                                    <p class="help" id="hlpGroupRepeats" tr="REPEAT_COMMANDS_HELP"></p>
                                 </div>
                             </div>
                             <div class="button-container-row">
