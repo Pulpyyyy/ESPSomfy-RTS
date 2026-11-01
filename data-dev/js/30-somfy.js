@@ -29,7 +29,7 @@ class Somfy {
         { val: 3, label: 'Olimex ESP32-PoE/EVB', showGPIO: false, chips: ['esp32'], pins: { SCKPin: 14, CSNPin: 13, MOSIPin: 15, MISOPin: 16, TXPin: 4, RXPin: 36 } },
         { val: 4, label: 'LilyGO T-Internet POE', showGPIO: false, chips: ['esp32'], pins: { SCKPin: 14, CSNPin: 12, MOSIPin: 15, MISOPin: 16, TXPin: 4, RXPin: 35 } },
         { val: 5, label: 'wESP POE', showGPIO: false, chips: ['esp32'], pins: { SCKPin: 18, CSNPin: 5, MOSIPin: 13, MISOPin: 32, TXPin: 4, RXPin: 39 } },
-        { val: 6, label: 'ESP-PoE-32', showGPIO: false, chips: ['esp32'], pins: { SCKPin: 14, CSNPin: 5, MOSIPin: 13, MISOPin: 32, TXPin: 4, RXPin: 35 } },
+        { val: 6, label: 'ESP-PoE-32', showGPIO: false, chips: ['esp32'], pins: { SCKPin: 14, CSNPin: 5, MOSIPin: 13, MISOPin: 32, TXPin: 2, RXPin: 35 } },
         { val: 7, label: 'ESP32s3 Mini', showGPIO: false, chips: ['s3'], pins: { SCKPin: 7, CSNPin: 6, MOSIPin: 9, MISOPin: 8, TXPin: 3, RXPin: 4 } },
         { val: 8, label: 'XIAO-ESP32-C3', showGPIO: false, chips: ['c3'], pins: { SCKPin: 8, CSNPin: 6, MOSIPin: 10, MISOPin: 9, TXPin: 3, RXPin: 4 } },
         { val: 255, label: 'MANUAL_SETTINGS', showGPIO: true }
@@ -165,7 +165,17 @@ class Somfy {
                 }
 
                 if (somfy.transceiver && somfy.transceiver.config) {
-                    if (selBoard) selBoard.value = somfy.transceiver.config.radioBoardType || 0;
+                    if (selBoard) {
+                        const cfg = somfy.transceiver.config;
+                        let bt = cfg.radioBoardType || 0;
+                        // Selecting a preset rewrites the pin fields, and the next save would
+                        // store them. When the saved pins no longer match the preset (it was
+                        // corrected since, or the board was wired differently), show them as
+                        // manual so the running radio is never rewired behind the user's back.
+                        const preset = bt === 0 ? null : this.radioBoardTypes.find(t => t.val === bt)?.pins;
+                        if (preset && Object.keys(preset).some(k => preset[k] !== cfg[k])) bt = 255;
+                        selBoard.value = bt;
+                    }
                     this.onRadioBoardTypeChanged(selBoard, true);
                 }
 
