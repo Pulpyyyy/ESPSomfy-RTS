@@ -851,7 +851,6 @@
     "POSP_GO_MY": "Ir a My, {0} %",
     "POSP_SAVE_MY": "Guardar My en {0} %",
     "POSP_CLEAR_MY": "Borrar My",
-    "POSP_AS_MY": "Guardar como My",
     "POSP_NOTE_MOVE": "La persiana se mueve al soltar. Los pasos de 1 y 5 % se agrupan en una sola orden.",
     "POSP_NOTE_MY": "Arrastrar no mueve la persiana aquí: no se envía nada antes de «Guardar».",
     "POSP_MY_BUSY": "El motor no acepta guardar My durante un movimiento. Espere a que la persiana se detenga.",

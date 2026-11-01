@@ -851,7 +851,6 @@
     "POSP_GO_MY": "Aller à My, {0} %",
     "POSP_SAVE_MY": "Mémoriser My à {0} %",
     "POSP_CLEAR_MY": "Effacer My",
-    "POSP_AS_MY": "Mémoriser comme My",
     "POSP_NOTE_MOVE": "Le volet part au relâchement. Les pas de 1 et 5 % sont regroupés en un seul ordre.",
     "POSP_NOTE_MY": "Glisser ne déplace pas le volet ici : rien ne part avant « Mémoriser ».",
     "POSP_MY_BUSY": "Le moteur n’accepte pas de mémorisation pendant un mouvement. Attendez l’arrêt du volet.",

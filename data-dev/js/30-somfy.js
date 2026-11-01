@@ -1336,8 +1336,7 @@ class Somfy {
         <button type="button" class="pos-chip" data-tstep="1" aria-label="${esc(tr('POSP_TILT_PLUS'))}">+1</button>
         </div>
         </div>` : ''}
-        <div class="pos-mybox"><p class="pos-mytext"></p><button type="button" class="pos-mybtn"></button><button type="button" class="pos-link pos-myclear">${esc(tr('POSP_CLEAR_MY'))}</button></div>
-        <div class="pos-foot"><button type="button" class="pos-link"><svg aria-hidden="true"><use href="#svg-favori"></use></svg>${esc(tr('POSP_AS_MY'))}</button></div>
+        <div class="pos-mybox"><p class="pos-mytext"></p><button type="button" class="pos-mybtn"></button><button type="button" class="pos-myclear">${esc(tr('POSP_CLEAR_MY'))}</button></div>
         </div>`;
         document.body.appendChild(el);
         const p = this.pos = { shadeId, el, tab: 'move', sel: 0, tilt: 0, sendT: null, tiltT: null, dragging: false };
@@ -1425,15 +1424,6 @@ class Somfy {
                 if (cur.tiltOnly) this.sendShadeMyPosition(shadeId, 0, cur.my);
                 else this.sendShadeMyPosition(shadeId, shadeOpenness(cur.my, cur.flip), cur.tiltType > 0 ? cur.myTilt : 0);
             });
-        });
-        // Set the shade where it should be, see it for real, then keep that as My:
-        // the firmware records it without a second move when it is already there.
-        q('.pos-link').addEventListener('click', () => {
-            this.flushPosSend();
-            const keep = p.sel, keepTilt = p.tilt;
-            this.setPosTab('my');
-            p.sel = keep; p.tilt = keepTilt;
-            this.renderPosPanel();
         });
 
         openDialog(el);
@@ -1545,7 +1535,6 @@ class Somfy {
         }
 
         q('.pos-mybox').hidden = !my;
-        q('.pos-foot').hidden = my;
         q('.pos-note').textContent = tr(my ? 'POSP_NOTE_MY' : 'POSP_NOTE_MOVE');
         if (my) {
             const withTilt = !s.tiltOnly && s.tiltType > 0;

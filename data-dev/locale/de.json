@@ -851,7 +851,6 @@
     "POSP_GO_MY": "Zu My fahren, {0} %",
     "POSP_SAVE_MY": "My auf {0} % speichern",
     "POSP_CLEAR_MY": "My löschen",
-    "POSP_AS_MY": "Als My speichern",
     "POSP_NOTE_MOVE": "Der Behang fährt beim Loslassen. Schritte von 1 und 5 % werden zu einem Befehl zusammengefasst.",
     "POSP_NOTE_MY": "Ziehen bewegt den Behang hier nicht: Erst „Speichern“ sendet etwas.",
     "POSP_MY_BUSY": "Der Motor speichert keine My-Position während einer Bewegung. Warten Sie, bis der Behang steht.",

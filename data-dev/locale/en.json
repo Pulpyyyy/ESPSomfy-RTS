@@ -851,7 +851,6 @@
     "POSP_GO_MY": "Go to My, {0} %",
     "POSP_SAVE_MY": "Save My at {0} %",
     "POSP_CLEAR_MY": "Clear My",
-    "POSP_AS_MY": "Save as My",
     "POSP_NOTE_MOVE": "The shade moves when you let go. Steps of 1 and 5 % are grouped into a single order.",
     "POSP_NOTE_MY": "Dragging does not move the shade here: nothing is sent until you save.",
     "POSP_MY_BUSY": "The motor does not accept a My setting while it moves. Wait for the shade to stop.",

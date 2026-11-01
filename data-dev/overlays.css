@@ -1206,14 +1206,10 @@ cursor: pointer;
 .pos-mybox { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); }
 .pos-mytext { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .pos-sheet .pos-mybtn { width: 100%; min-height: 44px; }
+/* Clearing My: a quiet, red text button (confirmed in a dialog), never the main one. */
 .pos-sheet .pos-myclear,
-.pos-sheet .pos-myclear:hover { align-self: center; color: var(--danger); }
+.pos-sheet .pos-myclear:hover { align-self: center; display: inline-flex; align-items: center; background: transparent; color: var(--danger); }
 .pos-sheet .pos-myclear:hover { background: var(--danger-soft); }
-.pos-foot { display: flex; justify-content: flex-end; }
-.pos-sheet .pos-link,
-.pos-sheet .pos-link:hover { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--accent-text); }
-.pos-sheet .pos-link:hover { background: var(--accent-soft); }
-.pos-link svg { width: 14px; height: 14px; }
 
 @media (max-width: 420px) {
     .pos-body { grid-template-columns: minmax(104px, 38%) minmax(0, 1fr); gap: 12px; }
