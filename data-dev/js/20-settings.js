@@ -439,14 +439,11 @@ class General {
                 applyAccent(settings.accentColor);
                 localStorage.setItem('accentColor', settings.accentColor);
 
+                // The hidden field only carries the value to the save; the swatches and
+                // the wheel apply the colour (pickAccent). The listener that used to be
+                // added here on every load never fired: a hidden input gets no input event.
                 const accentInput = get('fldAccentColor');
-                if (accentInput) {
-                    accentInput.value = settings.accentColor;
-                    accentInput.addEventListener('input', (e) => {
-                        applyAccent(e.target.value);
-                        localStorage.setItem('accentColor', e.target.value);
-                    });
-                }
+                if (accentInput) accentInput.value = settings.accentColor;
             }
 
         });
@@ -474,7 +471,7 @@ class General {
             ui.errorMessage(msg).querySelector('.sub-message').innerHTML = tr('ERR_HOSTNAME_CHARS');
             valid = false;
         }
-        if (valid && obj.hostname.length > 32) {
+        if (valid && obj.hostname.length > 31) {
             ui.errorMessage(msg).querySelector('.sub-message').innerHTML = tr('ERR_HOSTNAME_LENGTH');
             valid = false;
         }
@@ -728,7 +725,7 @@ class General {
         </div>
         <div class="ha-badge-container">
         <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Pulpyyyy&repository=ESPSomfy-RTS-enhanced&category=integration" target="_blank" class="ha-badge-button">
-        <span class="ha-badge-text-main">Open HACS repository on</span>
+        <span class="ha-badge-text-main">${tr('HACS_OPEN_ON')}</span>
         <span class="ha-badge-pill"><span class="ha-badge-text-pill">MY</span><svg width="18" height="18"><use href="#svg-homeAssistant"></use></svg></span>
         </a>
         <p class="ha-github-link-container">
@@ -1322,7 +1319,7 @@ class Wifi {
         const spanStatus = get('spanEthernetStatus');
         const spanSpeed = get('spanEthernetSpeed');
 
-        spanStatus.innerHTML = ethernet.connected ? 'Connected' : 'Disconnected';
+        spanStatus.textContent = tr(ethernet.connected ? 'NAV_CONNECTED' : 'NAV_DISCONNECTED');
         spanStatus.style.color = ethernet.connected ? 'var(--accent-sucess)' : '';
         spanSpeed.innerHTML = !ethernet.connected ? '--------' : `${ethernet.speed} Mbps ${ethernet.fullduplex ? 'Full-duplex' : 'Half-duplex'}`;
     }

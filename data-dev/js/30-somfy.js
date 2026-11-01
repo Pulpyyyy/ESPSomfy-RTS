@@ -54,14 +54,16 @@ class Somfy {
             bindHoldKeys(el, () => this.sendVRCommand(el));
         });
     }
+    // Called on every settings load: the pin lists depend on the chip it reports. The
+    // first call also binds the board picker and fills placeholder defaults; later ones
+    // only rebuild the lists (loadPins keeps each selection). Repeating the rest stacked
+    // listeners and reset the radio panel to defaults, which could land after the real
+    // radio config and be saved with the next change.
     initPins() {
-        document
-        .getElementById('selRadioBoardType')
-        .addEventListener('change', e => this.onRadioBoardTypeChanged(e.target));
-
         const sel = get('selRadioBoardType');
-
-        sel.addEventListener('change', e => this.onRadioBoardTypeChanged(e.target));
+        const first = !this._pinsReady;
+        this._pinsReady = true;
+        if (first) sel.addEventListener('change', e => this.onRadioBoardTypeChanged(e.target));
 
         this.loadPins('inout', get('selTransSCKPin'));
         this.loadPins('inout', get('selTransCSNPin'));
@@ -70,16 +72,17 @@ class Somfy {
         this.loadPins('out', get('selTransTXPin'));
         this.loadPins('input', get('selTransRXPin'));
 
-        ui.toElement(get('divTransceiverSettings'), {
+        if (first) ui.toElement(get('divTransceiverSettings'), {
             transceiver: { config: { proto: 0, radioBoardType: 0, SCKPin: 18, CSNPin: 5, MOSIPin: 23, MISOPin: 19, TXPin: 13, RXPin: 12, frequency: 433.42, rxBandwidth: 97.96, type: 56, deviation: 11.43, txPower: 10, enabled: false } }
         });
 
         this.loadPins('out', get('selShadeGPIOUp'));
         this.loadPins('out', get('selShadeGPIODown'));
         this.loadPins('out', get('selShadeGPIOMy'));
-        this.loadRadioBoardTypes(get('selRadioBoardType'));
+        const board = sel.value;
         this.loadRadioBoardTypes(sel);
-        this.onRadioBoardTypeChanged(sel);
+        if (!first && [...sel.options].some(o => o.value === board)) sel.value = board;
+        this.onRadioBoardTypeChanged(sel, !first);
     }
     loadRadioBoardTypes(sel) {
         while (sel.firstChild) sel.removeChild(sel.firstChild);
@@ -770,7 +773,7 @@ class Somfy {
             if (typeof optGroup === 'undefined' || !optGroup) {
                 optGroup = document.createElement('optgroup');
                 optGroup.setAttribute('id', 'optgrpVRShades');
-                optGroup.setAttribute('label', 'Shades');
+                optGroup.setAttribute('label', tr('VR_OPT_SHADES'));
                 vrList.appendChild(optGroup);
             }
             else {
@@ -920,7 +923,7 @@ class Somfy {
             ? `<span class="shutter"></span>`
             : `<svg class="somfy-shade-icon" data-shadeid="${shade.shadeId}" aria-hidden="true" style="--shade-position:${p}; --fpos:${p}%"><use href="#${st.ico}"></use></svg>`;
         const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
-        return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
+        return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-tilttarget="${shade.tiltTarget ?? shade.tiltPosition}" data-tiltdirection="${shade.tiltDirection || 0}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
         <div class="tile-head">
         <div class="tile-id">
         <h3 class="tile-name shadectl-name" id="shName${shade.shadeId}">${esc(shade.name).replace(/_/g, '_<wbr>')}</h3>
@@ -950,23 +953,37 @@ class Somfy {
     }
     // Paints the live state of one tile from its data-* attributes (kept current by
     // procShadeState): open percentage, apron height, status line, My / Stop label.
-    renderTileState(d) {
-        const flip = makeBool(d.getAttribute('data-flipposition'));
+    // What a tile shows as "% open": the travel, or for a tilt-only shade its tilt, in
+    // the API's own scale (as the position panel does). Moving counts the slats too,
+    // so My turns into Stop while a blind only tilts.
+    tileAxis(d) {
         const num = (a, dflt) => { const v = parseInt(d.getAttribute(a), 10); return isNaN(v) ? dflt : v; };
-        const pos = num('data-position', 0), target = num('data-target', pos), myPos = num('data-mypos', -1);
-        const dir = num('data-direction', 0);
-        const open = shadeOpenness(pos, flip);
+        const tdir = num('data-tiltdirection', 0);
+        if ((parseInt(d.getAttribute('data-tilt'), 10) || 0) === 3) {
+            const t = num('data-tiltposition', 0);
+            return { open: t, target: num('data-tilttarget', t), my: num('data-mytiltpos', -1), dir: tdir, moving: tdir !== 0, tiltOnly: true };
+        }
+        const flip = makeBool(d.getAttribute('data-flipposition'));
+        const pos = num('data-position', 0), myPos = num('data-mypos', -1), dir = num('data-direction', 0);
+        return {
+            open: shadeOpenness(pos, flip), target: shadeOpenness(num('data-target', pos), flip),
+            my: myPos >= 0 ? shadeOpenness(myPos, flip) : -1, dir: dir || tdir, moving: dir !== 0 || tdir !== 0, tiltOnly: false
+        };
+    }
+    renderTileState(d) {
+        const num = (a, dflt) => { const v = parseInt(d.getAttribute(a), 10); return isNaN(v) ? dflt : v; };
+        const ax = this.tileAxis(d);
+        const open = ax.open, dir = ax.dir, moving = ax.moving;
         const pulse = d.classList.contains('is-pulse');
-        const moving = dir !== 0;
         d.classList.toggle('is-moving', moving);
         const pct = d.querySelector('.pct-num');
         if (pct) pct.textContent = open;
         d.querySelector('.tile-pct')?.toggleAttribute('hidden', pulse);
         const sh = d.querySelector('.shutter');
         if (sh) sh.style.height = (100 - open) + '%';
-        const myOpen = myPos >= 0 ? shadeOpenness(myPos, flip) : -1;
+        const myOpen = ax.my;
         let status;
-        if (moving) status = `${tr(dir < 0 ? 'ST_OPENING' : 'ST_CLOSING')} · ${trf('ST_TOWARDS', shadeOpenness(target, flip))}`;
+        if (moving) status = `${tr(dir < 0 ? 'ST_OPENING' : 'ST_CLOSING')} · ${trf('ST_TOWARDS', ax.target)}`;
         else if (pulse) status = '';
         else if (myOpen >= 0 && open === myOpen && open !== 0 && open !== 100) status = tr('ST_AT_MY');
         else status = open <= 0 ? tr('POS_CLOSED') : open >= 100 ? tr('POS_OPEN') : tr('ST_PARTIAL');
@@ -976,7 +993,9 @@ class Somfy {
         if (lbl) lbl.textContent = moving ? tr('BT_STOP_MY') : 'My';
         const vm = d.querySelector('.val-my');
         if (vm) vm.textContent = moving ? '' : (myOpen >= 0 ? `${myOpen} %` : '—');
-        const tilt = parseInt(d.getAttribute('data-tilt'), 10) || 0;
+        // The extra tilt line is for shades that also lift; a tilt-only tile already
+        // shows its tilt as the main figure.
+        const tilt = ax.tiltOnly ? 0 : (parseInt(d.getAttribute('data-tilt'), 10) || 0);
         const vt = d.querySelector('.val-tilt');
         if (vt) {
             const tp = num('data-tiltposition', -1), mt = num('data-mytiltpos', -1);
@@ -987,7 +1006,7 @@ class Somfy {
     updateHomeSummary() {
         const describe = (tiles) => {
             const shades = tiles.filter(t => !t.classList.contains('is-pulse'));
-            const open = shades.filter(t => shadeOpenness(parseInt(t.getAttribute('data-position'), 10) || 0, makeBool(t.getAttribute('data-flipposition'))) > 0).length;
+            const open = shades.filter(t => this.tileAxis(t).open > 0).length;
             return { total: tiles.length, open: open, shades: shades.length };
         };
         const all = describe(Array.from(document.querySelectorAll('#divShadeControls .somfyShadeCtl')));
@@ -1178,7 +1197,7 @@ class Somfy {
             if (!optGroup) {
                 optGroup = document.createElement('optgroup');
                 optGroup.setAttribute('id', 'optgrpVRGroups');
-                optGroup.setAttribute('label', 'Groups');
+                optGroup.setAttribute('label', tr('VR_OPT_GROUPS'));
                 vrList.appendChild(optGroup);
             } else {
                 optGroup.innerHTML = '';
@@ -2393,7 +2412,7 @@ class Somfy {
             if (overlay) overlay.remove();
             if (err) {
                 if(DBG) console.log(err);
-                ui.errorMessage(err.message);
+                ui.serviceError(err);
             }
             else if (div) {
                 if(DBG) console.log(shade);
@@ -2821,6 +2840,7 @@ class Somfy {
                     else {
                         let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
                             putJSONBusy('/unlinkFromGroup', { groupId: groupId, shadeId: shadeId }, (err, group) => {
+                                if (err) return ui.serviceError(err);
                                 somfy.setLinkedShadesList(group);
                                 this.updateGroupList();
                             });
@@ -2841,6 +2861,7 @@ class Somfy {
                 let obj = ui.fromElement(div);
                 let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
                     putJSONBusy('/linkToGroup', { groupId: groupId, shadeId: obj.shadeId }, (err, group) => {
+                        if (err) return ui.serviceError(err);
                         somfy.setLinkedShadesList(group);
                         this.updateGroupList();
                     });
@@ -2913,9 +2934,9 @@ class Somfy {
                 remoteAddress: remoteAddress
             };
             putJSONBusy('/unlinkRemote', obj, (err, shade) => {
-
-                if(DBG) console.log(shade);
                 prompt.remove();
+                if (err) return ui.serviceError(err);
+                if(DBG) console.log(shade);
                 this.setLinkedRemotesList(shade);
             });
         });

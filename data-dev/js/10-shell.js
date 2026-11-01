@@ -77,9 +77,11 @@ async function initSockets() {
                         case 'roomAdded':
                             somfy.procRoomAdded(msg);
                             break;
+                        // Another client added or removed a shade: rebuild the lists, or it
+                        // only showed up (or went away) here after a reload.
                         case 'shadeRemoved':
-                            break;
                         case 'shadeAdded':
+                            somfy.updateShadeList();
                             break;
                         case 'ethernet':
                             wifi.procEthernet(msg);
@@ -1381,7 +1383,7 @@ class UIBinder {
             if (typeof err.desc === 'string') {
                 msg = typeof err.desc !== 'undefined' ? err.desc : err.message;
                 if (typeof err.code === 'number') {
-                    let e = errors.find(x => x.code === err.code) || { code: err.code, desc: 'Unspecified error' };
+                    let e = errors.find(x => x.code === err.code) || { code: err.code, desc: tr('ERR_UNSPECIFIED') };
                     msg = e.desc;
                     title = err.desc;
                 }

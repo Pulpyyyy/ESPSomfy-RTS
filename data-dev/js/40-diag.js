@@ -1143,11 +1143,16 @@ class Firmware {
                 return;
             }
             if (service === '/restore') {
-                await somfy.init();
+                // The board writes the backup and reboots a second later: say so, then
+                // reload once it is back, so every page shows the restored settings.
                 closeOverlay(get('divUploadFile'));
+                navClearDirty();
+                if (typeof socket !== 'undefined' && socket) socket.close(3000, 'restore');
+                ui.waitMessage(get('divContainer'), tr('RESTORE_DONE'));
+                setTimeout(() => window.location.reload(), 15000);
             }
         };
-        xhr.onerror = () => ui.serviceError(el, 'Upload Failed');
+        xhr.onerror = () => ui.serviceError(el, tr('ERR_UPLOAD_FAILED'));
         btnCancel.onclick = () => { xhr.abort(); closeOverlay(el); };
         xhr.send(formData);
     }

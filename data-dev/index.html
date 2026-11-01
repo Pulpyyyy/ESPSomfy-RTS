@@ -159,7 +159,7 @@
 <div class="unibloc">
                                     <div>
                                         <label class="label" for="fldShadeName" tr="NAME"></label>
-                                        <input id="fldShadeName" class="inputAndSelect" name="shadeName" data-bind="name" type="text" length=20 tr="SECURITY_ENTER_NAME" placeholder="Entre un nom">
+                                        <input id="fldShadeName" class="inputAndSelect" name="shadeName" data-bind="name" type="text" maxlength=20 tr="SECURITY_ENTER_NAME" placeholder="Entre un nom">
                                     </div>
                                     <hr>
                                     <div>
@@ -243,18 +243,18 @@
                                 <div id="divLiftSettings">
                                     <div>
                                         <label class="label" for="fldShadeUpTime" tr="SHADE_UP_TIME"></label>
-                                        <input id="fldShadeUpTime" class="inputAndSelect" name="shadeUpTime" data-bind="upTime" data-datatype="int" type="number" min="1" max="180000" step="1" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
+                                        <input id="fldShadeUpTime" class="inputAndSelect" name="shadeUpTime" data-bind="upTime" data-datatype="int" type="number" min="1" max="180000" step="1" maxlength=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
                                     </div>
                                     <hr>
                                     <div>
                                         <label class="label" for="fldShadeDownTime" tr="SHADE_DOWN_TIME"></label>
-                                        <input id="fldShadeDownTime" class="inputAndSelect" name="shadeDownTime" type="number" min="1" max="180000" step="1" data-bind="downTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
+                                        <input id="fldShadeDownTime" class="inputAndSelect" name="shadeDownTime" type="number" min="1" max="180000" step="1" data-bind="downTime" data-datatype="int" maxlength=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
                                     </div>
                                     <div id="divLiftTime">
                                         <hr>
                                         <div>
                                             <label class="label" for="fldShadeLiftTime" tr="SHADE_LIFT_TIME"></label>
-                                            <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" min="0" max="60000" step="1" data-bind="liftTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 0);"/>
+                                            <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" min="0" max="60000" step="1" data-bind="liftTime" data-datatype="int" maxlength=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 0);"/>
                                         </div>
                                         <hr>
                                         <div>
@@ -287,7 +287,7 @@
                                     <hr id="hrDldTiltTime">
                                     <div>
                                         <label class="label" for="fldTiltTime" tr="SHADE_TILT_TIME"></label>
-                                        <input id="fldTiltTime" class="inputAndSelect" name="shadeTiltTime" type="number" min="0" max="60000" data-bind="tiltTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 7000);"/>
+                                        <input id="fldTiltTime" class="inputAndSelect" name="shadeTiltTime" type="number" min="0" max="60000" data-bind="tiltTime" data-datatype="int" maxlength=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 7000);"/>
                                     </div>
                                 </div>
                                 <div id="divStepSettings">
@@ -436,7 +436,7 @@
                                         <div>
                                             <div id="divShadeAddress">
                                                 <label class="label" for="fldShadeAddress" tr="REMOTE_ID"></label>
-                                                <input id="fldShadeAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" length=5 tr="RADIO_ADRESS" placeholder="Address">
+                                                <input id="fldShadeAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" maxlength=5 tr="RADIO_ADRESS" placeholder="Address">
                                             </div>
                                         </div>
                                     </div>
@@ -512,7 +512,7 @@
                             <div class="somfyMaxId"><span id="spanRoomId">*</span>/<span id="spanMaxRooms">14</span></div>
                             <div class="unibloc">
                                 <label class="label" for="fldRoomName" tr="NAME"></label>
-                                <input id="fldRoomName" class="inputAndSelect" name="roomName" data-bind="name" type="text" length=20  tr="ROOM_NAME_PHL" placeholder="Entrer un nom de pièce">
+                                <input id="fldRoomName" class="inputAndSelect" name="roomName" data-bind="name" type="text" maxlength=20  tr="ROOM_NAME_PHL" placeholder="Entrer un nom de pièce">
                             </div>
                             <div class="footer-overlay">
                                 <button id="btnRoomGoBack" line type="button" onclick="somfy.closeEditor('Room');" tr="BT_CLOSE"></button>
@@ -542,7 +542,7 @@
                             <div class="unibloc">
                                 <div>
                                     <label class="label" for="fldGroupName" tr="NAME"></label>
-                                    <input id="fldGroupName" class="inputAndSelect" name="groupName" data-bind="name" type="text" length=20  tr="SECURITY_ENTER_NAME" placeholder="entrer un Nom">
+                                    <input id="fldGroupName" class="inputAndSelect" name="groupName" data-bind="name" type="text" maxlength=20  tr="SECURITY_ENTER_NAME" placeholder="entrer un Nom">
                                 </div>
                                  <hr>
                                 <div>
@@ -570,7 +570,7 @@
                                 <hr>
                                 <div>
                                     <label class="label" for="fldGroupAddress" tr="REMOTE_ID"></label>
-                                    <input id="fldGroupAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" length=5 tr="RADIO_ADRESS" placeholder="Adresse">
+                                    <input id="fldGroupAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" maxlength=5 tr="RADIO_ADRESS" placeholder="Adresse">
                                 </div>
                             </div>
                             <div id="blocPairGroup" class="button-container-pair">
@@ -706,7 +706,7 @@
                                         <div class="segment"><svg><use href=#vr-down></use></svg></div>
                                     </div>
                                     <div class="vr-all animScale" data-cmd="MyUpDown" tr="VR_MY_UP_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <div class="segment">all</div>
+                                        <div class="segment" tr="VR_ALL">all</div>
                                     </div>
                                 </div>
                             </div>
@@ -804,20 +804,20 @@
                                 <option tr="MQTT_OPT_MQTTS"></option>
                             </select>
                             <span>://</span>
-                            <input class="mqttSelect" name="mqtt-host" type="text" length=64 placeholder="Host" data-bind="mqtt.hostname">
+                            <input class="mqttSelect" name="mqtt-host" type="text" maxlength=64 placeholder="Host" data-bind="mqtt.hostname">
                             <span>:</span>
-                            <input id="fldMqttPort" class="mqttSelect" name="mqtt-port" type="text" length=5 placeholder="Port" data-bind="mqtt.port" data-datatype="int">
+                            <input id="fldMqttPort" class="mqttSelect" name="mqtt-port" type="text" maxlength=5 placeholder="Port" data-bind="mqtt.port" data-datatype="int">
                         </div>
                         <div class="unibloc">
                             <div>
                                 <label class="label" for="fldMqttUsername" tr="SECURITY_USERNAME"></label>
-                                <input id="fldMqttUsername" class="inputAndSelect" name="mqtt-username" type="text" data-bind="mqtt.username" length=32 tr="MQTT_USERNAME_PLH" placeholder="Identifiant de votre compte MQTT">
+                                <input id="fldMqttUsername" class="inputAndSelect" name="mqtt-username" type="text" data-bind="mqtt.username" maxlength=32 tr="MQTT_USERNAME_PLH" placeholder="Identifiant de votre compte MQTT">
                             </div>
                             <hr>
                             <div>
                                 <label class="label" for="fldMqttPassword" tr="SECURITY_PASSWORD"></label>
                                 <div class="LoginPassword-input password-container">
-                                    <input id="fldMqttPassword" class="inputAndSelect" name="mqtt-password" type="password" data-bind="mqtt.password" length=64 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
+                                    <input id="fldMqttPassword" class="inputAndSelect" name="mqtt-password" type="password" data-bind="mqtt.password" maxlength=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
                                     <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldMqttPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use id="mqttEyeIcon" href="#svg-eyeOff"></use></svg>
                                     </div>
@@ -826,17 +826,17 @@
                             <hr>
                             <div>
                                 <label class="label" for="fldMqttTopic" tr="MQTT_ROOT_TOPIC"></label>
-                                <input id="fldMqttTopic" class="inputAndSelect" name="mqtt-topic" type="text" length=64 data-bind="mqtt.rootTopic" tr="MQTT_ROOT_TOPIC_PLH" placeholder="Préfixe utilisé pour tous les messages de ce module">
+                                <input id="fldMqttTopic" class="inputAndSelect" name="mqtt-topic" type="text" maxlength=64 data-bind="mqtt.rootTopic" tr="MQTT_ROOT_TOPIC_PLH" placeholder="Préfixe utilisé pour tous les messages de ce module">
                             </div>
                             <hr>
                             <div>
                                 <label class="label" for="fldMqttClientId" tr="MQTT_CLIENT_ID"></label>
-                                <input id="fldMqttClientId" class="inputAndSelect" name="mqtt-clientid" type="text" length=64 data-bind="mqtt.clientId" tr="MQTT_CLIENT_ID_PLH" placeholder="Identifiant client MQTT (vide = client-<mac>)">
+                                <input id="fldMqttClientId" class="inputAndSelect" name="mqtt-clientid" type="text" maxlength=64 data-bind="mqtt.clientId" tr="MQTT_CLIENT_ID_PLH" placeholder="Identifiant client MQTT (vide = client-<mac>)">
                             </div>
                             <hr id="hrIdDiscoveryTopic">
                             <div id="divDiscoveryTopic" style="display:none;">
                                 <label class="label" for="fldDiscoTopic" tr="MQTT_DISCOVERY_TOPIC"></label>
-                                <input id="fldDiscoTopic" class="inputAndSelect" name="disco-topic" type="text" length=64 data-bind="mqtt.discoTopic" tr="MQTT_DISCOVERY_TOPIC_PLH"  placeholder="Chemin utilisé pour la détection automatique par votre système, exemple: homeassistant">
+                                <input id="fldDiscoTopic" class="inputAndSelect" name="disco-topic" type="text" maxlength=64 data-bind="mqtt.discoTopic" tr="MQTT_DISCOVERY_TOPIC_PLH"  placeholder="Chemin utilisé pour la détection automatique par votre système, exemple: homeassistant">
                             </div>
                         </div>
                         <div class="footer-overlay">
@@ -1047,13 +1047,13 @@
                                     <hr>
                                     <div>
                                         <label class="label" for="fldSsid" tr="CONNECTION_WIFI_SSID"></label>
-                                        <input id="fldSsid" class="inputAndSelect" name="ssid" type="text" data-bind="wifi.ssid" autocomplete="new-password" length=32 tr="CONNECTION_WIFI_ENTER_SSID" placeholder="Entrer votre SSID">
+                                        <input id="fldSsid" class="inputAndSelect" name="ssid" type="text" data-bind="wifi.ssid" autocomplete="new-password" maxlength=64 tr="CONNECTION_WIFI_ENTER_SSID" placeholder="Entrer votre SSID">
                                     </div>
                                     <hr>
                                     <div>
                                         <label class="label" for="fldPassphrase" tr="SECURITY_PASSWORD"></label>
                                         <div class="LoginPassword-input password-container">
-                                            <input id="fldPassphrase" class="inputAndSelect" name="passphrase" type="password" data-bind="wifi.passphrase" autocomplete="new-password" length=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
+                                            <input id="fldPassphrase" class="inputAndSelect" name="passphrase" type="password" data-bind="wifi.passphrase" autocomplete="new-password" maxlength=64 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
                                             <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldPassphrase', this)">
                                                 <svg class="pwd-icon pwd-iconeye"><use id="wifiEyeIcon" href="#svg-eyeOff"></use></svg>
                                             </div>
@@ -1135,27 +1135,27 @@
                                 <hr>
                                 <div>
                                     <label class="label" for="fldIPAddress" tr="ADRESSIP_STATIC_IP"></label>
-                                    <input id="fldIPAddress" class="inputAndSelect" name="staticIP" type="text" inputmode="decimal" data-bind="ip.ip" length=32 tr="ADRESSIP_STATIC_IP_PLH" placeholder="0.0.0.0">
+                                    <input id="fldIPAddress" class="inputAndSelect" name="staticIP" type="text" inputmode="decimal" data-bind="ip.ip" maxlength=32 tr="ADRESSIP_STATIC_IP_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldSubnetMask" tr="ADRESSIP_SUBNET_MASK" ></label>
-                                    <input id="fldSubnetMask" class="inputAndSelect" name="subnet" type="text" inputmode="decimal" data-bind="ip.subnet" length=32 tr="ADRESSIP_SUBNET_MASK_PLH" placeholder="0.0.0.0">
+                                    <input id="fldSubnetMask" class="inputAndSelect" name="subnet" type="text" inputmode="decimal" data-bind="ip.subnet" maxlength=32 tr="ADRESSIP_SUBNET_MASK_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldGateway" tr="ADRESSIP_GATEWAY" ></label>
-                                    <input id="fldGateway" class="inputAndSelect" name="gateway" type="text" inputmode="decimal" data-bind="ip.gateway" length=32  tr="ADRESSIP_GATEWAY_PLH" placeholder="0.0.0.0">
+                                    <input id="fldGateway" class="inputAndSelect" name="gateway" type="text" inputmode="decimal" data-bind="ip.gateway" maxlength=32  tr="ADRESSIP_GATEWAY_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldDNS1" tr="ADRESSIP_DNS1"></label>
-                                    <input id="fldDNS1" class="inputAndSelect" name="dns1" type="text" inputmode="decimal" data-bind="ip.dns1" length=32 tr="ADRESSIP_DNS1_PLH" placeholder="0.0.0.0">
+                                    <input id="fldDNS1" class="inputAndSelect" name="dns1" type="text" inputmode="decimal" data-bind="ip.dns1" maxlength=32 tr="ADRESSIP_DNS1_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldDNS2" tr="ADRESSIP_DNS2"></label>
-                                    <input id="fldDNS2" class="inputAndSelect" name="dns2" type="text" inputmode="decimal" data-bind="ip.dns2" length=32 tr="ADRESSIP_DNS2_PLH" placeholder="0.0.0.0">
+                                    <input id="fldDNS2" class="inputAndSelect" name="dns2" type="text" inputmode="decimal" data-bind="ip.dns2" maxlength=32 tr="ADRESSIP_DNS2_PLH" placeholder="0.0.0.0">
                                 </div>
                             </div>
                         </div>
@@ -1518,12 +1518,12 @@
                             <div class="unibloc">
                                 <div>
                                     <label class="label" for="fldUsername" tr="SECURITY_USERNAME"></label>
-                                    <input id="fldUsername" class="inputAndSelect" name="username" type="text" data-bind="security.username" length=32 tr="SECURITY_USERNAME_PLH" placeholder="Entrer un nom d'utilisateur">
+                                    <input id="fldUsername" class="inputAndSelect" name="username" type="text" data-bind="security.username" maxlength=32 tr="SECURITY_USERNAME_PLH" placeholder="Entrer un nom d'utilisateur">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldPassword" tr="SECURITY_PASSWORD"></label>
-                                    <input id="fldPassword" class="inputAndSelect" name="password" type="password" data-bind="security.password" length=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer un mot de passe">
+                                    <input id="fldPassword" class="inputAndSelect" name="password" type="password" data-bind="security.password" maxlength=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer un mot de passe">
                                     <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                                     </div>
@@ -1531,7 +1531,7 @@
                                 <hr>
                                 <div>
                                     <label class="label" for="fldRenterPassword" tr="SECURITY_CONFIRM_PASSWORD"></label>
-                                    <input id="fldRenterPassword" class="inputAndSelect" name="password" type="password" data-bind="security.repeatpassword" length=32 tr="SECURITY_CONFIRM_PASSWORD_PLH" placeholder="Vous devez Confirmer le Mot de Passe">
+                                    <input id="fldRenterPassword" class="inputAndSelect" name="password" type="password" data-bind="security.repeatpassword" maxlength=32 tr="SECURITY_CONFIRM_PASSWORD_PLH" placeholder="Vous devez Confirmer le Mot de Passe">
                                     <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldRenterPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                                     </div>
@@ -1609,7 +1609,7 @@
 <h2 class="card-title" tr="PREF_H_GENERAL">Carte, langue et heure</h2>
                             <div>
                                 <label class="label" for="fldHostname" tr="GENERAL_HOSTNAME"></label>
-                                <input id="fldHostname" class="inputAndSelect" name="hostname" type="text" data-bind="general.hostname" length=32 tr="GENERAL_PH_HOSTNAME" placeholder="Enter un Nom d'hôte">
+                                <input id="fldHostname" class="inputAndSelect" name="hostname" type="text" data-bind="general.hostname" maxlength=31 tr="GENERAL_PH_HOSTNAME" placeholder="Enter un Nom d'hôte">
                             </div>
                             <hr>
                             <div>
@@ -1629,7 +1629,7 @@
                             <hr>
                             <div>
                                 <label class="label" for="fldNtptimeserver" tr="GENERAL_NTP_SERVER"></label>
-                                <input id="fldNtptimeserver" class="inputAndSelect" name="ntptimeserver" type="text" length=32 data-bind="general.ntpServer" tr="GENERAL_PH_NTP_SERVER" placeholder="Entrer votre Serveur NTP">
+                                <input id="fldNtptimeserver" class="inputAndSelect" name="ntptimeserver" type="text" maxlength=64 data-bind="general.ntpServer" tr="GENERAL_PH_NTP_SERVER" placeholder="Entrer votre Serveur NTP">
                             </div>
                         </div>
                         <div class="unibloc">
@@ -2002,12 +2002,12 @@
                 <div id="divLoginPassword" style="display:none;" onkeyup="if (event.code === 'Enter') security.login();">
                     <div class="field">
                         <label class="label" for="fldLoginUsername" tr="SECURITY_USERNAME">Utilisateur</label>
-                        <input id="fldLoginUsername" class="inputAndSelect" name="username" type="text" data-bind="login.username" length=32 autocomplete="username"/>
+                        <input id="fldLoginUsername" class="inputAndSelect" name="username" type="text" data-bind="login.username" maxlength=32 autocomplete="username"/>
                     </div>
                     <div class="field">
                         <label class="label" for="fldLoginPassword" tr="SECURITY_PASSWORD">Mot de passe</label>
                         <div class="password-container">
-                            <input id="fldLoginPassword" class="inputAndSelect" name="password" type="password" data-bind="login.password" length=32 autocomplete="current-password"/>
+                            <input id="fldLoginPassword" class="inputAndSelect" name="password" type="password" data-bind="login.password" maxlength=32 autocomplete="current-password"/>
                             <div id="togglePassword" class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldLoginPassword', this)">
                                 <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                             </div>
@@ -2054,7 +2054,7 @@
         <symbol id="svg-homeAssistant" viewBox="0 0 24 24">
             <path id="path1" d="m0 14 12-9 12 9-6.3 9.69-11.6-3e-3z" fill="#fff"/>
             <path id="path2" d="M22.939 10.627L13.061.749a1.505 1.505 0 0 0-2.121 0l-9.879 9.878C.478 11.21 0 12.363 0 13.187v9c0 .826.675 1.5 1.5 1.5h9.227l-4.063-4.062a2 2 0 0 1-.664.113c-1.13 0-2.05-.92-2.05-2.05s.92-2.05 2.05-2.05s2.05.92 2.05 2.05c0 .233-.041.456-.113.665l3.163 3.163V9.928a2.05 2.05 0 0 1-1.15-1.84c0-1.13.92-2.05 2.05-2.05s2.05.92 2.05 2.05a2.05 2.05 0 0 1-1.15 1.84v8.127l3.146-3.146A2.05 2.05 0 0 1 18 12.239c1.13 0 2.05.92 2.05 2.05s-.92 2.05-2.05 2.05a2 2 0 0 1-.709-.13L12.9 20.602v3.088h9.6c.825 0 1.5-.675 1.5-1.5v-9c0-.825-.477-1.977-1.061-2.561z" fill="#18bcf2"/>
-        <symbol>
+        </symbol>
   <!-- Login -->
         <symbol id="svg-user" viewBox="0 0 20 20">
             <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
