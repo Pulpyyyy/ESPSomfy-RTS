@@ -1087,7 +1087,10 @@ cursor: pointer;
     padding: 0;
 }
 .name-text, .repeater-name, .linkedshade-name {
-    font-family: monospace;
+    /* Names read in the interface font, as on Home and in the record; addresses below
+       stay monospace. (main.css set this too, but this file loads later and won.) */
+    font-family: var(--font-ui);
+    font-weight: 600;
     margin: 0;
     /* Primary content of the device list: must read comfortably. */
     font-size: var(--fs-md);
@@ -1109,6 +1112,8 @@ cursor: pointer;
 .divEditDelete-svg:hover {
     opacity: 0.7;
 }
+.divEditDelete-svg.is-delete { color: var(--ink-2); }
+.divEditDelete-svg.is-delete:hover { color: var(--danger); opacity: 1; }
 /* Position panel (somfy.openPosPanel): a bottom sheet on phones, a centred dialog
    from 700px. The apron is drawn with the tile's .shutter, only taller. Buttons reset
    the global button look (full width, accent fill) to the panel's own controls. */

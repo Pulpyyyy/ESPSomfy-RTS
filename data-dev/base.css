@@ -1373,24 +1373,31 @@ button:disabled:active {
     vertical-align: middle;
     color: var(--tb-color);
 }
+/* Record (shade/group) command buttons: the Home tile look, a tinted square with an
+   ink chevron or "My", rather than round accent badges. */
 .btn-somfy-svg,
 .btn-somfy-svg-wide {
-    display: inline-flex;
-    width: 44px;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 52px;
     height: 44px;
+    border-radius: var(--radius-button);
+    background: var(--tonal); color: var(--ink);
+    cursor: pointer;
 }
 .btn-somfy-svg-wide { width: 88px; }
 
 .btn-somfy-svg svg,
 .btn-somfy-svg-wide svg {
-    width: 100%;
-    height: 100%;
+    width: 22px;
+    height: 22px;
     display: block;
-    color: var(--accent-color);
+    color: currentColor;
 }
+.btn-somfy-svg-wide svg { width: 30px; height: 30px; }
+.cmd-my-label { font-weight: 700; font-size: var(--fs-sm); }
 .btn-somfy-svg:hover,
 .btn-somfy-svg-wide:hover {
-    filter: brightness(1.1);
+    background: var(--tonal-hover);
 }
 .btn-somfy-svg:active {
     transform: scale(0.92);

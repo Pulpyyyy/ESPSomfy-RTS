@@ -162,7 +162,7 @@
                                             <div tr="BT_PAIR"></div>
                                             <div class="uniStatus" tr="BT_PAIR_DESC"></div>
                                         </div>
-                                    </button>
+                                    <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
 </div>
 <div class="unibloc">
                                     <div>
@@ -276,7 +276,7 @@
                                                     <div tr="SHADE_CALIBRATE"></div>
                                                     <div class="uniStatus" tr="SHADE_CALIBRATE_DESC"></div>
                                                 </div>
-                                            </button>
+                                            <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                                         </div>
                                     </div>
                                 </div>
@@ -322,13 +322,13 @@
                                     </div>
                                     <div id="divshowSomfyButtons" class="uniRight">
                                         <div class="button-outline btn-somfy-svg animScale" role="button" tabindex="0" tr-aria="A11Y_VR_UP" data-cmd="up" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'up');">
-                                            <svg><use href="#svg-up"></use></svg>
+                                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>
                                         </div>
                                         <div class="button-outline btn-somfy-svg animScale" role="button" tabindex="0" tr-aria="A11Y_VR_MY" data-cmd="my" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'my');">
-                                            <svg><use href="#svg-my"></use></svg>
+                                            <span class="cmd-my-label" aria-hidden="true">My</span>
                                         </div>
                                         <div class="button-outline btn-somfy-svg animScale" role="button" tabindex="0" tr-aria="A11Y_VR_DOWN" data-cmd="down" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'down');">
-                                            <svg><use href="#svg-down"></use></svg>
+                                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                         </div>
                                         <div class="button-outline btn-somfy-svg-wide animScale" role="button" tabindex="0" tr-aria="A11Y_VR_TOGGLE" data-cmd="toggle" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'toggle');">
                                             <svg><use href="#svg-toggle"></use></svg>
@@ -394,7 +394,7 @@
                                             <div tr="BT_LINK_REMOTE"></div>
                                             <div class="uniStatus" tr="BT_LINK_REMOTE_DESC"></div>
                                         </div>
-                                    </button>
+                                    <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                                 </div>
 <div id="divLinkedRemoteList" class="LinkedRemoteList"></div>
 </div>
@@ -455,7 +455,7 @@
                                             <div tr="BT_UNPAIR"></div>
                                             <div class="uniStatus" tr="BT_UNPAIR_DESC"></div>
                                         </div>
-                                    </button></div>
+                                    <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button></div>
 <div class="unibloc">
 <div>
                                     <label class="label" for="fldShadeRepeats" tr="REPEAT_COMMANDS"></label>
@@ -476,7 +476,7 @@
                                             <div tr="BT_SET_ROLLING_CODE"></div>
                                             <div class="uniStatus" tr="SHADE_ROLLING_CODE_DESC"></div>
                                         </div>
-                                    </button>
+                                    <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                                 </div>
 </div>
 </div>
@@ -580,13 +580,13 @@
                                 <div class="unibloc">
                                     <div id="divSomfyGroupButtons" class="uniGroupButton">
                                         <div class="btn-somfy-svg" role="button" tabindex="0" tr-aria="A11Y_VR_UP" data-cmd="up" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'up');">
-                                            <svg><use href="#svg-up"></use></svg>
+                                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>
                                         </div>
                                         <div class="btn-somfy-svg" role="button" tabindex="0" tr-aria="A11Y_VR_MY" data-cmd="my" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'my');">
-                                            <svg><use href="#svg-my"></use></svg>
+                                            <span class="cmd-my-label" aria-hidden="true">My</span>
                                         </div>
                                         <div class="btn-somfy-svg" role="button" tabindex="0" tr-aria="A11Y_VR_DOWN" data-cmd="down" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'down');">
-                                            <svg><use href="#svg-down"></use></svg>
+                                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                         </div>
                                     </div>
                                 </div>
@@ -1506,15 +1506,20 @@
                                 </label>
                            </div>
                         </div>
+                        <!-- In a card like the other settings, left-aligned; a group named by its
+                             label, each digit named (a label "for" a div named nothing). -->
                         <div id="divPinSecurity" style="display:none;">
-                            <div class="blocPin-digit">
-                                <div id="fldPinEntry" onkeydown="ui.pinKeyPressed(event);" onpaste="ui.pinPasted(event);">
-                                    <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d0" onfocus="ui.pinDigitFocus(event);">
-                                    <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d1" onfocus="ui.pinDigitFocus(event);">
-                                    <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d2" onfocus="ui.pinDigitFocus(event);">
-                                    <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d3" onfocus="ui.pinDigitFocus(event);">
+                            <div class="unibloc blocPin-digit">
+                                <div>
+                                    <p class="label" id="lblPinEntry" tr="SECURITY_PIN_CODE"></p>
+                                    <div id="fldPinEntry" class="pin-row" role="group" aria-labelledby="lblPinEntry" aria-describedby="hlpPinEntry" onkeydown="ui.pinKeyPressed(event);" onpaste="ui.pinPasted(event);">
+                                        <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d0" onfocus="ui.pinDigitFocus(event);" tr-aria="A11Y_PIN_DIGIT_1">
+                                        <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d1" onfocus="ui.pinDigitFocus(event);" tr-aria="A11Y_PIN_DIGIT_2">
+                                        <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d2" onfocus="ui.pinDigitFocus(event);" tr-aria="A11Y_PIN_DIGIT_3">
+                                        <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d3" onfocus="ui.pinDigitFocus(event);" tr-aria="A11Y_PIN_DIGIT_4">
+                                    </div>
+                                    <p class="help" id="hlpPinEntry" tr="SECURITY_ENTER_PIN"></p>
                                 </div>
-                                <label for="fldPinEntry" tr="SECURITY_ENTER_PIN" ></label>
                             </div>
                         </div>
                         <div id="divPasswordSecurity" style="display:none;">
@@ -1568,7 +1573,7 @@
                                     <div class="uniStatus" tr="FW_UPDATE_FIRM_DESC"></div>
                                 </div>
                                 <span class="version-badge" id="spanFwVersion">v-.--</span>
-                            </button>
+                            <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                             <hr>
                             <button id="btnUpdateApplication" type="button" onclick="firmware.updateManual(true);" class="buttonUpdate">
                                 <svg><use href=#svg-update></use></svg>
@@ -1577,12 +1582,12 @@
                                     <div class="uniStatus" tr="FW_UPDATE_APP_DESC"></div>
                                 </div>
                                 <span class="version-badge" id="spanAppVersion">v-.--</span>
-                            </button>
+                            <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                             <hr>
                             <button id="btnReloadApplication" type="button" onclick="general.reload();" class="buttonUpdate">
                                 <svg><use href=#svg-clear></use></svg>
                                 <span class="buttonUpdateCache" tr="FW_REFRESH_CACHE"></span>
-                            </button>
+                            <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                         </div>
 <div class="button-container-row">
                             <div class="divButton">
@@ -1591,7 +1596,7 @@
                                         <div tr="FW_BACKUP"></div>
                                         <div class="uniStatus" tr="FW_BACKUP_DESC"></div>
                                     </div>
-                                </button>
+                                <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                             </div>
                             <div class="divButton">
                                 <button id="btnRestore" type="button" onclick="firmware.restore();" class="buttonUpdate">
@@ -1599,7 +1604,7 @@
                                         <div tr="FW_RESTORE"></div>
                                         <div class="uniStatus" tr="FW_RESTORE_DESC"></div>
                                     </div>
-                                </button>
+                                <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                             </div>
                         </div>
 </div>
@@ -1702,7 +1707,6 @@
                             <input id="fldPosPresets" name="posPresets" type="hidden" data-bind="general.posPresets"/>
                         </div>
                         <div class="footer-overlay">
-                            <button id="btnRebootGeneral" type="button" line onclick="general.rebootDevice();" tr="BT_REBOOT"></button>
                             <button id="btnSaveGeneral" type="button" tr="BT_SAVE" onclick="general.setGeneral();" ></button>
                         </div>
                     </div>
@@ -2164,6 +2168,10 @@
 <!-- Edit -->
         <symbol id="svg-drag" viewBox="0 0 24 24">
             <path fill="currentColor" d="M12 3l-4 4h8l-4-4zM6 10h12v1H6v-1zm0 3h12v1H6v-1zm6 8l4-4H8l4 4z"/>
+        </symbol>
+        <!-- Delete in lists: an outline bin in the text colour, red only on hover. -->
+        <symbol id="svg-trash" viewBox="0 0 24 24">
+            <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>
         </symbol>
         <symbol id="svg-close" viewBox="0 0 24 24">
             <path fill="var(--txtwarning-color)" d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10s10-4.47 10-10S17.53 2 12 2m5 13.59L15.59 17L12 13.41L8.41 17L7 15.59L10.59 12L7 8.41L8.41 7L12 10.59L15.59 7L17 8.41L13.41 12z" />

@@ -26,12 +26,9 @@
     border: none;
 }
 /* Security **/
-.blocPin-digit {
-    display:inline-block;
-    text-align:center;
-    width: 100%;
-}
-.blocPin-digit label {display:block}
+/* Security page PIN: a card, left-aligned like the other fields. */
+.blocPin-digit #fldPinEntry { justify-content: flex-start; margin-top: 4px; }
+.blocPin-digit #fldPinEntry .pin-digit:first-child { margin-left: 0; }
 /* Firmware **/
 .status-detail {
     font-size: var(--fs-xs);
@@ -92,6 +89,8 @@
     height:20px;
     opacity:0.6;
     padding: 0;
+    flex: none;
+    margin-left: auto;
 }
 .credits-list .special-credit {
     opacity: 0.8;
@@ -271,10 +270,11 @@ div.wifiSignal {
     width: fit-content;
     gap: var(--sp-12);
 }
-    #divSomfyGroupButtons .btn-somfy-svg {
-        width: 48px;
-        height: 48px;
-    }
+/* Record command buttons: centred content, whatever older strip rules say
+   (.shadectl-buttons div.button-outline made them inline-block). */
+.shadectl-buttons div.btn-somfy-svg, .shadectl-buttons div.btn-somfy-svg-wide,
+#divshowSomfyButtons > .btn-somfy-svg, #divshowSomfyButtons > .btn-somfy-svg-wide,
+#divSomfyGroupButtons > .btn-somfy-svg { display: inline-flex; align-items: center; justify-content: center; }
 .disabled {
     opacity: 0.3 !important;
     filter: grayscale(1) !important;
@@ -887,9 +887,6 @@ div.frame-pulses {
 .buttonUpdate.upd-ok #ghUpdTitle { color: var(--status-good); font-weight: 600; }
 .buttonUpdate.upd-available #ghUpdTitle { color: var(--status-warn); font-weight: 600; }
 /* Security */
-#divPinSecurity { justify-content: center; }
-#divPinSecurity label { margin: var(--sp-20); }
-#fldPinEntry { margin-top: var(--sp-20); }
 
 .pwd-icon {
     width: 20px;
@@ -1353,7 +1350,7 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 .sh-pair-state.is-off { color: var(--warn); }
 /* Pair is the one expected action on that card: drawn as the main button, not a row. */
 #blocPairDevice #btnPairShade { background: var(--accent-color); color: var(--on-accent); border-radius: var(--radius-button); padding: 10px 16px; }
-#blocPairDevice #btnPairShade .uniStatus { color: inherit; opacity: .85; }
+#blocPairDevice #btnPairShade .uniStatus { color: inherit; opacity: 1; }
 #blocPairDevice #btnPairShade:hover { filter: brightness(1.06); }
 /* MQTT settings while MQTT is off (mqtt.syncEnabled makes them inert too). */
 #divMQTT .is-off { opacity: .45; }
@@ -1414,11 +1411,15 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 
 /* ---- device record ---- */
 .ms-sec { margin: 6px 0 0; }
+/* The tab's main action, drawn like the other main buttons (accent), not as a black slab. */
 .divButton:has(#btnCalibrateShade), .divButton:has(#btnCalibrateShade):hover {
-    background: var(--inverse); border-color: var(--inverse); margin-top: 12px;
+    background: var(--accent-color); border-color: var(--accent-color); margin-top: 12px;
 }
-#btnCalibrateShade, #btnCalibrateShade:hover { color: var(--on-inverse); background: transparent; min-height: 56px; }
-#btnCalibrateShade .uniStatus { color: var(--on-inverse-2); }
+#btnCalibrateShade, #btnCalibrateShade:hover { color: var(--on-accent); background: transparent; min-height: 56px; }
+#btnCalibrateShade .uniStatus { color: inherit; opacity: 1; }
+/* Phones hide .divButton descriptions; this one says how calibration goes (you drive the
+   shade with its remote), so it stays. */
+@media screen and (max-width: 640px) { .divButton #btnCalibrateShade .uniStatus { display: block !important; } }
 
 /* ---- MQTT broker line ---- */
 .input-mqtt {
@@ -1436,7 +1437,6 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
     height: auto; min-height: 56px; padding: 8px 12px;
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
 }
-.name-text, .repeater-name, .linkedshade-name { font-family: var(--font-ui); font-weight: 600; }
 .cfg-room { font-size: var(--fs-xs); opacity: 1; color: var(--ink-2); }
 .buttonUpdate:disabled, .buttonUpdate:disabled:hover { background: transparent !important; color: var(--ink) !important; }
 
