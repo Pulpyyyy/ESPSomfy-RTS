@@ -149,9 +149,9 @@
     --ok: #7BD69C; --ok-soft: #173326; --ok-dot: #4CC27E;
     --warn: #F2B266; --warn-soft: #3A2A14; --warn-dot: #F2A24B;
     --danger: #FFB4AB; --danger-soft: #3B1D1B;
-    --sky: #22324A;
-    --slat: #8592A2;            /* 4.09:1 against --sky */
-    --slat-2: #6F7C8C;
+    --sky: #1C2A3D;
+    --slat: #66748C;            /* 3.07:1 against --sky; dimmer than before, a closed shade no longer glares */
+    --slat-2: #545F75;
     --todo: #5D6773;
     --inverse: #ECEFF3;
     --on-inverse: #0F1216;

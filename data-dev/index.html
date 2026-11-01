@@ -156,6 +156,14 @@
 <button type="button" role="tab" id="shtabAdvanced" data-shtab="Advanced" aria-controls="shpAdvanced" aria-selected="false" tabindex="-1" tr="SHTAB_ADVANCED">Avancé</button>
 </div>
 <div id="shpGeneral" class="sh-panel" role="tabpanel" aria-labelledby="shtabGeneral">
+<!-- Pairing opens the record: it is the step that follows creating a shade. -->
+<div id="blocPairDevice" class="unibloc sh-pair"><p id="shPairState" class="sh-pair-state" role="status"></p><button id="btnPairShade" onclick="somfy.pairShade(parseInt(document.getElementById('spanShadeId').innerText, 10));" class="unibutton" type="button">
+                                        <div class="devButtonUpdate">
+                                            <div tr="BT_PAIR"></div>
+                                            <div class="uniStatus" tr="BT_PAIR_DESC"></div>
+                                        </div>
+                                    </button>
+</div>
 <div class="unibloc">
                                     <div>
                                         <label class="label" for="fldShadeName" tr="NAME"></label>
@@ -441,13 +449,8 @@
                                         </div>
                                     </div>
                                 </div>
-<div id="blocPairDevice" class="unibloc sh-pair"><button id="btnPairShade" onclick="somfy.pairShade(parseInt(document.getElementById('spanShadeId').innerText, 10));" class="unibutton" type="button">
-                                        <div class="devButtonUpdate">
-                                            <div tr="BT_PAIR"></div>
-                                            <div class="uniStatus" tr="BT_PAIR_DESC"></div>
-                                        </div>
-                                    </button>
-<button id="btnUnpairShade" onclick="somfy.unpairShade(parseInt(document.getElementById('spanShadeId').innerText, 10));" class="unibutton" type="button">
+<!-- Unpairing is rare and undoes the pairing: it lives here, not at the top of the record. -->
+<div id="blocUnpair" class="unibloc sh-pair"><button id="btnUnpairShade" onclick="somfy.unpairShade(parseInt(document.getElementById('spanShadeId').innerText, 10));" class="unibutton" type="button">
                                         <div class="devButtonUpdate">
                                             <div tr="BT_UNPAIR"></div>
                                             <div class="uniStatus" tr="BT_UNPAIR_DESC"></div>
@@ -779,7 +782,7 @@
                                 </div>
                                 <div class="MqttEnabled-switch">
                                     <span class="switch">
-                                        <input id="cbMqttEnabled" type="checkbox" name="mqtt-enabled" data-bind="mqtt.enabled"/>
+                                        <input id="cbMqttEnabled" type="checkbox" name="mqtt-enabled" data-bind="mqtt.enabled" onchange="mqtt.syncEnabled();"/>
                                         <div></div>
                                     </span>
                                 </div>

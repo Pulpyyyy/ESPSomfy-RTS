@@ -397,6 +397,10 @@ div.wait-overlay .wait-label {
     padding-left: var(--sp-12);
     padding-right: var(--sp-12);
 }
+/* A destructive action named on its button is also drawn as one. */
+.prompt-message #btnYes.is-danger,
+.prompt-message #btnYes.is-danger:hover { background: var(--danger); color: var(--md-on-error); }
+.prompt-message #btnYes.is-danger:hover { background: color-mix(in srgb, var(--danger), #000 12%); }
 .prompt-message .prompt-text {
     text-align:center;
     width: 100%;

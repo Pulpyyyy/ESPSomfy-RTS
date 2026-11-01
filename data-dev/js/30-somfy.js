@@ -689,6 +689,7 @@ class Somfy {
             const pId = parseInt(pill.getAttribute('data-roomid'), 10);
             pill.classList.toggle('active', pId === roomId);
             pill.setAttribute('aria-pressed', pId === roomId ? 'true' : 'false');
+            if (pId === roomId) revealInStrip(pill);
         });
         const sel = get('divRoomSelector');
         if (sel) sel.setAttribute('data-roomid', roomId);
@@ -1439,7 +1440,7 @@ class Somfy {
             if (!cur || cur.moving || cur.my < 0) return;
             const msg = tr('POSP_MY_CLEAR') + (cur.cur !== cur.my ? ' ' + trf('POSP_MY_CLEAR_GO', cur.my) : '');
             // In <body>, after the panel, so the question stacks above it.
-            ui.promptMessage(document.body, esc(msg), () => {
+            ui.promptMessage(document.body, esc(msg), { yes: 'POSP_CLEAR_MY', danger: true }, () => {
                 this.closePosPanel();
                 if (cur.tiltOnly) this.sendShadeMyPosition(shadeId, 0, cur.my);
                 else this.sendShadeMyPosition(shadeId, shadeOpenness(cur.my, cur.flip), cur.tiltType > 0 ? cur.myTilt : 0);
@@ -1915,6 +1916,7 @@ class Somfy {
             b.tabIndex = on ? 0 : -1;
             const p = get('shp' + b.getAttribute('data-shtab'));
             if (p) p.style.display = on ? '' : 'none';
+            if (on) revealInStrip(b);
         });
     }
     bindShadeTabs() {
@@ -1953,7 +1955,7 @@ class Somfy {
         s('divshowSomfyButtons', 'flex');
         g('divshowSomfyButtons')?.classList.toggle('disabled', isNew);
         btns.forEach(id => s(id, 'none'));
-        ['blocPairDevice', 'divLinkedRemoteList', 'labelPosContainer'].forEach(id => s(id, 'none'));
+        ['blocPairDevice', 'blocUnpair', 'divLinkedRemoteList', 'labelPosContainer'].forEach(id => s(id, 'none'));
 
         getJSONBusy(isNew ? '/getNextShade' : `/shade?shadeId=${shadeId}`, (err, shade) => {
             if (err) return ui.serviceError(err);
@@ -1970,6 +1972,7 @@ class Somfy {
                 ['btnLinkRemote', 'btnSetRollingCode'].forEach(id => s(id, 'flex'));
                 s('hrSetRollingC', 'block');
                 s(shade.paired ? 'btnUnpairShade' : 'btnPairShade', 'inline-block');
+                this.setPairState(shade.paired);
 
                 if (g('valPos')) g('valPos').innerText = shade.position;
                 this.setLinkedRemotesList(shade);
@@ -2292,7 +2295,7 @@ class Somfy {
             getJSONBusy(`/room?roomId=${roomId}`, (err, room) => {
                 if (err) ui.serviceError(err);
                 else {
-                    let prompt = ui.promptMessage(tr('PROMPT_DELETE_ROOM'), () => {
+                    let prompt = ui.promptMessage(tr('PROMPT_DELETE_ROOM'), { yes: 'BT_DELETE', danger: true }, () => {
                         ui.clearErrors();
                         putJSONBusy('/deleteRoom', { roomId: roomId }, (err, room) => {
                             prompt.remove();
@@ -2317,7 +2320,7 @@ class Somfy {
                 if (err) ui.serviceError(err);
                 else if (shade.inGroup) ui.errorMessage(tr('ERR_DEVICE_IN_GROUP'));
                 else {
-                    let prompt = ui.promptMessage(tr('PROMPT_DELETE_SHADE'), () => {
+                    let prompt = ui.promptMessage(tr('PROMPT_DELETE_SHADE'), { yes: 'BT_DELETE', danger: true }, () => {
                         ui.clearErrors();
                         putJSONBusy('/deleteShade', { shadeId: shadeId }, (err, shade) => {
                             if (err) ui.serviceError(err);
@@ -2345,7 +2348,7 @@ class Somfy {
                         ui.errorMessage(tr('ERR_GROUP_NOT_EMPTY'));
                     }
                     else {
-                        let prompt = ui.promptMessage(tr('PROMPT_DELETE_GROUP'), () => {
+                        let prompt = ui.promptMessage(tr('PROMPT_DELETE_GROUP'), { yes: 'BT_DELETE', danger: true }, () => {
                             putJSONBusy('/deleteGroup', { groupId: groupId }, (err, g) => {
                                 if (err) ui.serviceError(err);
                                 else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
@@ -2404,6 +2407,19 @@ class Somfy {
             ui.setFocus(btnCancel, true, 'var(--accent-sucess)');
         });
     }
+    // An unpaired shade opens on a card that says so, with the Pair button: it is the
+    // step that follows creating it. Once paired the card goes; Unpair, rare and
+    // undoing, stays in the Advanced tab.
+    setPairState(paired) {
+        const el = get('shPairState');
+        if (el) {
+            el.textContent = tr(paired ? 'SH_PAIRED' : 'SH_NOT_PAIRED');
+            el.classList.toggle('is-off', !paired);
+        }
+        const card = get('blocPairDevice'), adv = get('blocUnpair');
+        if (card) card.style.display = paired ? 'none' : 'flex';
+        if (adv) adv.style.display = paired ? 'flex' : 'none';
+    }
     setPaired(shadeId, paired) {
         let obj = { shadeId: shadeId, paired: paired || false };
         let div = get('divPairing');
@@ -2427,6 +2443,7 @@ class Somfy {
                     get('btnPairShade').style.display = 'inline-block';
                     get('btnUnpairShade').style.display = 'none';
                 }
+                this.setPairState(shade.paired);
                 this.setLinkedRemotesList(shade);
                 closeOverlay(div);
             }
@@ -2919,7 +2936,7 @@ class Somfy {
     unlinkGroupShade(groupId, shadeId) { return this._gpWiz(groupId, true, shadeId); }
 
     unlinkRepeater(address) {
-        let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REPEATER'), () => {
+        let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REPEATER'), { yes: 'BT_UNLINK', danger: true }, () => {
             putJSONBusy('/unlinkRepeater', { address: address }, (err, repeaters) => {
                 if (err) ui.serviceError(err);
                 else this.setRepeaterList(repeaters);
@@ -2928,7 +2945,7 @@ class Somfy {
         });
     }
     unlinkRemote(shadeId, remoteAddress) {
-        let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REMOTE'), () => {
+        let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REMOTE'), { yes: 'BT_UNLINK', danger: true }, () => {
             let obj = {
                 shadeId: shadeId,
                 remoteAddress: remoteAddress

@@ -164,7 +164,7 @@ class RfDiag {
         getJSON('/rfStats', (err, stats) => { if (!err) this.setStats(stats); });
     }
     clearStats() {
-        ui.promptMessage(get('divRFDiagnostics'), tr('RFDIAG_CLEAR_CONFIRM'), () => {
+        ui.promptMessage(get('divRFDiagnostics'), tr('RFDIAG_CLEAR_CONFIRM'), { yes: 'BT_CLEAR', danger: true }, () => {
             putJSONBusy('/clearRfStats', {}, (err) => {
                 if (err) ui.serviceError(err);
                 else this.load();
@@ -421,8 +421,20 @@ class MQTT {
                 if (fldPwd) { fldPwd.value = ''; fldPwd.placeholder = this.hasPassword ? tr('SECRET_SET_PLH') : ''; }
                 get('divDiscoveryTopic').style.display = settings.pubDisco ? '' : 'none';
                 get('hrIdDiscoveryTopic').style.display = settings.pubDisco ? '' : 'none';
+                this.syncEnabled();
             }
         });
+    }
+    // With MQTT off, its settings are greyed and out of reach (inert): they are still
+    // read and saved as they are, so switching it back on finds them intact.
+    syncEnabled() {
+        const box = get('divMQTT'), cb = get('cbMqttEnabled');
+        if (!box || !cb) return;
+        const off = !cb.checked;
+        const parts = Array.from(box.children).filter(c => !c.contains(cb) && !c.classList.contains('footer-overlay'));
+        const disco = get('cbPubDisco') && get('cbPubDisco').closest('.uniRow');
+        if (disco) parts.push(disco);
+        parts.forEach(p => { p.inert = off; p.classList.toggle('is-off', off); });
     }
     // Picking MQTTS while the port is still the plaintext default is the most common
     // way to get an unexplained handshake failure, so follow the scheme as long as the

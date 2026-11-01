@@ -242,6 +242,15 @@ document.addEventListener('keydown', (e) => {
 // keyboard fires neither. Holding Enter or Space does what a held pointer does:
 // down() on press, then on release the flag drops and up() runs. Losing focus
 // mid-press drops the flag too, so a repeat can never run on unattended.
+// Brings a tab or chip into view inside its sideways-scrolling strip (phones) without
+// scrolling the page itself.
+function revealInStrip(el) {
+    const strip = el && el.parentElement;
+    if (!strip || strip.scrollWidth <= strip.clientWidth) return;
+    const s = strip.getBoundingClientRect(), r = el.getBoundingClientRect();
+    if (r.left < s.left) strip.scrollLeft -= (s.left - r.left) + 16;
+    else if (r.right > s.right) strip.scrollLeft += (r.right - s.right) + 16;
+}
 function bindHoldKeys(el, down, up) {
     let held = false;
     const isKey = (e) => e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar';

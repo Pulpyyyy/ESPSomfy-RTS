@@ -1150,6 +1150,15 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; width: 100%; 
 .page > .subtab-container > [aria-selected="true"],
 .sh-tabs > [aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent-color); font-weight: 700; }
 .sh-tabs > [data-shtab][hidden] { display: none; }
+/* Phones: tab strips scroll sideways on one line instead of stacking into a ragged
+   block (the shade record's five tabs took three rows). */
+@media (max-width: 899px) {
+    .page > .subtab-container, .sh-tabs {
+        flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+    }
+    .page > .subtab-container::-webkit-scrollbar, .sh-tabs::-webkit-scrollbar { display: none; }
+    .page > .subtab-container > [data-grpid], .sh-tabs > [data-shtab] { flex: none; white-space: nowrap; }
+}
 .subtab-content { max-width: 880px; margin: 0; padding: 4px 0 24px; position: relative; flex-grow: 1; }
 #divFrameLog, #divRFDiagnostics, #divSomfyMotors { max-width: 1040px; }
 .footer-overlay { justify-content: flex-start; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
@@ -1181,6 +1190,17 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 .home-head { margin-bottom: 14px; }
 .room-nav-container { display: flex; margin: 0 0 18px; }
 .room-selector { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; overflow: visible; cursor: auto; }
+/* Phones: one scrolling row of room chips; wrapped, six rooms took three to five rows
+   before the first tile. */
+@media (max-width: 899px) {
+    .room-nav-container { min-width: 0; }
+    .room-selector {
+        flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+        margin: 0 -16px; padding: 2px 16px; scroll-padding-inline: 16px;
+    }
+    .room-selector::-webkit-scrollbar { display: none; }
+    .room-selector > .chip { flex: none; white-space: nowrap; }
+}
 .chip {
     width: auto; min-height: 36px; padding: 6px 14px; border-radius: var(--radius-round);
     border: 1px solid var(--field); background: var(--surface); color: var(--ink);
@@ -1329,6 +1349,14 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 .sh-panel > :first-child { margin-top: 16px; }
 .sh-pair { flex-direction: row; flex-wrap: wrap; gap: 10px; }
 .sh-pair > button { flex: 1 1 220px; }
+.sh-pair-state { flex: 1 1 100%; margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ok); }
+.sh-pair-state.is-off { color: var(--warn); }
+/* Pair is the one expected action on that card: drawn as the main button, not a row. */
+#blocPairDevice #btnPairShade { background: var(--accent-color); color: var(--on-accent); border-radius: var(--radius-button); padding: 10px 16px; }
+#blocPairDevice #btnPairShade .uniStatus { color: inherit; opacity: .85; }
+#blocPairDevice #btnPairShade:hover { filter: brightness(1.06); }
+/* MQTT settings while MQTT is off (mqtt.syncEnabled makes them inert too). */
+#divMQTT .is-off { opacity: .45; }
 
 /* Windows high contrast: keep the apron readable. */
 @media (forced-colors: active) {

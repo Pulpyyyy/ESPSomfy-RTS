@@ -236,6 +236,7 @@ function navSelectTab(page, tabId) {
         b.tabIndex = on ? 0 : -1;
         const panel = get(b.getAttribute('data-grpid'));
         if (panel) panel.style.display = on ? '' : 'none';
+        if (on) revealInStrip(b);
     });
 }
 function navCurrentTab(page) {
@@ -1432,16 +1433,19 @@ class UIBinder {
         openDialog(div);
         return div;
     }
-    promptMessage(el, msg, onYes) {
-        if (arguments.length === 2) {
-            onYes = msg;
-            msg = el;
-            el = get('divContainer');
-        }
+    // promptMessage([el,] msg, [opts,] onYes). opts.yes names the action on the button
+    // ("Delete", "Restart") and turns "No" into "Cancel": a destructive question says
+    // what happens instead of "Yes / No"; opts.danger draws it in red. Genuine yes/no
+    // questions ("did the motor move?") keep the plain pair.
+    promptMessage(...args) {
+        const el = args[0] instanceof Element ? args.shift() : get('divContainer');
+        const msg = args.shift();
+        const opts = (args[0] && typeof args[0] === 'object') ? args.shift() : {};
+        const onYes = args.shift();
         let div = document.createElement('div');
         div.className = 'prompt-message modal-overlay';
         div.innerHTML = `<div class="message-content"><div class="prompt-text">${msg}</div><div class="sub-message"></div>
-        <div class="button-container-row"><button line type="button" onclick="ui.clearErrors();">${tr('BT_NO')}</button><button id="btnYes" type="button">${tr('BT_YES')}</button></div></div>`;
+        <div class="button-container-row"><button line type="button" onclick="ui.clearErrors();">${tr(opts.yes ? 'BT_CANCEL_1' : 'BT_NO')}</button><button id="btnYes" type="button"${opts.danger ? ' class="is-danger"' : ''}>${tr(opts.yes || 'BT_YES')}</button></div></div>`;
         el.appendChild(div);
 
         openDialog(div);

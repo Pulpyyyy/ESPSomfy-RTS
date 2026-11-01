@@ -3,7 +3,7 @@
 // other colour is fitted instead, darkened (light theme) or lightened (dark theme)
 // just enough to read on the page: 3:1 for marks and borders, 4.8:1 for accent text
 // (a little over AA, as it also sits on the slightly darker --accent-soft). A colour that
-// already reads is kept as is. Text drawn ON the light tone flips with its luminance.
+// already reads is kept as is. Text drawn ON the light tone is near black or white, whichever reads better.
 const ACCENT_DARK = { '#1d5fc4': '#8db8f8', '#1a5fb4': '#8db8f8', '#1e6b3a': '#7bd69c', '#8a4b00': '#f2b266', '#6b3fa0': '#c9a7f5' };
 // Swatches: the four tuned accents first, then the Home Assistant palette (its
 // Material colours, in hue order; deep purple left out, it is the violet above).
@@ -28,14 +28,18 @@ function hexLum(h) {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 function hexContrast(a, b) { const [x, y] = [hexLum(a), hexLum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); }
+// bg is a colour, or a function giving the background a candidate will sit on when
+// that background is itself derived from the accent (the --accent-soft tint).
 function fitContrast(c, bg, min, toward) {
     const a = hexRgb(c), t = hexRgb(toward);
     for (let k = 0; k <= 20; k++) {
         const m = rgbHex(a.map((v, i) => v + (t[i] - v) * k / 20));
-        if (hexContrast(m, bg) >= min) return m;
+        if (hexContrast(m, typeof bg === 'function' ? bg(m) : bg) >= min) return m;
     }
     return toward;
 }
+// The dark --accent-soft: 18% of the accent over the dark surface (see base.css).
+const darkSoft = (m) => { const s = hexRgb('#181c22'); return rgbHex(hexRgb(m).map((v, i) => v * 0.18 + s[i] * 0.82)); };
 function applyAccent(color) {
     const r = document.documentElement.style;
     let c = String(color || '').trim().toLowerCase();
@@ -43,11 +47,18 @@ function applyAccent(color) {
     if (c === '#1a5fb4') c = '#1d5fc4';   // the firmware default, same blue
     // Measured against the grey page (--bg), the lightest-to-darkest worst case of the
     // light theme: accent text sits on it (About link) as well as on white and tints.
-    const light = fitContrast(c, '#eef1f4', 3, '#000000');
+    let light = fitContrast(c, '#eef1f4', 3, '#000000');
+    // Text drawn ON the accent (active chip, main buttons) needs 4.5:1. A mid tone
+    // (pink, HA purple, blue grey) reaches it with neither near black nor white, so it
+    // is darkened until white does; then the better of the two is used.
+    const ink = '#12161b';
+    if (Math.max(hexContrast(light, '#ffffff'), hexContrast(light, ink)) < 4.5) light = fitContrast(light, '#ffffff', 4.5, '#000000');
     r.setProperty('--accent-l', light);
     r.setProperty('--accent-text-l', fitContrast(light, '#eef1f4', 4.8, '#000000'));
-    r.setProperty('--accent-d', ACCENT_DARK[c] || fitContrast(c, '#181c22', 4.8, '#ffffff'));
-    r.setProperty('--on-accent-l', hexLum(light) > 0.18 ? '#12161b' : '#fff');
+    // Dark theme: accent text also sits on its own tint (current page in the menu),
+    // a little lighter than the surface, so it is fitted against that tint.
+    r.setProperty('--accent-d', ACCENT_DARK[c] || fitContrast(c, darkSoft, 4.6, '#ffffff'));
+    r.setProperty('--on-accent-l', hexContrast(light, '#ffffff') >= hexContrast(light, ink) ? '#fff' : ink);
     // Swatches: one of the four, or the custom one showing the colour picked.
     const preset = ACCENT_PRESETS.includes(c);
     document.querySelectorAll('.accent-swatch input[type=radio]').forEach(i => { i.checked = i.value === c; });
@@ -512,7 +523,7 @@ class General {
     rebootDevice() {
         // The page reloads after the reboot: settle pending edits first.
         if (!navConfirmLeave(() => this.rebootDevice())) return;
-        ui.promptMessage(get('divContainer'), tr('PROMPT_REBOOT_CONFIRM'), () => {
+        ui.promptMessage(get('divContainer'), tr('PROMPT_REBOOT_CONFIRM'), { yes: 'BT_REBOOT' }, () => {
             putJSONBusy('/reboot', {}, (err, response) => {
                 get('btnSaveGeneral').classList.remove('disabled');
                 // Only drop the socket once the firmware accepted the reboot; a 401
@@ -597,7 +608,7 @@ class General {
             if (s.password !== s.repeatpassword) return this.secError('ERR_PASSWORD_MISMATCH', 'ERR_PASSWORD_MISMATCH_DESC');
             confirmText = `<p>${tr('SAVESECURITY_PASSWORD_WARNING')}</p><p>${tr('SAVESECURITY_PASSWORD_CONFIRM')}</p>`;
         }
-        const prompt = ui.promptMessage(tr('PROMPT_SECURITY_CONFIRM'), () => {
+        const prompt = ui.promptMessage(tr('PROMPT_SECURITY_CONFIRM'), { yes: 'BT_SAVE' }, () => {
             putJSONBusy('/saveSecurity', data, (e, resp) => {
                 prompt.remove();
                 if (e) ui.serviceError(e);
