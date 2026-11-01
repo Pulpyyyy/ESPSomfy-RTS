@@ -866,6 +866,7 @@
     "POSP_VALUETEXT": "{0} % offen",
     "POSP_TILT_MINUS": "Neigung minus 1 %",
     "POSP_TILT_PLUS": "Neigung plus 1 %",
+    "POSP_STEPS": "Schrittweise anpassen",
     "POSP_PRESETS_TITLE": "Positionsvorgaben",
     "POSP_PRESETS_HELP": "Schnellwahl im Positionsfenster, in % geöffnet. Die My-Taste folgt immer danach.",
     "POSP_PRESETS_NEW": "Neuer Wert (% geöffnet)",

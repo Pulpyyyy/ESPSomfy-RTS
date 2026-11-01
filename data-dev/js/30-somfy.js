@@ -1318,11 +1318,11 @@ class Somfy {
         <div class="pos-side">
         <div class="pos-readout"><span class="pos-big"><span class="pos-val"></span><small> %</small></span><span class="pos-what">${esc(tr(s.tiltOnly ? 'POSP_TILT' : 'POSP_OPEN_PCT'))}</span></div>
         <div class="pos-chips"></div>
-        <div class="pos-steps">
-        <button type="button" class="pos-chip" data-step="-5">−5</button>
-        <button type="button" class="pos-chip" data-step="-1">−1</button>
-        <button type="button" class="pos-chip" data-step="1">+1</button>
-        <button type="button" class="pos-chip" data-step="5">+5</button>
+        <div class="pos-steps" role="group" aria-label="${esc(tr('POSP_STEPS'))}">
+        <button type="button" class="pos-step" data-step="-5">−5</button>
+        <button type="button" class="pos-step" data-step="-1">−1</button>
+        <button type="button" class="pos-step" data-step="1">+1</button>
+        <button type="button" class="pos-step" data-step="5">+5</button>
         </div>
         <p class="pos-note"></p>
         </div>
@@ -1331,9 +1331,9 @@ class Somfy {
         <div class="pos-tilt">
         <div class="pos-tilt-head"><span>${esc(tr('POSP_TILT'))}</span><span><b class="pos-tilt-val"></b> %</span></div>
         <div class="pos-tilt-ctl">
-        <button type="button" class="pos-chip" data-tstep="-1" aria-label="${esc(tr('POSP_TILT_MINUS'))}">−1</button>
+        <button type="button" class="pos-step" data-tstep="-1" aria-label="${esc(tr('POSP_TILT_MINUS'))}">−1</button>
         <input type="range" class="pos-tilt-range" min="0" max="100" step="1" aria-label="${esc(tr('POSP_TILT'))}">
-        <button type="button" class="pos-chip" data-tstep="1" aria-label="${esc(tr('POSP_TILT_PLUS'))}">+1</button>
+        <button type="button" class="pos-step" data-tstep="1" aria-label="${esc(tr('POSP_TILT_PLUS'))}">+1</button>
         </div>
         </div>` : ''}
         <div class="pos-mybox"><p class="pos-mytext"></p><button type="button" class="pos-mybtn"></button><button type="button" class="pos-myclear">${esc(tr('POSP_CLEAR_MY'))}</button></div>

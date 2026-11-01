@@ -866,6 +866,7 @@
     "POSP_VALUETEXT": "{0} % open",
     "POSP_TILT_MINUS": "Tilt minus 1 %",
     "POSP_TILT_PLUS": "Tilt plus 1 %",
+    "POSP_STEPS": "Adjust in steps",
     "POSP_PRESETS_TITLE": "Position presets",
     "POSP_PRESETS_HELP": "Shortcuts of the position panel, in % open. The My button always comes after them.",
     "POSP_PRESETS_NEW": "New value (% open)",

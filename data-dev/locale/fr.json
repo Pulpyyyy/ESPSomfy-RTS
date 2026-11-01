@@ -866,6 +866,7 @@
     "POSP_VALUETEXT": "{0} % ouvert",
     "POSP_TILT_MINUS": "Inclinaison moins 1 %",
     "POSP_TILT_PLUS": "Inclinaison plus 1 %",
+    "POSP_STEPS": "Ajuster par pas",
     "POSP_PRESETS_TITLE": "Préréglages de position",
     "POSP_PRESETS_HELP": "Raccourcis du panneau de position, en % d’ouverture. Le bouton My s’ajoute toujours à la suite.",
     "POSP_PRESETS_NEW": "Nouvelle valeur (% ouvert)",

@@ -1183,7 +1183,23 @@ cursor: pointer;
 .pos-big small { font-size: 1.1rem; font-weight: 600; letter-spacing: 0; color: var(--ink-2); }
 .pos-what { font-size: var(--fs-sm); color: var(--ink-2); }
 .pos-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.pos-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+/* Steps nudge from where the shade is; presets above go to a place. So they do not
+   look alike: presets are outlined chips, steps one tinted stepper bar, its minus
+   and plus pairs set slightly apart. */
+.pos-steps {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 3px;
+    border-radius: calc(var(--radius-button) + 3px); background: var(--tonal);
+}
+.pos-steps .pos-step[data-step="1"] { margin-left: 6px; }
+.pos-sheet .pos-step,
+.pos-sheet .pos-step:hover {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 0; padding: 0 4px;
+    border: 0; border-radius: var(--radius-button); background: transparent; color: var(--ink);
+    font-size: var(--fs-sm); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.pos-sheet .pos-step:hover { background: var(--surface); }
+.pos-sheet .pos-tilt-ctl .pos-step { background: var(--tonal); }
+.pos-sheet .pos-tilt-ctl .pos-step:hover { background: var(--tonal-hover); }
 .pos-sheet .pos-chip,
 .pos-sheet .pos-chip:hover {
     display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0;
@@ -1223,6 +1239,8 @@ cursor: pointer;
     .pos-apron .shutter, .pos-grip::before, .pos-grip::after { background: CanvasText; forced-color-adjust: none; }
     /* Selection was shown by a fill only, which forced colours remove. */
     .pos-sheet .pos-tab[aria-pressed="true"], .pos-sheet .pos-chip[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
+    /* Borderless step buttons would vanish into the bar. */
+    .pos-sheet .pos-step { border: 1px solid ButtonText; }
 }
 /*leboncoin*/
 .box-image-container{
