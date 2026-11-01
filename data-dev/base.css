@@ -68,50 +68,14 @@
     --on-inverse: #FFFFFF;
     --on-inverse-2: #C4CCD6;
     --shadow-1: 0 1px 2px rgba(18, 22, 27, .08);
-    /* Legacy roles */
-    --md-primary: var(--accent-color); --md-on-primary: var(--on-accent);
-    --md-primary-container: var(--accent-soft); --md-on-primary-container: var(--ink);
-    --md-secondary-container: var(--tonal); --md-on-secondary-container: var(--ink);
-    --md-surface: var(--surface); --md-surface-container: var(--bg);
-    --md-surface-container-high: var(--surface-2); --md-surface-container-highest: var(--tonal);
-    --md-on-surface: var(--ink); --md-on-surface-variant: var(--ink-2);
-    --md-outline: var(--field); --md-outline-variant: var(--line);
-    --md-error: var(--danger); --md-on-error: #FFFFFF;
-    --md-error-container: var(--danger-soft); --md-on-error-container: var(--danger);
-    --md-elevation-1: var(--shadow-1);
-    --md-elevation-2: 0 2px 8px rgba(18, 22, 27, .12);
+    /* Further roles. None is a plain alias of a token above: each differs by theme,
+       is redefined locally (.empty-icon) or is read by name from script. */
+    --md-on-error: #FFFFFF;
     --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 34%);
-    --accent-colorUniDark: var(--accent-soft);
-    --accent-sucess: var(--ok-dot);
     --accent-text: var(--accent-text-l, color-mix(in srgb, var(--accent-color) 80%, #000));
-    --body-color: var(--surface);
-    --background-color: var(--bg);
     --unibloc-color: var(--surface);
-    --fond-color: var(--bg);
-    --color: var(--ink);
-    --soustxt-color: var(--ink-2);
-    --input: var(--surface);
-    --inputNumber: var(--surface);
-    --border: var(--line);
-    --hr-color: var(--line);
-    --help: var(--ink-2);
-    --danger-color: var(--danger);
-    --border-lbc: var(--line);
     --invertxt-color: #E4E3E8;
-    --txtwarning-color: var(--danger);
-    --status-good: var(--ok);
-    --status-warn: var(--warn);
-    --status-bad: var(--danger);
-    --hr-soft: var(--line);
-    --switch-border: var(--field);
-    --switch-checked: var(--field);
-    --bg-switch-color: var(--tonal);
-    --tb-color: var(--ink-2);
-    --bg-switch-ch-color: var(--ink-2);
-    --button-color: var(--tonal-hover);
-    --button2-color: var(--field);
     --degrad-boutons: 0 -8px 20px rgba(0, 0, 0, 0.08);
-    --border-boutons: 1px solid var(--line);
     --cfg-SvgRightBg: var(--ink-2);
     --cfg-SvgRight-inner: var(--surface-2);
     --svg-shade0: #101010;
@@ -120,14 +84,8 @@
     --svg-shade3: #434343;
     --svg-shade4: #332b28;
     --svg-shade5: #515255;
-    --barreRoomBg: var(--bg);
-    --room-pill: var(--surface);
-    --side-handle: var(--tonal);
-    --side-handleHov: var(--tonal-hover);
-    --borderShadeCtl: var(--line);
     --shadowShadeCtl: rgba(18, 22, 27, 0.08);
     --wait-overlay: rgba(238, 241, 244, 0.6);
-    --buttonMy: var(--tonal-hover);
     --crlIndicator: var(--ink-2);
     --hover-brightness: 0.95;
     --shadow: rgba(18, 22, 27, .2);
@@ -149,58 +107,22 @@
     --ok: #7BD69C; --ok-soft: #173326; --ok-dot: #4CC27E;
     --warn: #F2B266; --warn-soft: #3A2A14; --warn-dot: #F2A24B;
     --danger: #FFB4AB; --danger-soft: #3B1D1B;
-    --sky: #22324A;
-    --slat: #8592A2;            /* 4.09:1 against --sky */
-    --slat-2: #6F7C8C;
+    --sky: #1C2A3D;
+    --slat: #66748C;            /* 3.07:1 against --sky; dimmer than before, a closed shade no longer glares */
+    --slat-2: #545F75;
     --todo: #5D6773;
     --inverse: #ECEFF3;
     --on-inverse: #0F1216;
     --on-inverse-2: #3A424D;
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
-    /* Legacy roles */
-    --md-primary: var(--accent-color); --md-on-primary: var(--on-accent);
-    --md-primary-container: var(--accent-soft); --md-on-primary-container: var(--ink);
-    --md-secondary-container: var(--tonal); --md-on-secondary-container: var(--ink);
-    --md-surface: var(--surface); --md-surface-container: var(--bg);
-    --md-surface-container-high: var(--surface-2); --md-surface-container-highest: var(--tonal);
-    --md-on-surface: var(--ink); --md-on-surface-variant: var(--ink-2);
-    --md-outline: var(--field); --md-outline-variant: var(--line);
-    --md-error: var(--danger); --md-on-error: #0F1216;
-    --md-error-container: var(--danger-soft); --md-on-error-container: var(--danger);
-    --md-elevation-1: var(--shadow-1);
-    --md-elevation-2: 0 2px 8px rgba(0, 0, 0, .5);
+    /* Further roles. None is a plain alias of a token above: each differs by theme,
+       is redefined locally (.empty-icon) or is read by name from script. */
+    --md-on-error: #0F1216;
     --accent-colorDark: color-mix(in srgb, var(--accent-color), #000 45%);
-    --accent-colorUniDark: var(--accent-soft);
-    --accent-sucess: var(--ok-dot);
     --accent-text: var(--accent-color);
-    --body-color: var(--surface);
-    --background-color: var(--bg);
     --unibloc-color: var(--surface);
-    --fond-color: var(--bg);
-    --color: var(--ink);
-    --soustxt-color: var(--ink-2);
-    --input: var(--surface);
-    --inputNumber: var(--surface);
-    --border: var(--line);
-    --hr-color: var(--line);
-    --help: var(--ink-2);
-    --danger-color: var(--danger);
-    --border-lbc: var(--line);
     --invertxt-color: #000000;
-    --txtwarning-color: var(--danger);
-    --status-good: var(--ok);
-    --status-warn: var(--warn);
-    --status-bad: var(--danger);
-    --hr-soft: var(--line);
-    --switch-border: var(--field);
-    --switch-checked: var(--field);
-    --bg-switch-color: var(--tonal);
-    --tb-color: var(--ink-2);
-    --bg-switch-ch-color: var(--ink-2);
-    --button-color: var(--tonal-hover);
-    --button2-color: var(--field);
     --degrad-boutons: 0 -12px 30px rgba(0, 0, 0, 0.8);
-    --border-boutons: 1px solid var(--line);
     --cfg-SvgRightBg: var(--tonal-hover);
     --cfg-SvgRight-inner: var(--ink-2);
     --svg-shade0: #fff;
@@ -209,14 +131,8 @@
     --svg-shade3: #b4b4b4;
     --svg-shade4: #616161;
     --svg-shade5: #818181;
-    --barreRoomBg: var(--bg);
-    --room-pill: var(--surface);
-    --side-handle: var(--tonal);
-    --side-handleHov: var(--tonal-hover);
-    --borderShadeCtl: var(--line);
     --shadowShadeCtl: rgba(0, 0, 0, 0.5);
     --wait-overlay: rgba(15, 18, 22, 0.6);
-    --buttonMy: var(--tonal-hover);
     --crlIndicator: var(--ink-2);
     --hover-brightness: 1.15;
     --shadow: #000;
@@ -224,10 +140,9 @@
 /* Typography: the platform UI font: nothing to download, works offline. */
 body { font-family: var(--font-ui); }
 
-/* Layout utilities: shared patterns extracted from component rules.
-   Use .u-* directly in new markup; legacy selectors are grouped here. */
+/* Layout patterns shared by component rules (row with space-between, centred box,
+   row, column), grouped by selector. */
 
-.u-row-between,
 .uniRow,
 .buttonUpdate,
 .unibutton,
@@ -236,14 +151,12 @@ body { font-family: var(--font-ui); }
 .blocRadioHeader,
 .rssi-row,
 .blocsteps-row,
-.custom-file-upload,
-.somfyShadeCtl .shadectl-status-bar {
+.custom-file-upload {
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
-.u-row-center,
 input[type="radio"],
 .step-buttons button,
 div.signal,
@@ -272,20 +185,16 @@ div.wait-overlay,
 .empty-state-container,
 .drag-handle,
 .divEditDelete-svg,
-.shadectl-side-handle,
 .indicator,
 .button-my,
 .button-light,
 .button-sunflag,
-.button-remote,
-.box-image-container,
 .wifiConnectScan {
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.u-row,
 #calWizResult .calRow,
 .uniRight,
 .input-number-custom,
@@ -293,11 +202,7 @@ div.wait-overlay,
 .step-buttons,
 .safety-label,
 .warningText,
-.top-bar-left,
-.top-bar-right,
-.uptime-container,
 .nav-item,
-.sidebar-footer,
 .wifi-right,
 .somfy-status-container,
 .vr-step80,
@@ -323,13 +228,8 @@ div.wait-overlay,
 .somfyShade,
 .somfyLinkedRemote,
 .linkedWrap,
-.shadectl-main-content,
 .somfyShadeCtl .shadectl-buttons,
-.shadectl-status-left,
-.status-group-right,
-.myShade-badge,
 .somfyGroupCtl,
-.somfyShadeCtl .shade-icon,
 .somfyGroupCtl .groupctl-buttons,
 .safety-checkbox-container,
 .scanfreqwhat > div:first-child {
@@ -337,17 +237,13 @@ div.wait-overlay,
     align-items: center;
 }
 
-.u-col,
 .firmwarblocupdate,
 .divButton,
 .uniText,
 .uniColumn,
 .gpio-flex-container,
-.uptime-values,
-.sidebar-nav,
 .subtab-content,
 .welcome-container,
-.welcomeCard,
 .devButtonUpdate,
 .somfy-infoPosTilt,
 .vr-block-center,
@@ -360,10 +256,8 @@ div.wait-overlay,
 .vrslidStepSize,
 .error-content,
 .message-content,
-.overlay-content,
 .footer-sticky-content,
 .linkedContent,
-.shadectl-right-content,
 .somfyShadeCtl .shade-name,
 .scanfreqRssiLeft,
 .scanfreqRssiRight {
@@ -371,7 +265,6 @@ div.wait-overlay,
     flex-direction: column;
 }
 
-.u-ellipsis,
 span.ssid,
 .frame-row > span,
 .frame-header > span,
@@ -379,7 +272,6 @@ div.frame-pulses,
 .file-name-display,
 .name-text,
 .repeater-name,
-.linkedshade-name,
 .somfyGroupCtl .groupctl-name,
 .somfyShadeCtl .shadectl-name {
     overflow: hidden;
@@ -387,22 +279,22 @@ div.frame-pulses,
     white-space: nowrap;
 }
 /* Shape + elevation (MD3): rounded, tonally elevated cards; rounded inputs/buttons. */
-.unibloc { border-radius: var(--radius-card); box-shadow: var(--md-elevation-1); }
+.unibloc { border-radius: var(--radius-card); box-shadow: var(--shadow-1); }
 .inputAndSelect { border-radius: var(--radius-input); }
 button, .buttonUpdate { border-radius: var(--radius-button); }
 /* MD3 components: filled-tonal medium-emphasis buttons, MD3 switches, and
    hover/press state layers. The primary filled save buttons stay untouched. */
-.divButton { background: var(--md-secondary-container); border: none; box-shadow: none; }
-.divButton .buttonUpdate { color: var(--md-on-secondary-container); }
+.divButton { background: var(--tonal); border: none; box-shadow: none; }
+.divButton .buttonUpdate { color: var(--ink); }
 .divButton .uniStatus { opacity: .75; }
-.divButton:active { background: color-mix(in srgb, var(--md-primary) 12%, var(--md-secondary-container)); }
+.divButton:active { background: color-mix(in srgb, var(--accent-color) 12%, var(--tonal)); }
 /* MD3 switch: outlined track when off, primary fill when on. */
-.switch:has(input:checked) { background: var(--md-primary); border-color: var(--md-primary); }
+.switch:has(input:checked) { background: var(--accent-color); border-color: var(--accent-color); }
 html, body {
     margin: 0;
     padding: 0;
     width: 100%;
-    color: var(--color);
+    color: var(--ink);
 }
 /* The root stays at the browser's 16px: with font-size on html the rem tokens
    deflated 12.5% below their documented values (--fs-xs rendered 10.5px, under
@@ -417,7 +309,7 @@ svg, svg * {pointer-events: none;}
 
 
 .linkSoft {
-    color: var(--color);
+    color: var(--ink);
     text-decoration: underline;
     font-weight: bold;
 }
@@ -437,18 +329,18 @@ h1 {
 hr {
     display: block;
     width:100%;
-    border: 1px solid var(--hr-color);
+    border: 1px solid var(--line);
 }
 .hrDiv,
 .hrDivFooter{
     height: 1px;
-    background: var(--hr-soft);
+    background: var(--line);
     margin: var(--sp-16) -30px var(--sp-16) -30px;
 }
 .vr {
     width: 1px;
     height: 24px;
-    background: var(--hr-color);
+    background: var(--line);
     align-self: center;
 }
 input[type="range"] {
@@ -476,7 +368,7 @@ form {
 }
 .unibloc {
     background: var(--unibloc-color);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: var(--shadow-1);
 }
 .uniblocStep {
@@ -490,13 +382,13 @@ form {
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
     padding: 11px 14px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .label {
     font-size: var(--fs-sm);
     font-weight: 600;
-    color: var(--color);
+    color: var(--ink);
     word-break: break-word;
     margin: 0;
 }
@@ -525,7 +417,7 @@ form {
     margin: var(--sp-16) 0 0;
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     transition: background 0.3s ease, border 0.3s ease;
 }
@@ -550,8 +442,8 @@ select.inputAndSelect {
 }
 /* Option list of native select popups: themed surface instead of UA defaults. */
 select.inputAndSelect option {
-    background-color: var(--input);
-    color: var(--color);
+    background-color: var(--surface);
+    color: var(--ink);
 }
 .inputAndSelect::-webkit-outer-spin-button,
 .inputAndSelect::-webkit-inner-spin-button {
@@ -567,7 +459,7 @@ select.inputAndSelect option {
     min-height: 44px;
     padding: var(--sp-8) var(--sp-12);
     border-radius: var(--radius-input);
-    color: var(--color);
+    color: var(--ink);
     background: var(--surface) !important;
     border: 1px solid var(--field);
     background: transparent;
@@ -581,7 +473,7 @@ select.inputAndSelect option {
     width: 100%;
 }
 .input-mqtt > span {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     display: inline-block;
     margin: 0 0 5px 0;
     padding: 5px 0 0;
@@ -591,7 +483,7 @@ select.inputAndSelect option {
     font-weight: bold;
 }
 .input-mqtt .select {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     margin-bottom: 0;
 }
 .input-mqtt select[name="mqtt-protocol"] {
@@ -606,7 +498,7 @@ select.inputAndSelect option {
 .custom-checkbox {
     width: 24px;
     height: 24px;
-    border: 2px solid var(--txtwarning-color);
+    border: 2px solid var(--danger);
     border-radius: var(--radius-input);
     display: inline-block;
     position: relative;
@@ -628,19 +520,19 @@ select.inputAndSelect option {
     transition: transform 0.2s ease;
 }
 .custom-checkbox:hover {
-    box-shadow: 0 0 8px var(--txtwarning-color);
+    box-shadow: 0 0 8px var(--danger);
 }
 /* Calibration wizard: MD3-consistent copy list (checkbox rows + source select). */
 #calWizResult .calFromLabel { display:block; font-weight:600; margin-bottom:var(--sp-4); }
 #calWizResult select.inputAndSelect { width:100%; margin-bottom:14px; }
 #calWizResult .calList { max-height:34vh; overflow:auto; }
 #calWizResult .calRow { gap:var(--sp-12); padding:var(--sp-8) 2px; cursor:pointer; user-select:none; }
-#calWizResult .calRow-all { font-weight:600; border-bottom:1px solid var(--md-outline); margin-bottom:var(--sp-4); }
+#calWizResult .calRow-all { font-weight:600; border-bottom:1px solid var(--field); margin-bottom:var(--sp-4); }
 #calWizResult .calRow input[type="checkbox"] { display:none; }
-#calWizResult .calRow .custom-checkbox { width:22px; height:22px; border-color: var(--md-outline); border-radius:var(--radius-chip); }
-#calWizResult .calRow input[type="checkbox"]:checked + .custom-checkbox { background: var(--md-primary); border-color: var(--md-primary); }
-#calWizResult .calRow input[type="checkbox"]:checked + .custom-checkbox::after { transform: rotate(45deg) scale(1); border-color: var(--md-on-primary); }
-#calWizResult .calRow .custom-checkbox:hover { box-shadow: 0 0 8px var(--md-primary); }
+#calWizResult .calRow .custom-checkbox { width:22px; height:22px; border-color: var(--field); border-radius:var(--radius-chip); }
+#calWizResult .calRow input[type="checkbox"]:checked + .custom-checkbox { background: var(--accent-color); border-color: var(--accent-color); }
+#calWizResult .calRow input[type="checkbox"]:checked + .custom-checkbox::after { transform: rotate(45deg) scale(1); border-color: var(--on-accent); }
+#calWizResult .calRow .custom-checkbox:hover { box-shadow: 0 0 8px var(--accent-color); }
 label.uniRow {
     cursor: pointer;
     user-select: none;
@@ -654,7 +546,7 @@ label.uniRow {
 }
 .uniStatus {
     font-size: var(--fs-xs);
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     margin-top: var(--sp-4);
     margin-bottom: 2px;
     padding: 0px 0;
@@ -672,7 +564,7 @@ label.uniRow {
 }
 .numberfield {
     display: flex;
-    color: var(--color);
+    color: var(--ink);
 }
 *::placeholder {
     opacity: .5;
@@ -683,7 +575,7 @@ input[type=text] {
     font-size: var(--fs-md);
     margin-bottom: 14px;
     appearance: none;
-    color: var(--color);
+    color: var(--ink);
     background-color: var(--surface);
     border: 1px solid var(--field);
     min-height: 44px;
@@ -696,7 +588,7 @@ input[type="password"].pin-digit {
     border: 1px solid var(--field);
     box-shadow: none;
     background: var(--surface);
-    color: var(--color);
+    color: var(--ink);
     border-radius: var(--radius-panel);
     width: 56px;
     height: 60px;
@@ -726,12 +618,12 @@ input[type=text]:focus-visible {
    instead of waiting for the Save-time modal. */
 input[type=number]:user-invalid,
 input[type=text]:user-invalid {
-    border-color: var(--txtwarning-color);
+    border-color: var(--danger);
 }
 input[type=number]:user-invalid:focus,
 input[type=text]:user-invalid:focus {
-    border-color: var(--txtwarning-color);
-    outline: 2px solid color-mix(in srgb, var(--txtwarning-color) 30%, transparent);
+    border-color: var(--danger);
+    outline: 2px solid color-mix(in srgb, var(--danger) 30%, transparent);
 }
 input[type="checkbox"] {
     width: 45px;
@@ -746,7 +638,7 @@ input[type="radio"] {
     -webkit-appearance: none;
     width: 20px;
     height: 20px;
-    border: 2px solid var(--switch-checked);
+    border: 2px solid var(--field);
     border-radius: 50%;
     outline: none;
     transition: all 0.2s cubic-bezier(0.1, 0.1, 0, 1);
@@ -793,7 +685,7 @@ input[type="radio"]:hover {
     box-sizing: border-box;
 }
 .input-number-custom {
-    background-color: var(--inputNumber);
+    background-color: var(--surface);
     border: 1px solid var(--field);
     border-radius: var(--radius-input);
     padding: var(--sp-4) 6px var(--sp-4) var(--sp-16);
@@ -836,7 +728,7 @@ input[type="radio"]:hover {
 .input-hint {
     flex: 0 0 auto;
     font-size: var(--fs-xs);
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     white-space: nowrap;
     pointer-events: none;
 }
@@ -865,7 +757,7 @@ input[type="radio"]:hover {
     height: 38px;
 }
 .step-buttons {
-    background-color: var(--input);
+    background-color: var(--surface);
     border-radius: var(--radius-button);
     padding: 2px;
     height: 32px;
@@ -879,7 +771,7 @@ input[type="radio"]:hover {
 .step-buttons button {
     background: transparent;
     border: none;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     font-size: 1.1em;
     width: 28px;
     height: 28px;
@@ -889,7 +781,7 @@ input[type="radio"]:hover {
 }
 .step-buttons button:hover {
     background: rgba(255, 255, 255, 0.08);
-    color: var(--color);
+    color: var(--ink);
 }
 /* Repeat count: the value is typed straight into the field, and the +/- pair sits inside
    its right edge so nudging it by one never costs a keyboard on a phone. The pair is
@@ -910,13 +802,13 @@ input[type="radio"]:hover {
 .field-error {
     font-size: var(--fs-xs);
     line-height: 1.35;
-    color: var(--md-error);
+    color: var(--danger);
     margin: var(--sp-4) 0 0;
 }
 /* box-shadow rather than a border: the fields draw no border of their own, and adding
    one here would shift every row below by 2px on the way in and out of the error state. */
 .is-invalid {
-    box-shadow: 0 2px 0 0 var(--md-error);
+    box-shadow: 0 2px 0 0 var(--danger);
 }
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
@@ -951,20 +843,20 @@ input[type="number"] {
     display: block;
 }
 .btn-none-shortcut:has(use[href="#svg-power"]) {
-    color: var(--accent-sucess, #069800);
+    color: var(--ok-dot, #069800);
 }
 .btn-none-shortcut:has(use[href="#svg-power"]):hover {
-    color: var(--txtwarning-color, #d9534f);
+    color: var(--danger, #d9534f);
 }
 .btn-none-shortcut:has(use[href="#svg-powerOff"]) {
-    color: var(--txtwarning-color, #d9534f);
+    color: var(--danger, #d9534f);
     opacity: 0.8;
 }
 .btn-none-shortcut:has(use[href="#svg-powerOff"]):hover {
     opacity: 1;
 }
 .step-select-arrow {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     padding: 0;
 }
 .icon-select-arrow {
@@ -985,18 +877,18 @@ input[type="number"] {
     cursor: pointer;
 }
 .safety-text {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     font-size: var(--fs-xs);
     transition: color 0.2s ease, opacity 0.2s ease;
     opacity: 0.85;
 }
 .safety-label:hover .safety-text {
-    color: var(--color);
+    color: var(--ink);
     opacity: 1;
 }
 fieldset {
     display: block;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: var(--radius-input);
     padding: 25px;
     margin-top: var(--sp-20);
@@ -1009,7 +901,7 @@ fieldset {
     min-width: 44px;
     height: 24px;
     border-radius: var(--radius-round);
-    border: 2px solid var(--switch-checked);
+    border: 2px solid var(--field);
     background: var(--unibloc-color);
 
 }
@@ -1023,7 +915,7 @@ fieldset {
 .switch div {
     width: 12px;
     height: 12px;
-    background: var(--switch-checked);
+    background: var(--field);
     border-radius: 50%;
     position: absolute;
     top: 50%;
@@ -1151,15 +1043,15 @@ button[srow] {
 /* MD3 disabled convention: on-surface at 38% over a 12% fill, theme-neutral
    (the old #555/#aaa slab measured 1.78:1 in light theme). */
 button:disabled {
-    background: color-mix(in srgb, var(--color) 12%, transparent) !important;
-    color: color-mix(in srgb, var(--color) 38%, transparent) !important;
+    background: color-mix(in srgb, var(--ink) 12%, transparent) !important;
+    color: color-mix(in srgb, var(--ink) 38%, transparent) !important;
     cursor: not-allowed !important;
     transform: none !important;
     pointer-events: none;
 }
 button:disabled:hover,
 button:disabled:active {
-    background: color-mix(in srgb, var(--color) 12%, transparent) !important;
+    background: color-mix(in srgb, var(--ink) 12%, transparent) !important;
     transform: none !important;
 }
 /* Dirty-flag save buttons (navSyncSaveButtons) while there is nothing to save:
@@ -1181,7 +1073,7 @@ button:disabled:active {
     cursor: pointer;
     border: none;
     background: none;
-    color: var(--color);
+    color: var(--ink);
     text-transform: none;
     font-weight: initial;
 }
@@ -1229,7 +1121,7 @@ button:disabled:active {
 }
 .error {
     background: rgba(244, 67, 54, 0.1);
-    border: 1px solid var(--status-bad)2e;
+    border: 1px solid var(--danger)2e;
 }
 .warning b,
 .information b,
@@ -1251,13 +1143,13 @@ button:disabled:active {
     margin-top: var(--sp-4);
 }
 .warning b,
-.warning svg {color:var(--status-warn);}
+.warning svg {color:var(--warn);}
 .information b,
 .information svg {color: var(--accent-color);}
 .success b,
-.success svg {color: var(--status-good);}
+.success svg {color: var(--ok);}
 .error b,
-.error svg {color: var(--status-bad);}
+.error svg {color: var(--danger);}
 
 .warning svg,
 .information svg,
@@ -1271,7 +1163,7 @@ button:disabled:active {
 .warningText {
     gap: var(--sp-8);
     font-size: var(--fs-xs);
-    color: var(--status-warn);
+    color: var(--warn);
 
 }
 .progress-bar {
@@ -1295,7 +1187,7 @@ button:disabled:active {
     font-size: 1em;
     text-align: center;
     margin-top: 0.3em;
-    color: var(--color);
+    color: var(--ink);
     top: 0;
     left: 0;
 }
@@ -1371,26 +1263,33 @@ button:disabled:active {
     width: 25px;
     height: 25px;
     vertical-align: middle;
-    color: var(--tb-color);
+    color: var(--ink-2);
 }
+/* Record (shade/group) command buttons: the Home tile look, a tinted square with an
+   ink chevron or "My", rather than round accent badges. */
 .btn-somfy-svg,
 .btn-somfy-svg-wide {
-    display: inline-flex;
-    width: 44px;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 52px;
     height: 44px;
+    border-radius: var(--radius-button);
+    background: var(--tonal); color: var(--ink);
+    cursor: pointer;
 }
 .btn-somfy-svg-wide { width: 88px; }
 
 .btn-somfy-svg svg,
 .btn-somfy-svg-wide svg {
-    width: 100%;
-    height: 100%;
+    width: 22px;
+    height: 22px;
     display: block;
-    color: var(--accent-color);
+    color: currentColor;
 }
+.btn-somfy-svg-wide svg { width: 30px; height: 30px; }
+.cmd-my-label { font-weight: 700; font-size: var(--fs-sm); }
 .btn-somfy-svg:hover,
 .btn-somfy-svg-wide:hover {
-    filter: brightness(1.1);
+    background: var(--tonal-hover);
 }
 .btn-somfy-svg:active {
     transform: scale(0.92);
@@ -1440,17 +1339,6 @@ button:disabled:active {
 .shadectl-buttons[data-shadetype="5"] > .cmd-button[data-cmd="sunflag"],
 .shadectl-buttons[data-shadetype="9"] > .cmd-button[data-cmd="sunflag"]
 {
-    display: none;
-}
-.somfyShadeCtl[data-shadetype="14"] .shadectl-mypos,
-.somfyShadeCtl[data-shadetype="15"] .shadectl-mypos,
-.somfyShadeCtl[data-shadetype="16"] .shadectl-mypos,
-.somfyShadeCtl[data-shadetype="9"] .shadectl-mypos,
-.somfyShadeCtl[data-tilt="3"] .shadectl-mypos .my-pos,
-.somfyShadeCtl:not([data-shadetype="1"]) .shadectl-mypos .my-pos-tilt,
-.somfyShadeCtl[data-tilt="0"] .shadectl-mypos .my-pos-tilt,
-.somfyShadeCtl[data-shadetype="1"][data-tilt="3"] .shadectl-mypos label.my-pos,
-.somfyShadeCtl[data-shadetype="10"] .shadectl-mypos {
     display: none;
 }
 .animScale {

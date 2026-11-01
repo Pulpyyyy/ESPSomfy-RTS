@@ -77,9 +77,11 @@ async function initSockets() {
                         case 'roomAdded':
                             somfy.procRoomAdded(msg);
                             break;
+                        // Another client added or removed a shade: rebuild the lists, or it
+                        // only showed up (or went away) here after a reload.
                         case 'shadeRemoved':
-                            break;
                         case 'shadeAdded':
+                            somfy.updateShadeList();
                             break;
                         case 'ethernet':
                             wifi.procEthernet(msg);
@@ -234,6 +236,7 @@ function navSelectTab(page, tabId) {
         b.tabIndex = on ? 0 : -1;
         const panel = get(b.getAttribute('data-grpid'));
         if (panel) panel.style.display = on ? '' : 'none';
+        if (on) revealInStrip(b);
     });
 }
 function navCurrentTab(page) {
@@ -1182,34 +1185,13 @@ class UIBinder {
                 if (ndx >= 0) tval = tval[ndx];
             }
             if (typeof tval !== 'undefined') {
-                if (typeof fld.val === 'function') this.val(tval);
-                else {
-                    switch (fld.getAttribute('data-fmttype')) {
-                        case 'time':
-                        {
-                            var dt = new Date();
-                            dt.setHours(0, 0, 0);
-                            dt.addMinutes(tval);
-                            tval = dt.fmt(fld.getAttribute('data-fmtmask'), fld.getAttribute('data-fmtempty') || '');
-                        }
-                        break;
-                        case 'date':
-                        case 'datetime':
-                        {
-                            let dt = new Date(tval);
-                            tval = dt.fmt(fld.getAttribute('data-fmtmask'), fld.getAttribute('data-fmtempty') || '');
-                        }
-                        break;
-                        case 'number':
-                            if (typeof tval !== 'number') tval = parseFloat(tval);
-                            tval = tval.fmt(fld.getAttribute('data-fmtmask'), fld.getAttribute('data-fmtempty') || '');
-                        break;
-                        case 'duration':
-                            tval = ui.formatDuration(tval, $this.attr('data-fmtmask'));
-                            break;
-                    }
-                    this.setValue(fld, tval);
+                // "number" is the only display format the markup uses (the time, date and
+                // duration ones called helpers that no longer exist, jQuery's among them).
+                if (fld.getAttribute('data-fmttype') === 'number') {
+                    if (typeof tval !== 'number') tval = parseFloat(tval);
+                    tval = tval.fmt(fld.getAttribute('data-fmtmask'), fld.getAttribute('data-fmtempty') || '');
                 }
+                this.setValue(fld, tval);
             }
         });
     }
@@ -1305,54 +1287,13 @@ class UIBinder {
             case 'decimal':
             case 'number':
                 return this.parseNumber(val);
-            case 'date':
-                if (typeof val === 'string') return Date.parseISO(val);
-                else if (typeof val === 'number') return new Date(number);
-                else if (typeof val.getMonth === 'function') return val;
-                return undefined;
-            case 'time':
-                var dt = new Date();
-                if (typeof val === 'number') {
-                    dt.setHours(0, 0, 0);
-                    dt.addMinutes(tval);
-                    return dt;
-                }
-                else if (typeof val === 'string' && val.indexOf(':') !== -1) {
-                    var n = val.lastIndexOf(':');
-                    var min = this.parseNumber(val.substring(n));
-                    var nsp = val.substring(0, n).lastIndexOf(' ') + 1;
-                    var hrs = this.parseNumber(val.substring(nsp, n));
-                    dt.setHours(0, 0, 0);
-                    if (hrs <= 12 && val.substring(n).indexOf('p')) hrs += 12;
-                    dt.addMinutes(hrs * 60 + min);
-                    return dt;
-                }
-                break;
+            // No date or time field exists; those cases called helpers that were never there.
             case 'duration':
                 if (typeof val === 'number') return val;
                 return Math.floor(this.parseNumber(val));
             default:
                 return val;
         }
-    }
-    formatValue(val, dataType, fmtMask, emptyMask) {
-        var v = this.parseValue(val, dataType);
-        if (typeof v === 'undefined') return emptyMask || '';
-        switch (dataType) {
-            case 'int':
-            case 'uint':
-            case 'float':
-            case 'real':
-            case 'double':
-            case 'decimal':
-            case 'number':
-                return v.fmt(fmtMask, emptyMask || '');
-            case 'time':
-            case 'date':
-            case 'dateTime':
-                return v.fmt(fmtMask, emptyMask || '');
-        }
-        return v;
     }
     waitMessage(el, label) {
         let div = document.createElement('div');
@@ -1381,7 +1322,7 @@ class UIBinder {
             if (typeof err.desc === 'string') {
                 msg = typeof err.desc !== 'undefined' ? err.desc : err.message;
                 if (typeof err.code === 'number') {
-                    let e = errors.find(x => x.code === err.code) || { code: err.code, desc: 'Unspecified error' };
+                    let e = errors.find(x => x.code === err.code) || { code: err.code, desc: tr('ERR_UNSPECIFIED') };
                     msg = e.desc;
                     title = err.desc;
                 }
@@ -1430,16 +1371,19 @@ class UIBinder {
         openDialog(div);
         return div;
     }
-    promptMessage(el, msg, onYes) {
-        if (arguments.length === 2) {
-            onYes = msg;
-            msg = el;
-            el = get('divContainer');
-        }
+    // promptMessage([el,] msg, [opts,] onYes). opts.yes names the action on the button
+    // ("Delete", "Restart") and turns "No" into "Cancel": a destructive question says
+    // what happens instead of "Yes / No"; opts.danger draws it in red. Genuine yes/no
+    // questions ("did the motor move?") keep the plain pair.
+    promptMessage(...args) {
+        const el = args[0] instanceof Element ? args.shift() : get('divContainer');
+        const msg = args.shift();
+        const opts = (args[0] && typeof args[0] === 'object') ? args.shift() : {};
+        const onYes = args.shift();
         let div = document.createElement('div');
         div.className = 'prompt-message modal-overlay';
         div.innerHTML = `<div class="message-content"><div class="prompt-text">${msg}</div><div class="sub-message"></div>
-        <div class="button-container-row"><button line type="button" onclick="ui.clearErrors();">${tr('BT_NO')}</button><button id="btnYes" type="button">${tr('BT_YES')}</button></div></div>`;
+        <div class="button-container-row"><button line type="button" onclick="ui.clearErrors();">${tr(opts.yes ? 'BT_CANCEL_1' : 'BT_NO')}</button><button id="btnYes" type="button"${opts.danger ? ' class="is-danger"' : ''}>${tr(opts.yes || 'BT_YES')}</button></div></div>`;
         el.appendChild(div);
 
         openDialog(div);
@@ -1562,10 +1506,6 @@ class UIBinder {
             el.style.removeProperty('--pulse-color');
         }
     }
-    selectTab(elTab) {
-        const groupId = elTab && elTab.getAttribute('data-grpid');
-        if (groupId) navGo(groupId);
-    }
     wizSetPrevStep(el) { this.wizSetStep(el, Math.max(this.wizCurrentStep(el) - 1, 1)); }
     wizSetNextStep(el) { this.wizSetStep(el, this.wizCurrentStep(el) + 1); }
     wizSetStep(el, step) {
@@ -1680,18 +1620,6 @@ class UIBinder {
         somfy.checkEmptyState();
         if (sockIsOpen) socket.send('leave:0');
         general.setSecurityConfig({ type: 0, username: '', permissions: 0 });
-    }
-    toggleConfig() { navGo(this.isConfigOpen() ? NAV_HOME : 'pgShades'); }
-    showNetworkConfig() { navGo('pgNetwork'); }
-    showRadioConfig() { navGo('pgRadio'); }
-    showSystemConfig() { navGo('pgPreferences'); }
-    showShadeConfig() {
-        navGo('pgShades', { after: () => {
-            if (typeof somfy !== 'undefined') {
-                somfy.showEditShade(true);
-                somfy.openEditShade();
-            }
-        } });
     }
 }
 var ui = new UIBinder();

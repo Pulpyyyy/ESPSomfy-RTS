@@ -3,7 +3,7 @@
 // other colour is fitted instead, darkened (light theme) or lightened (dark theme)
 // just enough to read on the page: 3:1 for marks and borders, 4.8:1 for accent text
 // (a little over AA, as it also sits on the slightly darker --accent-soft). A colour that
-// already reads is kept as is. Text drawn ON the light tone flips with its luminance.
+// already reads is kept as is. Text drawn ON the light tone is near black or white, whichever reads better.
 const ACCENT_DARK = { '#1d5fc4': '#8db8f8', '#1a5fb4': '#8db8f8', '#1e6b3a': '#7bd69c', '#8a4b00': '#f2b266', '#6b3fa0': '#c9a7f5' };
 // Swatches: the four tuned accents first, then the Home Assistant palette (its
 // Material colours, in hue order; deep purple left out, it is the violet above).
@@ -28,14 +28,18 @@ function hexLum(h) {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 function hexContrast(a, b) { const [x, y] = [hexLum(a), hexLum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); }
+// bg is a colour, or a function giving the background a candidate will sit on when
+// that background is itself derived from the accent (the --accent-soft tint).
 function fitContrast(c, bg, min, toward) {
     const a = hexRgb(c), t = hexRgb(toward);
     for (let k = 0; k <= 20; k++) {
         const m = rgbHex(a.map((v, i) => v + (t[i] - v) * k / 20));
-        if (hexContrast(m, bg) >= min) return m;
+        if (hexContrast(m, typeof bg === 'function' ? bg(m) : bg) >= min) return m;
     }
     return toward;
 }
+// The dark --accent-soft: 18% of the accent over the dark surface (see base.css).
+const darkSoft = (m) => { const s = hexRgb('#181c22'); return rgbHex(hexRgb(m).map((v, i) => v * 0.18 + s[i] * 0.82)); };
 function applyAccent(color) {
     const r = document.documentElement.style;
     let c = String(color || '').trim().toLowerCase();
@@ -43,11 +47,18 @@ function applyAccent(color) {
     if (c === '#1a5fb4') c = '#1d5fc4';   // the firmware default, same blue
     // Measured against the grey page (--bg), the lightest-to-darkest worst case of the
     // light theme: accent text sits on it (About link) as well as on white and tints.
-    const light = fitContrast(c, '#eef1f4', 3, '#000000');
+    let light = fitContrast(c, '#eef1f4', 3, '#000000');
+    // Text drawn ON the accent (active chip, main buttons) needs 4.5:1. A mid tone
+    // (pink, HA purple, blue grey) reaches it with neither near black nor white, so it
+    // is darkened until white does; then the better of the two is used.
+    const ink = '#12161b';
+    if (Math.max(hexContrast(light, '#ffffff'), hexContrast(light, ink)) < 4.5) light = fitContrast(light, '#ffffff', 4.5, '#000000');
     r.setProperty('--accent-l', light);
     r.setProperty('--accent-text-l', fitContrast(light, '#eef1f4', 4.8, '#000000'));
-    r.setProperty('--accent-d', ACCENT_DARK[c] || fitContrast(c, '#181c22', 4.8, '#ffffff'));
-    r.setProperty('--on-accent-l', hexLum(light) > 0.18 ? '#12161b' : '#fff');
+    // Dark theme: accent text also sits on its own tint (current page in the menu),
+    // a little lighter than the surface, so it is fitted against that tint.
+    r.setProperty('--accent-d', ACCENT_DARK[c] || fitContrast(c, darkSoft, 4.6, '#ffffff'));
+    r.setProperty('--on-accent-l', hexContrast(light, '#ffffff') >= hexContrast(light, ink) ? '#fff' : ink);
     // Swatches: one of the four, or the custom one showing the colour picked.
     const preset = ACCENT_PRESETS.includes(c);
     document.querySelectorAll('.accent-swatch input[type=radio]').forEach(i => { i.checked = i.value === c; });
@@ -273,17 +284,6 @@ class General {
         localStorage.setItem('themeMode', val);
         this.applyTheme(val);
     }
-    getCookie(cname) {
-        let n = cname + '=';
-        let cookies = document.cookie.split(';');
-        if(DBG) console.log(cookies);
-        for (let i = 0; i < cookies.length; i++) {
-            let c = cookies[i];
-            while (c.charAt(0) === ' ') c = c.substring(0);
-            if (c.indexOf(n) === 0) return c.substring(n.length, c.length);
-        }
-        return '';
-    }
     reload() {
         let addMetaTag = (name, content) => {
             let meta = document.createElement('meta');
@@ -439,14 +439,11 @@ class General {
                 applyAccent(settings.accentColor);
                 localStorage.setItem('accentColor', settings.accentColor);
 
+                // The hidden field only carries the value to the save; the swatches and
+                // the wheel apply the colour (pickAccent). The listener that used to be
+                // added here on every load never fired: a hidden input gets no input event.
                 const accentInput = get('fldAccentColor');
-                if (accentInput) {
-                    accentInput.value = settings.accentColor;
-                    accentInput.addEventListener('input', (e) => {
-                        applyAccent(e.target.value);
-                        localStorage.setItem('accentColor', e.target.value);
-                    });
-                }
+                if (accentInput) accentInput.value = settings.accentColor;
             }
 
         });
@@ -474,7 +471,7 @@ class General {
             ui.errorMessage(msg).querySelector('.sub-message').innerHTML = tr('ERR_HOSTNAME_CHARS');
             valid = false;
         }
-        if (valid && obj.hostname.length > 32) {
+        if (valid && obj.hostname.length > 31) {
             ui.errorMessage(msg).querySelector('.sub-message').innerHTML = tr('ERR_HOSTNAME_LENGTH');
             valid = false;
         }
@@ -515,7 +512,7 @@ class General {
     rebootDevice() {
         // The page reloads after the reboot: settle pending edits first.
         if (!navConfirmLeave(() => this.rebootDevice())) return;
-        ui.promptMessage(get('divContainer'), tr('PROMPT_REBOOT_CONFIRM'), () => {
+        ui.promptMessage(get('divContainer'), tr('PROMPT_REBOOT_CONFIRM'), { yes: 'BT_REBOOT' }, () => {
             putJSONBusy('/reboot', {}, (err, response) => {
                 get('btnSaveGeneral').classList.remove('disabled');
                 // Only drop the socket once the firmware accepted the reboot; a 401
@@ -600,7 +597,7 @@ class General {
             if (s.password !== s.repeatpassword) return this.secError('ERR_PASSWORD_MISMATCH', 'ERR_PASSWORD_MISMATCH_DESC');
             confirmText = `<p>${tr('SAVESECURITY_PASSWORD_WARNING')}</p><p>${tr('SAVESECURITY_PASSWORD_CONFIRM')}</p>`;
         }
-        const prompt = ui.promptMessage(tr('PROMPT_SECURITY_CONFIRM'), () => {
+        const prompt = ui.promptMessage(tr('PROMPT_SECURITY_CONFIRM'), { yes: 'BT_SAVE' }, () => {
             putJSONBusy('/saveSecurity', data, (e, resp) => {
                 prompt.remove();
                 if (e) ui.serviceError(e);
@@ -728,7 +725,7 @@ class General {
         </div>
         <div class="ha-badge-container">
         <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Pulpyyyy&repository=ESPSomfy-RTS-enhanced&category=integration" target="_blank" class="ha-badge-button">
-        <span class="ha-badge-text-main">Open HACS repository on</span>
+        <span class="ha-badge-text-main">${tr('HACS_OPEN_ON')}</span>
         <span class="ha-badge-pill"><span class="ha-badge-text-pill">MY</span><svg width="18" height="18"><use href="#svg-homeAssistant"></use></svg></span>
         </a>
         <p class="ha-github-link-container">
@@ -818,19 +815,6 @@ class Wifi {
                 }
             });
         }
-    }
-    loadETHPins(sel, type, selected) {
-        let arr = [];
-        switch (type) {
-            case 'power':
-                arr.push({ val: -1, label: 'None' });
-                break;
-        }
-        for (let i = 0; i < 36; i++) {
-            if (i === 2) continue;
-            arr.push({ val: i, label: `GPIO ${i > 9 ? i : '0' + i}` });
-        }
-        this.loadETHDropdown(sel, arr, selected);
     }
     loadETHDropdown(sel, arr, selected) {
         if (!sel) return;
@@ -1119,7 +1103,7 @@ class Wifi {
 
         const getPart = (idNum) => {
             const active = idNum <= level;
-            return `<use href="#svg-wifi-${idNum}" fill="${active ? 'var(--accent-sucess)' : '#ccc'}" style="opacity:${active ? '1' : '0.3'}" />`;
+            return `<use href="#svg-wifi-${idNum}" fill="${active ? 'var(--ok-dot)' : '#ccc'}" style="opacity:${active ? '1' : '0.3'}" />`;
         };
 
         return `
@@ -1243,7 +1227,7 @@ class Wifi {
             chk.onchange = () => {
                 const ok = chk.checked;
                 btn.disabled = !ok;
-                btn.style.background = ok ? "var(--txtwarning-color)" : "#ccc";
+                btn.style.background = ok ? "var(--danger)" : "#ccc";
                 btn.style.cursor = ok ? "pointer" : "not-allowed";
             };
             btn.onclick = () => { this.sendNetworkSettings(obj); closeOverlay(div); };
@@ -1261,28 +1245,6 @@ class Wifi {
                 navSaved();
                 if(DBG) console.log("Network settings updated:", response);
             }
-        });
-    }
-    connectWiFi() {
-        if (get('btnConnectWiFi').classList.contains('disabled')) return;
-        get('btnConnectWiFi').classList.add('disabled');
-        let obj = {
-            ssid: document.getElementsByName('ssid')[0].value,
-            passphrase: document.getElementsByName('passphrase')[0].value
-        };
-        if (obj.ssid.length > 64) {
-            ui.errorMessage(tr('ERR_WIFI_SSID_INVALID')).querySelector('.sub-message').innerHTML = tr('ERR_WIFI_SSID_MAX_LENGTH_64');
-            return;
-        }
-        if (obj.passphrase.length > 64) {
-            ui.errorMessage(tr('ERR_WIFI_PASSPHRASE_INVALID')).querySelector('.sub-message').innerHTML = tr('ERR_WIFI_PASSPHRASE_MAX_LENGTH_64');
-            return;
-        }
-        let overlay = ui.waitMessage(get('divNetAdapter'));
-        putJSON('/connectwifi', obj, (err, response) => {
-            overlay.remove();
-            get('btnConnectWiFi').classList.remove('disabled');
-            if(DBG) console.log(response);
         });
     }
     procWifiStrength(strength) {
@@ -1322,8 +1284,8 @@ class Wifi {
         const spanStatus = get('spanEthernetStatus');
         const spanSpeed = get('spanEthernetSpeed');
 
-        spanStatus.innerHTML = ethernet.connected ? 'Connected' : 'Disconnected';
-        spanStatus.style.color = ethernet.connected ? 'var(--accent-sucess)' : '';
+        spanStatus.textContent = tr(ethernet.connected ? 'NAV_CONNECTED' : 'NAV_DISCONNECTED');
+        spanStatus.style.color = ethernet.connected ? 'var(--ok-dot)' : '';
         spanSpeed.innerHTML = !ethernet.connected ? '--------' : `${ethernet.speed} Mbps ${ethernet.fullduplex ? 'Full-duplex' : 'Half-duplex'}`;
     }
 }

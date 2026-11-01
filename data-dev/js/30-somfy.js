@@ -54,14 +54,16 @@ class Somfy {
             bindHoldKeys(el, () => this.sendVRCommand(el));
         });
     }
+    // Called on every settings load: the pin lists depend on the chip it reports. The
+    // first call also binds the board picker and fills placeholder defaults; later ones
+    // only rebuild the lists (loadPins keeps each selection). Repeating the rest stacked
+    // listeners and reset the radio panel to defaults, which could land after the real
+    // radio config and be saved with the next change.
     initPins() {
-        document
-        .getElementById('selRadioBoardType')
-        .addEventListener('change', e => this.onRadioBoardTypeChanged(e.target));
-
         const sel = get('selRadioBoardType');
-
-        sel.addEventListener('change', e => this.onRadioBoardTypeChanged(e.target));
+        const first = !this._pinsReady;
+        this._pinsReady = true;
+        if (first) sel.addEventListener('change', e => this.onRadioBoardTypeChanged(e.target));
 
         this.loadPins('inout', get('selTransSCKPin'));
         this.loadPins('inout', get('selTransCSNPin'));
@@ -70,16 +72,17 @@ class Somfy {
         this.loadPins('out', get('selTransTXPin'));
         this.loadPins('input', get('selTransRXPin'));
 
-        ui.toElement(get('divTransceiverSettings'), {
+        if (first) ui.toElement(get('divTransceiverSettings'), {
             transceiver: { config: { proto: 0, radioBoardType: 0, SCKPin: 18, CSNPin: 5, MOSIPin: 23, MISOPin: 19, TXPin: 13, RXPin: 12, frequency: 433.42, rxBandwidth: 97.96, type: 56, deviation: 11.43, txPower: 10, enabled: false } }
         });
 
         this.loadPins('out', get('selShadeGPIOUp'));
         this.loadPins('out', get('selShadeGPIODown'));
         this.loadPins('out', get('selShadeGPIOMy'));
-        this.loadRadioBoardTypes(get('selRadioBoardType'));
+        const board = sel.value;
         this.loadRadioBoardTypes(sel);
-        this.onRadioBoardTypeChanged(sel);
+        if (!first && [...sel.options].some(o => o.value === board)) sel.value = board;
+        this.onRadioBoardTypeChanged(sel, !first);
     }
     loadRadioBoardTypes(sel) {
         while (sel.firstChild) sel.removeChild(sel.firstChild);
@@ -696,6 +699,7 @@ class Somfy {
             const pId = parseInt(pill.getAttribute('data-roomid'), 10);
             pill.classList.toggle('active', pId === roomId);
             pill.setAttribute('aria-pressed', pId === roomId ? 'true' : 'false');
+            if (pId === roomId) revealInStrip(pill);
         });
         const sel = get('divRoomSelector');
         if (sel) sel.setAttribute('data-roomid', roomId);
@@ -723,7 +727,7 @@ class Somfy {
             <div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div>
             <div class="room-name"><span class="name-text">${esc(room.name)}</span></div><span class="vr"></span>
             <div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', room.name))} onclick="somfy.openEditRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div>
-            <div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', room.name))} onclick="somfy.deleteRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div>
+            <div class="divEditDelete-svg is-delete" ${a11yBtn(trf('A11Y_DELETE', room.name))} onclick="somfy.deleteRoom(${room.roomId});"><svg class="icon-svg" aria-hidden="true"><use href=#svg-trash></use></svg></div>
             </div>`;
             divOpts += `<option value="${room.roomId}">${esc(room.name)}</option>`;
             _rooms.push(room);
@@ -750,10 +754,6 @@ class Somfy {
         // Shades are grouped by room: re-render them in the new room order.
         if (this.shades) this.setShadesList(this.shades);
     }
-    // The room chips wrap instead of scrolling sideways, so the old drag/wheel
-    // scrolling (which captured the page's vertical wheel) is gone.
-    initRoomScroll() { this.checkArrows = () => {}; }
-    scrollRooms() {}
     setRepeaterList(addresses) {
         let divCfg = '';
         if (typeof addresses !== 'undefined') {
@@ -780,7 +780,7 @@ class Somfy {
             if (typeof optGroup === 'undefined' || !optGroup) {
                 optGroup = document.createElement('optgroup');
                 optGroup.setAttribute('id', 'optgrpVRShades');
-                optGroup.setAttribute('label', 'Shades');
+                optGroup.setAttribute('label', tr('VR_OPT_SHADES'));
                 vrList.appendChild(optGroup);
             }
             else {
@@ -817,7 +817,7 @@ class Somfy {
         for (let i = 0; i < shades.length; i++) {
             let shade = shades[i];
             let room = _rooms.find(x => x.roomId === shade.roomId) || { roomId: 0, name: '' };
-            divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', shade.name))} onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', shade.name))} onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
+            divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', shade.name))} onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg is-delete" ${a11yBtn(trf('A11Y_DELETE', shade.name))} onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg" aria-hidden="true"><use href=#svg-trash></use></svg></div></div>`;
             let opt = document.createElement('option');
             opt.textContent = shade.name;
             opt.setAttribute('data-address', shade.remoteAddress);
@@ -930,7 +930,7 @@ class Somfy {
             ? `<span class="shutter"></span>`
             : `<svg class="somfy-shade-icon" data-shadeid="${shade.shadeId}" aria-hidden="true" style="--shade-position:${p}; --fpos:${p}%"><use href="#${st.ico}"></use></svg>`;
         const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
-        return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
+        return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-tilttarget="${shade.tiltTarget ?? shade.tiltPosition}" data-tiltdirection="${shade.tiltDirection || 0}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
         <div class="tile-head">
         <div class="tile-id">
         <h3 class="tile-name shadectl-name" id="shName${shade.shadeId}">${esc(shade.name).replace(/_/g, '_<wbr>')}</h3>
@@ -960,23 +960,37 @@ class Somfy {
     }
     // Paints the live state of one tile from its data-* attributes (kept current by
     // procShadeState): open percentage, apron height, status line, My / Stop label.
-    renderTileState(d) {
-        const flip = makeBool(d.getAttribute('data-flipposition'));
+    // What a tile shows as "% open": the travel, or for a tilt-only shade its tilt, in
+    // the API's own scale (as the position panel does). Moving counts the slats too,
+    // so My turns into Stop while a blind only tilts.
+    tileAxis(d) {
         const num = (a, dflt) => { const v = parseInt(d.getAttribute(a), 10); return isNaN(v) ? dflt : v; };
-        const pos = num('data-position', 0), target = num('data-target', pos), myPos = num('data-mypos', -1);
-        const dir = num('data-direction', 0);
-        const open = shadeOpenness(pos, flip);
+        const tdir = num('data-tiltdirection', 0);
+        if ((parseInt(d.getAttribute('data-tilt'), 10) || 0) === 3) {
+            const t = num('data-tiltposition', 0);
+            return { open: t, target: num('data-tilttarget', t), my: num('data-mytiltpos', -1), dir: tdir, moving: tdir !== 0, tiltOnly: true };
+        }
+        const flip = makeBool(d.getAttribute('data-flipposition'));
+        const pos = num('data-position', 0), myPos = num('data-mypos', -1), dir = num('data-direction', 0);
+        return {
+            open: shadeOpenness(pos, flip), target: shadeOpenness(num('data-target', pos), flip),
+            my: myPos >= 0 ? shadeOpenness(myPos, flip) : -1, dir: dir || tdir, moving: dir !== 0 || tdir !== 0, tiltOnly: false
+        };
+    }
+    renderTileState(d) {
+        const num = (a, dflt) => { const v = parseInt(d.getAttribute(a), 10); return isNaN(v) ? dflt : v; };
+        const ax = this.tileAxis(d);
+        const open = ax.open, dir = ax.dir, moving = ax.moving;
         const pulse = d.classList.contains('is-pulse');
-        const moving = dir !== 0;
         d.classList.toggle('is-moving', moving);
         const pct = d.querySelector('.pct-num');
         if (pct) pct.textContent = open;
         d.querySelector('.tile-pct')?.toggleAttribute('hidden', pulse);
         const sh = d.querySelector('.shutter');
         if (sh) sh.style.height = (100 - open) + '%';
-        const myOpen = myPos >= 0 ? shadeOpenness(myPos, flip) : -1;
+        const myOpen = ax.my;
         let status;
-        if (moving) status = `${tr(dir < 0 ? 'ST_OPENING' : 'ST_CLOSING')} · ${trf('ST_TOWARDS', shadeOpenness(target, flip))}`;
+        if (moving) status = `${tr(dir < 0 ? 'ST_OPENING' : 'ST_CLOSING')} · ${trf('ST_TOWARDS', ax.target)}`;
         else if (pulse) status = '';
         else if (myOpen >= 0 && open === myOpen && open !== 0 && open !== 100) status = tr('ST_AT_MY');
         else status = open <= 0 ? tr('POS_CLOSED') : open >= 100 ? tr('POS_OPEN') : tr('ST_PARTIAL');
@@ -986,7 +1000,9 @@ class Somfy {
         if (lbl) lbl.textContent = moving ? tr('BT_STOP_MY') : 'My';
         const vm = d.querySelector('.val-my');
         if (vm) vm.textContent = moving ? '' : (myOpen >= 0 ? `${myOpen} %` : '—');
-        const tilt = parseInt(d.getAttribute('data-tilt'), 10) || 0;
+        // The extra tilt line is for shades that also lift; a tilt-only tile already
+        // shows its tilt as the main figure.
+        const tilt = ax.tiltOnly ? 0 : (parseInt(d.getAttribute('data-tilt'), 10) || 0);
         const vt = d.querySelector('.val-tilt');
         if (vt) {
             const tp = num('data-tiltposition', -1), mt = num('data-mytiltpos', -1);
@@ -997,7 +1013,7 @@ class Somfy {
     updateHomeSummary() {
         const describe = (tiles) => {
             const shades = tiles.filter(t => !t.classList.contains('is-pulse'));
-            const open = shades.filter(t => shadeOpenness(parseInt(t.getAttribute('data-position'), 10) || 0, makeBool(t.getAttribute('data-flipposition'))) > 0).length;
+            const open = shades.filter(t => this.tileAxis(t).open > 0).length;
             return { total: tiles.length, open: open, shades: shades.length };
         };
         const all = describe(Array.from(document.querySelectorAll('#divShadeControls .somfyShadeCtl')));
@@ -1188,7 +1204,7 @@ class Somfy {
             if (!optGroup) {
                 optGroup = document.createElement('optgroup');
                 optGroup.setAttribute('id', 'optgrpVRGroups');
-                optGroup.setAttribute('label', 'Groups');
+                optGroup.setAttribute('label', tr('VR_OPT_GROUPS'));
                 vrList.appendChild(optGroup);
             } else {
                 optGroup.innerHTML = '';
@@ -1202,7 +1218,7 @@ class Somfy {
             for (let i = 0; i < groups.length; i++) {
                 let group = groups[i];
                 let room = _rooms.find(x => x.roomId === group.roomId) || { roomId: 0, name: '' };
-                divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', group.name))} onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_DELETE', group.name))} onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" style="color: var(--danger-color, red);"><use href=#svg-close></use></svg></div></div>`;
+                divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', group.name))} onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg is-delete" ${a11yBtn(trf('A11Y_DELETE', group.name))} onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" aria-hidden="true"><use href=#svg-trash></use></svg></div></div>`;
                 const members = typeof group.linkedShades !== 'undefined' ? group.linkedShades.length : 0;
                 divCtl += `<div class="somfyGroupCtl gtile" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-groupId="${group.groupId}" data-roomid="${group.roomId}" data-remoteaddress="${group.remoteAddress}">
                 <div class="gtile-text">
@@ -1264,7 +1280,6 @@ class Somfy {
     // pull, presets and 1 % steps. Values read as % open, like the tile; the API keeps
     // its own orientation and shadeOpenness, its own inverse, converts both ways.
     // Tilt-only shades drive their tilt with the apron, in the API's own scale.
-    closeShadePositioners() { this.closePosPanel(); }
     openSetPosition(shadeId) { this.openPosPanel(shadeId, 'move'); }
     openSetMyPosition(shadeId) { this.openPosPanel(shadeId, 'my'); }
     posShade(shadeId) {
@@ -1328,26 +1343,26 @@ class Somfy {
         <div class="pos-side">
         <div class="pos-readout"><span class="pos-big"><span class="pos-val"></span><small> %</small></span><span class="pos-what">${esc(tr(s.tiltOnly ? 'POSP_TILT' : 'POSP_OPEN_PCT'))}</span></div>
         <div class="pos-chips"></div>
-        <div class="pos-steps">
-        <button type="button" class="pos-chip" data-step="-5">−5</button>
-        <button type="button" class="pos-chip" data-step="-1">−1</button>
-        <button type="button" class="pos-chip" data-step="1">+1</button>
-        <button type="button" class="pos-chip" data-step="5">+5</button>
-        </div>
         <p class="pos-note"></p>
+        <div class="pos-steps" role="group" aria-label="${esc(tr('POSP_STEPS'))}">
+        <button type="button" class="pos-step" data-step="-5">−5</button>
+        <button type="button" class="pos-step" data-step="-1">−1</button>
+        <button type="button" class="pos-step" data-step="1">+1</button>
+        <button type="button" class="pos-step" data-step="5">+5</button>
+        </div>
         </div>
         </div>
         ${hasTilt ? `
         <div class="pos-tilt">
         <div class="pos-tilt-head"><span>${esc(tr('POSP_TILT'))}</span><span><b class="pos-tilt-val"></b> %</span></div>
         <div class="pos-tilt-ctl">
-        <button type="button" class="pos-chip" data-tstep="-1" aria-label="${esc(tr('POSP_TILT_MINUS'))}">−1</button>
+        <button type="button" class="pos-step" data-tstep="-1" aria-label="${esc(tr('POSP_TILT_MINUS'))}">−1</button>
         <input type="range" class="pos-tilt-range" min="0" max="100" step="1" aria-label="${esc(tr('POSP_TILT'))}">
-        <button type="button" class="pos-chip" data-tstep="1" aria-label="${esc(tr('POSP_TILT_PLUS'))}">+1</button>
+        <button type="button" class="pos-step" data-tstep="1" aria-label="${esc(tr('POSP_TILT_PLUS'))}">+1</button>
         </div>
         </div>` : ''}
-        <div class="pos-mybox"><p class="pos-mytext"></p><button type="button" class="pos-mybtn"></button><button type="button" class="pos-link pos-myclear">${esc(tr('POSP_CLEAR_MY'))}</button></div>
-        <div class="pos-foot"><button type="button" class="pos-link"><svg aria-hidden="true"><use href="#svg-favori"></use></svg>${esc(tr('POSP_AS_MY'))}</button></div>
+        <p class="pos-mytext"></p>
+        <div class="pos-mybox"><button type="button" class="pos-mybtn"></button><button type="button" class="pos-myclear">${esc(tr('POSP_CLEAR_MY'))}</button></div>
         </div>`;
         document.body.appendChild(el);
         const p = this.pos = { shadeId, el, tab: 'move', sel: 0, tilt: 0, sendT: null, tiltT: null, dragging: false };
@@ -1430,20 +1445,11 @@ class Somfy {
             if (!cur || cur.moving || cur.my < 0) return;
             const msg = tr('POSP_MY_CLEAR') + (cur.cur !== cur.my ? ' ' + trf('POSP_MY_CLEAR_GO', cur.my) : '');
             // In <body>, after the panel, so the question stacks above it.
-            ui.promptMessage(document.body, esc(msg), () => {
+            ui.promptMessage(document.body, esc(msg), { yes: 'POSP_CLEAR_MY', danger: true }, () => {
                 this.closePosPanel();
                 if (cur.tiltOnly) this.sendShadeMyPosition(shadeId, 0, cur.my);
                 else this.sendShadeMyPosition(shadeId, shadeOpenness(cur.my, cur.flip), cur.tiltType > 0 ? cur.myTilt : 0);
             });
-        });
-        // Set the shade where it should be, see it for real, then keep that as My:
-        // the firmware records it without a second move when it is already there.
-        q('.pos-link').addEventListener('click', () => {
-            this.flushPosSend();
-            const keep = p.sel, keepTilt = p.tilt;
-            this.setPosTab('my');
-            p.sel = keep; p.tilt = keepTilt;
-            this.renderPosPanel();
         });
 
         openDialog(el);
@@ -1554,8 +1560,7 @@ class Somfy {
             q('.pos-tilt-val').textContent = p.tilt;
         }
 
-        q('.pos-mybox').hidden = !my;
-        q('.pos-foot').hidden = my;
+        q('.pos-mybox').hidden = q('.pos-mytext').hidden = !my;
         q('.pos-note').textContent = tr(my ? 'POSP_NOTE_MY' : 'POSP_NOTE_MOVE');
         if (my) {
             const withTilt = !s.tiltOnly && s.tiltType > 0;
@@ -1751,29 +1756,6 @@ class Somfy {
             .replace(/\"\[/g, '[')
             .replace(/\]\"/g, ']')
             .replace(/\"\{/g, '{')
-                .replace(/\}\"/g, '}')
-                .replace(/\{\n\s+/g, '{');
-                    return output;
-                }
-        }
-    JSONPretty(obj, indent = 2) {
-        if (Array.isArray(obj)) {
-            let output = '[';
-            for (let i = 0; i < obj.length; i++) {
-                if (i !== 0) output += ',\n';
-                output += this.JSONPretty(obj[i], indent);
-            }
-            output += ']';
-            return output;
-        }
-        else {
-            let output = JSON.stringify(obj, function (k, v) {
-                if (Array.isArray(v)) return JSON.stringify(v);
-                return v;
-            }, indent).replace(/\\/g, '')
-            .replace(/\"\[/g, '[')
-            .replace(/\]\"/g, ']')
-            .replace(/\"\{/g, '{')
             .replace(/\}\"/g, '}')
             .replace(/\{\n\s+/g, '{');
                 return output;
@@ -1916,6 +1898,7 @@ class Somfy {
             b.tabIndex = on ? 0 : -1;
             const p = get('shp' + b.getAttribute('data-shtab'));
             if (p) p.style.display = on ? '' : 'none';
+            if (on) revealInStrip(b);
         });
     }
     bindShadeTabs() {
@@ -1954,7 +1937,7 @@ class Somfy {
         s('divshowSomfyButtons', 'flex');
         g('divshowSomfyButtons')?.classList.toggle('disabled', isNew);
         btns.forEach(id => s(id, 'none'));
-        ['blocPairDevice', 'divLinkedRemoteList', 'labelPosContainer'].forEach(id => s(id, 'none'));
+        ['blocPairDevice', 'blocUnpair', 'divLinkedRemoteList', 'labelPosContainer'].forEach(id => s(id, 'none'));
 
         getJSONBusy(isNew ? '/getNextShade' : `/shade?shadeId=${shadeId}`, (err, shade) => {
             if (err) return ui.serviceError(err);
@@ -1971,6 +1954,7 @@ class Somfy {
                 ['btnLinkRemote', 'btnSetRollingCode'].forEach(id => s(id, 'flex'));
                 s('hrSetRollingC', 'block');
                 s(shade.paired ? 'btnUnpairShade' : 'btnPairShade', 'inline-block');
+                this.setPairState(shade.paired);
 
                 if (g('valPos')) g('valPos').innerText = shade.position;
                 this.setLinkedRemotesList(shade);
@@ -2274,15 +2258,6 @@ class Somfy {
             }
         });
     }
-    updateRepeatList() {
-        getJSONBusy('/repeaters', (err, repeaters) => {
-            if (err) {
-                if(DBG) console.log(err);
-                ui.serviceError(err);
-            }
-            else this.setRepeaterList(repeaters);
-        });
-    }
     deleteRoom(roomId) {
         let valid = true;
         if (isNaN(roomId) || roomId >= 255 || roomId <= 0) {
@@ -2293,7 +2268,7 @@ class Somfy {
             getJSONBusy(`/room?roomId=${roomId}`, (err, room) => {
                 if (err) ui.serviceError(err);
                 else {
-                    let prompt = ui.promptMessage(tr('PROMPT_DELETE_ROOM'), () => {
+                    let prompt = ui.promptMessage(tr('PROMPT_DELETE_ROOM'), { yes: 'BT_DELETE', danger: true }, () => {
                         ui.clearErrors();
                         putJSONBusy('/deleteRoom', { roomId: roomId }, (err, room) => {
                             prompt.remove();
@@ -2318,7 +2293,7 @@ class Somfy {
                 if (err) ui.serviceError(err);
                 else if (shade.inGroup) ui.errorMessage(tr('ERR_DEVICE_IN_GROUP'));
                 else {
-                    let prompt = ui.promptMessage(tr('PROMPT_DELETE_SHADE'), () => {
+                    let prompt = ui.promptMessage(tr('PROMPT_DELETE_SHADE'), { yes: 'BT_DELETE', danger: true }, () => {
                         ui.clearErrors();
                         putJSONBusy('/deleteShade', { shadeId: shadeId }, (err, shade) => {
                             if (err) ui.serviceError(err);
@@ -2346,7 +2321,7 @@ class Somfy {
                         ui.errorMessage(tr('ERR_GROUP_NOT_EMPTY'));
                     }
                     else {
-                        let prompt = ui.promptMessage(tr('PROMPT_DELETE_GROUP'), () => {
+                        let prompt = ui.promptMessage(tr('PROMPT_DELETE_GROUP'), { yes: 'BT_DELETE', danger: true }, () => {
                             putJSONBusy('/deleteGroup', { groupId: groupId }, (err, g) => {
                                 if (err) ui.serviceError(err);
                                 else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
@@ -2402,8 +2377,21 @@ class Somfy {
 
             shOverlay(div);
             div.querySelector('#btnCancel').onclick = () => closeOverlay(div);
-            ui.setFocus(btnCancel, true, 'var(--accent-sucess)');
+            ui.setFocus(btnCancel, true, 'var(--ok-dot)');
         });
+    }
+    // An unpaired shade opens on a card that says so, with the Pair button: it is the
+    // step that follows creating it. Once paired the card goes; Unpair, rare and
+    // undoing, stays in the Advanced tab.
+    setPairState(paired) {
+        const el = get('shPairState');
+        if (el) {
+            el.textContent = tr(paired ? 'SH_PAIRED' : 'SH_NOT_PAIRED');
+            el.classList.toggle('is-off', !paired);
+        }
+        const card = get('blocPairDevice'), adv = get('blocUnpair');
+        if (card) card.style.display = paired ? 'none' : 'flex';
+        if (adv) adv.style.display = paired ? 'flex' : 'none';
     }
     setPaired(shadeId, paired) {
         let obj = { shadeId: shadeId, paired: paired || false };
@@ -2413,7 +2401,7 @@ class Somfy {
             if (overlay) overlay.remove();
             if (err) {
                 if(DBG) console.log(err);
-                ui.errorMessage(err.message);
+                ui.serviceError(err);
             }
             else if (div) {
                 if(DBG) console.log(shade);
@@ -2428,6 +2416,7 @@ class Somfy {
                     get('btnPairShade').style.display = 'inline-block';
                     get('btnUnpairShade').style.display = 'none';
                 }
+                this.setPairState(shade.paired);
                 this.setLinkedRemotesList(shade);
                 closeOverlay(div);
             }
@@ -2841,6 +2830,7 @@ class Somfy {
                     else {
                         let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
                             putJSONBusy('/unlinkFromGroup', { groupId: groupId, shadeId: shadeId }, (err, group) => {
+                                if (err) return ui.serviceError(err);
                                 somfy.setLinkedShadesList(group);
                                 this.updateGroupList();
                             });
@@ -2861,6 +2851,7 @@ class Somfy {
                 let obj = ui.fromElement(div);
                 let prompt = ui.promptMessage(tr('PROMPT_CONFIRM_MOTOR_RESPONSE'), () => {
                     putJSONBusy('/linkToGroup', { groupId: groupId, shadeId: obj.shadeId }, (err, group) => {
+                        if (err) return ui.serviceError(err);
                         somfy.setLinkedShadesList(group);
                         this.updateGroupList();
                     });
@@ -2918,7 +2909,7 @@ class Somfy {
     unlinkGroupShade(groupId, shadeId) { return this._gpWiz(groupId, true, shadeId); }
 
     unlinkRepeater(address) {
-        let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REPEATER'), () => {
+        let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REPEATER'), { yes: 'BT_UNLINK', danger: true }, () => {
             putJSONBusy('/unlinkRepeater', { address: address }, (err, repeaters) => {
                 if (err) ui.serviceError(err);
                 else this.setRepeaterList(repeaters);
@@ -2927,15 +2918,15 @@ class Somfy {
         });
     }
     unlinkRemote(shadeId, remoteAddress) {
-        let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REMOTE'), () => {
+        let prompt = ui.promptMessage(tr('PROMPT_UNLINK_REMOTE'), { yes: 'BT_UNLINK', danger: true }, () => {
             let obj = {
                 shadeId: shadeId,
                 remoteAddress: remoteAddress
             };
             putJSONBusy('/unlinkRemote', obj, (err, shade) => {
-
-                if(DBG) console.log(shade);
                 prompt.remove();
+                if (err) return ui.serviceError(err);
+                if(DBG) console.log(shade);
                 this.setLinkedRemotesList(shade);
             });
         });
@@ -2953,15 +2944,6 @@ class Somfy {
         if(DBG) console.log(el.value);
         let lvls = [-30, -20, -15, -10, -6, 0, 5, 7, 10, 11, 12];
         get('spanTxPower').innerText = lvls[el.value];
-    }
-    openSelectRoom() {
-        this.closeShadePositioners();
-        if(DBG) console.log('Opening rooms');
-        let list = get('divRoomSelector-list');
-        list.style.display = 'block';
-        document.body.addEventListener('click', () => {
-            list.style.display = '';
-        }, { once: true });
     }
 }
 var somfy = new Somfy();

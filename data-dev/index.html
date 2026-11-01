@@ -156,10 +156,18 @@
 <button type="button" role="tab" id="shtabAdvanced" data-shtab="Advanced" aria-controls="shpAdvanced" aria-selected="false" tabindex="-1" tr="SHTAB_ADVANCED">Avancé</button>
 </div>
 <div id="shpGeneral" class="sh-panel" role="tabpanel" aria-labelledby="shtabGeneral">
+<!-- Pairing opens the record: it is the step that follows creating a shade. -->
+<div id="blocPairDevice" class="unibloc sh-pair"><p id="shPairState" class="sh-pair-state" role="status"></p><button id="btnPairShade" onclick="somfy.pairShade(parseInt(document.getElementById('spanShadeId').innerText, 10));" class="unibutton" type="button">
+                                        <div class="devButtonUpdate">
+                                            <div tr="BT_PAIR"></div>
+                                            <div class="uniStatus" tr="BT_PAIR_DESC"></div>
+                                        </div>
+                                    <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
+</div>
 <div class="unibloc">
                                     <div>
                                         <label class="label" for="fldShadeName" tr="NAME"></label>
-                                        <input id="fldShadeName" class="inputAndSelect" name="shadeName" data-bind="name" type="text" length=20 tr="SECURITY_ENTER_NAME" placeholder="Entre un nom">
+                                        <input id="fldShadeName" class="inputAndSelect" name="shadeName" data-bind="name" type="text" maxlength=20 tr="SECURITY_ENTER_NAME" placeholder="Entre un nom">
                                     </div>
                                     <hr>
                                     <div>
@@ -243,18 +251,18 @@
                                 <div id="divLiftSettings">
                                     <div>
                                         <label class="label" for="fldShadeUpTime" tr="SHADE_UP_TIME"></label>
-                                        <input id="fldShadeUpTime" class="inputAndSelect" name="shadeUpTime" data-bind="upTime" data-datatype="int" type="number" min="1" max="180000" step="1" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
+                                        <input id="fldShadeUpTime" class="inputAndSelect" name="shadeUpTime" data-bind="upTime" data-datatype="int" type="number" min="1" max="180000" step="1" maxlength=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
                                     </div>
                                     <hr>
                                     <div>
                                         <label class="label" for="fldShadeDownTime" tr="SHADE_DOWN_TIME"></label>
-                                        <input id="fldShadeDownTime" class="inputAndSelect" name="shadeDownTime" type="number" min="1" max="180000" step="1" data-bind="downTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
+                                        <input id="fldShadeDownTime" class="inputAndSelect" name="shadeDownTime" type="number" min="1" max="180000" step="1" data-bind="downTime" data-datatype="int" maxlength=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 10000);"/>
                                     </div>
                                     <div id="divLiftTime">
                                         <hr>
                                         <div>
                                             <label class="label" for="fldShadeLiftTime" tr="SHADE_LIFT_TIME"></label>
-                                            <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" min="0" max="60000" step="1" data-bind="liftTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 0);"/>
+                                            <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" min="0" max="60000" step="1" data-bind="liftTime" data-datatype="int" maxlength=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 0);"/>
                                         </div>
                                         <hr>
                                         <div>
@@ -268,7 +276,7 @@
                                                     <div tr="SHADE_CALIBRATE"></div>
                                                     <div class="uniStatus" tr="SHADE_CALIBRATE_DESC"></div>
                                                 </div>
-                                            </button>
+                                            <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                                         </div>
                                     </div>
                                 </div>
@@ -287,7 +295,7 @@
                                     <hr id="hrDldTiltTime">
                                     <div>
                                         <label class="label" for="fldTiltTime" tr="SHADE_TILT_TIME"></label>
-                                        <input id="fldTiltTime" class="inputAndSelect" name="shadeTiltTime" type="number" min="0" max="60000" data-bind="tiltTime" data-datatype="int" length=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 7000);"/>
+                                        <input id="fldTiltTime" class="inputAndSelect" name="shadeTiltTime" type="number" min="0" max="60000" data-bind="tiltTime" data-datatype="int" maxlength=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 7000);"/>
                                     </div>
                                 </div>
                                 <div id="divStepSettings">
@@ -314,13 +322,13 @@
                                     </div>
                                     <div id="divshowSomfyButtons" class="uniRight">
                                         <div class="button-outline btn-somfy-svg animScale" role="button" tabindex="0" tr-aria="A11Y_VR_UP" data-cmd="up" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'up');">
-                                            <svg><use href="#svg-up"></use></svg>
+                                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>
                                         </div>
                                         <div class="button-outline btn-somfy-svg animScale" role="button" tabindex="0" tr-aria="A11Y_VR_MY" data-cmd="my" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'my');">
-                                            <svg><use href="#svg-my"></use></svg>
+                                            <span class="cmd-my-label" aria-hidden="true">My</span>
                                         </div>
                                         <div class="button-outline btn-somfy-svg animScale" role="button" tabindex="0" tr-aria="A11Y_VR_DOWN" data-cmd="down" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'down');">
-                                            <svg><use href="#svg-down"></use></svg>
+                                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                         </div>
                                         <div class="button-outline btn-somfy-svg-wide animScale" role="button" tabindex="0" tr-aria="A11Y_VR_TOGGLE" data-cmd="toggle" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'toggle');">
                                             <svg><use href="#svg-toggle"></use></svg>
@@ -386,7 +394,7 @@
                                             <div tr="BT_LINK_REMOTE"></div>
                                             <div class="uniStatus" tr="BT_LINK_REMOTE_DESC"></div>
                                         </div>
-                                    </button>
+                                    <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                                 </div>
 <div id="divLinkedRemoteList" class="LinkedRemoteList"></div>
 </div>
@@ -436,23 +444,18 @@
                                         <div>
                                             <div id="divShadeAddress">
                                                 <label class="label" for="fldShadeAddress" tr="REMOTE_ID"></label>
-                                                <input id="fldShadeAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" length=5 tr="RADIO_ADRESS" placeholder="Address">
+                                                <input id="fldShadeAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" maxlength=5 tr="RADIO_ADRESS" placeholder="Address">
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-<div id="blocPairDevice" class="unibloc sh-pair"><button id="btnPairShade" onclick="somfy.pairShade(parseInt(document.getElementById('spanShadeId').innerText, 10));" class="unibutton" type="button">
-                                        <div class="devButtonUpdate">
-                                            <div tr="BT_PAIR"></div>
-                                            <div class="uniStatus" tr="BT_PAIR_DESC"></div>
-                                        </div>
-                                    </button>
-<button id="btnUnpairShade" onclick="somfy.unpairShade(parseInt(document.getElementById('spanShadeId').innerText, 10));" class="unibutton" type="button">
+<!-- Unpairing is rare and undoes the pairing: it lives here, not at the top of the record. -->
+<div id="blocUnpair" class="unibloc sh-pair"><button id="btnUnpairShade" onclick="somfy.unpairShade(parseInt(document.getElementById('spanShadeId').innerText, 10));" class="unibutton" type="button">
                                         <div class="devButtonUpdate">
                                             <div tr="BT_UNPAIR"></div>
                                             <div class="uniStatus" tr="BT_UNPAIR_DESC"></div>
                                         </div>
-                                    </button></div>
+                                    <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button></div>
 <div class="unibloc">
 <div>
                                     <label class="label" for="fldShadeRepeats" tr="REPEAT_COMMANDS"></label>
@@ -473,7 +476,7 @@
                                             <div tr="BT_SET_ROLLING_CODE"></div>
                                             <div class="uniStatus" tr="SHADE_ROLLING_CODE_DESC"></div>
                                         </div>
-                                    </button>
+                                    <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                                 </div>
 </div>
 </div>
@@ -512,7 +515,7 @@
                             <div class="somfyMaxId"><span id="spanRoomId">*</span>/<span id="spanMaxRooms">14</span></div>
                             <div class="unibloc">
                                 <label class="label" for="fldRoomName" tr="NAME"></label>
-                                <input id="fldRoomName" class="inputAndSelect" name="roomName" data-bind="name" type="text" length=20  tr="ROOM_NAME_PHL" placeholder="Entrer un nom de pièce">
+                                <input id="fldRoomName" class="inputAndSelect" name="roomName" data-bind="name" type="text" maxlength=20  tr="ROOM_NAME_PHL" placeholder="Entrer un nom de pièce">
                             </div>
                             <div class="footer-overlay">
                                 <button id="btnRoomGoBack" line type="button" onclick="somfy.closeEditor('Room');" tr="BT_CLOSE"></button>
@@ -542,7 +545,7 @@
                             <div class="unibloc">
                                 <div>
                                     <label class="label" for="fldGroupName" tr="NAME"></label>
-                                    <input id="fldGroupName" class="inputAndSelect" name="groupName" data-bind="name" type="text" length=20  tr="SECURITY_ENTER_NAME" placeholder="entrer un Nom">
+                                    <input id="fldGroupName" class="inputAndSelect" name="groupName" data-bind="name" type="text" maxlength=20  tr="SECURITY_ENTER_NAME" placeholder="entrer un Nom">
                                 </div>
                                  <hr>
                                 <div>
@@ -570,20 +573,20 @@
                                 <hr>
                                 <div>
                                     <label class="label" for="fldGroupAddress" tr="REMOTE_ID"></label>
-                                    <input id="fldGroupAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" length=5 tr="RADIO_ADRESS" placeholder="Adresse">
+                                    <input id="fldGroupAddress" class="inputAndSelect" name="shadeAddress" data-bind="remoteAddress" data-datatype="int" type="number" min="1" max="16777215" step="1" maxlength=5 tr="RADIO_ADRESS" placeholder="Adresse">
                                 </div>
                             </div>
                             <div id="blocPairGroup" class="button-container-pair">
                                 <div class="unibloc">
                                     <div id="divSomfyGroupButtons" class="uniGroupButton">
                                         <div class="btn-somfy-svg" role="button" tabindex="0" tr-aria="A11Y_VR_UP" data-cmd="up" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'up');">
-                                            <svg><use href="#svg-up"></use></svg>
+                                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>
                                         </div>
                                         <div class="btn-somfy-svg" role="button" tabindex="0" tr-aria="A11Y_VR_MY" data-cmd="my" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'my');">
-                                            <svg><use href="#svg-my"></use></svg>
+                                            <span class="cmd-my-label" aria-hidden="true">My</span>
                                         </div>
                                         <div class="btn-somfy-svg" role="button" tabindex="0" tr-aria="A11Y_VR_DOWN" data-cmd="down" onclick="somfy.sendGroupCommand(parseInt(document.getElementById('spanGroupId').innerText, 10), 'down');">
-                                            <svg><use href="#svg-down"></use></svg>
+                                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                         </div>
                                     </div>
                                 </div>
@@ -706,7 +709,7 @@
                                         <div class="segment"><svg><use href=#vr-down></use></svg></div>
                                     </div>
                                     <div class="vr-all animScale" data-cmd="MyUpDown" tr="VR_MY_UP_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <div class="segment">all</div>
+                                        <div class="segment" tr="VR_ALL">all</div>
                                     </div>
                                 </div>
                             </div>
@@ -779,7 +782,7 @@
                                 </div>
                                 <div class="MqttEnabled-switch">
                                     <span class="switch">
-                                        <input id="cbMqttEnabled" type="checkbox" name="mqtt-enabled" data-bind="mqtt.enabled"/>
+                                        <input id="cbMqttEnabled" type="checkbox" name="mqtt-enabled" data-bind="mqtt.enabled" onchange="mqtt.syncEnabled();"/>
                                         <div></div>
                                     </span>
                                 </div>
@@ -804,20 +807,20 @@
                                 <option tr="MQTT_OPT_MQTTS"></option>
                             </select>
                             <span>://</span>
-                            <input class="mqttSelect" name="mqtt-host" type="text" length=64 placeholder="Host" data-bind="mqtt.hostname">
+                            <input class="mqttSelect" name="mqtt-host" type="text" maxlength=64 placeholder="Host" data-bind="mqtt.hostname">
                             <span>:</span>
-                            <input id="fldMqttPort" class="mqttSelect" name="mqtt-port" type="text" length=5 placeholder="Port" data-bind="mqtt.port" data-datatype="int">
+                            <input id="fldMqttPort" class="mqttSelect" name="mqtt-port" type="text" maxlength=5 placeholder="Port" data-bind="mqtt.port" data-datatype="int">
                         </div>
                         <div class="unibloc">
                             <div>
                                 <label class="label" for="fldMqttUsername" tr="SECURITY_USERNAME"></label>
-                                <input id="fldMqttUsername" class="inputAndSelect" name="mqtt-username" type="text" data-bind="mqtt.username" length=32 tr="MQTT_USERNAME_PLH" placeholder="Identifiant de votre compte MQTT">
+                                <input id="fldMqttUsername" class="inputAndSelect" name="mqtt-username" type="text" data-bind="mqtt.username" maxlength=32 tr="MQTT_USERNAME_PLH" placeholder="Identifiant de votre compte MQTT">
                             </div>
                             <hr>
                             <div>
                                 <label class="label" for="fldMqttPassword" tr="SECURITY_PASSWORD"></label>
                                 <div class="LoginPassword-input password-container">
-                                    <input id="fldMqttPassword" class="inputAndSelect" name="mqtt-password" type="password" data-bind="mqtt.password" length=64 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
+                                    <input id="fldMqttPassword" class="inputAndSelect" name="mqtt-password" type="password" data-bind="mqtt.password" maxlength=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
                                     <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldMqttPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use id="mqttEyeIcon" href="#svg-eyeOff"></use></svg>
                                     </div>
@@ -826,17 +829,17 @@
                             <hr>
                             <div>
                                 <label class="label" for="fldMqttTopic" tr="MQTT_ROOT_TOPIC"></label>
-                                <input id="fldMqttTopic" class="inputAndSelect" name="mqtt-topic" type="text" length=64 data-bind="mqtt.rootTopic" tr="MQTT_ROOT_TOPIC_PLH" placeholder="Préfixe utilisé pour tous les messages de ce module">
+                                <input id="fldMqttTopic" class="inputAndSelect" name="mqtt-topic" type="text" maxlength=64 data-bind="mqtt.rootTopic" tr="MQTT_ROOT_TOPIC_PLH" placeholder="Préfixe utilisé pour tous les messages de ce module">
                             </div>
                             <hr>
                             <div>
                                 <label class="label" for="fldMqttClientId" tr="MQTT_CLIENT_ID"></label>
-                                <input id="fldMqttClientId" class="inputAndSelect" name="mqtt-clientid" type="text" length=64 data-bind="mqtt.clientId" tr="MQTT_CLIENT_ID_PLH" placeholder="Identifiant client MQTT (vide = client-<mac>)">
+                                <input id="fldMqttClientId" class="inputAndSelect" name="mqtt-clientid" type="text" maxlength=64 data-bind="mqtt.clientId" tr="MQTT_CLIENT_ID_PLH" placeholder="Identifiant client MQTT (vide = client-<mac>)">
                             </div>
                             <hr id="hrIdDiscoveryTopic">
                             <div id="divDiscoveryTopic" style="display:none;">
                                 <label class="label" for="fldDiscoTopic" tr="MQTT_DISCOVERY_TOPIC"></label>
-                                <input id="fldDiscoTopic" class="inputAndSelect" name="disco-topic" type="text" length=64 data-bind="mqtt.discoTopic" tr="MQTT_DISCOVERY_TOPIC_PLH"  placeholder="Chemin utilisé pour la détection automatique par votre système, exemple: homeassistant">
+                                <input id="fldDiscoTopic" class="inputAndSelect" name="disco-topic" type="text" maxlength=64 data-bind="mqtt.discoTopic" tr="MQTT_DISCOVERY_TOPIC_PLH"  placeholder="Chemin utilisé pour la détection automatique par votre système, exemple: homeassistant">
                             </div>
                         </div>
                         <div class="footer-overlay">
@@ -1047,13 +1050,13 @@
                                     <hr>
                                     <div>
                                         <label class="label" for="fldSsid" tr="CONNECTION_WIFI_SSID"></label>
-                                        <input id="fldSsid" class="inputAndSelect" name="ssid" type="text" data-bind="wifi.ssid" autocomplete="new-password" length=32 tr="CONNECTION_WIFI_ENTER_SSID" placeholder="Entrer votre SSID">
+                                        <input id="fldSsid" class="inputAndSelect" name="ssid" type="text" data-bind="wifi.ssid" autocomplete="new-password" maxlength=64 tr="CONNECTION_WIFI_ENTER_SSID" placeholder="Entrer votre SSID">
                                     </div>
                                     <hr>
                                     <div>
                                         <label class="label" for="fldPassphrase" tr="SECURITY_PASSWORD"></label>
                                         <div class="LoginPassword-input password-container">
-                                            <input id="fldPassphrase" class="inputAndSelect" name="passphrase" type="password" data-bind="wifi.passphrase" autocomplete="new-password" length=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
+                                            <input id="fldPassphrase" class="inputAndSelect" name="passphrase" type="password" data-bind="wifi.passphrase" autocomplete="new-password" maxlength=64 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer votre Mot de passe">
                                             <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldPassphrase', this)">
                                                 <svg class="pwd-icon pwd-iconeye"><use id="wifiEyeIcon" href="#svg-eyeOff"></use></svg>
                                             </div>
@@ -1135,27 +1138,27 @@
                                 <hr>
                                 <div>
                                     <label class="label" for="fldIPAddress" tr="ADRESSIP_STATIC_IP"></label>
-                                    <input id="fldIPAddress" class="inputAndSelect" name="staticIP" type="text" inputmode="decimal" data-bind="ip.ip" length=32 tr="ADRESSIP_STATIC_IP_PLH" placeholder="0.0.0.0">
+                                    <input id="fldIPAddress" class="inputAndSelect" name="staticIP" type="text" inputmode="decimal" data-bind="ip.ip" maxlength=32 tr="ADRESSIP_STATIC_IP_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldSubnetMask" tr="ADRESSIP_SUBNET_MASK" ></label>
-                                    <input id="fldSubnetMask" class="inputAndSelect" name="subnet" type="text" inputmode="decimal" data-bind="ip.subnet" length=32 tr="ADRESSIP_SUBNET_MASK_PLH" placeholder="0.0.0.0">
+                                    <input id="fldSubnetMask" class="inputAndSelect" name="subnet" type="text" inputmode="decimal" data-bind="ip.subnet" maxlength=32 tr="ADRESSIP_SUBNET_MASK_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldGateway" tr="ADRESSIP_GATEWAY" ></label>
-                                    <input id="fldGateway" class="inputAndSelect" name="gateway" type="text" inputmode="decimal" data-bind="ip.gateway" length=32  tr="ADRESSIP_GATEWAY_PLH" placeholder="0.0.0.0">
+                                    <input id="fldGateway" class="inputAndSelect" name="gateway" type="text" inputmode="decimal" data-bind="ip.gateway" maxlength=32  tr="ADRESSIP_GATEWAY_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldDNS1" tr="ADRESSIP_DNS1"></label>
-                                    <input id="fldDNS1" class="inputAndSelect" name="dns1" type="text" inputmode="decimal" data-bind="ip.dns1" length=32 tr="ADRESSIP_DNS1_PLH" placeholder="0.0.0.0">
+                                    <input id="fldDNS1" class="inputAndSelect" name="dns1" type="text" inputmode="decimal" data-bind="ip.dns1" maxlength=32 tr="ADRESSIP_DNS1_PLH" placeholder="0.0.0.0">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldDNS2" tr="ADRESSIP_DNS2"></label>
-                                    <input id="fldDNS2" class="inputAndSelect" name="dns2" type="text" inputmode="decimal" data-bind="ip.dns2" length=32 tr="ADRESSIP_DNS2_PLH" placeholder="0.0.0.0">
+                                    <input id="fldDNS2" class="inputAndSelect" name="dns2" type="text" inputmode="decimal" data-bind="ip.dns2" maxlength=32 tr="ADRESSIP_DNS2_PLH" placeholder="0.0.0.0">
                                 </div>
                             </div>
                         </div>
@@ -1503,27 +1506,32 @@
                                 </label>
                            </div>
                         </div>
+                        <!-- In a card like the other settings, left-aligned; a group named by its
+                             label, each digit named (a label "for" a div named nothing). -->
                         <div id="divPinSecurity" style="display:none;">
-                            <div class="blocPin-digit">
-                                <div id="fldPinEntry" onkeydown="ui.pinKeyPressed(event);" onpaste="ui.pinPasted(event);">
-                                    <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d0" onfocus="ui.pinDigitFocus(event);">
-                                    <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d1" onfocus="ui.pinDigitFocus(event);">
-                                    <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d2" onfocus="ui.pinDigitFocus(event);">
-                                    <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d3" onfocus="ui.pinDigitFocus(event);">
+                            <div class="unibloc blocPin-digit">
+                                <div>
+                                    <p class="label" id="lblPinEntry" tr="SECURITY_PIN_CODE"></p>
+                                    <div id="fldPinEntry" class="pin-row" role="group" aria-labelledby="lblPinEntry" aria-describedby="hlpPinEntry" onkeydown="ui.pinKeyPressed(event);" onpaste="ui.pinPasted(event);">
+                                        <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d0" onfocus="ui.pinDigitFocus(event);" tr-aria="A11Y_PIN_DIGIT_1">
+                                        <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d1" onfocus="ui.pinDigitFocus(event);" tr-aria="A11Y_PIN_DIGIT_2">
+                                        <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d2" onfocus="ui.pinDigitFocus(event);" tr-aria="A11Y_PIN_DIGIT_3">
+                                        <input class="pin-digit" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" data-bind="security.pin.d3" onfocus="ui.pinDigitFocus(event);" tr-aria="A11Y_PIN_DIGIT_4">
+                                    </div>
+                                    <p class="help" id="hlpPinEntry" tr="SECURITY_ENTER_PIN"></p>
                                 </div>
-                                <label for="fldPinEntry" tr="SECURITY_ENTER_PIN" ></label>
                             </div>
                         </div>
                         <div id="divPasswordSecurity" style="display:none;">
                             <div class="unibloc">
                                 <div>
                                     <label class="label" for="fldUsername" tr="SECURITY_USERNAME"></label>
-                                    <input id="fldUsername" class="inputAndSelect" name="username" type="text" data-bind="security.username" length=32 tr="SECURITY_USERNAME_PLH" placeholder="Entrer un nom d'utilisateur">
+                                    <input id="fldUsername" class="inputAndSelect" name="username" type="text" data-bind="security.username" maxlength=32 tr="SECURITY_USERNAME_PLH" placeholder="Entrer un nom d'utilisateur">
                                 </div>
                                 <hr>
                                 <div>
                                     <label class="label" for="fldPassword" tr="SECURITY_PASSWORD"></label>
-                                    <input id="fldPassword" class="inputAndSelect" name="password" type="password" data-bind="security.password" length=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer un mot de passe">
+                                    <input id="fldPassword" class="inputAndSelect" name="password" type="password" data-bind="security.password" maxlength=32 tr="SECURITY_PASSWORD_PLH" placeholder="Entrer un mot de passe">
                                     <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                                     </div>
@@ -1531,7 +1539,7 @@
                                 <hr>
                                 <div>
                                     <label class="label" for="fldRenterPassword" tr="SECURITY_CONFIRM_PASSWORD"></label>
-                                    <input id="fldRenterPassword" class="inputAndSelect" name="password" type="password" data-bind="security.repeatpassword" length=32 tr="SECURITY_CONFIRM_PASSWORD_PLH" placeholder="Vous devez Confirmer le Mot de Passe">
+                                    <input id="fldRenterPassword" class="inputAndSelect" name="password" type="password" data-bind="security.repeatpassword" maxlength=32 tr="SECURITY_CONFIRM_PASSWORD_PLH" placeholder="Vous devez Confirmer le Mot de Passe">
                                     <div class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldRenterPassword', this)">
                                         <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                                     </div>
@@ -1565,7 +1573,7 @@
                                     <div class="uniStatus" tr="FW_UPDATE_FIRM_DESC"></div>
                                 </div>
                                 <span class="version-badge" id="spanFwVersion">v-.--</span>
-                            </button>
+                            <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                             <hr>
                             <button id="btnUpdateApplication" type="button" onclick="firmware.updateManual(true);" class="buttonUpdate">
                                 <svg><use href=#svg-update></use></svg>
@@ -1574,12 +1582,12 @@
                                     <div class="uniStatus" tr="FW_UPDATE_APP_DESC"></div>
                                 </div>
                                 <span class="version-badge" id="spanAppVersion">v-.--</span>
-                            </button>
+                            <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                             <hr>
                             <button id="btnReloadApplication" type="button" onclick="general.reload();" class="buttonUpdate">
                                 <svg><use href=#svg-clear></use></svg>
                                 <span class="buttonUpdateCache" tr="FW_REFRESH_CACHE"></span>
-                            </button>
+                            <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                         </div>
 <div class="button-container-row">
                             <div class="divButton">
@@ -1588,7 +1596,7 @@
                                         <div tr="FW_BACKUP"></div>
                                         <div class="uniStatus" tr="FW_BACKUP_DESC"></div>
                                     </div>
-                                </button>
+                                <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                             </div>
                             <div class="divButton">
                                 <button id="btnRestore" type="button" onclick="firmware.restore();" class="buttonUpdate">
@@ -1596,7 +1604,7 @@
                                         <div tr="FW_RESTORE"></div>
                                         <div class="uniStatus" tr="FW_RESTORE_DESC"></div>
                                     </div>
-                                </button>
+                                <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                             </div>
                         </div>
 </div>
@@ -1609,7 +1617,7 @@
 <h2 class="card-title" tr="PREF_H_GENERAL">Carte, langue et heure</h2>
                             <div>
                                 <label class="label" for="fldHostname" tr="GENERAL_HOSTNAME"></label>
-                                <input id="fldHostname" class="inputAndSelect" name="hostname" type="text" data-bind="general.hostname" length=32 tr="GENERAL_PH_HOSTNAME" placeholder="Enter un Nom d'hôte">
+                                <input id="fldHostname" class="inputAndSelect" name="hostname" type="text" data-bind="general.hostname" maxlength=31 tr="GENERAL_PH_HOSTNAME" placeholder="Enter un Nom d'hôte">
                             </div>
                             <hr>
                             <div>
@@ -1629,7 +1637,7 @@
                             <hr>
                             <div>
                                 <label class="label" for="fldNtptimeserver" tr="GENERAL_NTP_SERVER"></label>
-                                <input id="fldNtptimeserver" class="inputAndSelect" name="ntptimeserver" type="text" length=32 data-bind="general.ntpServer" tr="GENERAL_PH_NTP_SERVER" placeholder="Entrer votre Serveur NTP">
+                                <input id="fldNtptimeserver" class="inputAndSelect" name="ntptimeserver" type="text" maxlength=64 data-bind="general.ntpServer" tr="GENERAL_PH_NTP_SERVER" placeholder="Entrer votre Serveur NTP">
                             </div>
                         </div>
                         <div class="unibloc">
@@ -1699,7 +1707,6 @@
                             <input id="fldPosPresets" name="posPresets" type="hidden" data-bind="general.posPresets"/>
                         </div>
                         <div class="footer-overlay">
-                            <button id="btnRebootGeneral" type="button" line onclick="general.rebootDevice();" tr="BT_REBOOT"></button>
                             <button id="btnSaveGeneral" type="button" tr="BT_SAVE" onclick="general.setGeneral();" ></button>
                         </div>
                     </div>
@@ -2002,12 +2009,12 @@
                 <div id="divLoginPassword" style="display:none;" onkeyup="if (event.code === 'Enter') security.login();">
                     <div class="field">
                         <label class="label" for="fldLoginUsername" tr="SECURITY_USERNAME">Utilisateur</label>
-                        <input id="fldLoginUsername" class="inputAndSelect" name="username" type="text" data-bind="login.username" length=32 autocomplete="username"/>
+                        <input id="fldLoginUsername" class="inputAndSelect" name="username" type="text" data-bind="login.username" maxlength=32 autocomplete="username"/>
                     </div>
                     <div class="field">
                         <label class="label" for="fldLoginPassword" tr="SECURITY_PASSWORD">Mot de passe</label>
                         <div class="password-container">
-                            <input id="fldLoginPassword" class="inputAndSelect" name="password" type="password" data-bind="login.password" length=32 autocomplete="current-password"/>
+                            <input id="fldLoginPassword" class="inputAndSelect" name="password" type="password" data-bind="login.password" maxlength=32 autocomplete="current-password"/>
                             <div id="togglePassword" class="password-eye" role="button" tabindex="0" tr-aria="A11Y_TOGGLE_PASSWORD" onclick="security.toggleFieldPassword('fldLoginPassword', this)">
                                 <svg class="pwd-icon pwd-iconeye"><use href="#svg-eyeOff"></use></svg>
                             </div>
@@ -2052,58 +2059,20 @@
             <path fill="currentColor" d="M18 14.49V9c0-1-1.01-2.01-2-2V3h-2v4h-4V3H8v2.48l9.51 9.5zm-1.76 1.77L7.2 7.2l-.01.01L3.98 4L2.71 5.25l3.36 3.36C6.04 8.74 6 8.87 6 9v5.48L9.5 18v3h5v-3l.48-.48L19.45 22l1.26-1.28z" />
         </symbol>
         <symbol id="svg-homeAssistant" viewBox="0 0 24 24">
-            <path id="path1" d="m0 14 12-9 12 9-6.3 9.69-11.6-3e-3z" fill="#fff"/>
-            <path id="path2" d="M22.939 10.627L13.061.749a1.505 1.505 0 0 0-2.121 0l-9.879 9.878C.478 11.21 0 12.363 0 13.187v9c0 .826.675 1.5 1.5 1.5h9.227l-4.063-4.062a2 2 0 0 1-.664.113c-1.13 0-2.05-.92-2.05-2.05s.92-2.05 2.05-2.05s2.05.92 2.05 2.05c0 .233-.041.456-.113.665l3.163 3.163V9.928a2.05 2.05 0 0 1-1.15-1.84c0-1.13.92-2.05 2.05-2.05s2.05.92 2.05 2.05a2.05 2.05 0 0 1-1.15 1.84v8.127l3.146-3.146A2.05 2.05 0 0 1 18 12.239c1.13 0 2.05.92 2.05 2.05s-.92 2.05-2.05 2.05a2 2 0 0 1-.709-.13L12.9 20.602v3.088h9.6c.825 0 1.5-.675 1.5-1.5v-9c0-.825-.477-1.977-1.061-2.561z" fill="#18bcf2"/>
-        <symbol>
+            <path d="m0 14 12-9 12 9-6.3 9.69-11.6-3e-3z" fill="#fff"/>
+            <path d="M22.939 10.627L13.061.749a1.505 1.505 0 0 0-2.121 0l-9.879 9.878C.478 11.21 0 12.363 0 13.187v9c0 .826.675 1.5 1.5 1.5h9.227l-4.063-4.062a2 2 0 0 1-.664.113c-1.13 0-2.05-.92-2.05-2.05s.92-2.05 2.05-2.05s2.05.92 2.05 2.05c0 .233-.041.456-.113.665l3.163 3.163V9.928a2.05 2.05 0 0 1-1.15-1.84c0-1.13.92-2.05 2.05-2.05s2.05.92 2.05 2.05a2.05 2.05 0 0 1-1.15 1.84v8.127l3.146-3.146A2.05 2.05 0 0 1 18 12.239c1.13 0 2.05.92 2.05 2.05s-.92 2.05-2.05 2.05a2 2 0 0 1-.709-.13L12.9 20.602v3.088h9.6c.825 0 1.5-.675 1.5-1.5v-9c0-.825-.477-1.977-1.061-2.561z" fill="#18bcf2"/>
+        </symbol>
   <!-- Login -->
-        <symbol id="svg-user" viewBox="0 0 20 20">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
-        </symbol>
-        <symbol id="svg-cadenas" viewBox="0 0 20 20">
-            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="currentColor"/>
-        </symbol>
         <symbol id="svg-eyeOn" viewBox="0 0 24 24">
             <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>';
         </symbol>
         <symbol id="svg-eyeOff" viewBox="0 0 24 24">
             <path fill="currentColor" d="M11.83 9L15 12.16V12a3 3 0 0 0-3-3zm-4.3.8l1.55 1.55c-.05.21-.08.42-.08.65a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53a5 5 0 0 1-5-5c0-.79.2-1.53.53-2.2M2 4.27l2.28 2.28l.45.45C3.08 8.3 1.78 10 1 12c1.73 4.39 6 7.5 11 7.5c1.55 0 3.03-.3 4.38-.84l.43.42L19.73 22L21 20.73L3.27 3M12 7a5 5 0 0 1 5 5c0 .64-.13 1.26-.36 1.82l2.93 2.93c1.5-1.25 2.7-2.89 3.43-4.75c-1.73-4.39-6-7.5-11-7.5c-1.4 0-2.74.25-4 .7l2.17 2.15C10.74 7.13 11.35 7 12 7" />
         </symbol>
- <!--TAB Menus -->
-        <symbol id="svg-tabHome" viewBox="0 0 48 48">
-            <path fill="currentColor" d="M46 22.9l-7-6.7V6c0-.8-.7-1.5-1.5-1.5h-4.5c-.8 0-1.5.7-1.5 1.5v3l-5.4-5.2a3.1 3.1 0 0 0-4.1 0L2 22.9c-.6.6-.7 1.5-.1 2.1s1.5.6 2.1 0L23.5 6.5a.7.7 0 0 1 1 0l19.6 18.5c.6.6 1.5.6 2.1 0s.6-1.5-.3-2.1zM24.5 9.5a.7.7 0 0 0-1 0L6.2 26c-.2.2-.2.4-.2.5L6 42a3 3 0 0 0 3 3h9a1.5 1.5 0 0 0 1.5-1.5V30.8a.7.7 0 0 1 .8-.8h7.5a.7.7 0 0 1 .7.8V43.5a1.5 1.5 0 0 0 1.5 1.5h9a3 3 0 0 0 3-3V26c0-.1-.1-.3-.2-.5L24.5 9.5z"/>
-        </symbol>
-        <symbol id="svg-tabSettings" viewBox="0 0 48 48">
-            <path fill="currentColor" d="M24 31a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm14.9-5.1c0-.6.1-1.3.1-1.9s-.1-1.3-.1-2l4.2-3.3c.4-.3.5-.8.2-1.3l-4-6.9c-.2-.4-.8-.6-1.2-.4l-5 2c-1-.8-2.1-1.5-3.5-2l-.7-5.3c-.1-.5-.5-.8-1-.8h-7.8c-.5 0-.9.3-1 .8l-.7 5.3c-1.4.5-2.5 1.2-3.5 2l-5-2c-.4-.2-1 0-1.2.4l-4 6.9c-.3.4-.2 1 .2 1.3l4.2 3.3c-.1.7-.1 1.3-.1 2s0 1.3.1 1.9l-4.2 3.3c-.4.3-.5.9-.2 1.3l4 6.9c.2.4.8.6 1.2.4l5-2c1 .8 2.1 1.5 3.5 2l.7 5.3c.1.5.5.8 1 .8h7.8c.5 0 .9-.3 1-.8l.7-5.3c1.4-.5 2.5-1.2 3.5-2l5 2c.4.2 1 0 1.2-.4l4-6.9c.3-.4.2-1-.2-1.3z"/>
-        </symbol>
-        <symbol id="svg-tabSystem" viewBox="0 0 24 24">
-            <path fill="currentColor" d="m18 5c0-1.33-2-1.33-2 0v1h-12c-1.33 0-1.33 2 0 2h12v1c0 1.33 2 1.33 2 0v-1h2c1.33 0 1.33-2 0-2h-2zm-14 6c-1.33 0-1.33 2 0 2h2v1c0 1.33 2 1.33 2 0v-1h12c1.33 0 1.33-2 0-2h-12v-1c0-1.33-2-1.33-2 0v1zm-1 6c0-.55.45-1 1-1h12v-1c0-1.33 2-1.33 2 0v1h2c1.33 0 1.33 2 0 2h-2v1c0 1.33-2 1.33-2 0v-1h-12c-.55 0-1-.45-1-1"/>
-        </symbol>
-        <symbol id="svg-tabReseau" viewBox="0 0 24 24">
-            <g fill="none" stroke="currentColor" stroke-width="1.2">
-                <circle cx="12" cy="12" r="7.4"/><ellipse cx="12" cy="12" rx="3.2" ry="7.4"/><path d="M4.6 12h14.8" stroke-linecap="round"/>
-            </g>
-        </symbol>
-        <symbol id="svg-tabSomfy" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M3 4h18v4h-2v12h-2V8H7v12H5V8H3zm5 5h8v2H8zm0 3h8v2H8zm0 3h8v2H8zm0 3h8v2H8z" />
-        </symbol>
-        <symbol id="svg-tabRadio" viewBox="0 0 24 24">
-            <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2">
-                <path d="m4.9 19.1c-3.9-3.9-3.9-10.3 0-14.2m2.9 2.8c-1.95 2.02-2.28 5.11-.8 7.5"/>
-                <circle cx="12" cy="12" r="2"/><path d="m16.2 7.8c2 2 2.26 5.11.8 7.47m2.1-10.4c3.9 3.89 3.9 10.2 0 14.1"/>
-            </g>
-        </symbol>
 <!-- Button -->
-        <symbol id="svg-up" viewBox="0 0 48 48">
-            <circle cx="24" cy="24" r="22" fill="currentColor"/>
-            <path d="M33 28.5l-9-9-9 9" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5"/>
-        </symbol>
         <symbol id="svg-my" viewBox="0 0 48 48">
             <circle cx="24" cy="24" r="22" fill="currentColor"/>
             <text x="24" y="30" fill="#fff" font-family="sans-serif" font-size="18" font-weight="700" text-anchor="middle">my</text>
-        </symbol>
-        <symbol id="svg-down" viewBox="0 0 48 48">
-            <circle cx="24" cy="24" r="22" fill="currentColor"/>
-            <path d="m33 19.5-9 9-9-9" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5"/>
         </symbol>
         <symbol id="svg-toggle" viewBox="0 0 96 48">
             <rect x="2" y="2" width="92" height="44" ry="22" fill="currentColor" />
@@ -2162,17 +2131,17 @@
         <symbol id="svg-drag" viewBox="0 0 24 24">
             <path fill="currentColor" d="M12 3l-4 4h8l-4-4zM6 10h12v1H6v-1zm0 3h12v1H6v-1zm6 8l4-4H8l4 4z"/>
         </symbol>
+        <!-- Delete in lists: an outline bin in the text colour, red only on hover. -->
+        <symbol id="svg-trash" viewBox="0 0 24 24">
+            <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>
+        </symbol>
         <symbol id="svg-close" viewBox="0 0 24 24">
-            <path fill="var(--txtwarning-color)" d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10s10-4.47 10-10S17.53 2 12 2m5 13.59L15.59 17L12 13.41L8.41 17L7 15.59L10.59 12L7 8.41L8.41 7L12 10.59L15.59 7L17 8.41L13.41 12z" />
+            <path fill="var(--danger)" d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10s10-4.47 10-10S17.53 2 12 2m5 13.59L15.59 17L12 13.41L8.41 17L7 15.59L10.59 12L7 8.41L8.41 7L12 10.59L15.59 7L17 8.41L13.41 12z" />
         </symbol>
         <symbol id="svg-edit" viewBox="0 0 24 24">
-            <path fill="var(--bg-switch-ch-color)" d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83l3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z" />
+            <path fill="var(--ink-2)" d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83l3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z" />
         </symbol>
 <!-- WIFI -->
-        <symbol id="svg-wifi" viewBox="0 0 24 24">
-            <path d="M0 0h24v24H0z" fill="none" />
-            <path fill="currentColor" d="M10.225 20.275Q9.5 19.55 9.5 18.5t.725-1.775T12 16t1.775.725t.725 1.775t-.725 1.775T12 21t-1.775-.725M6.35 15.35l-2.1-2.15q1.475-1.475 3.463-2.337T12 10t4.288.875t3.462 2.375l-2.1 2.1q-1.1-1.1-2.55-1.725T12 13t-3.1.625t-2.55 1.725M2.1 11.1L0 9q2.3-2.35 5.375-3.675T12 4t6.625 1.325T24 9l-2.1 2.1q-1.925-1.925-4.462-3.012T12 7T6.563 8.088T2.1 11.1" />
-        </symbol>
         <symbol id="svg-wifi-0" viewBox="0 0 24 24"><circle cx="12" cy="18" r="2" /></symbol>
         <symbol id="svg-wifi-1" viewBox="0 0 24 24"><path d="m 17.671,14.307 c -3.074,-3.074 -8.268,-3.074 -11.342,0 l 1.414,1.414 c 2.307,-2.307 6.207,-2.307 8.514,0 z" /></symbol>
         <symbol id="svg-wifi-2" viewBox="0 0 24 24"><path d="M 20.437,11.293 C 15.865,6.719 8.136,6.719 3.564,11.293 l 1.414,1.414 C 8.785,8.9 15.216,8.9 19.023,12.707 Z" /></symbol>
@@ -2182,7 +2151,7 @@
             <path fill="currentColor" d="M11.963 2.382C.554 2.621-1.82 17.93 8.852 21.602c.498.093.684-.219.684-.478v-1.68c-2.79.601-3.38-1.317-3.38-1.317a2.6 2.6 0 0 0-1.121-1.442c-.902-.612.072-.602.072-.602a2.07 2.07 0 0 1 1.536 1.038a2.167 2.167 0 0 0 2.924.819c.052-.5.275-.965.633-1.317c-2.23-.25-4.564-1.1-4.564-4.875a3.76 3.76 0 0 1 1.038-2.645a3.46 3.46 0 0 1 .103-2.634s.84-.26 2.76 1.037a9.6 9.6 0 0 1 5.02 0c1.908-1.276 2.748-1.038 2.748-1.038c.365.828.398 1.763.093 2.614a3.75 3.75 0 0 1 1.037 2.645c0 3.786-2.344 4.626-4.574 4.865c1.038.55.602 4.086.664 4.522c0 .259.176.57.695.477c10.642-3.64 8.152-18.97-3.257-19.209" />
         </symbol>
         <symbol id="svg-update" viewBox="0 0 24 24">
-            <path fill="var(--update-icon-color,var(--color))" d="M21 10.1h-6.8l2.7-2.8c-2.7-2.7-7.2-2.8-9.9-.1-2.7 2.7-2.7 7.1 0 9.8s7.2 2.7 9.9 0c1.4-1.3 2-2.9 2-4.9h2c0 2-.9 4.6-2.6 6.3-3.5 3.5-9.2 3.5-12.7 0-3.5-3.5-3.5-9.1 0-12.6s9.1-3.5 12.6 0l2.8-2.8z"/>
+            <path fill="var(--update-icon-color,var(--ink))" d="M21 10.1h-6.8l2.7-2.8c-2.7-2.7-7.2-2.8-9.9-.1-2.7 2.7-2.7 7.1 0 9.8s7.2 2.7 9.9 0c1.4-1.3 2-2.9 2-4.9h2c0 2-.9 4.6-2.6 6.3-3.5 3.5-9.2 3.5-12.7 0-3.5-3.5-3.5-9.1 0-12.6s9.1-3.5 12.6 0l2.8-2.8z"/>
             <circle cx="7.5" cy="16.5" r="4.5" fill="inherit"/>
         </symbol>
         <symbol id="svg-clear" viewBox="0 0 24 24">
@@ -2190,11 +2159,6 @@
         </symbol>
         <symbol id="svg-linkOut" viewBox="0 0 24 24">
             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 10.5L21 3m-5 0h5v5m0 6v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
-        </symbol>
-        <symbol id="svg-leboncoin" viewBox="0 0 24 24">
-            <path d="m0 3c0-2.82 3-3 3-3h18s3 0 3 3v18l-3 3h-18s-3 0-3-3z" fill="#fff"/>
-            <path d="m12 15c0-3 3-3 3-3h9v9l-3 3h-9z" fill="#ff6e14"/>
-            <path d="m24 12v9c0 3-3 3-3 3h-9z" fill="#954109"/>
         </symbol>
 <!-- Info bubble -->
         <symbol id="svg-succes" viewBox="0 0 24 24">
@@ -2405,7 +2369,7 @@
             <path d="m44 5v39h-40v-1h39v-39s1 0 1 1z" fill="var(--svg-shade0)"/>
         </symbol>
         <symbol id="svg-contactBulb" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" fill="var(--side-handle)"/>
+            <circle cx="12" cy="12" r="10" fill="var(--tonal)"/>
             <path class="contactBulbe-fill" d="M12 4.5c-2.73 0-4.95 2.22-4.95 4.95 0 .75.16 1.47.49 2.14.56 1.17 1.18 2.49 1.68 3.91h5.56c.5-1.42 1.12-2.75 1.68-3.91.32-.67.49-1.4.49-2.14 0-2.73-2.22-4.95-4.95-4.95zM9.5 17v2h5v-2h-5z"/>
         </symbol>
     </svg>

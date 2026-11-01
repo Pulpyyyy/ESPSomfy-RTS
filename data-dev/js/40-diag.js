@@ -164,7 +164,7 @@ class RfDiag {
         getJSON('/rfStats', (err, stats) => { if (!err) this.setStats(stats); });
     }
     clearStats() {
-        ui.promptMessage(get('divRFDiagnostics'), tr('RFDIAG_CLEAR_CONFIRM'), () => {
+        ui.promptMessage(get('divRFDiagnostics'), tr('RFDIAG_CLEAR_CONFIRM'), { yes: 'BT_CLEAR', danger: true }, () => {
             putJSONBusy('/clearRfStats', {}, (err) => {
                 if (err) ui.serviceError(err);
                 else this.load();
@@ -421,8 +421,20 @@ class MQTT {
                 if (fldPwd) { fldPwd.value = ''; fldPwd.placeholder = this.hasPassword ? tr('SECRET_SET_PLH') : ''; }
                 get('divDiscoveryTopic').style.display = settings.pubDisco ? '' : 'none';
                 get('hrIdDiscoveryTopic').style.display = settings.pubDisco ? '' : 'none';
+                this.syncEnabled();
             }
         });
+    }
+    // With MQTT off, its settings are greyed and out of reach (inert): they are still
+    // read and saved as they are, so switching it back on finds them intact.
+    syncEnabled() {
+        const box = get('divMQTT'), cb = get('cbMqttEnabled');
+        if (!box || !cb) return;
+        const off = !cb.checked;
+        const parts = Array.from(box.children).filter(c => !c.contains(cb) && !c.classList.contains('footer-overlay'));
+        const disco = get('cbPubDisco') && get('cbPubDisco').closest('.uniRow');
+        if (disco) parts.push(disco);
+        parts.forEach(p => { p.inert = off; p.classList.toggle('is-off', off); });
     }
     // Picking MQTTS while the port is still the plaintext default is the most common
     // way to get an unexplained handshake failure, so follow the scheme as long as the
@@ -663,7 +675,7 @@ class Firmware {
                 if (!isNaN(ver) && ver < 25) {
                     let prompt = ui.promptMessage(tr('PROMPT_RESTORE_FILE_TITLE'), () => closeOverlay(prompt));
 
-                    prompt.querySelector('.sub-message').innerHTML = `<p style="color:var(--status-warn); font-weight:bold;"><p>${tr('PROMPT_RESTORE_FILE_DESC')}</p><p><b>${tr('PROMPT_RESTORE_FILE_DESC_1')}</b></p><p>${tr('PROMPT_RESTORE_FILE_DESC_2')}</p>`;
+                    prompt.querySelector('.sub-message').innerHTML = `<p style="color:var(--warn); font-weight:bold;"><p>${tr('PROMPT_RESTORE_FILE_DESC')}</p><p><b>${tr('PROMPT_RESTORE_FILE_DESC_1')}</b></p><p>${tr('PROMPT_RESTORE_FILE_DESC_2')}</p>`;
 
                     const btnCan = prompt.querySelector('button[line]');
                     if (btnCan) {
@@ -775,12 +787,6 @@ class Firmware {
                 }
             }
         }
-    }
-    // Extract only the first number after the 'v' (e.g. "v2.5.2" -> 2, "v3.0.0" -> 3, "3.1.2" -> 3)
-    getMainVersion(verStr) {
-        if (!verStr) return 0;
-        const match = verStr.match(/[vV]?(\d+)/);
-        return match ? parseInt(match[1], 10) : 0;
     }
     // Real partition check (replaces the old "major version 2 -> 3" heuristic):
     // the published images require the enlarged OTA layout (app slots of 1.6875 MB
@@ -1143,11 +1149,16 @@ class Firmware {
                 return;
             }
             if (service === '/restore') {
-                await somfy.init();
+                // The board writes the backup and reboots a second later: say so, then
+                // reload once it is back, so every page shows the restored settings.
                 closeOverlay(get('divUploadFile'));
+                navClearDirty();
+                if (typeof socket !== 'undefined' && socket) socket.close(3000, 'restore');
+                ui.waitMessage(get('divContainer'), tr('RESTORE_DONE'));
+                setTimeout(() => window.location.reload(), 15000);
             }
         };
-        xhr.onerror = () => ui.serviceError(el, 'Upload Failed');
+        xhr.onerror = () => ui.serviceError(el, tr('ERR_UPLOAD_FAILED'));
         btnCancel.onclick = () => { xhr.abort(); closeOverlay(el); };
         xhr.send(formData);
     }

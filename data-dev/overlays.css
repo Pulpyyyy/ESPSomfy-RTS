@@ -4,12 +4,6 @@
 }
 /* rotate */
 
-/* force animation */
-i.icss-anim,
-i.icss-anim:before,
-i.icss-anim:after {
-    transition: all 1s;
-}
 /* Spin */
 
 /* BELL */
@@ -91,7 +85,7 @@ div.wait-overlay .wait-label {
 /* "Already on this version" note in the GitHub update dialog. */
 .upToDateNote {
     gap: var(--sp-8);
-    color: var(--accent-sucess);
+    color: var(--ok-dot);
     font-size: var(--fs-sm);
 }
 .upToDateNote svg {
@@ -124,7 +118,7 @@ div.wait-overlay .wait-label {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--color);
+    background: var(--ink);
     margin: -4px 0 0 -4px;
 }
 .lds-roller div:nth-child(1) {
@@ -230,8 +224,8 @@ div.wait-overlay .wait-label {
     left: 50%;
     /* Theme-aware: the old #f0f0f0/#000 pair glowed white in dark mode. */
     background: var(--unibloc-color);
-    color: var(--color);
-    border: 1px solid var(--accent-sucess);
+    color: var(--ink);
+    border: 1px solid var(--ok-dot);
     padding: 9px 21px;
     border-radius: 50px;
     z-index: var(--z-toast);
@@ -241,13 +235,13 @@ div.wait-overlay .wait-label {
     toastPulse 1.5s ease-in-out 0.5s infinite;
 }
     .success-content {
-        color: var(--color);
+        color: var(--ink);
         gap: var(--sp-12);
     }
     .success-content svg {
         width: 20px;
         height: 20px;
-        color: var(--accent-sucess);
+        color: var(--ok-dot);
     }
     .success-toast.hide {
         animation: toastOut 0.3s ease-in forwards;
@@ -270,7 +264,7 @@ div.wait-overlay .wait-label {
     max-height: calc(100% - 20px);
     padding: var(--sp-20);
     overflow-y: auto;
-    color: var(--color);
+    color: var(--ink);
     background: var(--wait-overlay);
     font-size: var(--fs-sm);
     animation: fadeInBlur 0.2s ease-out forwards;
@@ -282,10 +276,10 @@ div.wait-overlay .wait-label {
     padding: 5px 30px 30px 30px;
     display: flex;
     flex-direction: column;
-    color: var(--color);
+    color: var(--ink);
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
 }
 .overlay-scroll-content {
     padding-bottom: var(--sp-20);
@@ -352,15 +346,14 @@ div.wait-overlay .wait-label {
     animation: fadeInBlur 0.2s ease-out forwards;
 }
 .error-content,
-.message-content,
-.overlay-content{
+.message-content {
     position: relative;
     width: 90%;
     padding: 5px 30px 30px 30px;
-    color: var(--color);
+    color: var(--ink);
     background: var(--unibloc-color);
     border-radius: var(--radius-bloc);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
 }
 .message-content,
 .error-content {
@@ -372,24 +365,20 @@ div.wait-overlay .wait-label {
 /* Long content (multi-line errors, notes) must scroll inside the dialog instead of
    pushing the action buttons off-screen. */
 .message-content,
-.error-content,
-.overlay-content {
+.error-content {
     max-height: 85vh;
     max-height: 85dvh;
     overflow-y: auto;
 }
-.overlay-content {
-    max-width: 600px;
-}
 .socket-error .inner-error {
     background: var(--unibloc-color);
     max-width: 560px;
-    color: var(--color);
+    color: var(--ink);
     font-size: var(--fs-lg);
     min-height: 206px;
     border-radius: var(--radius-bloc);
     align-content: center;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
 }
 .instructions .sub-message,
 .prompt-message .sub-message {
@@ -397,13 +386,16 @@ div.wait-overlay .wait-label {
     padding-left: var(--sp-12);
     padding-right: var(--sp-12);
 }
+/* A destructive action named on its button is also drawn as one. */
+.prompt-message #btnYes.is-danger,
+.prompt-message #btnYes.is-danger:hover { background: var(--danger); color: var(--md-on-error); }
+.prompt-message #btnYes.is-danger:hover { background: color-mix(in srgb, var(--danger), #000 12%); }
 .prompt-message .prompt-text {
     text-align:center;
     width: 100%;
     font-size: var(--fs-xxl);
     margin-bottom: var(--sp-16);
 }
-.promp-message > .inner-error,
 .error-message > .inner-error {
     width:100%;
 }
@@ -415,8 +407,7 @@ div.error-message > .sub-message {
     font-size:var(--fs-sm);
     margin-bottom: 5%;
 }
-div.error-message,
-.prompt-message > .button-container {
+div.error-message {
     text-align:center;
 }
 .instructions-header {
@@ -479,7 +470,7 @@ div.error-message,
     }
     .instructionsTxt-badge {
         font-weight: bold;
-        color: var(--color);
+        color: var(--ink);
         font-style: italic;
         margin: 0 5px 0 5px;
     }
@@ -501,7 +492,7 @@ div.error-message,
         .step-text {
             font-size: var(--fs-sm);
             line-height: 1.4;
-            color: var(--color);
+            color: var(--ink);
         }
 .uniblocRollingCode label {
     color: var(--accent-text);
@@ -538,8 +529,6 @@ div.error-message,
 .is-expert #btnSendPairing,
 .is-expert #btnSendUnpairing,
 .is-expert #btnWizMarkSuc,
-.is-expert #btnPairShadeSuc,
-.is-expert #btnSendProg,
 .is-expert #btnOpenMemory,
 .is-expert #btnPairToGroup,
 .is-expert #btnUnpairFromGroup {
@@ -618,7 +607,7 @@ div.error-message,
     margin: 0;
     font-size: var(--fs-lg);
     font-weight: 600;
-    color: var(--color);
+    color: var(--ink);
     animation: fadeInBlur 0.3s ease-in-out;
 }
 /*content step*/
@@ -631,7 +620,7 @@ div.error-message,
     flex-grow: 1;
 }
 .LinkGroupSelect {
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .blocsteps-row {
@@ -640,13 +629,13 @@ div.error-message,
     margin-top: var(--sp-16);
     background: var(--unibloc-color);
     border-radius: var(--radius-button);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .blocsteps-row .divWizShadeName {
     font-size: var(--fs-md);
     font-weight: bold;
-    color: var(--color);
+    color: var(--ink);
     text-align:center;
     flex: 1;
     margin-right: var(--sp-20);
@@ -655,8 +644,6 @@ div.error-message,
 #btnSendPairing,
 #btnSendUnpairing,
 #btnWizMarkSuc,
-#btnPairShadeSuc,
-#btnSendProg,
 #btnOpenMemory,
 #btnPairToGroup,
 #btnUnpairFromGroup {
@@ -666,14 +653,11 @@ div.error-message,
     box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4);
     animation: soft-pulse 2s infinite;
 }
-#btnSendProg,
 #btnOpenMemory,
 #btnPairToGroup,
 #btnUnpairFromGroup {
     width: 40%;
 }
-#btnPairShadeSuc,
-#btnSendProg,
 .is-expert #btnOpenMemory,
 .is-expert #btnPairToGroup,
 .is-expert #btnUnpairFromGroup {
@@ -700,7 +684,7 @@ div.error-message,
     text-align: left;
     border: none;
     background: transparent;
-    color: var(--color);
+    color: var(--ink);
 }
 .firmware-message {
     display: none;
@@ -711,15 +695,15 @@ div.error-message,
     z-index: var(--z-banner);
 }
 button[line].fw-sidebar-button {
-    border: 2px solid var(--txtwarning-color);
-    color: var(--txtwarning-color);
+    border: 2px solid var(--danger);
+    color: var(--danger);
     background: transparent;
 }
 button[line].fw-sidebar-button:hover,
 .fw-mobile-banner:hover {
-    background: var(--txtwarning-color);
+    background: var(--danger);
     color: #fff;
-    border-color: var(--txtwarning-color);
+    border-color: var(--danger);
     transition: all 0.3s ease-out !important;
 }
 .fw-mobile-banner{
@@ -730,7 +714,7 @@ button[line].fw-sidebar-button:hover,
     font-size: var(--fs-xs);
     font-weight: bold;
     background: #fcfcfc;
-    color: var(--txtwarning-color);
+    color: var(--danger);
     padding: 2px var(--sp-12);
     border-radius: var(--radius-bloc);
     border-top: none;
@@ -738,7 +722,7 @@ button[line].fw-sidebar-button:hover,
     width: fit-content;
     margin: auto;
     margin-top: var(--sp-4);
-    border: 1px solid var(--txtwarning-color);
+    border: 1px solid var(--danger);
 }
 
 #divSidebarUpdate.procFwStatusshow {display: flex !important;}
@@ -750,7 +734,7 @@ button[line].fw-sidebar-button:hover,
 /*github page*/
 .labelgrey {
     font-size: var(--fs-sm);
-    color: var(--help);
+    color: var(--ink-2);
     font-family: monospace;
 }
 .selectCompac {
@@ -790,7 +774,7 @@ button[line].fw-sidebar-button:hover,
     }
     .gitNoteErrorSub {
         font-size: var(--fs-sm);
-        color: var(--soustxt-color);
+        color: var(--ink-2);
     }
 #divGitInstall .hrDivFooter {
     margin: 0 -30px var(--sp-16) -30px;
@@ -823,7 +807,7 @@ margin: 0;
     left: 50%;
     transform: translateX(-50%);
     width: 3px;
-    background: var(--hr-soft);
+    background: var(--line);
     z-index: 1;
 }
 .v-step-right {
@@ -835,7 +819,7 @@ margin: 0;
 .custom-file-upload {
     width:100%;
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: var(--radius-bloc);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -848,7 +832,7 @@ margin: 0;
 }
 .file-name-display {
     font-size: var(--fs-sm);
-    color: var(--color);
+    color: var(--ink);
     flex: 1;
     opacity: 0.6;
     padding-right: var(--sp-12);
@@ -876,7 +860,7 @@ margin: 0;
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: var(--borderShadeCtl);
+    background: var(--line);
     color: #fcfcfc;
     transition: filter 0.2s;
     flex-shrink: 0;
@@ -921,7 +905,7 @@ cursor: pointer;
 .empty-state-container {
     flex-direction: column;
     padding: 40px var(--sp-20);
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     text-align: center;
     opacity: 0.6;
 }
@@ -929,7 +913,7 @@ cursor: pointer;
     width: 100px;
     height: 100px;
     margin-bottom: var(--sp-16);
-    color: var(--barreRoomBg);
+    color: var(--bg);
 }
 .empty-state-container p {
     width: 80%;
@@ -990,7 +974,7 @@ cursor: pointer;
     pointer-events: auto;
 }
     .drag-handle svg{
-        color: var(--bg-switch-ch-color);
+        color: var(--ink-2);
         transition: all 0.2s ease-in-out;
     }
     .drag-handle:hover svg {
@@ -1033,13 +1017,13 @@ cursor: pointer;
     margin-top: var(--sp-16);
 }
 .linkedRheader {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     margin-bottom: var(--sp-12);
     margin-left: -20px;
     margin-right: -20px;
     margin-top: -15px;
     padding: var(--sp-12) var(--sp-20);
-    border-bottom: 1px solid var(--background-color);
+    border-bottom: 1px solid var(--bg);
 }
 .linkedScrollArea {
     overflow-y: auto;
@@ -1053,7 +1037,7 @@ cursor: pointer;
     margin-right: var(--sp-12);
 }
     .linkedWrap svg {
-        color: var(--buttonMy);
+        color: var(--tonal-hover);
     }
 .linkedContent {
     flex-grow: 1;
@@ -1082,16 +1066,18 @@ cursor: pointer;
     margin: 0;
     padding: 0;
 }
-.name-text, .repeater-name, .linkedshade-name {
-    font-family: monospace;
+.name-text,
+.repeater-name {
+    /* Names read in the interface font, as on Home and in the record; addresses below
+       stay monospace. (main.css set this too, but this file loads later and won.) */
+    font-family: var(--font-ui);
+    font-weight: 600;
     margin: 0;
     /* Primary content of the device list: must read comfortably. */
     font-size: var(--fs-md);
 }
 .group-address,
-.shade-address,
-.linkedremote-address,
-.linkedremote-code {
+.shade-address {
     font-family: monospace;
     font-size: var(--fs-sm);
     display: inline-block;
@@ -1105,6 +1091,8 @@ cursor: pointer;
 .divEditDelete-svg:hover {
     opacity: 0.7;
 }
+.divEditDelete-svg.is-delete { color: var(--ink-2); }
+.divEditDelete-svg.is-delete:hover { color: var(--danger); opacity: 1; }
 /* Position panel (somfy.openPosPanel): a bottom sheet on phones, a centred dialog
    from 700px. The apron is drawn with the tile's .shutter, only taller. Buttons reset
    the global button look (full width, accent fill) to the panel's own controls. */
@@ -1130,7 +1118,9 @@ cursor: pointer;
 /* Several parts below are flex or grid; hidden must still win over them. */
 .pos-sheet [hidden] { display: none !important; }
 @media (min-width: 700px) {
-    .pos-scrim { align-items: center; }
+    /* Anchored near the top rather than centred: switching to the taller My mode then
+       grows the dialog downwards instead of making it jump up. */
+    .pos-scrim { align-items: flex-start; padding-top: 10vh; }
     .pos-sheet { border-radius: 22px; border-bottom: 1px solid var(--line); padding-top: 18px; }
     .pos-grabber { display: none; }
 }
@@ -1183,7 +1173,23 @@ cursor: pointer;
 .pos-big small { font-size: 1.1rem; font-weight: 600; letter-spacing: 0; color: var(--ink-2); }
 .pos-what { font-size: var(--fs-sm); color: var(--ink-2); }
 .pos-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.pos-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+/* Steps nudge from where the shade is; presets above go to a place. So they do not
+   look alike: presets are outlined chips, steps one tinted stepper bar, its minus
+   and plus pairs set slightly apart. */
+.pos-steps {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 3px;
+    border-radius: calc(var(--radius-button) + 3px); background: var(--tonal);
+}
+.pos-steps .pos-step[data-step="1"] { margin-left: 6px; }
+.pos-sheet .pos-step,
+.pos-sheet .pos-step:hover {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 0; padding: 0 4px;
+    border: 0; border-radius: var(--radius-button); background: transparent; color: var(--ink);
+    font-size: var(--fs-sm); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.pos-sheet .pos-step:hover { background: var(--surface); }
+.pos-sheet .pos-tilt-ctl .pos-step { background: var(--tonal); }
+.pos-sheet .pos-tilt-ctl .pos-step:hover { background: var(--tonal-hover); }
 .pos-sheet .pos-chip,
 .pos-sheet .pos-chip:hover {
     display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0;
@@ -1203,17 +1209,20 @@ cursor: pointer;
 .pos-tilt-ctl { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
 .pos-tilt-range { width: 100%; margin: 0; accent-color: var(--accent-color); }
 
-.pos-mybox { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); }
+/* The two My buttons stay in view at the bottom of the sheet: on a small phone the My
+   mode scrolls, and the one action it exists for must not sit below the fold. Only the
+   buttons: with the explanation in it too, the stuck box hid half of the apron. */
+.pos-mybox {
+    display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--surface-2);
+    position: sticky; bottom: 0; z-index: 1; box-shadow: 0 -6px 14px -10px rgb(0 0 0 / .35);
+}
 .pos-mytext { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .pos-sheet .pos-mybtn { width: 100%; min-height: 44px; }
+/* Clearing My: a quiet, red text button (confirmed in a dialog), never the main one. */
 .pos-sheet .pos-myclear,
-.pos-sheet .pos-myclear:hover { align-self: center; color: var(--danger); }
+.pos-sheet .pos-myclear:hover { align-self: center; display: inline-flex; align-items: center; background: transparent; color: var(--danger); }
 .pos-sheet .pos-myclear:hover { background: var(--danger-soft); }
-.pos-foot { display: flex; justify-content: flex-end; }
-.pos-sheet .pos-link,
-.pos-sheet .pos-link:hover { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--accent-text); }
-.pos-sheet .pos-link:hover { background: var(--accent-soft); }
-.pos-link svg { width: 14px; height: 14px; }
 
 @media (max-width: 420px) {
     .pos-body { grid-template-columns: minmax(104px, 38%) minmax(0, 1fr); gap: 12px; }
@@ -1227,14 +1236,10 @@ cursor: pointer;
     .pos-apron .shutter, .pos-grip::before, .pos-grip::after { background: CanvasText; forced-color-adjust: none; }
     /* Selection was shown by a fill only, which forced colours remove. */
     .pos-sheet .pos-tab[aria-pressed="true"], .pos-sheet .pos-chip[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
-}
-/*leboncoin*/
-.box-image-container{
-    width: 100%;
-    height: 110px;
+    /* Borderless step buttons would vanish into the bar. */
+    .pos-sheet .pos-step { border: 1px solid ButtonText; }
 }
 /* HomeAssistant page */
-.ha-overlay-content { padding: var(--sp-12) var(--sp-16); }
 
 .ha-section-title {
     margin-top: 25px;
@@ -1312,7 +1317,7 @@ cursor: pointer;
 }
 .no-wifi > div{
     margin-bottom: var(--sp-20);
-    color: var(--txtwarning-color);
+    color: var(--danger);
     font-weight: bold;
     justify-content: center;
 }
@@ -1333,14 +1338,14 @@ div.eth-setting-line {
 }
 div.eth-setting-line span {
     margin-left:7px;
-    color: var(--txtwarning-color);
+    color: var(--danger);
 }
 div.eth-setting-line label {
     margin-right: var(--sp-4);
     display:inline-block;
     min-width: 130px;
     text-align:right;
-    color: var(--color);
+    color: var(--ink);
 }
 .safety-checkbox-container {
     gap:var(--sp-16);
@@ -1352,7 +1357,7 @@ div.eth-setting-line label {
     display: none;
 }
 .safety-checkbox-container input[type="checkbox"]:checked + .custom-checkbox {
-    background: var(--txtwarning-color);
+    background: var(--danger);
 }
 .safety-checkbox-container input[type="checkbox"]:checked + .custom-checkbox::after {
     transform: rotate(45deg) scale(1);
@@ -1360,12 +1365,6 @@ div.eth-setting-line label {
 /* Update*/
 #selVersion.inputAndSelect {
     font-size: var(--fs-md);
-}
-#jsHeadFirmware .instructions-headerLogo,
-#jsHeadLittlefs .instructions-headerLogo {
-    right: -17px;
-    bottom: -18px;
-    transform: rotate(-25deg);
 }
 #btnUpdateApplication use,
 .mode-app-update .instructions-header svg use {
@@ -1460,7 +1459,7 @@ div.eth-setting-line label {
         width: 100vw;
         height: 100vh;
         height: 100dvh;
-        background-color: var(--background-color);
+        background-color: var(--bg);
         z-index: var(--z-inst-mobile);
         box-sizing: border-box;
         padding: 0;
@@ -1475,7 +1474,7 @@ div.eth-setting-line label {
         overflow: hidden;
         box-sizing: border-box;
         border-radius: 0;
-        background-color: var(--background-color);
+        background-color: var(--bg);
     }
     .overlay-scroll-content {
         flex: 1;
@@ -1493,28 +1492,13 @@ div.eth-setting-line label {
     .expert-label {
         display: none;
     }
-    .overlay-content {
-        width: 100%;
-        max-width: 100%;
-        background: var(--background-color);
-        border-radius: 0;
-        border: none;
-        min-height: 100vh;
-        min-height: 100dvh;
-        max-height: none;
-        flex-grow: 1;
-        padding-top: var(--sp-20);
-    }
-    .ha-overlay-content {
-        padding: var(--sp-12) var(--sp-16);
-    }
-    .expert-only-buttons,
+            .expert-only-buttons,
     .button-container-overlay {
         flex-shrink: 0;
         width: 100%;
         padding: var(--sp-12);
         background: var(--unibloc-color);
-        border-top: 1px solid var(--border);
+        border-top: 1px solid var(--line);
         box-sizing: border-box;
         transform: translateY(100%);
         animation: slideUpFooter 0.6s cubic-bezier(0.25, 1, 0.5, 1) 0.1s forwards;
@@ -1555,10 +1539,7 @@ div.eth-setting-line label {
     }
 }
 @media (max-width: 640px) {
-    .box-image-container {
-        height: 140px !important;
     }
-}
 @media screen and (max-width: 640px) {
     .idRemoteAddress {
         display: none !important;

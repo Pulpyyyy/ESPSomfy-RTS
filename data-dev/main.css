@@ -1,43 +1,16 @@
 #divConfigPnl {
     margin: auto;
 }
-/* General page */
-.chooseAccentColor {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    width: 60px;
-    height: 40px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    outline: none;
-}
-.chooseAccentColor::-webkit-color-swatch-wrapper {
-    padding: 0;
-    border-radius: var(--radius-bloc);
-}
-.chooseAccentColor::-webkit-color-swatch {
-    border-radius: var(--radius-bloc);
-    border: none;
-}
-.chooseAccentColor::-moz-color-swatch {
-    border-radius: var(--radius-bloc);
-    border: none;
-}
 /* Security **/
-.blocPin-digit {
-    display:inline-block;
-    text-align:center;
-    width: 100%;
-}
-.blocPin-digit label {display:block}
+/* Security page PIN: a card, left-aligned like the other fields. */
+.blocPin-digit #fldPinEntry { justify-content: flex-start; margin-top: 4px; }
+.blocPin-digit #fldPinEntry .pin-digit:first-child { margin-left: 0; }
 /* Firmware **/
 .status-detail {
     font-size: var(--fs-xs);
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
-#spanFreeMemory { color: var(--soustxt-color) !important;; }
+#spanFreeMemory { color: var(--ink-2) !important;; }
 
 .minMaxFull{
     display: inline-block;
@@ -47,10 +20,7 @@
 }
 #divFirmware .uniRight { gap: 0; }
 #divFirmware .uniText { max-width: 52%; }
-.show780 {
-    display: none !important;
-}
-#svg-clear{fill: var(--color) ;}
+#svg-clear{fill: var(--ink) ;}
 
 .devButtonUpdate {
     text-align:left;
@@ -63,15 +33,10 @@
     flex-shrink: 0;
     fill: currentColor;
 }
-.svgLbc,
-.svgHA{
+.svgHA {
     width: 22px;
     height: 22px;
-}.svgLbc{
-    border: 1px solid var(--border-lbc);
-    border-radius: var(--radius-chip);
-}
-.buttonUpdate span {
+}.buttonUpdate span {
     line-height: 1;
 }
 .buttonUpdateCache {
@@ -92,6 +57,8 @@
     height:20px;
     opacity:0.6;
     padding: 0;
+    flex: none;
+    margin-left: auto;
 }
 .credits-list .special-credit {
     opacity: 0.8;
@@ -119,7 +86,7 @@
     }
 /* Page Network*/
 .wifi-value {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     margin-left: 5px;
 }
 .wifi-right {
@@ -151,13 +118,8 @@ div.signal {
 }
 #divNetworkStrength use.active,
 div.signal use.active {
-    fill: var(--accent-sucess) !important;
+    fill: var(--ok-dot) !important;
     opacity: 1 !important;
-}
-#svgWifiElement circle,
-#svgWifiElement path {
-    fill: inherit;
-    transition: opacity 0.2s ease;
 }
 #divAps {
     height: 150px;
@@ -167,7 +129,7 @@ div.signal use.active {
 }
 .aps-title {
     font-size: var(--fs-xs);
-    color: var(--bg-switch-ch-color);
+    color: var(--ink-2);
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -175,12 +137,12 @@ div.signal use.active {
 .no-wifi {
     padding: 30px var(--sp-12);
     text-align: center;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     font-size: var(--fs-sm);
 }
 .aps-hr {
     border: 0;
-    border-top: 1px solid var(--hr-color);
+    border-top: 1px solid var(--line);
     margin: 5px 0;
 }
 div.wifiSignal {
@@ -193,8 +155,8 @@ div.wifiSignal {
     transition: background 0.2s;
 }
 #divAps div.wifiSignal:hover {
-    background: var(--hr-color);
-    color: var(--color);
+    background: var(--line);
+    color: var(--ink);
     border-radius: var(--radius-card);
 }
 .msgHotspot span:last-child {
@@ -217,7 +179,7 @@ div.wifiSignal {
 .empty-state {
     text-align: center;
     padding: 40px var(--sp-20);
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
 .empty-icon {
     width: 160px;
@@ -230,7 +192,7 @@ div.wifiSignal {
     --shade-position: 100 !important;
     --accent-color: #a1a1a1;
     --accent-colorDark: color-mix(in srgb, #a1a1a1 41%, #828282);
-    --unibloc-color: var(--background-color);
+    --unibloc-color: var(--bg);
 }
 .empty-subtext {
     font-size: var(--fs-sm);
@@ -238,7 +200,7 @@ div.wifiSignal {
 }
 .dragtxt {
     font-size: 0.95em;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     margin: 23px 0;
     padding: 5px;
 }
@@ -271,10 +233,11 @@ div.wifiSignal {
     width: fit-content;
     gap: var(--sp-12);
 }
-    #divSomfyGroupButtons .btn-somfy-svg {
-        width: 48px;
-        height: 48px;
-    }
+/* Record command buttons: centred content, whatever older strip rules say
+   (.shadectl-buttons div.button-outline made them inline-block). */
+.shadectl-buttons div.btn-somfy-svg, .shadectl-buttons div.btn-somfy-svg-wide,
+#divshowSomfyButtons > .btn-somfy-svg, #divshowSomfyButtons > .btn-somfy-svg-wide,
+#divSomfyGroupButtons > .btn-somfy-svg { display: inline-flex; align-items: center; justify-content: center; }
 .disabled {
     opacity: 0.3 !important;
     filter: grayscale(1) !important;
@@ -291,13 +254,13 @@ div.wifiSignal {
 .somfy-infoPosTilt {
     justify-content: center;
     font-family: sans-serif;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     font-size: var(--fs-xs);
     font-weight: bold;
     line-height: 1.4;
 }
 #valTilt {
-color: var(--color);
+color: var(--ink);
 }
 #somfyShade #divGPIOControl {
 display: none;
@@ -360,11 +323,11 @@ display: none;
     background: var(--unibloc-color);
     padding: var(--sp-20);
     border-radius: var(--radius-bloc);
-    border: 1px solid var(--borderShadeCtl);
+    border: 1px solid var(--line);
     box-shadow: 0 0 6px 0 var(--shadowShadeCtl);
 }
 .vr-content .unibloc {
-    background: var(--background-color);
+    background: var(--bg);
     margin: 0 0 var(--sp-16);
 }
 .vr-bloctoogle {
@@ -422,9 +385,9 @@ display: none;
     position: relative;
     width: 210px;
     height: 210px;
-    background: var(--background-color);
+    background: var(--bg);
     border-radius: 50%;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .vr-wheel-arrow {
@@ -433,7 +396,7 @@ display: none;
     height: 44px;
     cursor: pointer;
     transition: transform 0.1s;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
 .vr-arrow-up    { top: 10px;  left: 50%; transform: translateX(-50%); }
 .vr-arrow-down  { bottom: 10px; left: 50%; transform: translateX(-50%); }
@@ -441,15 +404,15 @@ display: none;
     width: 20%;
 }
 .vr-upMy, .vr-myDown, .vr-upDown, .vr-all {
-    background: var(--background-color);
+    background: var(--bg);
     cursor: pointer;
     transition: transform 0.1s;
     min-height: 110px;
     backface-visibility: hidden;
     -webkit-font-smoothing: subpixel-antialiased;
     transform-origin: center center;
-    color: var(--soustxt-color);
-    border: 1px solid var(--border);
+    color: var(--ink-2);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .vr-upMy, .vr-upDown      { border-radius: 35px 35px 0 0; margin-bottom: 6px; }
@@ -467,10 +430,10 @@ display: none;
     cursor: pointer;
     transition: transform 0.1s, filter 0.1s;
     text-transform: uppercase;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
-.btn-prog { background: var(--background-color); color: var(--color); }
+.btn-prog { background: var(--bg); color: var(--ink); }
 .btn-fav  { background: var(--accent-color); color: var(--on-accent); border: none; }
 .switch-group { display: flex; gap: 5px; margin-bottom: var(--sp-12); }
 .switch-soleil, .switch-windy { flex: 1; display: flex; }
@@ -482,19 +445,19 @@ display: none;
     font-size: 1em;
     font-weight: bold;
     transition: all 0.2s;
-    background: var(--background-color);
-    color: var(--soustxt-color);
+    background: var(--bg);
+    color: var(--ink-2);
     border-radius: var(--radius-bloc);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .vr-block-centerFlag {
     display: flex;
-    background: var(--background-color);
-    color: var(--soustxt-color);
+    background: var(--bg);
+    color: var(--ink-2);
     height: 44px;
     border-radius:var(--radius-bloc);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 .vr-button-sunflagL, .vr-button-sunflagR {
@@ -516,7 +479,7 @@ display: none;
 }
 .vr-step80 {
     position: relative;
-    background: var(--background-color);
+    background: var(--bg);
     border-radius: var(--radius-bloc);
     /* .vr-step80Label is absolute at bottom:10px. It used to sit under a thin slider
        track; the 44px number box reaches into that band, so the row reserves its own
@@ -542,7 +505,7 @@ display: none;
     min-width: 0;
     background: transparent;
     border: none;
-    color: var(--color);
+    color: var(--ink);
     font-size: var(--fs-md);
     font-weight: bold;
     text-align: center;
@@ -586,7 +549,7 @@ display: none;
 .vr-toogle svg { color: var(--accent-color); }
 .btn-fav svg { width: 20px; height: 20px; }
 .segment svg { width: 46px; height: 46px; }
-.vr-step80-arrow svg { width: 46px; height: 46px; color: var(--soustxt-color); }
+.vr-step80-arrow svg { width: 46px; height: 46px; color: var(--ink-2); }
 
 .vr-my-center svg {
     width: 100%;
@@ -597,7 +560,7 @@ display: none;
 .vr-wheel-arrow svg {
     width: 100%;
     height: 100%;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
 .vr-button-sunflagL svg,
 .vr-button-sunflagR svg {
@@ -607,7 +570,7 @@ display: none;
 }
 /* Page Radio*/
 .radioOn {
-    background:  var(--accent-colorUniDark);
+    background:  var(--accent-soft);
     border: 1px solid var(--accent-color);
 }
 #divRadioEnableColor .switch:has(input:checked) {
@@ -632,9 +595,9 @@ display: none;
     gap: 3px;
     white-space: nowrap;
 }
-.gpioRadio-label { color: var(--soustxt-color); }
+.gpioRadio-label { color: var(--ink-2); }
 .gpioRadio-val { color: var(--accent-text); font-weight: bold; }
-.gpioRadio-sep { color: var(--soustxt-color); opacity: 0.6; }
+.gpioRadio-sep { color: var(--ink-2); opacity: 0.6; }
 
 .help-container {
     position: relative;
@@ -645,7 +608,7 @@ display: none;
     height:24px;
     cursor:help;
     vertical-align:middle;
-    color: var(--help);
+    color: var(--ink-2);
     transition: color 0.5s ease;
 }
 .help-container:hover svg {
@@ -666,7 +629,7 @@ display: none;
     padding: var(--sp-12);
     font-size: var(--fs-sm);
     box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
-    border: 1px solid var(--borderShadeCtl);
+    border: 1px solid var(--line);
 }
     .tooltip-text::after {
         content: "";
@@ -706,7 +669,7 @@ display: none;
     gap: var(--sp-4);
 }
 .rssi-left span:last-child {
-    color: var(--soustxt-color);
+    color: var(--ink-2);
 }
 .rssi-right {
     font-size: var(--fs-xxxl);
@@ -737,14 +700,14 @@ display: none;
     font-size: var(--fs-xs);
     border-radius: var(--radius-badge);
     background: transparent;
-    color: var(--help);
+    color: var(--ink-2);
     border: none;
 }
 #stepButtons > .step-btn.active,
 #stepButtonsRx > .step-btn.active,
 #stepButtonsDeviation > .step-btn.active {
-    background: var(--accent-colorUniDark);
-    color: var(--color);
+    background: var(--accent-soft);
+    color: var(--ink);
 }
 .radioBtnPrec {
     background: none;
@@ -837,10 +800,10 @@ div.frame-pulses {
 .rfdiag-name { display: block; overflow: hidden; text-overflow: ellipsis; }
 .rfdiag-addr {
     display: block;
-    color: var(--soustxt-color);
+    color: var(--ink-2);
     font-size: var(--fs-xs);
 }
-.rfdiag-unknown .rfdiag-name { color: var(--soustxt-color); font-style: italic; }
+.rfdiag-unknown .rfdiag-name { color: var(--ink-2); font-style: italic; }
 .rfdiag-badge {
     display: inline-block;
     padding: 2px var(--sp-12);
@@ -850,22 +813,22 @@ div.frame-pulses {
 }
 /* Same status hues as .success/.warning/.error so quality reads consistently app-wide.
    Opaque tint: a see-through one took the striped row colour and fell below 4.5:1. */
-.rfdiag-badge.good { color: var(--status-good); background: color-mix(in srgb, var(--status-good) 12%, var(--surface)); }
-.rfdiag-badge.fair { color: var(--status-warn); background: color-mix(in srgb, var(--status-warn) 12%, var(--surface)); }
-.rfdiag-badge.weak { color: var(--status-bad); background: color-mix(in srgb, var(--status-bad) 12%, var(--surface)); }
-.rfdiag-legend { padding: 6px var(--sp-12); font-size: var(--fs-xs); color: var(--soustxt-color); }
+.rfdiag-badge.good { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--surface)); }
+.rfdiag-badge.fair { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--surface)); }
+.rfdiag-badge.weak { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.rfdiag-legend { padding: 6px var(--sp-12); font-size: var(--fs-xs); color: var(--ink-2); }
 /* Scan button lives in the Wi-Fi card header, sized to its label. */
 .wifi-scan-row button { width: auto; padding: var(--sp-8) 18px; white-space: nowrap; }
 #divAps { margin: var(--sp-12) 0 var(--sp-4); }
 .rfdiag-wiz-step { display: flex; align-items: baseline; gap: var(--sp-12); padding: var(--sp-4) var(--sp-12); font-size: var(--fs-sm); }
-.rfdiag-wiz-step .rfdiag-wiz-mark { color: var(--soustxt-color); }
-.rfdiag-wiz-step.done .rfdiag-wiz-mark { color: var(--status-good); font-weight: 600; }
-.rfdiag-wiz-step.done { color: var(--soustxt-color); }
+.rfdiag-wiz-step .rfdiag-wiz-mark { color: var(--ink-2); }
+.rfdiag-wiz-step.done .rfdiag-wiz-mark { color: var(--ok); font-weight: 600; }
+.rfdiag-wiz-step.done { color: var(--ink-2); }
 /* Recommendation rows: compact inline apply button next to the badge. */
 .rfdiag-reco-row { cursor: default; }
 .rfdiag-reco-row .uniRight { gap: var(--sp-12); }
 .rfdiag-reco-row button { width: auto; padding: 6px 14px; white-space: nowrap; }
-.rfdiag-alert { color: var(--status-warn); }
+.rfdiag-alert { color: var(--warn); }
 /* The summary values (frequency, noise floor...) must never wrap under the
    long descriptions on narrow screens. */
 .rfdiag-value { white-space: nowrap; font-weight: 600; font-size: var(--fs-md); }
@@ -884,25 +847,14 @@ div.frame-pulses {
 /* Merged update state carried by the GitHub button. */
 .buttonUpdate.upd-ok { cursor: default; }
 .buttonUpdate.upd-ok .btnArrowRight { display: none; }
-.buttonUpdate.upd-ok #ghUpdTitle { color: var(--status-good); font-weight: 600; }
-.buttonUpdate.upd-available #ghUpdTitle { color: var(--status-warn); font-weight: 600; }
+.buttonUpdate.upd-ok #ghUpdTitle { color: var(--ok); font-weight: 600; }
+.buttonUpdate.upd-available #ghUpdTitle { color: var(--warn); font-weight: 600; }
 /* Security */
-#divPinSecurity { justify-content: center; }
-#divPinSecurity label { margin: var(--sp-20); }
-#fldPinEntry { margin-top: var(--sp-20); }
 
 .pwd-icon {
     width: 20px;
     height: 20px;
-    color: var(--color);
-}
-.pwd-iconLeft {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 2;
-    pointer-events: none;
+    color: var(--ink);
 }
 /* Field wrapper: the anchor for the eye on every page (login, WiFi, MQTT). */
 .password-container {
@@ -961,11 +913,21 @@ div.frame-pulses {
    without visual change (same idea as the step-buttons ::after in base.css). */
 /* .password-eye is absent on purpose: it is position:absolute (anchored to the
    right edge of its field) and absolute boxes already contain their ::after. */
-.radioBtnPrec, .divEditDelete-svg, .button-my, .button-light,
-.button-sunflag, .nav-arrow, .step-btn, .help-container { position: relative; }
-.radioBtnPrec::after, .password-eye::after, .divEditDelete-svg::after,
-.button-my::after, .button-light::after, .button-sunflag::after,
-.nav-arrow::after, .step-btn::after, .help-container::after {
+.radioBtnPrec,
+.divEditDelete-svg,
+.button-my,
+.button-light,
+.button-sunflag,
+.step-btn,
+.help-container { position: relative; }
+.radioBtnPrec::after,
+.password-eye::after,
+.divEditDelete-svg::after,
+.button-my::after,
+.button-light::after,
+.button-sunflag::after,
+.step-btn::after,
+.help-container::after {
     content: "";
     position: absolute;
     left: 50%; top: 50%;
@@ -1150,6 +1112,15 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; width: 100%; 
 .page > .subtab-container > [aria-selected="true"],
 .sh-tabs > [aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent-color); font-weight: 700; }
 .sh-tabs > [data-shtab][hidden] { display: none; }
+/* Phones: tab strips scroll sideways on one line instead of stacking into a ragged
+   block (the shade record's five tabs took three rows). */
+@media (max-width: 899px) {
+    .page > .subtab-container, .sh-tabs {
+        flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+    }
+    .page > .subtab-container::-webkit-scrollbar, .sh-tabs::-webkit-scrollbar { display: none; }
+    .page > .subtab-container > [data-grpid], .sh-tabs > [data-shtab] { flex: none; white-space: nowrap; }
+}
 .subtab-content { max-width: 880px; margin: 0; padding: 4px 0 24px; position: relative; flex-grow: 1; }
 #divFrameLog, #divRFDiagnostics, #divSomfyMotors { max-width: 1040px; }
 .footer-overlay { justify-content: flex-start; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
@@ -1181,6 +1152,17 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 .home-head { margin-bottom: 14px; }
 .room-nav-container { display: flex; margin: 0 0 18px; }
 .room-selector { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; overflow: visible; cursor: auto; }
+/* Phones: one scrolling row of room chips; wrapped, six rooms took three to five rows
+   before the first tile. */
+@media (max-width: 899px) {
+    .room-nav-container { min-width: 0; }
+    .room-selector {
+        flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+        margin: 0 -16px; padding: 2px 16px; scroll-padding-inline: 16px;
+    }
+    .room-selector::-webkit-scrollbar { display: none; }
+    .room-selector > .chip { flex: none; white-space: nowrap; }
+}
 .chip {
     width: auto; min-height: 36px; padding: 6px 14px; border-radius: var(--radius-round);
     border: 1px solid var(--field); background: var(--surface); color: var(--ink);
@@ -1329,6 +1311,14 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 .sh-panel > :first-child { margin-top: 16px; }
 .sh-pair { flex-direction: row; flex-wrap: wrap; gap: 10px; }
 .sh-pair > button { flex: 1 1 220px; }
+.sh-pair-state { flex: 1 1 100%; margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ok); }
+.sh-pair-state.is-off { color: var(--warn); }
+/* Pair is the one expected action on that card: drawn as the main button, not a row. */
+#blocPairDevice #btnPairShade { background: var(--accent-color); color: var(--on-accent); border-radius: var(--radius-button); padding: 10px 16px; }
+#blocPairDevice #btnPairShade .uniStatus { color: inherit; opacity: 1; }
+#blocPairDevice #btnPairShade:hover { filter: brightness(1.06); }
+/* MQTT settings while MQTT is off (mqtt.syncEnabled makes them inert too). */
+#divMQTT .is-off { opacity: .45; }
 
 /* Windows high contrast: keep the apron readable. */
 @media (forced-colors: active) {
@@ -1386,11 +1376,15 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 
 /* ---- device record ---- */
 .ms-sec { margin: 6px 0 0; }
+/* The tab's main action, drawn like the other main buttons (accent), not as a black slab. */
 .divButton:has(#btnCalibrateShade), .divButton:has(#btnCalibrateShade):hover {
-    background: var(--inverse); border-color: var(--inverse); margin-top: 12px;
+    background: var(--accent-color); border-color: var(--accent-color); margin-top: 12px;
 }
-#btnCalibrateShade, #btnCalibrateShade:hover { color: var(--on-inverse); background: transparent; min-height: 56px; }
-#btnCalibrateShade .uniStatus { color: var(--on-inverse-2); }
+#btnCalibrateShade, #btnCalibrateShade:hover { color: var(--on-accent); background: transparent; min-height: 56px; }
+#btnCalibrateShade .uniStatus { color: inherit; opacity: 1; }
+/* Phones hide .divButton descriptions; this one says how calibration goes (you drive the
+   shade with its remote), so it stays. */
+@media screen and (max-width: 640px) { .divButton #btnCalibrateShade .uniStatus { display: block !important; } }
 
 /* ---- MQTT broker line ---- */
 .input-mqtt {
@@ -1408,7 +1402,6 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
     height: auto; min-height: 56px; padding: 8px 12px;
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
 }
-.name-text, .repeater-name, .linkedshade-name { font-family: var(--font-ui); font-weight: 600; }
 .cfg-room { font-size: var(--fs-xs); opacity: 1; color: var(--ink-2); }
 .buttonUpdate:disabled, .buttonUpdate:disabled:hover { background: transparent !important; color: var(--ink) !important; }
 
