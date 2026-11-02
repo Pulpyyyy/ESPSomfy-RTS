@@ -307,8 +307,9 @@ void GitUpdater::checkForUpdate() {
   if(this->checkInternet() == 0) {
     GitRepo repo;
     this->updateAvailable = false;
-    this->error = repo.getReleases(2);
-    if(this->error == 0) { // Get 2 releases so we can filter pre-releases
+    // Enough releases to reach the latest stable one behind a run of pre-releases.
+    this->error = repo.getReleases(GIT_MAX_RELEASES);
+    if(this->error == 0) {
       this->setCurrentRelease(repo);
     }
     else {
@@ -319,8 +320,13 @@ void GitUpdater::checkForUpdate() {
 }
 void GitUpdater::setCurrentRelease(GitRepo &repo) {
   this->updateAvailable = false;
-  for(uint8_t i = 0; i < 2; i++) {
-    if(repo.releases[i].draft || repo.releases[i].preRelease || repo.releases[i].id == 0) continue;
+  // A board already running a pre-release follows the pre-releases too; a board on a
+  // stable release is only offered stable ones. GitHub lists the newest first, so the
+  // first eligible release is the one to compare against.
+  const bool onPreRelease = settings.fwVersion.suffix[0] != '\0';
+  for(uint8_t i = 0; i < GIT_MAX_RELEASES; i++) {
+    if(repo.releases[i].draft || repo.releases[i].id == 0) continue;
+    if(repo.releases[i].preRelease && !onPreRelease) continue;
     // Compare the versions.
     this->latest.copy(repo.releases[i].version);
     if(repo.releases[i].version.compare(settings.fwVersion) > 0) {
