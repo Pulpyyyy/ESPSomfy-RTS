@@ -272,10 +272,12 @@ void SomfyShade::setGPIOs() {
     }
   }
   else if(this->proto == radio_proto::GP_Remote) {
-    // gpioRelease == 0 means "already released": the null guard stops the pins being
-    // rewritten every loop, and the subtractive compare keeps the deadline correct
-    // across the millis() rollover (plain millis() > deadline breaks at the wrap).
-    if(this->gpioRelease != 0 && (int32_t)(millis() - this->gpioRelease) >= 0) {
+    // Released state is written whenever no press is pending (gpioRelease == 0), not
+    // only when a press ends: pinMode() leaves the outputs LOW, which is "pressed" for a
+    // low level trigger, so the remote held its buttons down from boot until the first
+    // command. The subtractive compare keeps the deadline correct across the millis()
+    // rollover (plain millis() > deadline breaks at the wrap).
+    if(this->gpioRelease == 0 || (int32_t)(millis() - this->gpioRelease) >= 0) {
       //uint8_t p_on = (this->gpioFlags & (uint8_t)gpio_flags_t::LowLevelTrigger) == 0x00 ? HIGH : LOW;
       uint8_t p_off = (this->gpioFlags & (uint8_t)gpio_flags_t::LowLevelTrigger) == 0x00 ? LOW : HIGH;
       digitalWrite(this->gpioUp, p_off);
