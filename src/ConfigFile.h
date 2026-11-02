@@ -45,6 +45,8 @@ class ConfigFile {
     bool seekRecordByIndex(uint16_t ndx);
     bool readHeader();
     bool seekChar(const char val);
+    bool endRecord();
+    bool finishValue(bool quoted, uint8_t quotes);
     bool writeHeader(const config_header_t &header);
     bool writeHeader();
     bool writeSeparator();

@@ -169,9 +169,44 @@ bool ConfigFile::readString(char *buff, size_t len) {
     }
     if(i < len - 1) buff[i++] = val;
   }
+  // The value was longer than the buffer: the loop stopped before its separator.
+  this->finishValue(false, 0);
   buff[len - 1] = '\0';
   _rtrim(buff);
   return true;
+}
+// A value longer than the caller's buffer stops the readers before its separator.
+// Consuming the rest of it keeps the next field aligned; leaving it made every field
+// after it read the value of the one before (the 7 character accent color in its 8
+// byte buffer shifted the UPnP, update check and language settings of every restore).
+// quoted: a separator between the quotes belongs to the value; quotes counts the
+// quotes already read.
+bool ConfigFile::finishValue(bool quoted, uint8_t quotes) {
+  uint8_t val;
+  while(this->file.read(&val, 1) == 1) {
+    switch(val) {
+      case CFG_REC_END:
+        return true;
+      case CFG_VALUE_SEP:
+        if(!quoted || quotes == 0 || quotes >= 2) return true;
+        break;
+      case CFG_TOK_QUOTE:
+        quotes++;
+        break;
+    }
+  }
+  return false;
+}
+// Leaves the cursor at the start of the next record. A read that ended on the record
+// end has already consumed it: seeking the next one would swallow a whole record.
+bool ConfigFile::endRecord() {
+  if(!this->file) return false;
+  const uint32_t pos = this->file.position();
+  if(pos > 0) {
+    this->file.seek(pos - 1, SeekSet);
+    if(this->readChar() == CFG_REC_END) return true;
+  }
+  return this->seekChar(CFG_REC_END);
 }
 bool ConfigFile::skipValue(size_t len) {
   if(!this->file) return false;
@@ -194,7 +229,7 @@ bool ConfigFile::skipValue(size_t len) {
     }
     else return false;
   }
-  return true;
+  return this->finishValue(true, quotes);
 }
 bool ConfigFile::readVarString(char *buff, size_t len) {
   if(!this->file || len == 0) return false;
@@ -222,6 +257,9 @@ bool ConfigFile::readVarString(char *buff, size_t len) {
     }
     if(i < len - 1) buff[i++] = val;
   }
+  // The quotes take two bytes of the loop, so a value of len - 2 characters or more
+  // stops before its closing quote or separator.
+  this->finishValue(true, quotes);
   buff[len - 1] = '\0';
   _rtrim(buff);
   return true;
@@ -662,14 +700,17 @@ bool ShadeConfigFile::restoreFile(SomfyShadeController *s, const char *filename,
     // First read out the data.
     this->readSettingsRecord();
   }
-  else {
-    this->file.seek(this->file.position() + this->header.settingsRecordSize, SeekSet);
+  else if(this->header.settingsRecordSize > 0) {
+    // Skip to the end of the line rather than by the declared size: some backups
+    // declare a settings record shorter than the one they hold, and skipping by it
+    // landed in the middle, so the network and radio were read from the wrong place.
+    this->seekChar(CFG_REC_END);
   }
   if(opts.network || opts.mqtt) {
     this->readNetRecord(opts);
   }
-  else {
-    this->file.seek(this->file.position() + this->header.netRecordSize, SeekSet);
+  else if(this->header.netRecordSize > 0) {
+    this->seekChar(CFG_REC_END);
   }
   if(opts.shades) s->commit();
   if(opts.transceiver)
@@ -758,7 +799,7 @@ bool ShadeConfigFile::readNetRecord(restore_options_t &opts) {
     }
     if(this->file.position() != startPos + this->header.netRecordSize) {
       Serial.println("Reading to end of network record");
-      this->seekChar(CFG_REC_END);
+      this->endRecord();
     }
   }
   return true;
@@ -788,7 +829,7 @@ bool ShadeConfigFile::readTransRecord(transceiver_config_t &cfg) {
     cfg.txPower = this->readInt8(cfg.txPower);
     if(this->file.position() != startPos + this->header.transRecordSize) {
       Serial.println("Reading to end of transceiver record");
-      this->seekChar(CFG_REC_END);
+      this->endRecord();
     }
     
   }
@@ -803,7 +844,16 @@ bool ShadeConfigFile::readSettingsRecord() {
     this->readVarString(settings.hostname, sizeof(settings.hostname));
     this->readVarString(settings.NTP.ntpServer, sizeof(settings.NTP.ntpServer));
     this->readVarString(settings.NTP.posixZone, sizeof(settings.NTP.posixZone));
-    if(this->header.version >= 26) {
+    // Version 26 added the accent color. Other firmware wrote it under version 25 too
+    // (with a record size that leaves it out): it is there when the next value is
+    // quoted, since the boolean that follows otherwise never is.
+    bool hasAccent = this->header.version >= 26;
+    if(!hasAccent && this->header.version == 25) {
+      const uint32_t pos = this->file.position();
+      hasAccent = this->readChar() == CFG_TOK_QUOTE;
+      this->file.seek(pos, SeekSet);
+    }
+    if(hasAccent) {
       this->readVarString(settings.accentColor, sizeof(settings.accentColor));
     } else {
       strncpy(settings.accentColor, "#1a5fb4", sizeof(settings.accentColor));
@@ -818,9 +868,10 @@ bool ShadeConfigFile::readSettingsRecord() {
     // Position presets were appended after the language without a format bump: older
     // firmware skips them with the rest of the record. They are there when the language
     // ended on a value separator; an older backup ends the record on it and restores
-    // the defaults.
+    // the defaults. The declared record size is not trusted here: some files declare
+    // one too short for what they hold.
     strlcpy(settings.posPresets, POS_PRESETS_DEFAULT, sizeof(settings.posPresets));
-    if(this->header.version >= 25 && this->file.position() < startPos + this->header.settingsRecordSize) {
+    if(this->header.version >= 25) {
       this->file.seek(this->file.position() - 1);
       if(this->readChar() == CFG_VALUE_SEP) {
         char presets[sizeof(settings.posPresets)] = "";
@@ -830,7 +881,7 @@ bool ShadeConfigFile::readSettingsRecord() {
     }
     if(this->file.position() != startPos + this->header.settingsRecordSize) {
       Serial.println("Reading to end of settings record");
-      this->seekChar(CFG_REC_END);
+      this->endRecord();
     }
   }
   return true;
@@ -870,7 +921,7 @@ bool ShadeConfigFile::readGroupRecord(SomfyGroup *group) {
   pref.end();
   if(this->file.position() != startPos + this->header.groupRecordSize) {
     Serial.println("Reading to end of group record");
-    this->seekChar(CFG_REC_END);
+    this->endRecord();
   }
   return true;
 }
@@ -882,7 +933,7 @@ bool ShadeConfigFile::readRepeaterRecord(SomfyShadeController *s) {
   }
   if(this->file.position() != startPos + this->header.repeaterRecordSize) {
     Serial.println("Reading to end of repeater record");
-    this->seekChar(CFG_REC_END);
+    this->endRecord();
   }
   return true;
 }
@@ -893,7 +944,7 @@ bool ShadeConfigFile::readRoomRecord(SomfyRoom *room) {
   room->sortOrder = this->readUInt8(room->roomId - 1);
   if(this->file.position() != startPos + this->header.roomRecordSize) {
     Serial.println("Reading to end of room record");
-    this->seekChar(CFG_REC_END);
+    this->endRecord();
   }
   return true;
 }
@@ -988,7 +1039,7 @@ bool ShadeConfigFile::readShadeRecord(SomfyShade *shade) {
   else shade->curveGain = 0.0f;
   if(this->file.position() != startPos + this->header.shadeRecordSize) {
     Serial.println("Reading to end of shade record");
-    this->seekChar(CFG_REC_END);
+    this->endRecord();
   }
   return true;
 }
