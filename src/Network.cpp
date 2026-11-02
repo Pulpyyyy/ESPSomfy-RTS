@@ -577,7 +577,9 @@ bool Network::connected() {
   return false;
 }
 bool Network::connecting() {
-  if(this->_connecting && millis() > this->connectStart + CONNECT_TIMEOUT) this->_connecting = false; 
+  // Elapsed time, not a deadline: connectStart + CONNECT_TIMEOUT wraps near the millis()
+  // rollover and would keep _connecting set for 49 days.
+  if(this->_connecting && (uint32_t)(millis() - this->connectStart) >= CONNECT_TIMEOUT) this->_connecting = false;
   return this->_connecting; 
 }
 void Network::clearConnecting() { this->_connecting = false; }
