@@ -887,14 +887,27 @@ class Somfy {
         for (let i = 0; i < btns.length; i++) {
             btns[i].addEventListener('mousedown', onCmdDown, true);
             btns[i].addEventListener('mouseup', onCmdUp, true);
-            btns[i].addEventListener('touchstart', (event) => { this._touchMoved = false; onCmdDown(event); }, true);
+            // Passive: neither listener cancels the gesture. A non-passive touch listener
+            // makes a mobile browser wait for the script before it starts scrolling, and
+            // these buttons cover much of a tile, so most swipes on Home began on one and
+            // scrolled late or in jerks.
+            btns[i].addEventListener('touchstart', (event) => {
+                this._touchMoved = false;
+                const t = event.touches[0];
+                this._touchStart = t ? { x: t.clientX, y: t.clientY } : null;
+                onCmdDown(event);
+            }, { capture: true, passive: true });
             // A scroll that starts on the button must not fire the command.
-            btns[i].addEventListener('touchmove', (event) => { this._touchMoved = true; lpClear(event.currentTarget); }, true);
+            btns[i].addEventListener('touchmove', (event) => { this._touchMoved = true; lpClear(event.currentTarget); }, { capture: true, passive: true });
             // preventDefault stops the browser from synthesizing a mouseup afterwards,
-            // which would double-send the command.
+            // which would double-send the command. The distance check backs up
+            // _touchMoved: during a scroll the browser may batch the passive touchmoves,
+            // and a swipe must never send a command.
             btns[i].addEventListener('touchend', (event) => {
                 event.preventDefault();
-                if (!this._touchMoved) onCmdUp(event); else lpClear(event.currentTarget);
+                const t = event.changedTouches[0], s = this._touchStart;
+                const swiped = this._touchMoved || (t && s && Math.hypot(t.clientX - s.x, t.clientY - s.y) > 10);
+                if (!swiped) onCmdUp(event); else lpClear(event.currentTarget);
             }, true);
             // Dragging the pointer/finger away cancels a pending long-press instead of
             // letting it fire under the user's nose.
