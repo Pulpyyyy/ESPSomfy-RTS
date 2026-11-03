@@ -1173,28 +1173,36 @@ void WebAsync::begin() {
     bool idle;
     { SomfyGuard guard; idle = somfy.allIdle(); }
     if(!idle) { request->send(503, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Busy: a shade is moving\"}")); return; }
-    // Claim the git state machine so git.loop() skips its own check for now.
+    // Claim the git state machine so git.loop() skips its own check for now. The
+    // request itself runs in loop(): see GitUpdater::fetchReleases().
     git.status = GIT_STATUS_CHECK;
-    GitRepo *repo = new GitRepo();
-    repo->getReleases();
-    git.setCurrentRelease(*repo);
+    const int16_t err = git.fetchReleases();
+    if(err == 0) git.setCurrentRelease(git.fetched);
     git.status = GIT_STATUS_READY;
+    if(err != 0) {
+      // The code says why: an HTTP status from GitHub (403: rate limit) or a negative
+      // client error (connection, TLS), with the largest free block for the latter.
+      char body[128];
+      snprintf(body, sizeof(body), "{\"status\":\"ERROR\",\"desc\":\"Error communicating with Github.\",\"code\":%d,\"tls\":%d,\"heapBefore\":%u}", err, git.fetched.tlsError, (unsigned)git.fetched.heapBefore);
+      request->send(502, "application/json", body);
+      return;
+    }
     JsonAsyncResponse resp;
     resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
     resp.beginObject();
-    repo->toJSON(resp);
+    git.fetched.toJSON(resp);
     resp.endObject();
     resp.finish();
-    delete repo;
   });
   asyncServer.on("/downloadFirmware", ASYNC_HTTP_ANY, [](AsyncWebServerRequest *request) {
     webServer.lastActivity = millis();
     if(request->method() == ASYNC_HTTP_OPTIONS) { request->send(200, "text/plain", "OK"); return; }
     if(!webAsync.ensureAuth(request, true)) return;
     git.status = GIT_STATUS_CHECK;
-    GitRepo *repo = new GitRepo();
+    // The request runs in loop(): see GitUpdater::fetchReleases().
+    GitRepo *repo = &git.fetched;
     GitRelease *rel = nullptr;
-    int8_t err = repo->getReleases();
+    const int16_t err = git.fetchReleases();
     if(err == 0) {
       if(request->hasParam("ver")) {
         String ver = request->getParam("ver")->value();
@@ -1223,8 +1231,7 @@ void WebAsync::begin() {
       }
       else { git.status = GIT_STATUS_READY; request->send(500, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Release version not supplied.\"}")); }
     }
-    else { git.status = GIT_STATUS_READY; request->send(err, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Error communicating with Github.\"}")); }
-    delete repo;
+    else { git.status = GIT_STATUS_READY; request->send(502, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"Error communicating with Github.\"}")); }
   });
   // Twin of the sync handleNotFound: same OPTIONS shortcut, same 404 text.
   asyncServer.onNotFound([](AsyncWebServerRequest *request) {

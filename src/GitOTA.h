@@ -38,6 +38,8 @@ class GitRelease {
 class GitRepo {
   public:
     int16_t getReleases(uint8_t num = GIT_MAX_RELEASES);
+    int tlsError = 0;        // mbedTLS code of the last failed connection
+    uint32_t heapBefore = 0; // largest free block when the request started
     GitRelease releases[GIT_MAX_RELEASES + 1];
     void toJSON(JsonResponse &json);
 };
@@ -56,6 +58,12 @@ class GitUpdater {
     char currentFile[64] = "";
     char baseUrl[128] = "";
     int partition = 0;
+    // Release list requested by the web server and fetched by loop(): see fetchReleases().
+    GitRepo fetched;
+    volatile bool fetchRequested = false;
+    volatile bool fetchDone = false;
+    volatile int16_t fetchResult = 0;
+    int16_t fetchReleases(uint32_t timeoutMs = 30000);
     void checkForUpdate();
     bool beginUpdate(const char *release);
     bool endUpdate();

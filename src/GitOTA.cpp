@@ -104,8 +104,10 @@ void GitRelease::toJSON(JsonResponse &json) {
 
 int16_t GitRepo::getReleases(uint8_t num) {
   if(!_clockIsSet()) return ERR_CLIENT_OFFSET;
+  this->tlsError = 0;
+  this->heapBefore = ESP.getMaxAllocHeap();
   WiFiClientSecure sclient;
-  sclient.setCACert(GITHUB_ROOT_CAS);
+  sclient.setCACert(githubTlsRoots());
   sclient.setHandshakeTimeout(10); // Chain verification makes the handshake longer.
   uint8_t ndx = 0;
   uint8_t count = min((uint8_t)GIT_MAX_RELEASES, num);
@@ -236,9 +238,20 @@ int16_t GitRepo::getReleases(uint8_t num) {
         return httpCode;
       }
     }
+    else {
+      // No HTTP answer at all (DNS, TLS or connection failure). This used to fall
+      // through to the success return with an empty list, which hid the failure.
+      char tlsMsg[64];
+      this->tlsError = sclient.lastError(tlsMsg, sizeof(tlsMsg));
+      Serial.printf("GitHub request failed: %d, TLS %d (%s), largest block %u\n", httpCode, this->tlsError, tlsMsg, this->heapBefore);
+      https.end();
+      sclient.stop();
+      return httpCode < 0 ? httpCode : -1;
+    }
     https.end();
     sclient.stop();
   }
+  else return -1;
   settings.printAvailHeap();
   return 0;
 }
@@ -264,6 +277,11 @@ void GitRepo::toJSON(JsonResponse &json) {
 #define ERR_DOWNLOAD_CONNECTION -42
 
 void GitUpdater::loop() {
+  if(this->fetchRequested) {
+    this->fetchResult = net.connected() ? this->fetched.getReleases() : -1;
+    this->fetchRequested = false;
+    this->fetchDone = true;
+  }
   if(!net.connected()) return;
   if(this->status == GIT_STATUS_READY) {
     // Subtractive comparisons so the one-minute grace and the daily cadence stay correct
@@ -317,6 +335,23 @@ void GitUpdater::checkForUpdate() {
     }
   }
   this->status = GIT_STATUS_READY;
+}
+// The HTTPS request to GitHub fails when it is made from an async web server handler,
+// and the update dialog then received an empty list with nothing to install. The
+// handler hands the request to loop(), the task that already runs the daily check and
+// the download, and waits for it. The list is kept in `fetched`, owned here, so a
+// handler that gives up never leaves loop() writing into freed memory.
+int16_t GitUpdater::fetchReleases(uint32_t timeoutMs) {
+  if(this->fetchRequested) return -1; // Another request is already waiting for loop().
+  this->fetchDone = false;
+  this->fetchRequested = true;
+  const uint32_t start = millis();
+  while(!this->fetchDone) {
+    if((uint32_t)(millis() - start) >= timeoutMs) return -1;
+    esp_task_wdt_reset(); // The calling task may be watched: a TLS handshake takes seconds.
+    vTaskDelay(pdMS_TO_TICKS(50));
+  }
+  return this->fetchResult;
 }
 void GitUpdater::setCurrentRelease(GitRepo &repo) {
   this->updateAvailable = false;
@@ -385,7 +420,7 @@ int GitUpdater::checkInternet() {
     return err;
   }
   WiFiClientSecure sclient;
-  sclient.setCACert(GITHUB_ROOT_CAS);
+  sclient.setCACert(githubTlsRoots());
   sclient.setHandshakeTimeout(10); // Chain verification makes the handshake longer.
   esp_task_wdt_reset();
   HTTPClient https;
@@ -539,7 +574,7 @@ int8_t GitUpdater::downloadFile() {
   Serial.printf("Begin update %s\n", this->currentFile);
   if(!_clockIsSet()) return -44;
   WiFiClientSecure sclient;
-  sclient.setCACert(GITHUB_ROOT_CAS);
+  sclient.setCACert(githubTlsRoots());
   sclient.setHandshakeTimeout(10); // Chain verification makes the handshake longer.
   HTTPClient https;
   char url[196];
