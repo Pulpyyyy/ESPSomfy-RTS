@@ -700,6 +700,8 @@ class Firmware {
         if (sp) sp.innerHTML = mem.min.fmt('#,##0 ');
     }
     procFwStatus(rel) {
+        // Remembered so the update dialog opens on the version the board offers.
+        this.offeredVersion = rel.available && rel.latest ? rel.latest.name : null;
         // The GitHub button is the single carrier of the update state: it reports
         // "up to date" (disabled) or "update available" (call to action) instead of
         // duplicating the information in a separate banner.
@@ -901,6 +903,9 @@ class Firmware {
 
             shOverlay(div);
             const sel = div.querySelector('#selVersion');
+            // Stable releases are listed first, so without this a board offered a newer
+            // pre-release opened on the older stable one: Update would have gone back.
+            if (this.offeredVersion && [...sel.options].some(o => o.value === this.offeredVersion)) sel.value = this.offeredVersion;
 
             const updateNotes = async () => {
                 const nDiv = div.querySelector('#notesPreview'), lnk = div.querySelector('#lnkGithubRelease');
