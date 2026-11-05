@@ -22,6 +22,13 @@ An ESP32 and a CC1101 radio module that control your **Somfy RTS** shades, blind
 * **RF diagnostics**: noise floor, signal of every remote heard, drift alerts, and a recommended number of command repeats for each device.
 * **Interface**: works the same on phone, tablet and computer, light and dark themes, any accent colour, in English, French, German and Spanish.
 
+## Reliability and security
+
+* **Every order gets through**: commands are queued and the board answers at once, while a dedicated radio task on its own processor core sends them. Stops go first. Each order goes on air as one continuous train, like a remote button press, so shades no longer miss orders when several are commanded together. The board does not transmit while a remote is being received (nor in the 150 ms after) or while another transmitter holds the frequency, waits at most 3 s (0.5 s for a stop), and keeps its airtime under the 10 % duty cycle of the 433 MHz band. Every device repeats its orders at least twice.
+* **A smooth display**: a moving shade reports its position every 250 ms, and at once when it changes direction, to the web interface, Home Assistant and MQTT. The web server is asynchronous: pages, API calls and commands do not wait for each other. With ESPSomfy-RTS Enhanced, several shades moving together update smoothly in Home Assistant.
+* **Light on memory**: the interface is served compressed and kept by the browser for a week, responses are built in fixed buffers, the TLS client of MQTT (about 40 KB) only exists while `mqtts://` is used, and the GitHub checks load only the certificate roots they need.
+* **Home Assistant and the board, secured**: with a PIN or password set, API calls need the key returned by the login, which the integration gets with your code (with *Protect configuration only*, only configuration changes need it). The stream of received radio frames, enough to clone a remote, needs the key too. Requests coming from other web sites are refused, wrong codes are slowed down after 5 attempts (up to 5 minutes between tries), and the board never sends a password back. A file uploaded for an update or a restore is checked for the key before anything is written. The link between Home Assistant and the board is plain HTTP on your local network.
+
 ## Getting started
 
 1. **Hardware**: an ESP32 board (4 MB of flash at least) and a CC1101 433 MHz module. The radio pins are chosen in the interface, with presets for common boards. Wiring guides: see [Getting started](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki/Getting-started).
