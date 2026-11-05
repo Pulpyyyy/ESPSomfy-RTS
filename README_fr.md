@@ -6,6 +6,8 @@ Une carte ESP32 reliée à un module radio CC1101 pilote vos volets, stores, ban
 
 **[Documentation (wiki)](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki)** · **[Installer depuis le navigateur](https://pulpyyyy.github.io/ESPSomfy-RTS/)** · **[Versions](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases)** · **[English version](README.md)** · [Signaler un problème](https://github.com/Pulpyyyy/ESPSomfy-RTS/issues)
 
+![L'interface ESPSomfy-RTS sur un ordinateur et sur un téléphone](images/readme-home-fr.png)
+
 ## Fonctionnalités
 
 * **Équipements** : jusqu'à 30 volets, stores, bannes, rideaux, portes de garage, portails et contacts secs, avec gestion des lames orientables, rangés dans 14 pièces au plus et pilotés ensemble par 14 groupes au plus (une seule commande radio pour tout le groupe).

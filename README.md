@@ -6,6 +6,8 @@ An ESP32 and a CC1101 radio module that control your **Somfy RTS** shades, blind
 
 **[Documentation (wiki)](https://github.com/Pulpyyyy/ESPSomfy-RTS/wiki)** · **[Install from the browser](https://pulpyyyy.github.io/ESPSomfy-RTS/)** · **[Releases](https://github.com/Pulpyyyy/ESPSomfy-RTS/releases)** · **[Version française](README_fr.md)** · [Report an issue](https://github.com/Pulpyyyy/ESPSomfy-RTS/issues)
 
+![The ESPSomfy-RTS interface on a computer and on a phone](images/readme-home-en.png)
+
 ## Features
 
 * **Devices**: up to 30 shades, blinds, awnings, curtains, garage doors, gates and dry contacts, with tilt support, sorted in up to 14 rooms and driven together by up to 14 groups (one radio command for the whole group).
