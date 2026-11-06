@@ -42,9 +42,10 @@ Follow **[MIGRATION.md](MIGRATION.md)**: back up, flash once over USB (the parti
 
 ## Home Assistant
 
-* **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)** (recommended): made for this firmware. The board announces itself over SSDP as `urn:schemas-pulpyyyy-org:device:Somfy:1` and is discovered automatically; the integration logs in with your PIN or password.
+* **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)** (recommended): made for this firmware. Home Assistant finds the board on its own, through its UPnP (SSDP) or mDNS announcement; the integration logs in with your PIN or password.
 * **MQTT**: turn on *Publish Discovery* in **Integrations › Home Assistant and MQTT**; shades appear through Home Assistant's MQTT discovery.
-* The **official ESPSomfy-RTS-HA** integration still works with the same API, but does not recognise this firmware's announcement: add the board by its IP address.
+* The **official ESPSomfy-RTS-HA** integration also finds the board and works with the same API; Enhanced is the one made for this firmware.
+* Automatic discovery does not cross routers: if Home Assistant sits on another network segment (VLAN), add the board by its IP address.
 
 ## Documentation
 

@@ -42,9 +42,10 @@ Suivez **[MIGRATION_fr.md](MIGRATION_fr.md)** : sauvegarde, un flash USB (la tab
 
 ## Home Assistant
 
-* **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)** (recommandée) : faite pour ce firmware. La carte s'annonce en SSDP sous `urn:schemas-pulpyyyy-org:device:Somfy:1` et est découverte automatiquement ; l'intégration se connecte avec votre PIN ou mot de passe.
+* **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)** (recommandée) : faite pour ce firmware. Home Assistant trouve la carte tout seul, par son annonce UPnP (SSDP) ou mDNS ; l'intégration se connecte avec votre PIN ou mot de passe.
 * **MQTT** : activez *Publier découverte* dans **Intégrations › Home Assistant et MQTT** ; les volets apparaissent par la découverte MQTT de Home Assistant.
-* L'intégration **officielle ESPSomfy-RTS-HA** fonctionne toujours avec la même API, mais ne reconnaît pas l'annonce de ce firmware : ajoutez la carte par son adresse IP.
+* L'intégration **officielle ESPSomfy-RTS-HA** trouve aussi la carte et fonctionne avec la même API ; Enhanced est celle faite pour ce firmware.
+* La découverte automatique ne traverse pas les routeurs : si Home Assistant est sur un autre segment de réseau (VLAN), ajoutez la carte par son adresse IP.
 
 ## Documentation
 

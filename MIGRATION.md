@@ -142,11 +142,11 @@ where it left off.
 ## Home Assistant
 
 The HTTP/WebSocket API is unchanged: the official ESPSomfy-RTS-HA
-integration keeps working, entities and dashboards are preserved. This
-fork announces itself under a different SSDP URN, so auto-discovery
-only works with the companion
+integration keeps working, entities and dashboards are preserved.
+Home Assistant finds the device on its own (UPnP or mDNS), with the official integration
+as with the companion
 [ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)
-integration; with the official one, add the device by IP address.
+integration, which is made for this firmware.
 
 ## Troubleshooting
 

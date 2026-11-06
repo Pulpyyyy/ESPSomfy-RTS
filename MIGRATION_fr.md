@@ -154,10 +154,10 @@ exactement où il s'était arrêté.
 
 L'API HTTP/WebSocket est inchangée : l'intégration officielle
 ESPSomfy-RTS-HA continue de fonctionner, entités et tableaux de bord
-conservés. Ce fork s'annonce sous un URN SSDP différent : la
-découverte automatique ne fonctionne qu'avec l'intégration compagnon
-[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced) ;
-avec l'intégration officielle, ajoutez le boîtier par son adresse IP.
+conservés. Home Assistant trouve le boîtier tout seul (UPnP ou mDNS), avec l'intégration
+officielle comme avec l'intégration compagnon
+[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced),
+faite pour ce firmware.
 
 ## Dépannage
 
