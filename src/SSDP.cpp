@@ -177,6 +177,9 @@ bool SSDPClass::begin() {
     return false;
   }
   this->bootId = Timestamp::epoch();
+  // On the soft AP there is no internet hence no NTP: BOOTID only has to change
+  // from one boot to the next, a random value will do.
+  if(this->bootId < 1000) this->bootId = 1000 + (esp_random() % 1000000UL);
   if(this->bootId < 1000) {
     this->isStarted = false;
     return false;
@@ -436,6 +439,12 @@ IPAddress SSDPClass::localIP()
         }
     } else if (WiFi.getMode() == WIFI_OFF) {
         if (tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_ETH, &ip)) {
+            return IPAddress();
+        }
+    } else {
+        // Soft AP (alone or next to an unconnected station): the only place SSDP
+        // runs now. ip was left uninitialised here and announced a random address.
+        if (tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip)) {
             return IPAddress();
         }
     }
