@@ -1548,3 +1548,26 @@ div.eth-setting-line label {
         padding: var(--sp-8);
     }
 }
+
+/* GitHub update installed at boot: steps followed from what the board answers. */
+.boot-steps { list-style: none; margin: 18px 0 10px; padding: 0; display: grid; gap: 12px; }
+.boot-steps li { position: relative; padding-left: 32px; color: var(--ink-2); line-height: 1.4; }
+.boot-steps li::before {
+    content: ''; position: absolute; left: 0; top: 0; width: 20px; height: 20px;
+    border-radius: 50%; border: 2px solid var(--line); box-sizing: border-box;
+}
+.boot-steps li.is-active { color: var(--ink); font-weight: 650; }
+.boot-steps li.is-active::before { border-color: var(--accent-color); border-top-color: transparent; animation: bootSpin 0.9s linear infinite; }
+.boot-steps li.is-done { color: var(--ink); }
+.boot-steps li.is-done::before { background: var(--ok-dot); border-color: var(--ok-dot); }
+.boot-steps li.is-done::after {
+    content: ''; position: absolute; left: 7px; top: 4px; width: 5px; height: 9px;
+    border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+@keyframes bootSpin { to { transform: rotate(360deg); } }
+.boot-elapsed { margin: 0 0 14px 32px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.boot-result { margin: 14px 0 10px; font-weight: 650; }
+.boot-result:empty { display: none; }
+.boot-result.is-ok { color: var(--ok); }
+.boot-result.is-error { color: var(--danger); }
+@media (prefers-reduced-motion: reduce) { .boot-steps li.is-active::before { animation: none; border-top-color: var(--accent-color); } }

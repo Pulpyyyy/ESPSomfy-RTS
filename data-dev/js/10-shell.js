@@ -141,6 +141,9 @@ async function initSockets() {
         socket.onclose = (evt) => {
             document.body.classList.remove('socket-on');
             navConnRender();
+            // A GitHub update restarts the board on purpose and its dialog follows it:
+            // no reconnect spinner or socket error over it, no reconnect either.
+            if (typeof firmware !== 'undefined' && firmware.installing) return;
             wifi.procWifiStrength({ ssid: '', channel: -1, strength: -100 });
             wifi.procEthernet({ connected: false, speed: 0, fullduplex: false });
             if (document.getElementsByClassName('socket-wait').length === 0)

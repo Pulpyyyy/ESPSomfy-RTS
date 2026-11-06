@@ -815,38 +815,88 @@ class Firmware {
         }
         putJSONBusy(`/downloadFirmware?ver=${obj.version}`, {}, (err, ver) => {
             if (err) return ui.serviceError(err);
-            general.reloadApp = true;
-            const desc = tr('GIT_RELEASE_DESC').replace('%1', esc(ver.name));
-
+            // The board installs at boot (GitUpdater::scheduleBootUpdate): it restarts,
+            // downloads with its web server off, then restarts on the new version.
+            // Nothing can report progress meanwhile, so the steps follow what the
+            // board answers, and the socket is closed so its reconnect spinner and
+            // errors do not cover them.
+            const target = (ver && ver.name) || obj.version;
+            this.installing = true;
+            if (typeof socket !== 'undefined' && socket) socket.close(3000, 'update');
             div.innerHTML = `
             <div class="instructions-content">
-
             ${overlayHeader('GIT_RELEASE_TITLE', '', 'svg-github')}
-            <div class="warning">
-            <svg><use href=#svg-warning></use></svg>
-            <div><b>${tr('GIT_RELEASE_WAIT_WARNING')}</b><span>${tr('GIT_RELEASE_WAIT_WARNING_1')}</span></div>
-            </div>
-            <div class="progress-bar" id="progFirmwareDownload"></div>
-            <label for="progFirmwareDownload">${tr('GIT_RELEASE_FIRMWARE_INSTALL_PROGRESS')}</label>
-            <div class="progress-bar" id="progApplicationDownload"></div>
-            <label for="progApplicationDownload">${tr('GIT_RELEASE_APPLICATION_INSTALL_PROGRESS')}</label>
-            <div class="button-container-col">
-            <button id="btnCancelUpdate" line type="button">${tr('BT_CANCEL_1')}</button>
-            </div>
+            <ol class="boot-steps">
+            <li>${esc(tr('GIT_BOOT_STEP_1'))}</li>
+            <li>${esc(tr('GIT_BOOT_STEP_2'))}</li>
+            <li>${esc(tr('GIT_BOOT_STEP_3').replace('%1', target))}</li>
+            </ol>
+            <p class="boot-elapsed"></p>
+            <div class="warning"><svg><use href=#svg-warning></use></svg><div><b>${esc(tr('GIT_BOOT_NOTE'))}</b></div></div>
+            <p class="boot-result" role="status"></p>
             </div>`;
-
             const hP = div.querySelector('.instructions-header p');
-            if (hP) hP.innerHTML = desc;
-
-            div.querySelector('[close]').onclick = () => closeOverlay(div);
-            div.querySelector('#btnCancelUpdate').onclick = () => firmware.cancelInstallGit(div);
+            if (hP) hP.innerHTML = tr('GIT_RELEASE_DESC').replace('%1', esc(target));
+            // Closing would not stop the installation: no way out but the reload.
+            div.querySelector('[close]')?.remove();
+            this.followBootUpdate(div, target);
         });
     }
-    cancelInstallGit(div) {
-        putJSONBusy(`/cancelFirmware`, {}, (err) => {
-            if (err) ui.serviceError(err);
-            closeOverlay(div);
+    // Polls /loginContext (no login needed) every 3s. Up then down: the board has
+    // restarted into the installer. Back with the target version: done. Back with
+    // another version after being down: the installer gave up (3 boots) or the new
+    // firmware rolled back.
+    followBootUpdate(div, target) {
+        const norm = (s) => (s || '').toLowerCase().replace(/^v/, '');
+        const steps = div.querySelectorAll('.boot-steps li');
+        const elapsed = div.querySelector('.boot-elapsed');
+        const result = div.querySelector('.boot-result');
+        const start = Date.now();
+        let wentDown = false, done = false, timer = null;
+        const setStep = (n) => steps.forEach((li, i) => {
+            li.classList.toggle('is-done', i < n - 1);
+            li.classList.toggle('is-active', i === n - 1);
         });
+        const finish = (msg, ok) => {
+            done = true;
+            clearInterval(timer);
+            result.textContent = msg;
+            result.classList.add(ok ? 'is-ok' : 'is-error');
+            if (ok) { setStep(steps.length + 1); setTimeout(() => location.reload(), 2000); return; }
+            steps.forEach(li => li.classList.remove('is-active'));
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-main';
+            btn.textContent = tr('BT_RELOAD');
+            btn.onclick = () => location.reload();
+            result.after(btn);
+        };
+        const probe = async () => {
+            if (done) return;
+            const secs = Math.round((Date.now() - start) / 1000);
+            elapsed.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+            let ctx = null;
+            try {
+                const ctl = new AbortController();
+                const t = setTimeout(() => ctl.abort(), 2500);
+                const r = await fetch(`${baseUrl}/loginContext`, { cache: 'no-store', signal: ctl.signal });
+                clearTimeout(t);
+                if (r.ok) ctx = await r.json();
+            } catch (e) { /* down: restarting or installing */ }
+            if (done) return;
+            if (!ctx) {
+                if (!wentDown) { wentDown = true; setStep(2); }
+            }
+            else if (wentDown) {
+                if (norm(ctx.version) === norm(target)) finish(tr('GIT_BOOT_DONE'), true);
+                else finish(tr('GIT_BOOT_FAILED').replace('%1', ctx.version || '?'), false);
+                return;
+            }
+            if (secs >= 600) finish(tr('GIT_BOOT_TIMEOUT'), false);
+        };
+        setStep(1);
+        timer = setInterval(probe, 3000);
+        probe();
     }
     updateGithub() {
         getJSONBusy('/getReleases', (err, rel) => {
