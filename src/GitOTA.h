@@ -73,6 +73,15 @@ class GitUpdater {
     void loop();
     void toJSON(JsonResponse &json);
     bool recoverFilesystem();
+    // Update at boot: an install request is stored in NVS and the device reboots;
+    // setup() then starts the network only and loop() runs the download (see
+    // SomfyController.ino).
+    bool bootUpdateMode = false;
+    uint32_t bootUpdateStart = 0;
+    void scheduleBootUpdate(const char *version);
+    bool bootUpdatePending();
+    void cancelBootUpdate();
+    void runBootUpdate();
     int checkInternet();
     void emitUpdateCheck(uint8_t num=255);
     void emitDownloadProgress(size_t total, size_t loaded, const char *evt = "updateProgress");

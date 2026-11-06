@@ -64,7 +64,7 @@ public:
   bool getStrongestAP(const char *ssid, uint8_t *bssid, int32_t *channel);
   bool changeAP(const uint8_t *bssid, const int32_t channel);
   void updateHostname();
-  bool setup();
+  bool setup(bool services = true);
   void loop();
   void end();
   void emitSockets();

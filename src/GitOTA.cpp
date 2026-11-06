@@ -4,6 +4,7 @@
 #include <HTTPClient.h>
 #include <esp_task_wdt.h>
 #include <esp_ota_ops.h>
+#include <Preferences.h>
 #include <time.h>
 #include "ConfigSettings.h"
 #include "GitOTA.h"
@@ -29,7 +30,8 @@ extern Network net;
 // starts in 1970 and every legitimate TLS handshake would wrongly fail.
 static bool _clockIsSet() { return time(nullptr) > 1750000000; } // 2025-06-15
 
-#define MAX_BUFF_SIZE 4096
+// One TCP segment.
+#define MAX_BUFF_SIZE 1460
 void GitRelease::setReleaseProperty(const char *key, const char *val) {
   if(strcmp(key, "id") == 0) this->id = atol(val);
   else if(strcmp(key, "draft") == 0) this->draft = toBoolean(val, false);
@@ -136,8 +138,24 @@ int16_t GitRepo::getReleases(uint8_t num) {
         bool inValue = false;
         bool awaitValue = false;
         bool inAss = false;
+        uint32_t lastData = millis();
         while(https.connected() && (len > 0 || len == -1) && ndx < count) {
           size_t size = stream->available();
+          if(!size) {
+            // Nothing arrived: this loop used to spin without feeding the watchdog,
+            // so a stream stalled for 15s (WiFi out of receive buffers) rebooted
+            // the device. Feed it, yield, and give up after 20s.
+            esp_task_wdt_reset();
+            if((uint32_t)(millis() - lastData) >= 20000) {
+              Serial.println("GitHub release list stalled");
+              https.end();
+              sclient.stop();
+              return -46;
+            }
+            delay(5);
+            continue;
+          }
+          lastData = millis();
           if(size) {
             esp_task_wdt_reset();
             int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
@@ -300,11 +318,10 @@ void GitUpdater::loop() {
       }
   }
   else if(this->status == GIT_AWAITING_UPDATE) {
-    Serial.println("Starting update process....");
+    // Downloaded after a reboot, before the services start: see bootUpdatePending().
     this->status = GIT_UPDATING;
-    this->beginUpdate(this->targetRelease);
-    this->status = GIT_STATUS_READY;
     this->emitUpdateCheck();
+    this->scheduleBootUpdate(this->targetRelease);
   }
   else if(this->status == GIT_UPDATE_CANCELLING) {
     Serial.println("Cancelling update process....");
@@ -314,6 +331,66 @@ void GitUpdater::loop() {
       this->emitUpdateCheck();
     }
   }
+}
+#define BOOT_UPDATE_NS "fw_boot"
+#define BOOT_UPDATE_TRIES 3        // boots spent on one requested version
+#define BOOT_UPDATE_WAIT 90000UL   // network and clock, per boot
+void GitUpdater::scheduleBootUpdate(const char *version) {
+  Preferences p;
+  p.begin(BOOT_UPDATE_NS, false);
+  p.putString("ver", version);
+  p.putUChar("tries", 0);
+  p.end();
+  Serial.printf("Update to %s scheduled for the next boot\n", version);
+  rebootDelay.reboot = true;
+  rebootDelay.rebootTime = millis() + 1000; // lets the HTTP answer go out
+}
+void GitUpdater::cancelBootUpdate() {
+  Preferences p;
+  p.begin(BOOT_UPDATE_NS, false);
+  p.clear();
+  p.end();
+}
+bool GitUpdater::bootUpdatePending() {
+  Preferences p;
+  if(!p.begin(BOOT_UPDATE_NS, true)) return false; // namespace never written
+  String ver = p.getString("ver", "");
+  uint8_t tries = p.getUChar("tries", 0);
+  p.end();
+  if(ver.length() == 0) return false;
+  if(tries >= BOOT_UPDATE_TRIES) {
+    Serial.printf("Update to %s failed %u times: giving up\n", ver.c_str(), tries);
+    this->cancelBootUpdate();
+    return false;
+  }
+  // Counted before trying: a crash during the download must not loop forever.
+  p.begin(BOOT_UPDATE_NS, false);
+  p.putUChar("tries", tries + 1);
+  p.end();
+  strlcpy(this->targetRelease, ver.c_str(), sizeof(this->targetRelease));
+  this->bootUpdateMode = true;
+  this->bootUpdateStart = millis();
+  Serial.printf("Boot update to %s, attempt %u/%u\n", this->targetRelease, tries + 1, BOOT_UPDATE_TRIES);
+  return true;
+}
+void GitUpdater::runBootUpdate() {
+  // Wait for the network and for NTP: the TLS validation needs the time.
+  if(!net.connected() || !_clockIsSet()) {
+    if((uint32_t)(millis() - this->bootUpdateStart) >= BOOT_UPDATE_WAIT) {
+      Serial.println("Boot update: no network or no clock, rebooting");
+      rebootDelay.reboot = true;
+      rebootDelay.rebootTime = millis() + 100;
+    }
+    return;
+  }
+  this->status = GIT_UPDATING;
+  this->beginUpdate(this->targetRelease);
+  // Success: beginUpdate() armed the reboot into the new firmware. Failure: the
+  // next boot tries again until BOOT_UPDATE_TRIES, then boots normally.
+  if(this->error == 0) this->cancelBootUpdate();
+  rebootDelay.reboot = true;
+  if(!rebootDelay.rebootTime || (int32_t)(rebootDelay.rebootTime - millis()) > 1000) rebootDelay.rebootTime = millis() + 500;
+  this->bootUpdateMode = false;
 }
 void GitUpdater::checkForUpdate() {
   if(this->status != 0) return; // If we are already checking.
@@ -334,6 +411,9 @@ void GitUpdater::checkForUpdate() {
       this->emitUpdateCheck();
     }
   }
+  else this->error = -1;
+  // A failed check retries in an hour instead of waiting a whole day.
+  if(this->error != 0) this->lastCheck = millis() - 86400000UL + 3600000UL;
   this->status = GIT_STATUS_READY;
 }
 // The HTTPS request to GitHub fails when it is made from an async web server handler,

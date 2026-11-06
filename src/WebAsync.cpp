@@ -88,7 +88,9 @@ static bool uploadOwned(AsyncWebServerRequest *request) {
 // payload plus the three settings blocks. Overflowing only costs speed (the
 // formatter falls back to streaming), but that fallback is what this whole
 // endpoint exists to avoid.
-static char g_asyncContent[12288];
+// Allocated by WebAsync::begin().
+#define ASYNC_CONTENT_SIZE 12288
+static char *g_asyncContent = nullptr;
 
 void JsonAsyncResponse::begin(AsyncWebServerRequest *request, char *buff, size_t buffSize) {
   this->request = request;
@@ -147,7 +149,7 @@ static void asyncSendJson(AsyncWebServerRequest *request, F build) {
   JsonAsyncResponse resp;
   {
     SomfyGuard guard;
-    resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+    resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
     build(resp);
   }
   resp.finish();
@@ -224,7 +226,7 @@ bool WebAsyncRequest::ensureAuth(bool cfg) {
 bool WebAsyncRequest::sameOrigin() { return webAsync.isSameOrigin(this->_request); }
 IPAddress WebAsyncRequest::remoteIP() { return this->_request->client()->remoteIP(); }
 JsonResponse &WebAsyncRequest::beginJson() {
-  this->_resp.begin(this->_request, g_asyncContent, sizeof(g_asyncContent));
+  this->_resp.begin(this->_request, g_asyncContent, ASYNC_CONTENT_SIZE);
   return this->_resp;
 }
 void WebAsyncRequest::endJson() {
@@ -589,6 +591,8 @@ void WebAsync::abortStalledOta() {
   Serial.println("Async OTA stalled - aborted, releasing somfy");
 }
 void WebAsync::begin() {
+  if(!g_asyncContent) g_asyncContent = (char *)malloc(ASYNC_CONTENT_SIZE);
+  if(!g_asyncContent) { Serial.println("No memory for the web response buffer"); ESP.restart(); }
   somfyLockInit();
   asyncServer.on("/", ASYNC_HTTP_GET, serveIndex);
   asyncServer.on("/index.html", ASYNC_HTTP_GET, serveIndex);
@@ -673,7 +677,7 @@ void WebAsync::begin() {
     if(!webAsync.ensureAuth(request, true)) return;
     {
       SomfyGuard guard;
-      webServer.buildSecurityJson(g_asyncContent, sizeof(g_asyncContent));
+      webServer.buildSecurityJson(g_asyncContent, ASYNC_CONTENT_SIZE);
     }
     request->send(200, "application/json", g_asyncContent);
   });
@@ -720,7 +724,7 @@ void WebAsync::begin() {
       SomfyShade *shade = somfy.getShadeById(shadeId);
       if(shade) {
         found = true;
-        resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+        resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
         resp.beginObject();
         shade->toJSON(resp, secrets);
         resp.endObject();
@@ -744,7 +748,7 @@ void WebAsync::begin() {
       SomfyGroup *group = somfy.getGroupById(groupId);
       if(group) {
         found = true;
-        resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+        resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
         resp.beginObject();
         group->toJSON(resp, secrets);
         resp.endObject();
@@ -767,7 +771,7 @@ void WebAsync::begin() {
       SomfyRoom *room = somfy.getRoomById(roomId);
       if(room) {
         found = true;
-        resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+        resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
         resp.beginObject();
         room->toJSON(resp);
         resp.endObject();
@@ -855,7 +859,7 @@ void WebAsync::begin() {
     bool ok;
     {
       SomfyGuard guard;
-      resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+      resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
       ok = webServer.execShadeCommand(cmd, resp);
     }
     if(ok) resp.finish();
@@ -883,7 +887,7 @@ void WebAsync::begin() {
     bool ok;
     {
       SomfyGuard guard;
-      resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+      resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
       ok = webServer.execTiltCommand(cmd, resp);
     }
     if(ok) resp.finish();
@@ -912,7 +916,7 @@ void WebAsync::begin() {
     bool ok;
     {
       SomfyGuard guard;
-      resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+      resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
       ok = webServer.execGroupCommand(cmd, resp);
     }
     if(ok) resp.finish();
@@ -938,7 +942,7 @@ void WebAsync::begin() {
     uint8_t code;
     {
       SomfyGuard guard;
-      resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+      resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
       code = webServer.execRepeatCommand(cmd, resp);
     }
     switch(code) {
@@ -1144,7 +1148,7 @@ void WebAsync::begin() {
     if(net.softAPOpened) WiFi.disconnect(false);
     int n = WiFi.scanNetworks(false, true); // blocking (~seconds) in async_tcp
     JsonAsyncResponse resp;
-    resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+    resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
     resp.beginObject();
     resp.beginObject("connected");
     resp.addElem("name", settings.WIFI.ssid);
@@ -1188,7 +1192,7 @@ void WebAsync::begin() {
       return;
     }
     JsonAsyncResponse resp;
-    resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+    resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
     resp.beginObject();
     git.fetched.toJSON(resp);
     resp.endObject();
@@ -1217,7 +1221,7 @@ void WebAsync::begin() {
         }
         if(rel) {
           JsonAsyncResponse resp;
-          resp.begin(request, g_asyncContent, sizeof(g_asyncContent));
+          resp.begin(request, g_asyncContent, ASYNC_CONTENT_SIZE);
           resp.beginObject();
           rel->toJSON(resp);
           resp.endObject();

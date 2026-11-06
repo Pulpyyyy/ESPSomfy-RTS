@@ -14,6 +14,7 @@
 #include "GitOTA.h"
 #include "Rollback.h"
 #include "Recovery.h"
+#include "ConfigFile.h"
 
 ConfigSettings settings;
 Web webServer;
@@ -46,13 +47,27 @@ void setup() {
   if(WiFi.status() == WL_CONNECTED) WiFi.disconnect(true);
   delay(10);
   Serial.println();
-  webServer.startup();
-  webServer.begin();
-  webAsync.begin();
-  delay(1000);
-  net.setup();
-  somfy.begin();
-  rfStats.begin();
+  if(git.bootUpdatePending()) {
+    // Firmware update: network only. The shades are loaded (radio off) because
+    // the file system image rewrite puts them back from memory; rolling codes
+    // live in NVS and are not touched.
+    if(ShadeConfigFile::exists() && !ShadeConfigFile::load(&somfy)) {
+      Serial.println("Boot update cancelled: shades.cfg unreadable");
+      git.cancelBootUpdate();
+      ESP.restart();
+    }
+    mqtt.end();
+    net.setup(false);
+  }
+  else {
+    webServer.startup();
+    webServer.begin();
+    webAsync.begin();
+    delay(1000);
+    net.setup();
+    somfy.begin();
+    rfStats.begin();
+  }
   esp_task_wdt_init(15, true); //enable panic so ESP32 restarts
   esp_task_wdt_add(NULL); //add current thread to WDT watch
 
@@ -87,6 +102,15 @@ void loop() {
     rfStats.end();
     net.end();
     ESP.restart();
+    return;
+  }
+  if(git.bootUpdateMode) {
+    // Boot update: keep the network going, then download (see GitUpdater).
+    esp_task_wdt_reset();
+    net.loop();
+    esp_task_wdt_reset();
+    git.runBootUpdate();
+    delay(10);
     return;
   }
   uint32_t timing = millis();

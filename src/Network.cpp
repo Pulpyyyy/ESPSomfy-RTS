@@ -37,7 +37,7 @@ void Network::end() {
   sockEmit.end();
   delay(100);
 }
-bool Network::setup() {
+bool Network::setup(bool services) {
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
   WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
   WiFi.persistent(false);
@@ -52,7 +52,7 @@ bool Network::setup() {
     Serial.println(WiFi.getMode());
     WiFi.mode(WIFI_STA);
   }
-  sockEmit.begin();
+  if(services) sockEmit.begin();
   return true;
 }
 conn_types_t Network::preferredConnType() {

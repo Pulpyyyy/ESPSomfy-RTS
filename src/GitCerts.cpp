@@ -139,11 +139,8 @@ const char GITHUB_ROOT_CAS[] PROGMEM =
   "m+kXQ99b21/+jh5Xos1AnX5iItreGCc=\n"
   "-----END CERTIFICATE-----\n";
 
-// mbedtls parses every root it is given and keeps them in RAM for the whole
-// handshake. With all six, the verification of GitHub's new P-384 chain failed
-// (MBEDTLS_ERR_X509_CERT_VERIFY_FAILED) while the web interface was in use, most
-// likely for lack of memory, and the update list came back empty; with these three
-// it passes. Three roots cover every GitHub host.
+// The roots the GitHub hosts need: Sectigo E46 and R46 for github.com and
+// api.github.com, ISRG X1 for the release assets.
 const char *githubTlsRoots() {
   static const char *roots = nullptr;
   if(!roots) {
