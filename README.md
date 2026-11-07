@@ -14,7 +14,7 @@ An ESP32 and a CC1101 radio module that control your **Somfy RTS** shades, blind
 * **Radio**: RTS, RTW and RTV on 433.42 MHz (or 433.92 MHz, one frequency per transceiver), 56 and 80 bits. Motors without radio can be driven through relay modules.
 * **Your remotes stay in charge**: link up to 7 remotes or sensors per device, and positions follow what they do. A repeater mode helps a motor that hears a remote badly.
 * **Accurate positions**: computed from travel times, with a slat lift time and a winding correction, and a guided calibration that measures them with your own remote.
-* **Home Assistant**: through the [ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced) integration (found automatically), or through MQTT with Home Assistant discovery. An HTTP API and a WebSocket are available for everything else.
+* **Home Assistant**: through the [ESPSomfy-RTS Companion](https://github.com/Pulpyyyy/ESPSomfy-RTS-companion) integration (found automatically), or through MQTT with Home Assistant discovery. An HTTP API and a WebSocket are available for everything else.
 * **Network**: Wi-Fi with roaming, or wired Ethernet (WT32-ETH01, Olimex, LilyGO, wESP32 and others), and a fallback access point.
 * **Security**: PIN code or password, for the whole interface or for the configuration only.
 * **Safe updates**: from GitHub in one click, or by file. Images are checked against the real partition size, and a firmware that fails to start rolls back on its own.
@@ -25,7 +25,7 @@ An ESP32 and a CC1101 radio module that control your **Somfy RTS** shades, blind
 ## Reliability and security
 
 * **Every order gets through**: commands are queued and the board answers at once, while a dedicated radio task on its own processor core sends them. Stops go first. Each order goes on air as one continuous train, like a remote button press, so shades no longer miss orders when several are commanded together. The board does not transmit while a remote is being received (nor in the 150 ms after) or while another transmitter holds the frequency, waits at most 3 s (0.5 s for a stop), and keeps its airtime under the 10 % duty cycle of the 433 MHz band. Every device repeats its orders at least twice.
-* **A smooth display**: a moving shade reports its position every 250 ms, and at once when it changes direction, to the web interface, Home Assistant and MQTT. The web server is asynchronous: pages, API calls and commands do not wait for each other. With ESPSomfy-RTS Enhanced, several shades moving together update smoothly in Home Assistant.
+* **A smooth display**: a moving shade reports its position every 250 ms, and at once when it changes direction, to the web interface, Home Assistant and MQTT. The web server is asynchronous: pages, API calls and commands do not wait for each other. With ESPSomfy-RTS Companion, several shades moving together update smoothly in Home Assistant.
 * **Light on memory**: the interface is served compressed and kept by the browser for a week, responses are built in fixed buffers, the TLS client of MQTT (about 40 KB) only exists while `mqtts://` is used, and the GitHub checks load only the certificate roots they need.
 * **Home Assistant and the board, secured**: with a PIN or password set, API calls need the key returned by the login, which the integration gets with your code (with *Protect configuration only*, only configuration changes need it). The stream of received radio frames, enough to clone a remote, needs the key too. Requests coming from other web sites are refused, wrong codes are slowed down after 5 attempts (up to 5 minutes between tries), and the board never sends a password back. A file uploaded for an update or a restore is checked for the key before anything is written. The link between Home Assistant and the board is plain HTTP on your local network.
 
@@ -42,9 +42,9 @@ Follow **[MIGRATION.md](MIGRATION.md)**: back up, flash once over USB (the parti
 
 ## Home Assistant
 
-* **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)** (recommended): made for this firmware. Home Assistant finds the board on its own, through its UPnP (SSDP) or mDNS announcement; the integration logs in with your PIN or password.
+* **[ESPSomfy-RTS Companion](https://github.com/Pulpyyyy/ESPSomfy-RTS-companion)** (recommended): made for this firmware. Home Assistant finds the board on its own, through its UPnP (SSDP) or mDNS announcement; the integration logs in with your PIN or password.
 * **MQTT**: turn on *Publish Discovery* in **Integrations › Home Assistant and MQTT**; shades appear through Home Assistant's MQTT discovery.
-* The **official ESPSomfy-RTS-HA** integration also finds the board and works with the same API; Enhanced is the one made for this firmware.
+* The **official ESPSomfy-RTS-HA** integration also finds the board and works with the same API; Companion is the one made for this firmware.
 * Automatic discovery does not cross routers: if Home Assistant sits on another network segment (VLAN), add the board by its IP address.
 
 ## Documentation

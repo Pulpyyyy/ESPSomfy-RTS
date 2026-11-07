@@ -14,7 +14,7 @@ Une carte ESP32 reliée à un module radio CC1101 pilote vos volets, stores, ban
 * **Radio** : RTS, RTW et RTV en 433,42 MHz (ou 433,92 MHz, une fréquence par émetteur-récepteur), 56 et 80 bits. Les moteurs sans radio se pilotent par des modules relais.
 * **Vos télécommandes gardent la main** : liez jusqu'à 7 télécommandes ou capteurs par équipement, et les positions suivent ce qu'ils font. Un mode répéteur aide un moteur qui entend mal une télécommande.
 * **Positions justes** : calculées à partir des temps de course, avec un temps de décollage des lames et une correction d'enroulement, et une calibration guidée qui les mesure avec votre propre télécommande.
-* **Home Assistant** : par l'intégration [ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced) (découverte automatique), ou par MQTT avec la découverte Home Assistant. Une API HTTP et un WebSocket sont disponibles pour tout le reste.
+* **Home Assistant** : par l'intégration [ESPSomfy-RTS Companion](https://github.com/Pulpyyyy/ESPSomfy-RTS-companion) (découverte automatique), ou par MQTT avec la découverte Home Assistant. Une API HTTP et un WebSocket sont disponibles pour tout le reste.
 * **Réseau** : Wi-Fi avec itinérance, ou Ethernet filaire (WT32-ETH01, Olimex, LilyGO, wESP32 et d'autres), et un point d'accès de secours.
 * **Sécurité** : code PIN ou mot de passe, pour toute l'interface ou pour la configuration seulement.
 * **Mises à jour sûres** : depuis GitHub en un clic, ou par fichier. Les images sont vérifiées contre la taille réelle des partitions, et un firmware qui ne démarre pas revient tout seul à la version précédente.
@@ -25,7 +25,7 @@ Une carte ESP32 reliée à un module radio CC1101 pilote vos volets, stores, ban
 ## Fiabilité et sécurité
 
 * **Chaque ordre passe** : les commandes sont mises en file et la carte répond aussitôt, pendant qu'une tâche radio dédiée, sur son propre cœur de processeur, les émet. Les arrêts passent en premier. Chaque ordre part en un seul train continu, comme un appui sur une télécommande : les volets ne ratent plus d'ordres quand plusieurs sont commandés ensemble. La carte n'émet pas pendant qu'une télécommande est reçue (ni dans les 150 ms qui suivent) ni pendant qu'un autre émetteur occupe la fréquence, attend au plus 3 s (0,5 s pour un arrêt) et garde son temps d'émission sous les 10 % autorisés sur la bande 433 MHz. Chaque équipement répète ses ordres au moins deux fois.
-* **Un affichage fluide** : un volet en mouvement envoie sa position toutes les 250 ms, et tout de suite quand il change de sens, à l'interface web, à Home Assistant et à MQTT. Le serveur web est asynchrone : pages, appels d'API et commandes ne s'attendent pas. Avec ESPSomfy-RTS Enhanced, plusieurs volets qui bougent ensemble s'affichent sans saccade dans Home Assistant.
+* **Un affichage fluide** : un volet en mouvement envoie sa position toutes les 250 ms, et tout de suite quand il change de sens, à l'interface web, à Home Assistant et à MQTT. Le serveur web est asynchrone : pages, appels d'API et commandes ne s'attendent pas. Avec ESPSomfy-RTS Companion, plusieurs volets qui bougent ensemble s'affichent sans saccade dans Home Assistant.
 * **Économe en mémoire** : l'interface est servie compressée et gardée une semaine par le navigateur, les réponses sont construites dans des tampons fixes, le client TLS de MQTT (environ 40 Ko) n'existe que si `mqtts://` est utilisé, et les vérifications GitHub ne chargent que les certificats racines nécessaires.
 * **Home Assistant et la carte, sécurisés** : avec un code PIN ou un mot de passe, les appels d'API exigent la clé renvoyée à la connexion, que l'intégration obtient avec votre code (avec *Ne protéger que la configuration*, seules les modifications de configuration l'exigent). Le flux des trames radio reçues, qui suffirait à cloner une télécommande, l'exige aussi. Les requêtes venant d'autres sites web sont refusées, les codes faux sont ralentis après 5 essais (jusqu'à 5 minutes entre deux essais) et la carte ne renvoie jamais un mot de passe. Un fichier envoyé pour une mise à jour ou une restauration est contrôlé avant toute écriture. Le lien entre Home Assistant et la carte reste en HTTP non chiffré sur votre réseau local.
 
@@ -42,9 +42,9 @@ Suivez **[MIGRATION_fr.md](MIGRATION_fr.md)** : sauvegarde, un flash USB (la tab
 
 ## Home Assistant
 
-* **[ESPSomfy-RTS Enhanced](https://github.com/Pulpyyyy/ESPSomfy-RTS-enhanced)** (recommandée) : faite pour ce firmware. Home Assistant trouve la carte tout seul, par son annonce UPnP (SSDP) ou mDNS ; l'intégration se connecte avec votre PIN ou mot de passe.
+* **[ESPSomfy-RTS Companion](https://github.com/Pulpyyyy/ESPSomfy-RTS-companion)** (recommandée) : faite pour ce firmware. Home Assistant trouve la carte tout seul, par son annonce UPnP (SSDP) ou mDNS ; l'intégration se connecte avec votre PIN ou mot de passe.
 * **MQTT** : activez *Publier découverte* dans **Intégrations › Home Assistant et MQTT** ; les volets apparaissent par la découverte MQTT de Home Assistant.
-* L'intégration **officielle ESPSomfy-RTS-HA** trouve aussi la carte et fonctionne avec la même API ; Enhanced est celle faite pour ce firmware.
+* L'intégration **officielle ESPSomfy-RTS-HA** trouve aussi la carte et fonctionne avec la même API ; Companion est celle faite pour ce firmware.
 * La découverte automatique ne traverse pas les routeurs : si Home Assistant est sur un autre segment de réseau (VLAN), ajoutez la carte par son adresse IP.
 
 ## Documentation
