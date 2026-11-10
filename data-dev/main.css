@@ -221,6 +221,15 @@ div.wifiSignal {
     display: flex;
     justify-content: flex-end;
 }
+/* Name length in bytes (see showNameBytes), shown while the field is edited. */
+.unibloc :focus-within > label[data-count]::after,
+.unibloc:focus-within > label[data-count]::after {
+    content: attr(data-count);
+    float: right;
+    font-weight: 400;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+}
 .somfy-status-container .somfy-shade-icon {
     width:56px;
     height:56px;

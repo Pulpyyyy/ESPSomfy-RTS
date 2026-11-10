@@ -2963,11 +2963,32 @@ var somfy = new Somfy();
 // shades.cfg separates its fields with commas, so the firmware turns a comma in a
 // shade, group or room name into a space. Drop it as it is typed instead, so the
 // name that gets saved is the one on screen.
+// The firmware also stores a name in 20 bytes, not 20 characters: an accented
+// letter takes two. Refuse what does not fit, at the caret, and show the count.
+const NAME_MAX_BYTES = 20;
+const nameBytes = (s) => new TextEncoder().encode(s).length;
 document.addEventListener('input', (e) => {
     const t = e.target;
     if (!t || !t.matches || !t.matches('#fldShadeName, #fldGroupName, #fldRoomName')) return;
-    if (t.value.indexOf(',') < 0) return;
-    const caret = t.selectionStart - (t.value.slice(0, t.selectionStart).split(',').length - 1);
-    t.value = t.value.replace(/,/g, '');
-    t.setSelectionRange(caret, caret);
+    let before = t.value.slice(0, t.selectionStart).replace(/,/g, '');
+    const after = t.value.slice(t.selectionStart).replace(/,/g, '');
+    if (nameBytes(before + after) > NAME_MAX_BYTES) {
+        const chars = Array.from(before);
+        while (chars.length && nameBytes(chars.join('') + after) > NAME_MAX_BYTES) chars.pop();
+        before = chars.join('');
+    }
+    if (before + after !== t.value) {
+        t.value = before + after;
+        t.setSelectionRange(before.length, before.length);
+    }
+    showNameBytes(t);
 }, true);
+// The editors fill the field without an input event: count again on focus.
+document.addEventListener('focusin', (e) => {
+    const t = e.target;
+    if (t && t.matches && t.matches('#fldShadeName, #fldGroupName, #fldRoomName')) showNameBytes(t);
+});
+function showNameBytes(field) {
+    const label = document.querySelector(`label[for="${field.id}"]`);
+    if (label) label.dataset.count = `${nameBytes(field.value)}/${NAME_MAX_BYTES}`;
+}

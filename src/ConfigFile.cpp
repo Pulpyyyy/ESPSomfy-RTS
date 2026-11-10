@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include "ConfigFile.h"
 #include "Utils.h"
+#include "TextCut.h"
 #include "ConfigSettings.h"
 
 extern Preferences pref;
@@ -886,6 +887,9 @@ bool ShadeConfigFile::readSettingsRecord() {
   }
   return true;
 }
+// Older firmware cut names at the byte limit, sometimes inside an accented
+// letter: drop such a partial letter so the name reads back as valid UTF-8.
+static void endOnWholeChar(char *name) { name[textCutLen(name, strlen(name))] = '\0'; }
 bool ShadeConfigFile::readGroupRecord(SomfyGroup *group) {
   pref.begin("ShadeCodes");
   uint32_t startPos = this->file.position();
@@ -893,6 +897,7 @@ bool ShadeConfigFile::readGroupRecord(SomfyGroup *group) {
   group->groupType = static_cast<group_types>(this->readUInt8(0));
   group->setRemoteAddress(this->readUInt32(0));
   this->readString(group->name, sizeof(group->name));
+  endOnWholeChar(group->name);
   group->proto = static_cast<radio_proto>(this->readUInt8(0));
   group->bitLength = this->readUInt8(56);
   if(this->header.version == 23) group->lastRollingCode = this->readUInt16(0);
@@ -941,6 +946,7 @@ bool ShadeConfigFile::readRoomRecord(SomfyRoom *room) {
   uint32_t startPos = this->file.position();
   room->roomId = this->readUInt8(0);
   this->readString(room->name, sizeof(room->name));
+  endOnWholeChar(room->name);
   room->sortOrder = this->readUInt8(room->roomId - 1);
   if(this->file.position() != startPos + this->header.roomRecordSize) {
     Serial.println("Reading to end of room record");
@@ -957,6 +963,7 @@ bool ShadeConfigFile::readShadeRecord(SomfyShade *shade) {
   shade->shadeType = static_cast<shade_types>(this->readUInt8(0));
   shade->setRemoteAddress(this->readUInt32(0));
   this->readString(shade->name, sizeof(shade->name));
+  endOnWholeChar(shade->name);
   if(this->header.version < 3)
     shade->tiltType = this->readBool(false) ? tilt_types::none : tilt_types::tiltmotor;
   else

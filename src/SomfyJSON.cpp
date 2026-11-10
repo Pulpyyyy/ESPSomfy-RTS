@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WebServer.h>
 #include "Utils.h"
+#include "TextCut.h"
 #include "ConfigSettings.h"
 #include "Somfy.h"
 #include "ConfigFile.h"
@@ -90,7 +91,11 @@ int8_t SomfyShade::validateJSON(JsonObject &obj) {
 // following field of the record at the next boot: they become spaces.
 static void copyName(char *dest, size_t size, JsonVariant val) {
   if(!val.is<const char*>()) return;
-  strlcpy(dest, val.as<const char*>(), size);
+  // Cut on a whole character: the buffer holds bytes, an accented letter takes two.
+  const char *src = val.as<const char*>();
+  size_t n = textCutLen(src, strnlen(src, size - 1));
+  memcpy(dest, src, n);
+  dest[n] = '\0';
   for(char *p = dest; *p; p++)
     if(*p == CFG_VALUE_SEP || *p == CFG_REC_END || *p == '\r') *p = ' ';
 }
