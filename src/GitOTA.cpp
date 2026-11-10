@@ -118,6 +118,11 @@ int16_t GitRepo::getReleases(uint8_t num) {
   sprintf(url, "https://api.github.com/repos/" GIT_REPO_PATH "/releases?per_page=%d&page=1", count);
   HTTPClient https;
   https.setReuse(false);
+  // The body below is parsed straight off the socket: HTTP/1.0 keeps the server
+  // from answering with chunked transfer encoding, whose size lines would land
+  // in the JSON.
+  https.useHTTP10(true);
+  bool listDone = false; // Root array closed, or every requested release read.
   if(https.begin(sclient, url)) {
     esp_task_wdt_reset();
     int httpCode = https.GET();
@@ -139,7 +144,7 @@ int16_t GitRepo::getReleases(uint8_t num) {
         bool awaitValue = false;
         bool inAss = false;
         uint32_t lastData = millis();
-        while(https.connected() && (len > 0 || len == -1) && ndx < count) {
+        while(https.connected() && (len > 0 || len == -1) && ndx < count && !listDone) {
           size_t size = stream->available();
           if(!size) {
             // Nothing arrived: this loop used to spin without feeding the watchdog,
@@ -182,6 +187,7 @@ int16_t GitRepo::getReleases(uint8_t num) {
               else if(!inQuote && ch == ']') {
                 arrTok--;
                 if(arrTok < 2) inAss = false;
+                if(arrTok == 0) { listDone = true; break; } // Fewer releases than requested.
               }
               else if(!inQuote && ch == '{') {
                 objTok++;
@@ -189,7 +195,7 @@ int16_t GitRepo::getReleases(uint8_t num) {
               }
               else if(!inQuote && ch == '}') {
                 objTok--;
-                if(objTok == 0 && ++ndx >= count) break;
+                if(objTok == 0 && ++ndx >= count) { listDone = true; break; }
               }
               else if(objTok == 1 || inAss) {
                 // We only want data from the root object.
@@ -271,6 +277,12 @@ int16_t GitRepo::getReleases(uint8_t num) {
   }
   else return -1;
   settings.printAvailHeap();
+  // The connection can close before the list ends: report it instead of
+  // passing a partial or empty list off as a successful check.
+  if(!listDone) {
+    Serial.printf("GitHub release list incomplete: %u of %u read\n", ndx, count);
+    return -47;
+  }
   return 0;
 }
 void GitRepo::toJSON(JsonResponse &json) {
