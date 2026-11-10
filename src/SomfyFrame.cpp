@@ -421,5 +421,8 @@ void somfy_frame_t::copy(somfy_frame_t &frame) {
     this->checksum = frame.checksum;
     this->hwsync = frame.hwsync;
     this->repeats = frame.repeats;
+    // A step from a physical remote carries its own size: without it the move
+    // was computed with the size of the last command sent from the web.
+    this->stepSize = frame.stepSize;
   }
 }
