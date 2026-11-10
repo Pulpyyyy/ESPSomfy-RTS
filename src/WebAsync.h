@@ -7,18 +7,19 @@
 #ifndef webasync_h
 #define webasync_h
 
-// In WebServer.h-compat mode the async library does not emit its method
-// bitmask enum: the HTTP_* names resolve to the sync HTTPMethod values, where
-// HTTP_PUT(4) collides with the async DELETE bit. These are the library's
-// actual WebRequestMethodComposite wire values - use them for every on().
-#define ASYNC_HTTP_GET     0b00000001
-#define ASYNC_HTTP_POST    0b00000010
-#define ASYNC_HTTP_DELETE  0b00000100
-#define ASYNC_HTTP_PUT     0b00001000
-#define ASYNC_HTTP_PATCH   0b00010000
-#define ASYNC_HTTP_HEAD    0b00100000
-#define ASYNC_HTTP_OPTIONS 0b01000000
-#define ASYNC_HTTP_ANY     0b01111111
+// With WebServer.h included first (HTTP_ANY defined), the async library keeps
+// its method enum inside the AsyncWebRequestMethod namespace and the global
+// HTTP_* names stay the sync HTTPMethod values. Since 3.10.2 the bit layout
+// changed (DELETE=1, GET=2, ...) and raw integers are rejected, so name the
+// library's own enumerators instead of hard-coding wire values.
+#define ASYNC_HTTP_GET     AsyncWebRequestMethod::HTTP_GET
+#define ASYNC_HTTP_POST    AsyncWebRequestMethod::HTTP_POST
+#define ASYNC_HTTP_DELETE  AsyncWebRequestMethod::HTTP_DELETE
+#define ASYNC_HTTP_PUT     AsyncWebRequestMethod::HTTP_PUT
+#define ASYNC_HTTP_PATCH   AsyncWebRequestMethod::HTTP_PATCH
+#define ASYNC_HTTP_HEAD    AsyncWebRequestMethod::HTTP_HEAD
+#define ASYNC_HTTP_OPTIONS AsyncWebRequestMethod::HTTP_OPTIONS
+#define ASYNC_HTTP_ANY     AsyncWebRequestMethod::HTTP_ALL
 
 // JsonResponse twin for the async server. Inheriting JsonResponse keeps every
 // existing toJSON(JsonResponse&) serializer usable untouched. It accumulates

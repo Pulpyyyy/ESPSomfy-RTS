@@ -337,7 +337,7 @@ static void startFileTransfer(AsyncWebServerRequest *request, const char *path, 
   // The file response adds this by itself; inline is the default behavior
   // anyway and the synchronous server never sent it. Dropped so the headers
   // stay identical to what the UI was served before the cutover.
-  response->removeHeader("Content-Disposition");
+  response->removeHeader("Content-Disposition", "inline");
   if(cache) response->addHeader(F("Cache-Control"), F("public, max-age=604800, immutable"));
   if(index) {
     // This document carries the content hashes of the bundles, so it is the
