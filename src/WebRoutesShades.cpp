@@ -322,17 +322,25 @@ void Web::handleSetMyPosition(WebRequest &req) {
       }
       else {
         JsonObject obj = doc.as<JsonObject>();
-        if (obj.containsKey("shadeId")) shadeId = obj["shadeId"];
-        else req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}");
+        // An error answers the request: stop there instead of answering a second time.
+        if (!obj.containsKey("shadeId")) {
+          req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"No shade id was supplied.\"}");
+          return;
+        }
+        shadeId = obj["shadeId"];
         if(obj.containsKey("pos")) pos = obj["pos"].as<int8_t>();
         if(obj.containsKey("tilt")) tilt = obj["tilt"].as<int8_t>();
       }
     }
-    else req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}");
+    else {
+      req.send(500, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"No shade object supplied.\"}");
+      return;
+    }
     SomfyShade* shade = somfy.getShadeById(shadeId);
     if (shade) {
-      // Send the command to the shade.
-      if(tilt < 0) tilt = shade->myPos;
+      // No tilt in the request: keep the favorite tilt. The request speaks in
+      // displayed positions, so take it as displayed (it is flipped back below).
+      if(tilt < 0) tilt = shade->transformPosition(shade->myTiltPos);
       if(shade->tiltType == tilt_types::none) tilt = -1;
       if(pos >= 0 && pos <= 100)
         shade->setMyPosition(shade->transformPosition(pos), shade->transformPosition(tilt));
