@@ -91,7 +91,8 @@ uint32_t JsonFormatter::calcEscapedLength(const char *raw) {
         len += 2;
         break;
       default:
-        len++;
+        // Any other control character has no short form: \u00XX.
+        len += (static_cast<unsigned char>(raw[i - 1]) < 0x20) ? 6 : 1;
         break;
     }
   }
@@ -113,7 +114,15 @@ size_t JsonFormatter::escapeString(const char *raw, char *escaped) {
       case '\r': *p++ = '\\'; *p++ = 'r';  break;
       case '\t': *p++ = '\\'; *p++ = 't';  break;
       case '\\': *p++ = '\\'; *p++ = '\\'; break;
-      default:   *p++ = *s;                break;
+      default:
+        if(static_cast<unsigned char>(*s) < 0x20) {
+          // JSON forbids raw control characters inside a string.
+          static const char hex[] = "0123456789abcdef";
+          *p++ = '\\'; *p++ = 'u'; *p++ = '0'; *p++ = '0';
+          *p++ = hex[(*s >> 4) & 0x0F]; *p++ = hex[*s & 0x0F];
+        }
+        else *p++ = *s;
+        break;
     }
   }
   *p = '\0';

@@ -52,6 +52,14 @@ static void test_escape_covers_every_special_character(void) {
   TEST_ASSERT_EQUAL_UINT32(16, (uint32_t)written);
 }
 
+static void test_escape_other_control_characters_as_unicode(void) {
+  char out[64];
+  size_t written = fmt.escapeString("a\x01" "b\x1f", out);
+  TEST_ASSERT_EQUAL_STRING("a\\u0001b\\u001f", out);
+  TEST_ASSERT_EQUAL_UINT32(14, (uint32_t)written);
+  TEST_ASSERT_EQUAL_UINT32(14, fmt.calcEscapedLength("a\x01" "b\x1f"));
+}
+
 static void test_escape_of_empty_string(void) {
   char out[4] = {'x', 'x', 'x', 'x'};
   TEST_ASSERT_EQUAL_UINT32(0, (uint32_t)fmt.escapeString("", out));
@@ -232,6 +240,7 @@ int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(test_escape_leaves_plain_text_untouched);
   RUN_TEST(test_escape_covers_every_special_character);
+  RUN_TEST(test_escape_other_control_characters_as_unicode);
   RUN_TEST(test_escape_of_empty_string);
   RUN_TEST(test_escape_return_matches_bytes_written);
   RUN_TEST(test_escaped_length_matches_escape_output);
