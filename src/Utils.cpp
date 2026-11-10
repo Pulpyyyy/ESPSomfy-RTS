@@ -100,8 +100,9 @@ int Timestamp::calcTZOffset(time_t *dt) {
   localtime_r(dt, &tmLocal);
   long diff = mktime(&tmLocal) - mktime(&tmUTC);
   if(tmLocal.tm_isdst) diff += 3600;
+  // hhmm: the leftover seconds become minutes, so +05:30 gives 530.
   int hrs = (int)((diff/3600) * 100);
-  int mins = diff - (hrs * 36);
+  int mins = (int)((diff % 3600) / 60);
   return hrs + mins;
 }
 int Timestamp::tzOffset() {
