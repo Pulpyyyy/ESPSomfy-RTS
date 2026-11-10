@@ -773,6 +773,7 @@
     "ERR_PIN_TRANSCEIVER": "Pin déjà utilisée pour l'émetteur-récepteur. Les broches de sortie ne peuvent pas être réutilisées.",
     "ERR_PIN_ETHERNET": "Pin déjà utilisée pour l'adaptateur Ethernet. Les broches de sortie ne peuvent pas être réutilisées.",
     "ERR_PIN_MOTOR": "Pin déjà utilisée pour un autre moteur. Les broches de sortie ne peuvent pas être réutilisées.",
+    "ERR_ADDRESS_IN_USE": "Cette adresse radio est déjà utilisée par un autre équipement ou groupe. Chacun doit avoir la sienne, sinon ils répondraient aux mêmes ordres.",
     "ERR_GIT_FLASH_WRITE": "Mise à jour Git : Échec de l'écriture Flash.",
     "ERR_GIT_FLASH_ERASE": "Mise à jour Git : Échec de l'effacement Flash.",
     "ERR_GIT_FLASH_READ": "Mise à jour Git : Échec de la lecture Flash.",

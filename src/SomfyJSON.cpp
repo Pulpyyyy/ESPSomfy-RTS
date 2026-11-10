@@ -12,6 +12,12 @@
 extern SomfyShadeController somfy;
 extern ConfigSettings settings;
 
+// True when one of the pins (255 = unused) is taken according to `taken`: one
+// test applied to the three pins, so no pin is checked against the wrong owner.
+template<typename Taken> static bool anyPinTaken(const uint8_t (&pins)[3], Taken taken) {
+  for(uint8_t pin : pins) if(pin != 255 && taken(pin)) return true;
+  return false;
+}
 int8_t SomfyShade::validateJSON(JsonObject &obj) {
   int8_t ret = 0;
   shade_types type = this->shadeType;
@@ -40,45 +46,43 @@ int8_t SomfyShade::validateJSON(JsonObject &obj) {
       else if(strncmp(obj["shadeType"].as<const char *>(), "drycontact", 11) == 0)
         type = shade_types::drycontact;
     }
-    else {
-      this->shadeType = static_cast<shade_types>(obj["shadeType"].as<uint8_t>());
-    }
+    // Validation only reads: fromJSON applies the type once the checks pass.
+    else type = static_cast<shade_types>(obj["shadeType"].as<uint8_t>());
   }
-  if(obj.containsKey("proto")) {
-    radio_proto proto = this->proto;
-    if(proto == radio_proto::GP_Relay || proto == radio_proto::GP_Remote) {
-      // Check to see if we are using the up and or down
-      // GPIOs anywhere else.
-      uint8_t upPin = obj.containsKey("gpioUp") ? obj["gpioUp"].as<uint8_t>() : this->gpioUp;
-      uint8_t downPin = obj.containsKey("gpioDown") ? obj["gpioDown"].as<uint8_t>() : this->gpioDown;
-      uint8_t myPin = obj.containsKey("gpioMy") ? obj["gpioMy"].as<uint8_t>() : this->gpioMy;
-      if(type == shade_types::drycontact || 
-        ((type == shade_types::garage1 || type == shade_types::lgate1 || type == shade_types::cgate1 || type == shade_types::rgate1) 
-        && proto == radio_proto::GP_Remote)) upPin = myPin = 255;
-      else if(type == shade_types::drycontact2) myPin = 255;
-      if(proto == radio_proto::GP_Relay) myPin = 255;
-      if(somfy.transceiver.config.enabled) {
-        if((upPin != 255 && somfy.transceiver.usesPin(upPin)) ||
-          (downPin != 255 && somfy.transceiver.usesPin(downPin)) ||
-          (myPin != 255 && somfy.transceiver.usesPin(myPin)))
-          ret = -10;
-      }
-      if(settings.connType == conn_types_t::ethernet || settings.connType == conn_types_t::ethernetpref) {
-        if((upPin != 255 && settings.Ethernet.usesPin(upPin)) ||
-          (downPin != 255 && somfy.transceiver.usesPin(downPin)) ||
-          (myPin != 255 && somfy.transceiver.usesPin(myPin)))
-          ret = -11;
-      }
-      if(ret == 0) {
-        for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
-          SomfyShade *shade = &somfy.shades[i];
-          if(shade->getShadeId() == this->getShadeId() || shade->getShadeId() == 255) continue;
-          if((upPin != 255 && shade->usesPin(upPin)) ||
-            (downPin != 255 && shade->usesPin(downPin)) ||
-            (myPin != 255 && shade->usesPin(myPin))){
-            ret = -12;
-            break;
-          }
+  // A radio address belongs to one shade or group: two of them would answer
+  // the same remote and share its rolling code. Checked only when it changes,
+  // so a shade saved by an older version with a shared address stays editable.
+  if(obj.containsKey("remoteAddress")) {
+    uint32_t address = obj["remoteAddress"].as<uint32_t>();
+    if(address != this->getRemoteAddress() && somfy.addressOwner(address, this)) return -13;
+  }
+  // The GPIO protocols drive pins: check them whenever the shade is or becomes
+  // one, against the protocol the request sets rather than the one it replaces.
+  // A shade already on a relay is checked too when only its pins change.
+  radio_proto proto = obj.containsKey("proto") ? static_cast<radio_proto>(obj["proto"].as<uint8_t>()) : this->proto;
+  if(proto == radio_proto::GP_Relay || proto == radio_proto::GP_Remote) {
+    uint8_t pins[3] = {
+      obj.containsKey("gpioUp") ? obj["gpioUp"].as<uint8_t>() : this->gpioUp,
+      obj.containsKey("gpioDown") ? obj["gpioDown"].as<uint8_t>() : this->gpioDown,
+      obj.containsKey("gpioMy") ? obj["gpioMy"].as<uint8_t>() : this->gpioMy
+    };
+    if(type == shade_types::drycontact ||
+      ((type == shade_types::garage1 || type == shade_types::lgate1 || type == shade_types::cgate1 || type == shade_types::rgate1)
+      && proto == radio_proto::GP_Remote)) pins[0] = pins[2] = 255;
+    else if(type == shade_types::drycontact2) pins[2] = 255;
+    if(proto == radio_proto::GP_Relay) pins[2] = 255;
+    if(somfy.transceiver.config.enabled && anyPinTaken(pins, [](uint8_t pin) { return somfy.transceiver.usesPin(pin); }))
+      ret = -10;
+    if((settings.connType == conn_types_t::ethernet || settings.connType == conn_types_t::ethernetpref)
+      && anyPinTaken(pins, [](uint8_t pin) { return settings.Ethernet.usesPin(pin); }))
+      ret = -11;
+    if(ret == 0) {
+      for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
+        SomfyShade *shade = &somfy.shades[i];
+        if(shade->getShadeId() == this->getShadeId() || shade->getShadeId() == 255) continue;
+        if(anyPinTaken(pins, [shade](uint8_t pin) { return shade->usesPin(pin); })) {
+          ret = -12;
+          break;
         }
       }
     }
@@ -346,7 +350,16 @@ void SomfyRoom::toJSON(JsonResponse &json) {
   json.addElem("sortOrder", this->sortOrder);
 }
 
+// Same address rule as the shades (see SomfyShade::validateJSON).
+int8_t SomfyGroup::validateJSON(JsonObject &obj) {
+  if(obj.containsKey("remoteAddress")) {
+    uint32_t address = obj["remoteAddress"].as<uint32_t>();
+    if(address != this->getRemoteAddress() && somfy.addressOwner(address, this)) return -13;
+  }
+  return 0;
+}
 bool SomfyGroup::fromJSON(JsonObject &obj) {
+  if(this->validateJSON(obj) != 0) return false;
   copyName(this->name, sizeof(this->name), obj["name"]);
   if(obj.containsKey("roomId")) this->roomId = obj["roomId"];
   if(obj.containsKey("remoteAddress")) this->setRemoteAddress(obj["remoteAddress"]);

@@ -773,6 +773,7 @@
     "ERR_PIN_TRANSCEIVER": "Pin setting in use for Transceiver. Output pins cannot be re-used.",
     "ERR_PIN_ETHERNET": "Pin setting in use for Ethernet Adapter. Output pins cannot be re-used.",
     "ERR_PIN_MOTOR": "Pin setting in use on another motor. Output pins cannot be re-used.",
+    "ERR_ADDRESS_IN_USE": "This radio address is already used by another device or group. Each one needs its own, or they would answer the same commands.",
     "ERR_GIT_FLASH_WRITE": "Git Update: Flash write failed.",
     "ERR_GIT_FLASH_ERASE": "Git Update: Flash erase failed.",
     "ERR_GIT_FLASH_READ": "Git Update: Flash read failed.",

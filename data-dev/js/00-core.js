@@ -333,6 +333,7 @@ var errors = [
     { code: -10, key: 'ERR_PIN_TRANSCEIVER' },
     { code: -11, key: 'ERR_PIN_ETHERNET' },
     { code: -12, key: 'ERR_PIN_MOTOR' },
+    { code: -13, key: 'ERR_ADDRESS_IN_USE' },
     { code: -21, key: 'ERR_GIT_FLASH_WRITE' },
     { code: -22, key: 'ERR_GIT_FLASH_ERASE' },
     { code: -23, key: 'ERR_GIT_FLASH_READ' },

@@ -773,6 +773,7 @@
     "ERR_PIN_TRANSCEIVER": "Pin-Einstellung wird bereits für den Transceiver verwendet. Ausgangs-Pins können nicht mehrfach belegt werden.",
     "ERR_PIN_ETHERNET": "Pin-Einstellung wird bereits für den Ethernet-Adapter verwendet. Ausgangs-Pins können nicht mehrfach belegt werden.",
     "ERR_PIN_MOTOR": "Pin-Einstellung wird bereits an einem anderen Motor verwendet. Ausgangs-Pins können nicht mehrfach belegt werden.",
+    "ERR_ADDRESS_IN_USE": "Diese Funkadresse wird bereits von einem anderen Gerät oder einer Gruppe verwendet. Jedes braucht seine eigene, sonst reagieren sie auf dieselben Befehle.",
     "ERR_GIT_FLASH_WRITE": "Git-Update: Schreiben in den Flash-Speicher fehlgeschlagen.",
     "ERR_GIT_FLASH_ERASE": "Git-Update: Löschen des Flash-Speichers fehlgeschlagen.",
     "ERR_GIT_FLASH_READ": "Git-Update: Lesen des Flash-Speichers fehlgeschlagen.",

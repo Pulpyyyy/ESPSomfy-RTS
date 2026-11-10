@@ -315,26 +315,29 @@ uint8_t SomfyShadeController::groupCount() {
   }
   return count;
 }
+// The shade or group that already transmits on this radio address, skipping
+// `self` so an object never collides with its own address; nullptr if free.
+SomfyRemote *SomfyShadeController::addressOwner(uint32_t address, const SomfyRemote *self) {
+  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
+    SomfyShade *shade = &this->shades[i];
+    if(shade != self && shade->getShadeId() != 255 && shade->getRemoteAddress() == address) return shade;
+  }
+  for(uint8_t i = 0; i < SOMFY_MAX_GROUPS; i++) {
+    SomfyGroup *group = &this->groups[i];
+    if(group != self && group->getGroupId() != 255 && group->getRemoteAddress() == address) return group;
+  }
+  return nullptr;
+}
 uint32_t SomfyShadeController::getNextRemoteAddress(uint8_t id) {
   uint32_t address = this->startingAddress + id;
-  uint8_t i = 0;
-  // The assumption here is that the max number of groups will
-  // always be less than or equal to the max number of shades.
-  while(i < SOMFY_MAX_SHADES) {
-    if((i < SOMFY_MAX_SHADES && this->shades[i].getShadeId() != 255 && this->shades[i].getRemoteAddress() == address) ||
-      (i < SOMFY_MAX_GROUPS && this->groups[i].getGroupId() != 255 && this->groups[i].getRemoteAddress() == address)) {
-      address++;
-      i = 0; // Start over we cannot share addresses.
-    }
-    else i++;
-  }
-  i = 0;
+  while(this->addressOwner(address, nullptr)) address++;
   return address;
 }
 SomfyShade *SomfyShadeController::addShade(JsonObject &obj) {
   SomfyShade *shade = this->addShade();
   if(shade) {
-    shade->fromJSON(obj);
+    // Refused data (pins, address in use) must not leave a half-made shade behind.
+    if(shade->fromJSON(obj) != 0) { shade->clear(); return nullptr; }
     shade->save();
     shade->emitState("shadeAdded");
   }
@@ -415,7 +418,7 @@ SomfyRoom *SomfyShadeController::addRoom() {
 SomfyGroup *SomfyShadeController::addGroup(JsonObject &obj) {
   SomfyGroup *group = this->addGroup();
   if(group) {
-    group->fromJSON(obj);
+    if(!group->fromJSON(obj)) { group->clear(); return nullptr; }
     group->save();
     group->emitState("groupAdded");
   }

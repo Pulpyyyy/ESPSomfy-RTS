@@ -275,7 +275,14 @@ void Web::handleSaveGroup(WebRequest &req) {
         JsonObject obj = doc.as<JsonObject>();
         if (obj.containsKey("groupId")) {
           SomfyGroup* group = somfy.getGroupById(obj["groupId"]);
-          if (group) {
+          int8_t verr = group ? group->validateJSON(obj) : 0;
+          if (group && verr != 0) {
+            // Same answer as a refused shade save, so the UI shows the same message.
+            char msg[80];
+            snprintf(msg, sizeof(msg), "{\"status\":\"DATA\",\"desc\":\"Data Error.\", \"code\":%d}", verr);
+            req.send(500, _encoding_json, msg);
+          }
+          else if (group) {
             group->fromJSON(obj);
             group->save();
             JsonResponse &resp = req.beginJson();

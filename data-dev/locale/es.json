@@ -773,6 +773,7 @@
     "ERR_PIN_TRANSCEIVER": "Configuración de pin en uso para el transceptor. Los pines de salida no pueden reutilizarse.",
     "ERR_PIN_ETHERNET": "Configuración de pin en uso para el adaptador Ethernet. Los pines de salida no pueden reutilizarse.",
     "ERR_PIN_MOTOR": "Configuración de pin en uso en otro motor. Los pines de salida no pueden reutilizarse.",
+    "ERR_ADDRESS_IN_USE": "Esta dirección de radio ya la usa otro equipo o grupo. Cada uno necesita la suya, si no responderían a las mismas órdenes.",
     "ERR_GIT_FLASH_WRITE": "Actualización Git: Error de escritura en flash.",
     "ERR_GIT_FLASH_ERASE": "Actualización Git: Error de borrado en flash.",
     "ERR_GIT_FLASH_READ": "Actualización Git: Error de lectura en flash.",

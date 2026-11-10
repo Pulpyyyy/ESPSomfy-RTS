@@ -323,6 +323,7 @@ class SomfyGroup : public SomfyRemote {
     uint8_t getGroupId() { return groupId; }
     bool save();
     void clear();
+    int8_t validateJSON(JsonObject &obj);
     bool fromJSON(JsonObject &obj);
     //bool toJSON(JsonObject &obj);
     void toJSON(JsonResponse &json);
@@ -365,6 +366,7 @@ class SomfyShadeController {
     int8_t getMaxShadeOrder();
     int8_t getMaxGroupOrder();
     uint32_t getNextRemoteAddress(uint8_t shadeId);
+    SomfyRemote *addressOwner(uint32_t address, const SomfyRemote *self);
     SomfyShadeController();
     Transceiver transceiver;
     SomfyRoom *addRoom();
