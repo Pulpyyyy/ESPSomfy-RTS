@@ -179,6 +179,16 @@ void Network::loop() {
   }
   else if(!settings.ssdpBroadcast && SSDP.isStarted) SSDP.end();
 }
+// Join the configured network. With a known access point (BSSID and channel)
+// the driver can go straight to it: an all-channel scan there only delays the
+// join by seconds. Without one (hidden network), the full scan is what lets the
+// driver find the strongest access point.
+void Network::beginWiFi(const uint8_t *bssid, int32_t channel) {
+  const bool known = bssid && channel > 0;
+  WiFi.setScanMethod(known ? WIFI_FAST_SCAN : WIFI_ALL_CHANNEL_SCAN);
+  if(known) WiFi.begin(settings.WIFI.ssid, settings.WIFI.passphrase, channel, bssid);
+  else WiFi.begin(settings.WIFI.ssid, settings.WIFI.passphrase);
+}
 bool Network::changeAP(const uint8_t *bssid, const int32_t channel) {
   safe_wdt_reset(); // Make sure we do not reboot here.
   this->lastRoam = millis();
@@ -189,7 +199,7 @@ bool Network::changeAP(const uint8_t *bssid, const int32_t channel) {
   this->connType = conn_types_t::unset;
   this->_connecting = true;
   this->connectStart = millis();
-  WiFi.begin(settings.WIFI.ssid, settings.WIFI.passphrase, channel, bssid);
+  this->beginWiFi(bssid, channel);
   this->connectStart = millis();
   return false;
 }
@@ -453,7 +463,7 @@ bool Network::connectWiFi(const uint8_t *bssid, const int32_t channel) {
     this->connType = conn_types_t::unset;
     Serial.println("WiFi begin...");
     this->_connecting = true;
-    WiFi.begin(settings.WIFI.ssid, settings.WIFI.passphrase, channel, bssid);
+    this->beginWiFi(bssid, channel);
     this->connectStart = millis();
   }
   else if(settings.WIFI.ssid[0] != '\0') {
@@ -482,17 +492,16 @@ bool Network::connectWiFi(const uint8_t *bssid, const int32_t channel) {
     if(settings.hostname[0] != '\0') WiFi.setHostname(settings.hostname);
     Serial.print("Set hostname to:");
     Serial.println(WiFi.getHostname());
-    WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
     WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
     uint8_t _bssid[6];
     int32_t _channel = 0;
     if(!settings.WIFI.hidden && this->getStrongestAP(settings.WIFI.ssid, _bssid, &_channel)) {
       Serial.printf("Found strongest AP %02X:%02X:%02X:%02X:%02X:%02X CH:%d\n", _bssid[0], _bssid[1], _bssid[2], _bssid[3], _bssid[4], _bssid[5], _channel);
-      WiFi.begin(settings.WIFI.ssid, settings.WIFI.passphrase, _channel, _bssid);
+      this->beginWiFi(_bssid, _channel);
     }
     else
       // If the user has the hidden flag set just connect to whatever the AP gives us.
-      WiFi.begin(settings.WIFI.ssid, settings.WIFI.passphrase);
+      this->beginWiFi(nullptr, -1);
   }
   this->connectStart = millis();
   return true;
