@@ -609,6 +609,8 @@ bool Transceiver::receive(somfy_rx_t *rx) {
     }
     return false;
 }
+// Every pulse is at most 10 digits and a comma; 512 bytes cover the other fields.
+static_assert(MAX_TIMINGS * 11 + 512 <= MAX_SOCK_RESPONSE, "remoteFrame no longer fits the socket buffer");
 void Transceiver::emitFrame(somfy_frame_t *frame, somfy_rx_t *rx) {
   if(sockEmit.activeClients(ROOM_EMIT_FRAME) > 0) {
     JsonSockEvent *json = sockEmit.beginEmit("remoteFrame");

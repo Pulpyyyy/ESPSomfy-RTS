@@ -20,7 +20,6 @@ extern Web webServer;
 
 WebSocketsServer sockServer = WebSocketsServer(8080);
 
-#define MAX_SOCK_RESPONSE 2048
 static char g_response[MAX_SOCK_RESPONSE];
 
 bool room_t::isJoined(uint8_t num) {

@@ -3,6 +3,12 @@
 #ifndef sockets_h
 #define sockets_h
 
+// Size of the buffer every socket event is formatted into. The largest event,
+// remoteFrame, lists up to MAX_TIMINGS pulse durations and already reached
+// 2 KB on real frames: an event that does not fit loses elements and reaches
+// the page as broken JSON.
+#define MAX_SOCK_RESPONSE 4096
+
 #define SOCK_MAX_ROOMS 1
 #define ROOM_EMIT_FRAME 0
 
