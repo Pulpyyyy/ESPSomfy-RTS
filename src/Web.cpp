@@ -160,10 +160,13 @@ void Web::handleSendRemoteCommand(WebRequest &req) {
   if (method == HTTP_GET || method == HTTP_PUT || method == HTTP_POST) {
     somfy_frame_t frame;
     uint8_t repeats = 0;
+    // A raw frame goes straight to the radio: without an explicit command it
+    // used to carry whatever opcode the frame was initialised with.
+    bool hasCommand = false;
     if (req.hasParam("address")) {
       frame.remoteAddress = atoi(req.param("address").c_str());
       if (req.hasParam("encKey")) frame.encKey = atoi(req.param("encKey").c_str());
-      if (req.hasParam("command")) frame.cmd = translateSomfyCommand(req.param("command"));
+      if (req.hasParam("command")) { frame.cmd = translateSomfyCommand(req.param("command")); hasCommand = true; }
       if (req.hasParam("rcode")) frame.rollingCode = atoi(req.param("rcode").c_str());
       if (req.hasParam("repeats")) repeats = atoi(req.param("repeats").c_str());
     }
@@ -178,14 +181,16 @@ void Web::handleSendRemoteCommand(WebRequest &req) {
         JsonObject obj = doc.as<JsonObject>();
         String scmd;
         if (obj.containsKey("address")) frame.remoteAddress = obj["address"];
-        if (obj.containsKey("command")) scmd = obj["command"].as<String>();
+        if (obj.containsKey("command")) { scmd = obj["command"].as<String>(); hasCommand = scmd.length() > 0; }
         if (obj.containsKey("repeats")) repeats = obj["repeats"];
         if (obj.containsKey("rcode")) frame.rollingCode = obj["rcode"];
         if (obj.containsKey("encKey")) frame.encKey = obj["encKey"];
         frame.cmd = translateSomfyCommand(scmd.c_str());
       }
     }
-    if (frame.remoteAddress > 0 && frame.rollingCode > 0) {
+    if (!hasCommand)
+      req.send(400, _encoding_json, "{\"status\":\"ERROR\",\"desc\":\"No command provided\"}");
+    else if (frame.remoteAddress > 0 && frame.rollingCode > 0) {
       somfy.sendFrame(frame, repeats);
       req.send(200, _encoding_json, "{\"status\":\"SUCCESS\",\"desc\":\"Command Sent\"}");
     }
@@ -438,7 +443,8 @@ void Web::handleDownloadFirmware(WebServer &server) {
       server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Release version not supplied.\"}"));
   }
   else {
-      server.send(err, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Error communicating with Github.\"}"));
+      // err is a negative GitRepo code, not an HTTP status: answer 502 like port 80.
+      server.send(502, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Error communicating with Github.\"}"));
   }
 }
 void Web::handleNotFound(WebServer &server) {

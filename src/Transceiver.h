@@ -104,7 +104,7 @@ struct somfy_frame_t {
     radio_proto proto = radio_proto::RTS;
     int rssi = 0;
     byte lqi = 0x0;
-    somfy_commands cmd;
+    somfy_commands cmd = somfy_commands::Unknown0; // Never an undefined opcode.
     uint32_t remoteAddress = 0;
     uint16_t rollingCode = 0;
     uint8_t encKey = 0xA7;
