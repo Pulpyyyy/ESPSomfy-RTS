@@ -643,6 +643,14 @@ void SomfyShade::moveToMyPosition() {
     this->p_currentPos(100.0f);
     this->p_myPos(-1.0f);
   }
+  // The board may not know the favorite (recorded with a remote, or cleared here)
+  // while the motor still has its own: the motor's My is then sent as it is, with no
+  // target, since the board cannot tell where it leads. A simulated favorite that is
+  // not known has nowhere to go.
+  if(this->myPos == -1 && (this->tiltType == tilt_types::none || this->myTiltPos == -1)) {
+    if(!this->simMy()) SomfyRemote::sendCommand(somfy_commands::My, this->repeats);
+    return;
+  }
   if(this->currentPos == this->myPos) {
     if(this->tiltType != tilt_types::none) {
       if(this->currentTiltPos == this->myTiltPos) return; // Nothing to see here since we are already here.
@@ -650,7 +658,6 @@ void SomfyShade::moveToMyPosition() {
     else
       return;
   }
-  if(this->myPos == -1 && (this->tiltType == tilt_types::none || this->myTiltPos == -1)) return;
   if(this->tiltType != tilt_types::tiltonly && this->myPos >= 0.0f && this->myPos <= 100.0f) this->p_target(this->myPos);
   if(this->myTiltPos >= 0.0f && this->myTiltPos <= 100.0f) this->p_tiltTarget(this->myTiltPos);
   this->settingPos = false;
