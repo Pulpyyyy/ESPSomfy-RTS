@@ -28,6 +28,8 @@ document.addEventListener('touchstart', () => { mouseDown = true; }, { capture: 
 document.addEventListener('touchend', () => { mouseDown = false; }, true);
 document.addEventListener('touchcancel', () => { mouseDown = false; }, true);
 const get = id => document.getElementById(id);
+// Shows a shade, room or group ID next to its label; a new item ('*') has none yet.
+const setObjId = (id, v) => { const el = get(id); el.textContent = v; el.parentElement.hidden = v === '*'; };
 // Hold a number field inside its own min/max. type="number" only constrains its spinner:
 // typed and pasted values go through untouched, so without this the device receives
 // whatever was in the box. An emptied field falls back to `dflt` rather than to the

@@ -147,7 +147,7 @@
                             </div>
                         </div>
                         <div id="somfyShade" style="display:none;" data-bitlength="56">
-<div class="somfyMaxId sh-head"><h2 id="shEditTitle" class="h2-lg"></h2><span id="spanShadeId">*</span>/<span id="spanMaxShades">5</span></div>
+<div class="somfyMaxId sh-head"><h2 id="shEditTitle" class="h2-lg"></h2><span class="obj-id" hidden><span tr="OBJ_ID">ID</span> <span id="spanShadeId">*</span></span></div>
 <div class="subtab-container sh-tabs" role="tablist" tr-aria="SHTAB_LABEL">
 <button type="button" role="tab" id="shtabGeneral" data-shtab="General" aria-controls="shpGeneral" aria-selected="true" class="selected" tr="SHTAB_GENERAL">Général</button>
 <button type="button" role="tab" id="shtabTravel" data-shtab="Travel" aria-controls="shpTravel" aria-selected="false" tabindex="-1" tr="SHTAB_TRAVEL">Course et calibrage</button>
@@ -203,7 +203,7 @@
 <div id="divFlipCommands">
                                     <label class="uniRow">
                                         <div class="uniText">
-                                            <div class="uniLabel" tr="RADIO_COMMAND"></div>
+                                            <div class="uniLabel" tr="SH_FLIP_CMD"></div>
                                             <div class="uniStatus" tr="FLIP_COMMAND_DESC"></div>
                                         </div>
                                         <div class="uniRight">
@@ -238,7 +238,7 @@
                                         </div>
                                         <div class="uniRight">
                                             <span class="switch">
-                                                <input id="cbSimMy" name="simMy" type="checkbox" data-bind="simMy" onclick="wifi.useEthernetClicked();" />
+                                                <input id="cbSimMy" name="simMy" type="checkbox" data-bind="simMy" />
                                                 <div></div>
                                             </span>
                                         </div>
@@ -313,10 +313,10 @@
 <div class="unibloc">
                                 <div id="divSomfyButtons" class="shadectl-buttons uniRow">
                                     <div class="somfy-status-container">
-                                        <svg id="icoShade" class="somfy-shade-icon" data-shadeid="0"><use href="#svg-window-shade"></use></svg>
+                                        <span id="icoShade" class="viz shade-viz shade-mini" data-shadeid="0" aria-hidden="true"></span>
                                         <div class="somfy-infoPosTilt">
-                                        <div id="labelPosContainer" style="display:none;"><span tr="SHADE_POS">Pos: </span><span id="valPos">0</span> %</div>
-                                            <div id="labelTiltContainer" style="display:none;"><span tr="SHADE_TILT"></span><span id="valTilt">0</span> %</div>
+                                        <div id="labelPosContainer" style="display:none;"><span tr="SHADE_POS">Ouverture : </span><span id="valPos">0</span> %</div>
+                                            <div id="labelTiltContainer" style="display:none;"><span tr="SHADE_TILT"></span><span id="valTilt">0</span> % <span tr="POSP_SLATS_OPEN"></span></div>
 
                                         </div>
                                     </div>
@@ -363,7 +363,7 @@
                                         </div>
                                         <div class="uniRight">
                                             <span class="switch">
-                                                <input id="cbHasSunsensor" name="hasSunSensor" type="checkbox" data-bind="sunSensor" onclick="wifi.useEthernetClicked();" />
+                                                <input id="cbHasSunsensor" name="hasSunSensor" type="checkbox" data-bind="sunSensor" />
                                                 <div></div>
                                             </span>
                                         </div>
@@ -512,7 +512,7 @@
                             </div>
                         </div>
                         <div id="somfyRoom" style="display:none;">
-                            <div class="somfyMaxId"><span id="spanRoomId">*</span>/<span id="spanMaxRooms">14</span></div>
+                            <div class="somfyMaxId"><span class="obj-id" hidden><span tr="OBJ_ID">ID</span> <span id="spanRoomId">*</span></span></div>
                             <div class="unibloc">
                                 <label class="label" for="fldRoomName" tr="NAME"></label>
                                 <input id="fldRoomName" class="inputAndSelect" name="roomName" data-bind="name" type="text" maxlength=20  tr="ROOM_NAME_PHL" placeholder="Entrer un nom de pièce">
@@ -541,7 +541,7 @@
                             </div>
                         </div>
                         <div id="somfyGroup" style="display:none;">
-                            <div class="somfyMaxId"><span id="spanGroupId">*</span>/<span id="spanMaxGroups">5</span></div>
+                            <div class="somfyMaxId"><span class="obj-id" hidden><span tr="OBJ_ID">ID</span> <span id="spanGroupId">*</span></span></div>
                             <div class="unibloc">
                                 <div>
                                     <label class="label" for="fldGroupName" tr="NAME"></label>
@@ -603,7 +603,7 @@
                             <div class="unibloc">
                                 <label id="divFlipGrpCommands" class="uniRow">
                                     <div class="uniText">
-                                        <div class="uniLabel" tr="RADIO_COMMAND"></div>
+                                        <div class="uniLabel" tr="SH_FLIP_CMD"></div>
                                         <div class="uniStatus" tr="FLIP_COMMAND_DESC"></div>
                                     </div>
                                     <div class="uniRight">

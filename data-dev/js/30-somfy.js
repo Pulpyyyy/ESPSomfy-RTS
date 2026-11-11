@@ -156,9 +156,6 @@ class Somfy {
                 if(DBG) console.log(err);
                 ui.serviceError(err);
             } else {
-                get('spanMaxRooms').innerText = (somfy.maxRooms - 2);
-                get('spanMaxShades').innerText = (somfy.maxShades - 2);
-                get('spanMaxGroups').innerText = (somfy.maxGroups - 2);
 
                 ui.toElement(get('divTransceiverSettings'), somfy);
 
@@ -1797,12 +1794,13 @@ class Somfy {
             ico.style.setProperty('--fpos', p + '%');
         });
         if (g('spanShadeId')?.innerText == sId) {
-            if (g('valPos')) g('valPos').innerText = state.position;
+            this.paintEditorDraw(state);
+            if (g('valPos')) g('valPos').innerText = shadeOpenness(state.position, state.flipPosition);
 
             const lTC = g('labelTiltContainer'), sVT = g('valTilt');
             if (state.tiltType !== 0) {
                 if (lTC) lTC.style.display = 'block';
-                if (sVT) sVT.innerText = state.tiltPosition;
+                if (sVT) sVT.innerText = shadeOpenness(state.tiltPosition, state.flipPosition);
             } else if (lTC) {
                 lTC.style.display = 'none';
             }
@@ -1908,6 +1906,17 @@ class Somfy {
             document.body.removeChild(dummy);
         }
     }
+    // The editor's small drawing is the tile's, for the type being edited: the
+    // closed share (--c) and, for a blind, how closed its slats are (--t).
+    paintEditorDraw(s) {
+        const ico = get('icoShade');
+        if (!ico) return;
+        const flip = !!s.flipPosition, tiltOnly = s.tiltType === 3;
+        const type = parseInt(s.shadeType ?? ico.dataset.type, 10);
+        ico.style.setProperty('--c', this.isPulseType(type) || tiltOnly ? 100 : 100 - shadeOpenness(s.position || 0, flip));
+        if (s.tiltType) ico.style.setProperty('--t', 100 - shadeOpenness(s.tiltPosition || 0, flip));
+        else ico.style.removeProperty('--t');
+    }
     onShadeTypeChanged(el) {
         const g = get,
         type = parseInt(g('selShadeType').value, 10),
@@ -1919,16 +1928,10 @@ class Somfy {
 
         ['somfyShade', 'divSomfyButtons'].forEach(id => g(id)?.setAttribute('data-shadetype', type));
 
-        if (ico) {
-
-            this.shadeTypes.forEach(t => t.ico !== st.ico && ico.classList.remove(t.ico));
-
-            const use = ico.querySelector('use');
-            if (use && st.ico) {
-                const href = '#' + st.ico;
-                use.setAttribute('href', href);
-                use.setAttribute('xlink:href', href);
-            }
+        if (ico && ico.dataset.type !== String(type)) {
+            ico.dataset.type = type;
+            ico.innerHTML = this.isApronType(type) ? '<span class="shutter"></span>'
+                : this.vizDraw(type) ?? `<svg class="somfy-shade-icon" aria-hidden="true"><use href="#${st.ico || 'svg-window-shade'}"></use></svg>`;
         }
         const hasLift = !!st.lift;
         const curTilt = st.tilt ? tilt : 0;
@@ -1978,7 +1981,7 @@ class Somfy {
             }
             get('btnSaveRoom').innerText = tr('BT_CREATE');
             getJSONBusy('/getNextRoom', (err, room) => {
-                get('spanRoomId').innerText = '*';
+                setObjId('spanRoomId', '*');
                 if (err) ui.serviceError(err);
                 else {
                     if(DBG) console.log(room);
@@ -1995,7 +1998,7 @@ class Somfy {
                 if (err) ui.serviceError(err);
                 else {
                     if(DBG) console.log(room);
-                    get('spanRoomId').innerText = roomId;
+                    setObjId('spanRoomId', roomId);
                     ui.toElement(get('somfyRoom'), room);
                     this.showEditRoom(true);
                     get('btnSaveRoom').style.display = 'inline-block';
@@ -2090,27 +2093,20 @@ class Somfy {
                 s(shade.paired ? 'btnUnpairShade' : 'btnPairShade', 'inline-block');
                 this.setPairState(shade.paired);
 
-                if (g('valPos')) g('valPos').innerText = shade.position;
+                if (g('valPos')) g('valPos').innerText = shadeOpenness(shade.position, shade.flipPosition);
                 this.setLinkedRemotesList(shade);
             }
 
-            if (g('valTilt')) g('valTilt').innerText = shade.tiltPosition || 0;
+            if (g('valTilt')) g('valTilt').innerText = shadeOpenness(shade.tiltPosition || 0, shade.flipPosition);
 
             ui.setFocus('btnPairShade', !isNew && !shade.paired);
 
-            const rev = shade.flipPosition,
-            p = rev ? 100 - shade.position : shade.position,
-            tp = rev ? 100 - shade.tiltPosition : shade.tiltPosition;
-
             if (ico) {
-                const st = ico.style;
-                st.setProperty('--shade-position', p);
-                st.setProperty('--fpos', p + '%');
-                st.setProperty('--tilt-position', tp + '%');
                 ico.setAttribute('data-shadeid', isNew ? '*' : shadeId);
+                this.paintEditorDraw(shade);
             }
             g('btnSaveShade').innerText = tr(isNew ? 'BT_CREATE' : 'BT_SAVE');
-            g('spanShadeId').innerText = isNew ? '*' : shadeId;
+            setObjId('spanShadeId', isNew ? '*' : shadeId);
 
             ui.toElement(g('somfyShade'), shade);
             this.msHelpsRefresh();
@@ -2173,7 +2169,7 @@ class Somfy {
             }
             g('btnSaveGroup').innerText = tr(isNew ? 'BT_CREATE' : 'BT_SAVE');
             s(btnSave, 'inline-block');
-            g('spanGroupId').innerText = isNew ? '*' : groupId;
+            setObjId('spanGroupId', isNew ? '*' : groupId);
 
             ui.toElement(elGroup, group);
             this.showEditGroup(true);
@@ -2259,7 +2255,7 @@ class Somfy {
                     else {
                         if(DBG) console.log(room);
                         ui.successMessage(tr('MSG_ADD_SUCCESS'));
-                        get('spanRoomId').innerText = room.roomId;
+                        setObjId('spanRoomId', room.roomId);
                         get('btnSaveRoom').innerText = tr('BT_SAVE');
                         get('btnSaveRoom').style.display = 'inline-block';
                         this.updateRoomsList();

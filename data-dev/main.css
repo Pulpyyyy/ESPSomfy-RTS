@@ -221,6 +221,7 @@ div.wifiSignal {
     display: flex;
     justify-content: flex-end;
 }
+.obj-id { color: var(--ink-2); font-variant-numeric: tabular-nums; }
 /* Name length in bytes (see showNameBytes), shown while the field is edited. */
 .unibloc :focus-within > label[data-count]::after,
 .unibloc:focus-within > label[data-count]::after {
@@ -230,10 +231,8 @@ div.wifiSignal {
     color: var(--ink-2);
     font-variant-numeric: tabular-nums;
 }
-.somfy-status-container .somfy-shade-icon {
-    width:56px;
-    height:56px;
-}
+.viz.shade-mini, .viz.shade-mini:hover { flex: none; width: 120px; height: 64px; border-radius: 8px; cursor: default; filter: none; --t: 30; }
+.viz.shade-mini .somfy-shade-icon { width: 48px; height: 48px; }
 #divSomfyGroupButtons {
     display: flex;
     justify-content: center;
