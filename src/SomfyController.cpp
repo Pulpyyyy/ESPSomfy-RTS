@@ -191,12 +191,79 @@ void SomfyShadeController::processFrame(somfy_frame_t &frame, bool internal) {
   // Internal frames are our own virtual remotes routed back through the pipeline
   // (GPIO triggers etc.); only frames that actually travelled over the air belong
   // in the RF statistics.
-  if(!internal) rfStats.record(frame);
+  if(!internal) {
+    rfStats.record(frame);
+    this->trackRemotePress(frame);
+  }
   for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
     if(this->shades[i].getShadeId() != 255) this->shades[i].processFrame(frame, internal);
   }
 }
+bool SomfyShadeController::isLinkedRemote(uint32_t address) {
+  if(address == 0) return false;
+  for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++) {
+    SomfyShade &shade = this->shades[i];
+    if(shade.getShadeId() == 255) continue;
+    for(uint8_t j = 0; j < SOMFY_MAX_LINKED_REMOTES; j++) {
+      if(shade.linkedRemotes[j].getRemoteAddress() == address) return true;
+    }
+  }
+  return false;
+}
+// A held button repeats its frame every ~100ms; past this silence the press is over.
+#define REMOTE_RELEASE_GAP 400
+void SomfyShadeController::trackRemotePress(somfy_frame_t &frame) {
+  // Sensors report on their own schedule, they are not button presses.
+  if(!frame.valid || frame.cmd == somfy_commands::Sensor) return;
+  const uint32_t now = millis();
+  remote_press_t &p = this->press;
+  if(p.address == frame.remoteAddress && p.rollingCode == frame.rollingCode && p.cmd == frame.cmd) {
+    // The same press still going on. A repeat heard after the release was
+    // already reported (a frame lost while the board transmitted) is dropped:
+    // reporting it again would read as a second press.
+    if(p.active) {
+      p.lastAt = now;
+      if(p.frames < 0xFFFF) p.frames++;
+      if(frame.rssi > p.rssi) p.rssi = frame.rssi;
+    }
+    return;
+  }
+  if(p.active) this->emitRemotePress("release");
+  p.address = frame.remoteAddress;
+  p.rollingCode = frame.rollingCode;
+  p.cmd = frame.cmd;
+  p.firstAt = p.lastAt = now;
+  p.frames = 1;
+  p.rssi = frame.rssi;
+  p.stepSize = frame.stepSize;
+  p.linked = this->isLinkedRemote(frame.remoteAddress);
+  p.active = true;
+  this->emitRemotePress("press");
+}
+void SomfyShadeController::checkRemoteRelease() {
+  if(this->press.active && millis() - this->press.lastAt > REMOTE_RELEASE_GAP) this->emitRemotePress("release");
+}
+void SomfyShadeController::emitRemotePress(const char *phase) {
+  remote_press_t &p = this->press;
+  if(strcmp(phase, "release") == 0) p.active = false;
+  if(sockEmit.activeClients(ROOM_EMIT_REMOTES) == 0) return;
+  // No rolling code and no key: the address and the command are enough to
+  // tell the buttons apart, and nothing here helps clone the remote.
+  JsonSockEvent *json = sockEmit.beginEmit("remoteHeard");
+  json->beginObject();
+  json->addElem("address", (uint32_t)p.address);
+  json->addElem("cmd", translateSomfyCommand(p.cmd).c_str());
+  json->addElem("phase", phase);
+  json->addElem("linked", p.linked);
+  json->addElem("rssi", (int32_t)p.rssi);
+  json->addElem("frames", (uint32_t)p.frames);
+  json->addElem("durationMs", (uint32_t)(p.lastAt - p.firstAt));
+  if(p.cmd == somfy_commands::StepUp || p.cmd == somfy_commands::StepDown) json->addElem("stepSize", p.stepSize);
+  json->endObject();
+  sockEmit.endEmitRoom(ROOM_EMIT_REMOTES);
+}
 void SomfyShadeController::processWaitingFrame() {
+  this->checkRemoteRelease();
   for(uint8_t i = 0; i < SOMFY_MAX_SHADES; i++)
     if(this->shades[i].getShadeId() != 255) this->shades[i].processWaitingFrame();
 }

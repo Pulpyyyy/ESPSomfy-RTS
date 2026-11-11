@@ -7,6 +7,7 @@
 #include "Web.h"
 #include "Network.h"
 #include "GitOTA.h"
+#include <esp_system.h>
 
 // REST handlers for shades, rooms, groups, repeaters, commands, positions and
 // the discovery document, split out of Web.cpp.  Declarations stay in Web.h;
@@ -481,6 +482,21 @@ void Web::handleGroup(WebServer &server) {
   else
     server.send(500, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"Invalid Http method\"}"));
 }
+static const char *resetReasonName(esp_reset_reason_t why) {
+  switch(why) {
+    case ESP_RST_POWERON: return "poweron";
+    case ESP_RST_EXT: return "external";
+    case ESP_RST_SW: return "software";
+    case ESP_RST_PANIC: return "panic";
+    case ESP_RST_INT_WDT: return "int_wdt";
+    case ESP_RST_TASK_WDT: return "task_wdt";
+    case ESP_RST_WDT: return "wdt";
+    case ESP_RST_DEEPSLEEP: return "deepsleep";
+    case ESP_RST_BROWNOUT: return "brownout";
+    case ESP_RST_SDIO: return "sdio";
+    default: return "unknown";
+  }
+}
 void Web::handleDiscovery(WebServer &server) {
   HTTPMethod method = apiServer.method();
   if (method == HTTP_POST || method == HTTP_GET) {
@@ -502,6 +518,13 @@ void Web::handleDiscovery(WebServer &server) {
     resp.addElem("chipModel", settings.chipModel);
     resp.addElem("connType", connType);
     resp.addElem("checkForUpdate", settings.checkForUpdate);
+    // What Home Assistant needs to explain the board: since when it runs and
+    // why it last started, whether the MQTT discovery would show the same
+    // shades a second time, and that button presses stream on socket room 1.
+    resp.addElem("uptime", (uint32_t)(millis() / 1000));
+    resp.addElem("resetReason", resetReasonName(esp_reset_reason()));
+    resp.addElem("mqttDisco", settings.MQTT.enabled && settings.MQTT.pubDisco);
+    resp.addElem("remoteEvents", true);
     resp.beginObject("memory");
     resp.addElem("max", ESP.getMaxAllocHeap());
     resp.addElem("free", ESP.getFreeHeap());

@@ -9,8 +9,11 @@
 // the page as broken JSON.
 #define MAX_SOCK_RESPONSE 4096
 
-#define SOCK_MAX_ROOMS 1
+#define SOCK_MAX_ROOMS 2
 #define ROOM_EMIT_FRAME 0
+// One event per button press and release of any remote heard (remoteHeard),
+// for Home Assistant. Same token as room 0 to join.
+#define ROOM_EMIT_REMOTES 1
 
 struct room_t {
   uint8_t clients[5] = {255, 255, 255, 255, 255};

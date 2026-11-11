@@ -181,8 +181,10 @@ void SocketEmitter::wsEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t
                 // remote address and rolling code -- of this installation and of any
                 // neighbour in range. That is enough to clone a remote, so require the
                 // same API token the REST endpoints use. The client appends it as
-                // "join:<room>:<token>". Home Assistant never joins a room, so it is
-                // unaffected; the web UI only joins while the config screen is open.
+                // "join:<room>:<token>". Room 1 (button presses of every remote in
+                // range, without codes) asks for the same token: which remotes a
+                // home uses is private too. The web UI only joins room 0 while the
+                // config screen is open; Home Assistant joins room 1.
                 bool allowed = true;
                 if(settings.Security.type != security_types::None) {
                   char expected[65];

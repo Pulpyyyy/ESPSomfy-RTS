@@ -353,11 +353,32 @@ class SomfyGroup : public SomfyRemote {
     bool publish(const char *topic, uint16_t val, bool retain = false);
     bool publish(const char *topic, bool val, bool retain = false);
 };
+// One button press of a remote heard over the air, from its first frame to the
+// last repeat. A held button keeps repeating the same frame (same rolling code);
+// a new press always carries a new rolling code.
+struct remote_press_t {
+  uint32_t address = 0;
+  uint16_t rollingCode = 0;
+  somfy_commands cmd = somfy_commands::Unknown0;
+  uint32_t firstAt = 0;
+  uint32_t lastAt = 0;
+  uint16_t frames = 0;
+  int16_t rssi = 0;
+  uint8_t stepSize = 0;
+  bool linked = false;
+  bool active = false;
+};
 class SomfyShadeController {
   protected:
     uint8_t m_shadeIds[SOMFY_MAX_SHADES];
     uint32_t lastCommit = 0;
+    remote_press_t press;
+    void trackRemotePress(somfy_frame_t &frame);
+    void emitRemotePress(const char *phase);
   public:
+    bool isLinkedRemote(uint32_t address);
+    // Ends the press in progress once its repeats stop. Called from the receive loop.
+    void checkRemoteRelease();
     bool isDirty = false;
     uint32_t startingAddress;
     uint8_t getNextRoomId();
