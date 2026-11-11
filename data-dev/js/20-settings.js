@@ -245,7 +245,8 @@ class Security {
 var security = new Security();
 class General {
     initialized = false;
-    appVersion = 'v4.2.0-beta.2-ui2026';
+    // Set from the board (fwStatus), which reads the appversion file of this image.
+    appVersion = '';
     reloadApp = false;
     init() {
         if (this.initialized) return;
@@ -451,7 +452,7 @@ class General {
 
         });
     }
-    setAppVersion() { get('spanAppVersion').innerText = this.appVersion; }
+    setAppVersion() { get('spanAppVersion').innerText = this.appVersion || 'v-.--'; }
     setTimeZones() {
         const dd = get('selTimeZone');
         dd.innerHTML = this.timeZones.map(tz => {

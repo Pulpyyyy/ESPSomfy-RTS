@@ -622,9 +622,8 @@ div.frame-pulses {
     .rfdiag-row > span:nth-child(3), .frame-header.rfdiag-row > span:nth-child(3) { flex: 0 0 92px; }
 }
 /* Merged update state carried by the GitHub button. */
-.buttonUpdate.upd-ok { cursor: default; }
-.buttonUpdate.upd-ok .btnArrowRight { display: none; }
 .buttonUpdate.upd-ok #ghUpdTitle { color: var(--ok); font-weight: 600; }
+.buttonUpdate.upd-unknown #ghUpdTitle { font-weight: 600; }
 .buttonUpdate.upd-available #ghUpdTitle { color: var(--warn); font-weight: 600; }
 /* Security */
 

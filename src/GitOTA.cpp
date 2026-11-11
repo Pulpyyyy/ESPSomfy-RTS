@@ -309,6 +309,13 @@ void GitRepo::toJSON(JsonResponse &json) {
 void GitUpdater::loop() {
   if(this->fetchRequested) {
     this->fetchResult = net.connected() ? this->fetched.getReleases() : -1;
+    // A connection that does not open (DNS or TCP, no HTTP answer) is often a
+    // passing hiccup: one more try before reporting it.
+    if(this->fetchResult == -1 && net.connected()) {
+      esp_task_wdt_reset();
+      delay(1000);
+      this->fetchResult = this->fetched.getReleases();
+    }
     this->fetchRequested = false;
     this->fetchDone = true;
   }
@@ -347,10 +354,11 @@ void GitUpdater::loop() {
 #define BOOT_UPDATE_NS "fw_boot"
 #define BOOT_UPDATE_TRIES 3        // boots spent on one requested version
 #define BOOT_UPDATE_WAIT 90000UL   // network and clock, per boot
-void GitUpdater::scheduleBootUpdate(const char *version) {
+void GitUpdater::scheduleBootUpdate(const char *version, bool fsOnly) {
   Preferences p;
   p.begin(BOOT_UPDATE_NS, false);
   p.putString("ver", version);
+  p.putBool("fs", fsOnly);
   p.putUChar("tries", 0);
   p.end();
   Serial.printf("Update to %s scheduled for the next boot\n", version);
@@ -368,6 +376,7 @@ bool GitUpdater::bootUpdatePending() {
   if(!p.begin(BOOT_UPDATE_NS, true)) return false; // namespace never written
   String ver = p.getString("ver", "");
   uint8_t tries = p.getUChar("tries", 0);
+  this->bootFsOnly = p.getBool("fs", false);
   p.end();
   if(ver.length() == 0) return false;
   if(tries >= BOOT_UPDATE_TRIES) {
@@ -396,7 +405,8 @@ void GitUpdater::runBootUpdate() {
     return;
   }
   this->status = GIT_UPDATING;
-  this->beginUpdate(this->targetRelease);
+  if(this->bootFsOnly) this->recoverFilesystem();
+  else this->beginUpdate(this->targetRelease);
   // Success: beginUpdate() armed the reboot into the new firmware. Failure: the
   // next boot tries again until BOOT_UPDATE_TRIES, then boots normally.
   if(this->error == 0) this->cancelBootUpdate();
@@ -653,8 +663,8 @@ bool GitUpdater::recoverFilesystem() {
   // Into the recovered image, or into a fresh filesystem when it failed.
   somfy.commitAfterFsFlash();
   this->status = GIT_UPDATE_COMPLETE;
-  // A failed recovery keeps the device running: the page that asked for it is
-  // still open and can try again.
+  // Runs as a boot update (scheduleBootUpdate with fsOnly). A failure leaves the
+  // reboot to runBootUpdate, which tries again on the next boots.
   if(this->error == 0) {
     rebootDelay.reboot = true;
     rebootDelay.rebootTime = millis() + 500;

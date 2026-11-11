@@ -63,7 +63,7 @@ class GitUpdater {
     volatile bool fetchRequested = false;
     volatile bool fetchDone = false;
     volatile int16_t fetchResult = 0;
-    int16_t fetchReleases(uint32_t timeoutMs = 30000);
+    int16_t fetchReleases(uint32_t timeoutMs = 45000);
     void checkForUpdate();
     bool beginUpdate(const char *release);
     bool endUpdate();
@@ -77,8 +77,10 @@ class GitUpdater {
     // setup() then starts the network only and loop() runs the download (see
     // SomfyController.ino).
     bool bootUpdateMode = false;
+    // The boot update only rewrites the web interface of the running version.
+    bool bootFsOnly = false;
     uint32_t bootUpdateStart = 0;
-    void scheduleBootUpdate(const char *version);
+    void scheduleBootUpdate(const char *version, bool fsOnly = false);
     bool bootUpdatePending();
     void cancelBootUpdate();
     void runBootUpdate();

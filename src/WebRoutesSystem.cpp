@@ -357,7 +357,12 @@ void Web::handleRecoverFilesystem(WebRequest &req) {
   else if(git.status != GIT_STATUS_READY)
     req.send(200, "application/json", "{\"status\":\"ERROR\",\"desc\":\"Cannot recover file system at this time.\"}");
   else {
-    git.recoverFilesystem();
-    req.send(200, "application/json", "{\"status\":\"OK\",\"desc\":\"Recovering filesystem from github please wait!!!\"}");
+    // Installed at the next boot, like a firmware update: the request is stored,
+    // the board restarts with the network only and loop() downloads the image.
+    git.status = GIT_UPDATING;
+    git.scheduleBootUpdate(settings.fwVersion.name, true);
+    char body[96];
+    snprintf(body, sizeof(body), "{\"status\":\"OK\",\"name\":\"%s\"}", settings.fwVersion.name);
+    req.send(200, "application/json", body);
   }
 }

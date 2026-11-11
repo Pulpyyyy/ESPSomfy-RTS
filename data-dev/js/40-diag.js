@@ -713,6 +713,12 @@ class Firmware {
     procFwStatus(rel) {
         // Remembered so the update dialog opens on the version the board offers.
         this.offeredVersion = rel.available && rel.latest ? rel.latest.name : null;
+        // The interface's version is the appversion file of this image, as the board
+        // reads it: a constant in the script was only right in release builds.
+        if (rel.appVersion && rel.appVersion.name) {
+            general.appVersion = 'v' + rel.appVersion.name.replace(/^v/, '');
+            general.setAppVersion();
+        }
         // The GitHub button is the single carrier of the update state: it reports
         // "up to date" (disabled) or "update available" (call to action) instead of
         // duplicating the information in a separate banner.
@@ -728,7 +734,7 @@ class Firmware {
             setClickable(div, false);
         });
         if (btn) {
-            btn.classList.remove('upd-ok', 'upd-available');
+            btn.classList.remove('upd-ok', 'upd-unknown', 'upd-available');
             btn.disabled = false;
             if (ghTitle) ghTitle.innerHTML = tr('FW_UPDATE_GIT');
             if (ghDesc) ghDesc.innerHTML = tr('FW_UPDATE_GIT_DESC');
@@ -758,13 +764,14 @@ class Firmware {
             ui.errorMessage(e.desc);
         }
         else {
-            // Up to date: same button, informative state; disabled so a tap cannot
-            // launch a pointless reinstall.
+            // Up to date, or not checked yet: the same button opens the GitHub dialog,
+            // which checks again on opening and offers a reinstall of the current
+            // version (the repair of a half-done update).
             if (btn) {
-                btn.classList.add('upd-ok');
-                btn.disabled = true;
-                if (ghTitle) ghTitle.innerHTML = tr('FW_UPDATE_UPTODATE');
-                if (ghDesc) ghDesc.innerHTML = tr('FW_UPDATE_ACTION_DESC');
+                const checked = !!(rel.latest && rel.latest.name);
+                btn.classList.add(checked ? 'upd-ok' : 'upd-unknown');
+                if (ghTitle) ghTitle.innerHTML = tr(checked ? 'FW_UPDATE_UPTODATE' : 'FW_UPDATE_NOT_CHECKED');
+                if (ghDesc) ghDesc.textContent = tr('FW_UPDATE_CHECK_NOW');
                 // An interface image from another version than the firmware is the
                 // classic half-done manual update: say which one to install.
                 const v = (id) => (get(id)?.innerText || '').trim().replace(/^v/, '');
@@ -836,33 +843,47 @@ class Firmware {
             // Nothing can report progress meanwhile, so the steps follow what the
             // board answers, and the socket is closed so its reconnect spinner and
             // errors do not cover them.
-            const target = (ver && ver.name) || obj.version;
-            this.installing = true;
-            if (typeof socket !== 'undefined' && socket) socket.close(3000, 'update');
-            div.innerHTML = `
-            <div class="instructions-content">
-            ${overlayHeader('GIT_RELEASE_TITLE', '', 'svg-github')}
-            <ol class="boot-steps">
-            <li>${esc(tr('GIT_BOOT_STEP_1'))}</li>
-            <li>${esc(tr('GIT_BOOT_STEP_2'))}</li>
-            <li>${esc(tr('GIT_BOOT_STEP_3').replace('%1', target))}</li>
-            </ol>
-            <p class="boot-elapsed"></p>
-            <div class="warning"><svg><use href=#svg-warning></use></svg><div><b>${esc(tr('GIT_BOOT_NOTE'))}</b></div></div>
-            <p class="boot-result" role="status"></p>
-            </div>`;
-            const hP = div.querySelector('.instructions-header p');
-            if (hP) hP.innerHTML = tr('GIT_RELEASE_DESC').replace('%1', esc(target));
-            // Closing would not stop the installation: no way out but the reload.
-            div.querySelector('[close]')?.remove();
-            this.followBootUpdate(div, target);
+            this.showBootSteps(div, (ver && ver.name) || obj.version, false);
         });
+    }
+    // The interface alone, from GitHub, in the version of the running firmware: the
+    // repair of a missing or mismatched interface. Installed at the next boot.
+    recoverInterface(div) {
+        const fw = (get('spanFwVersion')?.innerText || '').trim();
+        putJSONBusy('/recoverFilesystem', {}, (err, r) => {
+            if (err) return ui.serviceError(err);
+            if (r && r.status === 'ERROR') return ui.errorMessage(r.desc);
+            this.showBootSteps(div, (r && r.name) || fw, true);
+        });
+    }
+    // The steps of an installation done at boot, followed until the board is back.
+    showBootSteps(div, target, fsOnly) {
+        this.installing = true;
+        if (typeof socket !== 'undefined' && socket) socket.close(3000, 'update');
+        div.innerHTML = `
+        <div class="instructions-content">
+        ${overlayHeader(fsOnly ? 'GIT_FS_TITLE' : 'GIT_RELEASE_TITLE', '', 'svg-github')}
+        <ol class="boot-steps">
+        <li>${esc(tr('GIT_BOOT_STEP_1'))}</li>
+        <li>${esc(tr(fsOnly ? 'GIT_FS_STEP_2' : 'GIT_BOOT_STEP_2'))}</li>
+        <li>${esc(tr(fsOnly ? 'GIT_FS_STEP_3' : 'GIT_BOOT_STEP_3').replace('%1', target))}</li>
+        </ol>
+        <p class="boot-elapsed"></p>
+        <div class="warning"><svg><use href=#svg-warning></use></svg><div><b>${esc(tr('GIT_BOOT_NOTE'))}</b></div></div>
+        <p class="boot-result" role="status"></p>
+        </div>`;
+        const hP = div.querySelector('.instructions-header p');
+        if (hP) hP.innerHTML = tr(fsOnly ? 'GIT_FS_DESC' : 'GIT_RELEASE_DESC').replace('%1', esc(target));
+        // Closing would not stop the installation: no way out but the reload.
+        div.querySelector('[close]')?.remove();
+        this.followBootUpdate(div, target, fsOnly);
     }
     // Polls /loginContext (no login needed) every 3s. Up then down: the board has
     // restarted into the installer. Back with the target version: done. Back with
     // another version after being down: the installer gave up (3 boots) or the new
     // firmware rolled back.
-    followBootUpdate(div, target) {
+    // fsOnly: the firmware does not change, the interface's version tells the result.
+    followBootUpdate(div, target, fsOnly = false) {
         const norm = (s) => (s || '').toLowerCase().replace(/^v/, '');
         const steps = div.querySelectorAll('.boot-steps li');
         const elapsed = div.querySelector('.boot-elapsed');
@@ -904,8 +925,9 @@ class Firmware {
                 if (!wentDown) { wentDown = true; setStep(2); }
             }
             else if (wentDown) {
-                if (norm(ctx.version) === norm(target)) finish(tr('GIT_BOOT_DONE'), true);
-                else finish(tr('GIT_BOOT_FAILED').replace('%1', ctx.version || '?'), false);
+                const got = fsOnly ? ctx.appVersion : ctx.version;
+                if (norm(got) === norm(target)) finish(tr('GIT_BOOT_DONE'), true);
+                else finish(tr('GIT_BOOT_FAILED').replace('%1', got || '?'), false);
                 return;
             }
             if (secs >= 600) finish(tr('GIT_BOOT_TIMEOUT'), false);
@@ -914,91 +936,162 @@ class Firmware {
         timer = setInterval(probe, 3000);
         probe();
     }
+    // The release list is read by the browser straight from GitHub, like the release
+    // notes; the board's /getReleases is the fallback (this browser offline, or
+    // GitHub refusing it).
     updateGithub() {
-        getJSONBusy('/getReleases', (err, rel) => {
-            if (err) return ui.serviceError(err);
-            const div = document.createElement('div'), isMob = this.isMobile();
-            // Raw string, not chipFamily(): release assets are tagged "s3_8mb" / "s3_4mb".
-            const chip = (get('divContainer').getAttribute('data-chipmodel') || "").toLowerCase();
-            div.id = 'divGitInstall';
-            div.className = 'inst-overlay';
-            div.setAttribute('data-installed', rel.appVersion.name);
-
-            rel.releases.sort((a, b) => a.preRelease === b.preRelease && b.draft === a.draft ? 0 : a.preRelease ? 1 : -1);
-
-            const optsHtml = rel.releases.map(r => {
-                const name = r.name.toLowerCase();
-                if (name === 'main' || name === 'master' || (r.hwVersions.length > 0 && r.hwVersions.indexOf(chip) < 0)) return '';
-                return `<option value="${esc(r.version.name)}" data-prerelease="${r.preRelease}">${esc(r.name)}${r.preRelease ? ' - Pre' : ''}</option>`;
-            }).join('');
-
-            div.innerHTML = `
-            <div class="instructions-content">
-            <div class="overlay-static-content">
-            ${overlayHeader('UPDATE_GIT_TITLE', 'UPDATE_GIT_DESC', 'svg-github')}
-            <div class="uniRow"><span class="label">${tr('FIRMWARE_INSTALLED')}</span><span class="labelgrey">${esc(rel.appVersion.name)}</span></div>
-            <div class="uniRow">
-            <span class="label">${tr('FIRMWARE_AVAILABLE')}</span>
-            <select id="selVersion" class="selectCompac" data-bind="version">${optsHtml}</select>
-            </div>
-            <a id="lnkGithubRelease" href="#" target="_blank" class="link">${tr('FIRMWARE_NOTE_GITHUB')}<svg class="svgInTextSmall"><use href="#svg-linkOut"></use></svg></a>
-            <div id="divPrereleaseWarning" class="error" style="display:none;"><svg><use href=#svg-error></use></svg><div><span id="spanUpdateWarning"></span></div></div>
-            <div id="divUpToDate" class="upToDateNote" style="display:none;"><svg><use href="#svg-succes"></use></svg><span>${tr('FW_ALREADY_CURRENT')}</span></div>
-            <div class="hrDiv"></div>
-            <div class="warningText"><svg><use href="#svg-warning"></use></svg><span>${tr('FIRMWARE_CACHE')}</span></div>
-
-            <div id="notesPreview" class="release-notes-preview">
-            <div class="wifiConnectScan">
-            <div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
-            </div>
-            </div>
-            <div class="hrDivFooter"></div>
-            </div> <div class="button-container-overlay">
-            <div class="footer-sticky-content">
-            <div class="uniRow">
-            <div class="uniText"><span class="uniLabel">${tr('FIRMWARE_SAVE_BACKUP')}</span><span class="uniStatus">${tr(isMob ? 'FIRMWARE_SAVE_BACKUP_DESC_MOB' : 'FIRMWARE_SAVE_BACKUP_DESC')}</span></div>
-            <div id="btnBackupCfg" class="gitBackup" ${a11yBtn(tr('A11Y_BACKUP'))} onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
-            </div>
-            <div class="button-container-row">
-            <button id="btnClose" line type="button" onclick="closeOverlay(get('divGitInstall'))">${tr('BT_CANCEL_1')}</button>
-            <button id="btnUpdate" type="button" class="btn-main" onclick="firmware.installGitRelease(get('divGitInstall'))">${tr('BT_UPDATE')}</button>
-            </div>
-            </div>
-            </div>
-            </div>`;
-
-            shOverlay(div);
-            const sel = div.querySelector('#selVersion');
-            // Stable releases are listed first, so without this a board offered a newer
-            // pre-release opened on the older stable one: Update would have gone back.
-            if (this.offeredVersion && [...sel.options].some(o => o.value === this.offeredVersion)) sel.value = this.offeredVersion;
-
-            const updateNotes = async () => {
-                const nDiv = div.querySelector('#notesPreview'), lnk = div.querySelector('#lnkGithubRelease');
-                if (!nDiv) return;
-
-                nDiv.innerHTML = '<div class="wifiConnectScan"><div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div>';
-
-                try {
-                    const r = await firmware.getReleaseInfo(sel.value, true);
-                    if (r?.info?.body) {
-                        nDiv.innerHTML = firmware.parseMarkdown(r.info.body);
-                        if (lnk && r.info.html_url) lnk.href = r.info.html_url;
-                    } else {
-                        throw new Error("No body");
-                    }
-                } catch (e) {
-                    nDiv.innerHTML = `
-                    <div class="divGitNoteError">
-                    <div class="gitNoteError">${tr('ERR_GIT_NOTE')}</div>
-                    <div class="gitNoteErrorSub">${tr('UPDATE_GIT_NOTE')}</div>
-                    </div>`;
-                }
-            };
-            sel.addEventListener('change', () => { this.gitReleaseSelected(div); updateNotes(); });
-            this.gitReleaseSelected(div);
-            updateNotes();
+        const wait = ui.waitMessage(get('divContainer'));
+        this.loadReleases().then((rel) => {
+            wait.remove();
+            if (rel) return this.showGitDialog(rel);
+            getJSONBusy('/getReleases', (err, boardRel) => {
+                if (err) return this.githubError(err);
+                this.showGitDialog(boardRel);
+            });
         });
+    }
+    async loadReleases() {
+        try {
+            const r = await fetch('https://api.github.com/repos/Pulpyyyy/ESPSomfy-RTS/releases?per_page=10', { cache: 'no-store' });
+            if (!r.ok) return null;
+            const list = await r.json();
+            if (!Array.isArray(list)) return null;
+            // Asset names to hardware, as GitRelease::setAssetProperty reads them.
+            const HW = [['ino.esp32.bin', '32'], ['ino.esp32wrover.bin', 'wrover'], ['ino.esp32s3_4mb.bin', 's3_4mb'],
+                ['ino.esp32s3_8mb.bin', 's3_8mb'], ['ino.esp32s2.bin', 's2'], ['ino.esp32c3.bin', 'c3'],
+                ['ino.esp32c2.bin', 'c2'], ['ino.esp32c6.bin', 'c6'], ['ino.esp32h2.bin', 'h2']];
+            const fw = (get('spanFwVersion')?.innerText || '').trim();
+            const rel = {
+                fwVersion: { name: fw },
+                appVersion: { name: (general.appVersion || fw).replace(/^v/i, '') },
+                releases: list.filter(x => !x.draft).map(x => {
+                    const assets = (x.assets || []).map(a => a.name || '');
+                    return {
+                        id: String(x.id), name: x.name || x.tag_name, draft: false, preRelease: !!x.prerelease,
+                        hasFS: assets.some(n => n.includes('littlefs.bin')),
+                        hwVersions: HW.filter(([f]) => assets.some(n => n.includes(f))).map(([, h]) => h).join(','),
+                        version: { name: x.tag_name }
+                    };
+                })
+            };
+            // The same choice as the board (GitUpdater::setCurrentRelease): the newest
+            // stable release, the newest of all on a board running a pre-release.
+            const onPre = /-/.test(fw);
+            const newest = rel.releases.find(x => onPre || !x.preRelease);
+            if (newest) this.procFwStatus({
+                available: this.cmpVersion(newest.version.name, fw) > 0, status: 0, error: 0, cancelled: false,
+                checkForUpdate: true, inetAvailable: true, fwVersion: rel.fwVersion, appVersion: rel.appVersion,
+                latest: { name: newest.version.name }
+            });
+            return rel;
+        } catch (e) {
+            return null;
+        }
+    }
+    // 503: a shade is moving. 502: no answer from GitHub, its code is an HTTP status
+    // or a network error number, not one of the board's error codes, so it is shown
+    // as a detail only.
+    githubError(err) {
+        if (err.htmlError !== 502 && err.htmlError !== 503) return ui.serviceError(err);
+        const box = ui.errorMessage(tr(err.htmlError === 503 ? 'ERR_GITHUB_BUSY' : 'ERR_GITHUB_UNREACHABLE'));
+        const sub = box.querySelector('.sub-message');
+        if (sub && err.htmlError === 502) sub.textContent = tr('ERR_GITHUB_RETRY') + (typeof err.code === 'number' ? ` (${err.code})` : '');
+    }
+    showGitDialog(rel) {
+        const div = document.createElement('div'), isMob = this.isMobile();
+        // Raw string, not chipFamily(): release assets are tagged "s3_8mb" / "s3_4mb".
+        const chip = (get('divContainer').getAttribute('data-chipmodel') || "").toLowerCase();
+        div.id = 'divGitInstall';
+        div.className = 'inst-overlay';
+        // A GitHub install replaces the firmware and its interface together: the
+        // firmware's version is the one installed, written as the list writes it.
+        const installed = 'v' + ((rel.fwVersion && rel.fwVersion.name) || rel.appVersion.name || '').replace(/^v/i, '');
+        div.setAttribute('data-installed', installed);
+
+        rel.releases.sort((a, b) => a.preRelease === b.preRelease && b.draft === a.draft ? 0 : a.preRelease ? 1 : -1);
+
+        const optsHtml = rel.releases.map(r => {
+            const name = r.name.toLowerCase();
+            if (name === 'main' || name === 'master' || (r.hwVersions.length > 0 && r.hwVersions.indexOf(chip) < 0)) return '';
+            return `<option value="${esc(r.version.name)}" data-prerelease="${r.preRelease}">${esc(r.name)}${r.preRelease ? ` (${esc(tr('FW_BETA'))})` : ''}</option>`;
+        }).join('');
+
+        div.innerHTML = `
+        <div class="instructions-content">
+        <div class="overlay-static-content">
+        ${overlayHeader('UPDATE_GIT_TITLE', 'UPDATE_GIT_DESC', 'svg-github')}
+        <div class="uniRow"><span class="label">${tr('FIRMWARE_INSTALLED')}</span><span class="labelgrey">${esc(installed)}</span></div>
+        <div class="unibloc">
+        <label class="label" for="selVersion">${tr('FIRMWARE_AVAILABLE')}</label>
+        <select id="selVersion" class="inputAndSelect" data-bind="version">${optsHtml}</select>
+        </div>
+        <a id="lnkGithubRelease" href="#" target="_blank" class="link">${tr('FIRMWARE_NOTE_GITHUB')}<svg class="svgInTextSmall"><use href="#svg-linkOut"></use></svg></a>
+        <div id="divPrereleaseWarning" class="error" style="display:none;"><svg><use href=#svg-error></use></svg><div><span id="spanUpdateWarning"></span></div></div>
+        <div id="divUpToDate" class="upToDateNote" style="display:none;"><svg><use href="#svg-succes"></use></svg><span>${tr('FW_ALREADY_CURRENT')}</span></div>
+        <div class="upToDateNote"><svg><use href="#svg-succes"></use></svg><span>${tr('FW_DATA_KEPT')}</span></div>
+        <div class="hrDiv"></div>
+        <div class="warningText"><svg><use href="#svg-warning"></use></svg><span>${tr('FIRMWARE_CACHE')}</span></div>
+
+        <div id="notesPreview" class="release-notes-preview">
+        <div class="wifiConnectScan">
+        <div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+        </div>
+        </div>
+        <div class="hrDivFooter"></div>
+        </div> <div class="button-container-overlay">
+        <div class="footer-sticky-content">
+        <div class="uniRow">
+        <div class="uniText"><span class="uniLabel">${tr('FIRMWARE_SAVE_BACKUP')}</span><span class="uniStatus">${tr(isMob ? 'FIRMWARE_SAVE_BACKUP_DESC_MOB' : 'FIRMWARE_SAVE_BACKUP_DESC')}</span></div>
+        <div id="btnBackupCfg" class="gitBackup" ${a11yBtn(tr('A11Y_BACKUP'))} onclick="firmware.backup()"><svg><use href="#svg-download"></use></svg></div>
+        </div>
+        <div class="button-container-row">
+        <button id="btnClose" line type="button" onclick="closeOverlay(get('divGitInstall'))">${tr('BT_CANCEL_1')}</button>
+        <button id="btnUpdate" type="button" class="btn-main" onclick="firmware.installGitRelease(get('divGitInstall'))">${tr('BT_UPDATE')}</button>
+        </div>
+        </div>
+        </div>
+        </div>`;
+
+        shOverlay(div);
+        const sel = div.querySelector('#selVersion');
+        // Stable releases are listed first, so without this a board offered a newer
+        // pre-release opened on the older stable one: Update would have gone back.
+        if (this.offeredVersion && [...sel.options].some(o => o.value === this.offeredVersion)) sel.value = this.offeredVersion;
+        else {
+            // Interface and firmware of different versions (a half-done manual
+            // update): open on the firmware's version, so one tap installs the
+            // interface that goes with it.
+            const norm = (s) => (s || '').trim().toLowerCase().replace(/^v/, '');
+            const fw = norm(get('spanFwVersion')?.innerText);
+            const match = [...sel.options].find(o => norm(o.value) === fw);
+            if (match && fw !== norm(rel.appVersion.name)) sel.value = match.value;
+        }
+
+        const updateNotes = async () => {
+            const nDiv = div.querySelector('#notesPreview'), lnk = div.querySelector('#lnkGithubRelease');
+            if (!nDiv) return;
+
+            nDiv.innerHTML = '<div class="wifiConnectScan"><div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div>';
+
+            try {
+                const r = await firmware.getReleaseInfo(sel.value, true);
+                if (r?.info?.body) {
+                    nDiv.innerHTML = firmware.parseMarkdown(r.info.body);
+                    if (lnk && r.info.html_url) lnk.href = r.info.html_url;
+                } else {
+                    throw new Error("No body");
+                }
+            } catch (e) {
+                nDiv.innerHTML = `
+                <div class="divGitNoteError">
+                <div class="gitNoteError">${tr('ERR_GIT_NOTE')}</div>
+                <div class="gitNoteErrorSub">${tr('UPDATE_GIT_NOTE')}</div>
+                </div>`;
+            }
+        };
+        sel.addEventListener('change', () => { this.gitReleaseSelected(div); updateNotes(); });
+        this.gitReleaseSelected(div);
+        updateNotes();
     }
     gitReleaseSelected(div) {
         const sel = div.querySelector('#selVersion');
@@ -1011,11 +1104,12 @@ class Firmware {
         const btnUpdate = div.querySelector('#btnUpdate');
         // Selected version == installed version: say so plainly and stop urging an
         // update; the action becomes an explicit "Reinstall" (legitimate repair path).
-        const normVer = (s) => (s || '').toLowerCase().replace(/^v/, '');
-        const isCurrent = normVer(opt.value) === normVer(div.getAttribute('data-installed'));
+        const order = this.cmpVersion(opt.value, div.getAttribute('data-installed'));
+        const isCurrent = order === 0, isOlder = order < 0;
         const divUpToDate = div.querySelector('#divUpToDate');
         if (divUpToDate) divUpToDate.style.display = isCurrent ? 'flex' : 'none';
-        if (btnUpdate) btnUpdate.textContent = tr(isCurrent ? 'BT_REINSTALL' : 'BT_UPDATE');
+        // Going back to an older version says so: it is not an update.
+        if (btnUpdate) btnUpdate.textContent = isCurrent ? tr('BT_REINSTALL') : isOlder ? trf('BT_DOWNGRADE', opt.value) : tr('BT_UPDATE');
         let isBlocked = false;
         let blockMessage = '';
 
@@ -1032,12 +1126,9 @@ class Firmware {
         } else {
             if (btnUpdate) btnUpdate.disabled = false;
             if (divPre) {
-                if (isPre) {
-                    if (spanWarning) spanWarning.innerHTML = tr('UPDATE_GIT_RELEASE_BETA');
-                    divPre.style.display = 'flex';
-                } else {
-                    divPre.style.display = 'none';
-                }
+                const warn = isOlder ? 'UPDATE_GIT_DOWNGRADE' : isPre ? 'UPDATE_GIT_RELEASE_BETA' : '';
+                if (warn && spanWarning) spanWarning.innerHTML = tr(warn);
+                divPre.style.display = warn ? 'flex' : 'none';
             }
         }
         const divNotes = div.querySelector('#divReleaseNotes');
@@ -1045,6 +1136,20 @@ class Firmware {
             const val = sel.value;
             divNotes.style.display = (!val || val === 'main') ? 'none' : '';
         }
+    }
+    // Orders two versions (v4.2.3, 4.3.0-beta.1): negative when a is older. A
+    // pre-release comes before the release of the same number.
+    cmpVersion(a, b) {
+        const parse = (s) => {
+            const m = /^v?(\d+)\.(\d+)\.(\d+)(.*)$/i.exec((s || '').trim()) || [];
+            return [+m[1] || 0, +m[2] || 0, +m[3] || 0, (m[4] || '').toLowerCase()];
+        };
+        const x = parse(a), y = parse(b);
+        for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i];
+        if (x[3] === y[3]) return 0;
+        if (!x[3]) return 1;
+        if (!y[3]) return -1;
+        return x[3] < y[3] ? -1 : 1;
     }
     async getReleaseInfo(tag, silent = false) {
         let overlay = null;
@@ -1137,15 +1242,23 @@ class Firmware {
 
         if (isApp) general.reloadApp = true;
         const currentVer = isApp ? (general?.appVersion || this.appVersion) : (get('spanFwVersion').innerText || '?.?.?');
+        const fwVer = (get('spanFwVersion')?.innerText || '').trim();
 
         div.querySelector('#divInstText').innerHTML = `
         ${overlayHeader('MANUAL_UPDATE_TITLE', isApp ? 'UPDATE_LITTLEFS_DESC' : 'UPDATE_FIRMWARE_DESC', 'svg-update')}
         <div class="uniRow"><span class="uniLabel">${tr('FIRMWARE_INSTALLED')}</span><span class="labelgrey">${currentVer}</span></div>
+        ${isApp ? `<div class="uniRow">
+        <div class="uniText"><span class="uniLabel">${esc(trf('FS_FROM_GITHUB', fwVer))}</span><span class="uniStatus">${tr('FS_FROM_GITHUB_DESC')}</span></div>
+        <div id="btnFsFromGithub" class="gitBackup" ${a11yBtn(trf('FS_FROM_GITHUB', fwVer))}><svg><use href="#svg-github"></use></svg></div>
+        </div>` : ''}
+        <div class="upToDateNote"><svg><use href="#svg-succes"></use></svg><span>${tr('FW_DATA_KEPT')}</span></div>
         <div class="warningText"><span>${tr('FIRMWARE_CACHE')}</span></div></div>
         <div class="hrDiv"></div>`;
 
         div.className += isApp ? ' mode-app-update' : ' mode-firm-update';
         shOverlay(div);
+        const btnFs = div.querySelector('#btnFsFromGithub');
+        if (btnFs) btnFs.onclick = () => ui.promptMessage(esc(trf('PROMPT_FS_FROM_GITHUB', fwVer)), { yes: 'BT_REINSTALL' }, () => this.recoverInterface(div));
 
         const btnB = div.querySelector('#btnBackupCfg');
         if (btnB) {

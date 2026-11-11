@@ -393,6 +393,9 @@ void Web::emitLoginContext(JsonResponse &resp) {
     resp.addElem("permissions", settings.Security.permissions);
     resp.addElem("serverId", settings.serverId);
     resp.addElem("version", settings.fwVersion.name);
+    // The web interface's own version: after reinstalling the interface alone, the
+    // page that follows the reboot checks it, the firmware version does not change.
+    resp.addElem("appVersion", settings.appVersion.name);
     resp.addElem("model", "ESPSomfyRTS");
     resp.addElem("hostname", settings.hostname);
     if (net.connType == conn_types_t::ethernet) {
