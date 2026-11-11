@@ -197,6 +197,8 @@ class Somfy {
                     }
                 };
                 const isRadioInit = somfy.transceiver.config.radioInit;
+                this.welcomeRadio = !!(somfy.transceiver.config.enabled && isRadioInit);
+                this.renderWelcome();
                 // Both copies of the menu (rail and mobile) flag a radio that failed to start.
                 document.querySelectorAll('.nav-item[data-grpid="pgRadio"]').forEach(n => n.classList.toggle('radio-error', !isRadioInit));
                 if (row) row.classList.toggle('radioOn', !!isRadioInit);
@@ -597,6 +599,24 @@ class Somfy {
         slider.value = newVal;
         slider.dispatchEvent(new Event('input'));
     }
+    // Welcome page: the language first, since everything after it has to be read;
+    // then the steps, ticked once done, the next one to do standing out.
+    renderWelcome() {
+        const w = get('divGetStarted');
+        if (!w) return;
+        const lang = localStorage.getItem('selectedLang') || 'en';
+        w.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === lang ? 'true' : 'false'));
+        const done = { net: this.welcomeNet === true, radio: this.welcomeRadio === true };
+        let next = null;
+        w.querySelectorAll('.setup-item').forEach(a => {
+            const d = !!done[a.dataset.step];
+            a.classList.toggle('is-done', d);
+            const mark = a.querySelector('.setup-done');
+            if (mark) mark.hidden = !d;
+            if (!d && !next) next = a;
+        });
+        w.querySelectorAll('.setup-item').forEach(a => a.classList.toggle('setup-main', a === next));
+    }
     checkEmptyState() {
         const getEl = id => get(id);
         const setDisp = (el, show, style = 'block') => { if (el) el.style.display = show ? style : 'none'; };
@@ -640,7 +660,12 @@ class Somfy {
         const divGetStarted = getEl('divGetStarted');
         const divNoDevice = getEl('divNoDevice');
 
-        if (totalDevices === 0 && !hasRooms) {
+        const welcome = totalDevices === 0 && !hasRooms;
+        // The welcome page has its own title.
+        const head = document.querySelector('#divHomePnl .home-head');
+        if (head) head.style.display = welcome ? 'none' : '';
+        if (welcome) {
+            this.renderWelcome();
             setDisp(divGetStarted, !isConfigOpen, 'flex');
             setDisp(divNoDevice, false);
             setDisp(divShadeControls, false);
@@ -806,8 +831,9 @@ class Somfy {
             <div class="room-sec-head">
             <h2 class="h2-lg" id="roomHead${rId}">${esc(rName)}${list.length > 1 ? ' <span class="room-sec-sum muted"></span>' : ''}</h2>
             ${list.filter(x => this.isCoveringType(x.shadeType)).length > 1 ? `<div class="room-sec-actions">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'up')">${tr('HOME_OPEN_ALL')}<span class="sr-only">, ${esc(rName)}</span></button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="somfy.roomCommand(${rId}, 'down')">${tr('HOME_CLOSE_ALL')}<span class="sr-only">, ${esc(rName)}</span></button>
+            ${this.roomCmdHtml(rId, rName, 'up', 'HOME_OPEN_ALL', 'm6 15 6-6 6 6')}
+            ${this.roomCmdHtml(rId, rName, 'down', 'HOME_CLOSE_ALL', 'm6 9 6 6 6-6')}
+            ${this.roomCmdHtml(rId, rName, 'stop', 'HOME_STOP_ALL', null)}
             </div>` : ''}
             </div>
             <div class="tile-grid">`;
@@ -857,7 +883,8 @@ class Somfy {
             this.btnDown = new Date().getTime();
             if (cmd === 'light' || cmd === 'sunflag') return;
             if (cmd === 'my') {
-                if (parseInt(elShade.getAttribute('data-direction'), 10) === 0)
+                // A Stop button (garage, gate) has no favorite to set on a long press.
+                if (parseInt(elShade.getAttribute('data-direction'), 10) === 0 && !event.currentTarget.classList.contains('cmd-stop'))
                     lpArm(event.currentTarget, () => this.openSetMyPosition(shadeId));
             }
             else if (makeBool(elShade.getAttribute('data-tilt')))
@@ -932,7 +959,32 @@ class Somfy {
     // Window coverings: "open/close all" must never move a garage door or a gate.
     isCoveringType(shadeType) { return [0, 1, 2, 3, 4, 7, 8].includes(parseInt(shadeType, 10)); }
     // Types drawn as a slatted apron in the tile; the others keep their own icon.
-    isApronType(shadeType) { return [0, 1, 4].includes(parseInt(shadeType, 10)); }
+    isApronType(shadeType) { return [0, 4].includes(parseInt(shadeType, 10)); }
+    // Garage doors and gates have no favorite position: their middle button only stops
+    // them. Unless the favorite is simulated by the board, the tile shows a Stop and no
+    // favorite star.
+    stopOnly(shade) { return [6, 11, 12, 13].includes(parseInt(shade.shadeType, 10)) && !shade.simMy; }
+    // Full-width drawing of the other coverings, in the apron's language: a fixed part
+    // on top (cassette, rod, frame, posts), slate material for the closed share, which
+    // is the --c custom property of the container. A venetian blind adds its side guides
+    // and ladder cords; its slats look thicker as they close (--t, 0 flat, 100 closed).
+    // Dry contacts keep their icon (null).
+    vizDraw(shadeType) {
+        const t = parseInt(shadeType, 10);
+        if (t === 1) return '<span class="vz-head"></span><span class="vz-guide a"></span><span class="vz-guide b"></span><span class="vz-slats"></span><span class="vz-cord a"></span><span class="vz-cord b"></span>';
+        const side = (l, r) => l.includes(t) ? 'l' : r.includes(t) ? 'r' : 'c';
+        const pair = (cls, s) => s === 'c' ? `<span class="${cls} cl"></span><span class="${cls} cr"></span>` : `<span class="${cls} ${s}"></span>`;
+        if (t === 3) return '<span class="vz-cassette"></span><span class="vz-canvas"></span>';
+        if (t === 5 || t === 6) return '<span class="vz-frame"></span><span class="vz-door"></span>';
+        if ([2, 7, 8].includes(t)) return '<span class="vz-rod"></span>' + pair('vz-drape', side([2], [7]));
+        if (t >= 11 && t <= 16) return '<span class="vz-post a"></span><span class="vz-post b"></span><span class="vz-ground"></span>' + pair('vz-leaf', side([11, 14], [13, 16]));
+        return null;
+    }
+    // Four slats on a cord, seen from the side: flat when open, upright when closed.
+    // Without an argument it follows the --t of its container.
+    slatGlyph(t) {
+        return `<span class="slat-glyph" aria-hidden="true"${t === undefined ? '' : ` style="--t:${t}"`}><i></i><i></i><i></i><i></i></span>`;
+    }
     tileHtml(shade, roomId) {
         const st = this.shadeTypes.find(x => x.type === shade.shadeType) || { type: shade.shadeType, ico: 'svg-window-shade' };
         const isLightOn = (shade.flags & 0x08);
@@ -941,28 +993,30 @@ class Somfy {
         const p = shade.flipPosition ? 100 - shade.position : shade.position;
         const viz = this.isApronType(shade.shadeType)
             ? `<span class="shutter"></span>`
-            : `<svg class="somfy-shade-icon" data-shadeid="${shade.shadeId}" aria-hidden="true" style="--shade-position:${p}; --fpos:${p}%"><use href="#${st.ico}"></use></svg>`;
+            : this.vizDraw(shade.shadeType) ?? `<svg class="somfy-shade-icon" data-shadeid="${shade.shadeId}" aria-hidden="true" style="--shade-position:${p}; --fpos:${p}%"><use href="#${st.ico}"></use></svg>`;
         const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
         return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-tilttarget="${shade.tiltTarget ?? shade.tiltPosition}" data-tiltdirection="${shade.tiltDirection || 0}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
         <div class="tile-head">
         <div class="tile-id">
         <h3 class="tile-name shadectl-name" id="shName${shade.shadeId}">${esc(shade.name).replace(/_/g, '_<wbr>')}</h3>
-        <span class="status tile-status"><span class="dot pulse" aria-hidden="true"></span><span class="val-pos"></span></span>
         </div>
         <span class="tile-pct"><span class="pct-num"></span><small aria-hidden="true"> %</small><span class="sr-only"> ${tr('HOME_PCT_OPEN')}</span></span>
+        <span class="status tile-status"><span class="dot pulse" aria-hidden="true"></span><span class="val-pos"></span></span>
         </div>
         <button type="button" class="viz shade-viz" data-shadeid="${shade.shadeId}" aria-label="${esc(trf('A11Y_SET_POS', shade.name))}" ${pulse ? 'disabled' : ''} onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});">
         ${viz}
         <span class="viz-flags"><span class="badge warn indicator indicator-sun"><svg aria-hidden="true"><use href="#indic-sun"></use></svg>${tr('VR_SUN')}</span><span class="badge danger indicator indicator-wind"><svg aria-hidden="true"><use href="#indic-wind"></use></svg>${tr('VR_WIND')}</span></span>
         </button>
         <span class="tile-tools">
-        <div class="button-light cmd-button" ${a11yBtn(trf('A11Y_CMD_LIGHT', shade.name))} data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}"><svg aria-hidden="true"><use href="#svg-lightbulb"></use></svg></div>
-        ${shade.sunSensor ? `<div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', shade.name))} data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}"><svg aria-hidden="true"><use href="#svg-sun"></use></svg></div>` : ''}
-        ${pulse ? '' : `<div class="button-my" ${a11yBtn(trf('A11Y_SET_MY', shade.name))} title="${tr('TT_HOLD_MY')}" onclick="event.stopPropagation(); somfy.openSetMyPosition(${shade.shadeId});"><svg aria-hidden="true"><use href="#svg-favori"></use></svg></div>`}
+        <div class="button-light cmd-button tool-chip" role="button" tabindex="0" title="${esc(tr('HOME_LIGHT'))}" aria-label="${esc(tr('HOME_LIGHT'))}, ${esc(shade.name)}" aria-pressed="${isLightOn ? 'true' : 'false'}" data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}"><svg aria-hidden="true"><use href="#svg-lightbulb"></use></svg><span>${tr('HOME_LIGHT')}</span></div>
+        ${shade.sunSensor ? `<div class="button-sunflag cmd-button tool-chip" role="button" tabindex="0" title="${esc(tr('HOME_SUN_AUTO'))}" aria-label="${esc(tr('HOME_SUN_AUTO'))}, ${esc(shade.name)}" aria-pressed="${isSunOn ? 'true' : 'false'}" data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}"><svg aria-hidden="true"><use href="#indic-sun"></use></svg><span>${tr('HOME_SUN_AUTO')}</span></div>` : ''}
+        ${pulse || this.stopOnly(shade) ? '' : `<div class="button-my" ${a11yBtn(trf('A11Y_SET_MY', shade.name))} title="${tr('TT_HOLD_MY')}" onclick="event.stopPropagation(); somfy.openSetMyPosition(${shade.shadeId});"><svg aria-hidden="true"><use href="#svg-favori"></use></svg></div>`}
         </span>
         <div class="cmd-row shadectl-buttons" data-shadeType="${shade.shadeType}">
         <div class="btn button-outline cmd-button" ${a11yBtn(trf('A11Y_CMD_UP', shade.name))} data-cmd="up" data-shadeid="${shade.shadeId}"${tiltTitle}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></div>
-        <div class="btn btn-stack button-outline cmd-button cmd-my" role="button" tabindex="0" data-cmd="my" data-shadeid="${shade.shadeId}" title="${tr('TT_HOLD_MY')}"><span class="my-label">My</span><span class="btn-sub val-my"></span><span class="sr-only">${esc(trf('A11Y_CMD_MY', shade.name))}</span></div>
+        ${this.stopOnly(shade)
+            ? `<div class="btn button-outline cmd-button cmd-stop" ${a11yBtn(trf('A11Y_CMD_STOP', shade.name))} title="${esc(tr('BT_STOP_MY'))}" data-cmd="my" data-shadeid="${shade.shadeId}"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor"/></svg></div>`
+            : `<div class="btn btn-stack button-outline cmd-button cmd-my" role="button" tabindex="0" data-cmd="my" data-shadeid="${shade.shadeId}" title="${tr('TT_HOLD_MY')}"><span class="my-label">My</span><span class="btn-sub val-my"></span><span class="sr-only">${esc(trf('A11Y_CMD_MY', shade.name))}</span></div>`}
         <div class="btn button-outline cmd-button" ${a11yBtn(trf('A11Y_CMD_DOWN', shade.name))} data-cmd="down" data-shadeid="${shade.shadeId}"${tiltTitle}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
         <div class="btn button-outline cmd-button cmd-toggle" role="button" tabindex="0" data-cmd="toggle" data-shadeid="${shade.shadeId}">${tr('BT_TRIGGER')}<span class="sr-only"> ${esc(shade.name)}</span></div>
         </div>
@@ -973,17 +1027,17 @@ class Somfy {
     }
     // Paints the live state of one tile from its data-* attributes (kept current by
     // procShadeState): open percentage, apron height, status line, My / Stop label.
-    // What a tile shows as "% open": the travel, or for a tilt-only shade its tilt, in
-    // the API's own scale (as the position panel does). Moving counts the slats too,
-    // so My turns into Stop while a blind only tilts.
+    // What a tile shows as "% open": the travel, or for a tilt-only shade how open its
+    // slats are (100 flat, 0 closed, as Home Assistant reads it). Moving counts the
+    // slats too, so My turns into Stop while a blind only tilts.
     tileAxis(d) {
         const num = (a, dflt) => { const v = parseInt(d.getAttribute(a), 10); return isNaN(v) ? dflt : v; };
         const tdir = num('data-tiltdirection', 0);
-        if ((parseInt(d.getAttribute('data-tilt'), 10) || 0) === 3) {
-            const t = num('data-tiltposition', 0);
-            return { open: t, target: num('data-tilttarget', t), my: num('data-mytiltpos', -1), dir: tdir, moving: tdir !== 0, tiltOnly: true };
-        }
         const flip = makeBool(d.getAttribute('data-flipposition'));
+        if ((parseInt(d.getAttribute('data-tilt'), 10) || 0) === 3) {
+            const t = num('data-tiltposition', 0), myT = num('data-mytiltpos', -1);
+            return { open: shadeOpenness(t, flip), target: shadeOpenness(num('data-tilttarget', t), flip), my: myT >= 0 ? shadeOpenness(myT, flip) : -1, dir: tdir, moving: tdir !== 0, tiltOnly: true };
+        }
         const pos = num('data-position', 0), myPos = num('data-mypos', -1), dir = num('data-direction', 0);
         return {
             open: shadeOpenness(pos, flip), target: shadeOpenness(num('data-target', pos), flip),
@@ -1001,6 +1055,12 @@ class Somfy {
         d.querySelector('.tile-pct')?.toggleAttribute('hidden', pulse);
         const sh = d.querySelector('.shutter');
         if (sh) sh.style.height = (100 - open) + '%';
+        d.querySelector('.viz')?.style.setProperty('--c', pulse || ax.tiltOnly ? 100 : 100 - open);
+        // The slats' open share, drawn on the picture through --t (their closed share).
+        const tiltType = parseInt(d.getAttribute('data-tilt'), 10) || 0;
+        const tRaw = num('data-tiltposition', -1);
+        const tOpen = tiltType && tRaw >= 0 ? shadeOpenness(tRaw, makeBool(d.getAttribute('data-flipposition'))) : -1;
+        if (tOpen >= 0) d.style.setProperty('--t', 100 - tOpen);
         const myOpen = ax.my;
         let status;
         if (moving) status = `${tr(dir < 0 ? 'ST_OPENING' : 'ST_CLOSING')} · ${trf('ST_TOWARDS', ax.target)}`;
@@ -1013,13 +1073,14 @@ class Somfy {
         if (lbl) lbl.textContent = moving ? tr('BT_STOP_MY') : 'My';
         const vm = d.querySelector('.val-my');
         if (vm) vm.textContent = moving ? '' : (myOpen >= 0 ? `${myOpen} %` : '—');
-        // The extra tilt line is for shades that also lift; a tilt-only tile already
-        // shows its tilt as the main figure.
-        const tilt = ax.tiltOnly ? 0 : (parseInt(d.getAttribute('data-tilt'), 10) || 0);
+        // The tilt chip is for shades that also lift, while they are not fully up; a
+        // tilt-only tile already shows its slats as the main figure. It sits on the
+        // picture, so a tilting shade's tile is no taller than the others.
         const vt = d.querySelector('.val-tilt');
         if (vt) {
-            const tp = num('data-tiltposition', -1), mt = num('data-mytiltpos', -1);
-            vt.textContent = tilt ? `${tr('SHADE_TILT')}${tp >= 0 ? tp + ' %' : '—'}${mt >= 0 ? ` · ${tr('SHADE_MY_TILT')}${mt} %` : ''}` : '';
+            const html = !ax.tiltOnly && tOpen >= 0 && open < 100
+                ? `${this.slatGlyph()}<span class="sr-only">${esc(tr('POSP_SLATS'))} </span>${tOpen} %` : '';
+            if (vt.innerHTML !== html) vt.innerHTML = html;
         }
     }
     // "3 volets · 2 ouverts" under the Home title and next to each room heading.
@@ -1036,6 +1097,8 @@ class Somfy {
             const d = describe(Array.from(sec.querySelectorAll('.somfyShadeCtl')));
             const el = sec.querySelector('.room-sec-sum');
             if (el) el.textContent = `· ${this.openText(d.open, d.shades)}`;
+            // The room's Stop only exists while one of its coverings moves.
+            sec.classList.toggle('is-moving', this.movingCoverings(sec).length > 0);
         });
         document.querySelectorAll('.room-pill').forEach(p => {
             const rId = parseInt(p.getAttribute('data-roomid'), 10);
@@ -1051,12 +1114,28 @@ class Somfy {
     }
     // "Open all / Close all" of a room: one command per window covering of the section;
     // the radio task queues them, so they go out as a burst of contiguous trains.
+    // Stop sends My, which only stops a moving shade: sent to one at rest it would go
+    // to its favorite position. So Stop reaches the moving coverings only.
     roomCommand(roomId, cmd) {
-        const tiles = Array.from(document.querySelectorAll(`.room-sec[data-roomid="${roomId}"] .somfyShadeCtl`))
-            .filter(t => this.isCoveringType(t.getAttribute('data-shadetype')));
-        tiles.forEach(t => this.sendCommand(parseInt(t.getAttribute('data-shadeid'), 10), cmd));
+        const sec = document.querySelector(`.room-sec[data-roomid="${roomId}"]`);
+        if (!sec) return;
+        const tiles = cmd === 'stop' ? this.movingCoverings(sec)
+            : Array.from(sec.querySelectorAll('.somfyShadeCtl')).filter(t => this.isCoveringType(t.getAttribute('data-shadetype')));
+        tiles.forEach(t => this.sendCommand(parseInt(t.getAttribute('data-shadeid'), 10), cmd === 'stop' ? 'my' : cmd));
         const room = _rooms.find(r => r.roomId === roomId);
-        this.announce(trf(cmd === 'up' ? 'LIVE_ROOM_OPEN' : 'LIVE_ROOM_CLOSE', room && roomId !== 0 ? room.name : tr('HOME_UNASSIGNED')));
+        const live = { up: 'LIVE_ROOM_OPEN', down: 'LIVE_ROOM_CLOSE', stop: 'LIVE_ROOM_STOP' }[cmd];
+        this.announce(trf(live, room && roomId !== 0 ? room.name : tr('HOME_UNASSIGNED')));
+    }
+    movingCoverings(sec) {
+        return Array.from(sec.querySelectorAll('.somfyShadeCtl'))
+            .filter(t => this.isCoveringType(t.getAttribute('data-shadetype'))
+                && ((parseInt(t.getAttribute('data-direction'), 10) || 0) !== 0 || (parseInt(t.getAttribute('data-tiltdirection'), 10) || 0) !== 0));
+    }
+    // One compact room command: an icon, its full label for the tooltip and for
+    // screen readers. `path` draws the chevron; Stop is a square.
+    roomCmdHtml(rId, rName, cmd, key, path) {
+        const icon = path ? `<path d="${path}"/>` : '<rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/>';
+        return `<button type="button" class="btn button-outline room-cmd room-cmd-${cmd}" title="${esc(tr(key))}" aria-label="${esc(tr(key))}, ${esc(rName)}" onclick="somfy.roomCommand(${rId}, '${cmd}')"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></button>`;
     }
     announce(msg) {
         const el = get('homeLive');
@@ -1239,7 +1318,7 @@ class Somfy {
                 <span class="small muted">${room.roomId ? esc(room.name) + ' · ' : ''}${trf(members === 1 ? 'GROUP_MEMBERS_1' : 'GROUP_MEMBERS_N', members)}</span>
                 </div>
                 <div class="gtile-buttons groupctl-buttons">
-                <div class="button-sunflag cmd-button" ${a11yBtn(trf('A11Y_CMD_SUN', group.name))} data-cmd="sunflag" data-groupid="${group.groupId}" data-on="${(group.flags & 0x01) ? 'true' : 'false'}" style="${!group.sunSensor ? 'display:none' : ''}"><svg aria-hidden="true"><use href="#svg-sun"></use></svg></div>
+                <div class="button-sunflag cmd-button tool-chip" role="button" tabindex="0" title="${esc(tr('HOME_SUN_AUTO'))}" aria-label="${esc(tr('HOME_SUN_AUTO'))}, ${esc(group.name)}" aria-pressed="${(group.flags & 0x01) ? 'true' : 'false'}" data-cmd="sunflag" data-groupid="${group.groupId}" data-on="${(group.flags & 0x01) ? 'true' : 'false'}" style="${!group.sunSensor ? 'display:none' : ''}"><svg aria-hidden="true"><use href="#indic-sun"></use></svg><span>${tr('HOME_SUN_AUTO')}</span></div>
                 <div class="btn btn-icon cmd-button" ${a11yBtn(trf('A11Y_CMD_UP', group.name))} data-cmd="up" data-groupid="${group.groupId}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></div>
                 <div class="btn cmd-button" role="button" tabindex="0" data-cmd="my" data-groupid="${group.groupId}">My<span class="sr-only">${esc(trf('A11Y_CMD_MY', group.name))}</span></div>
                 <div class="btn btn-icon cmd-button" ${a11yBtn(trf('A11Y_CMD_DOWN', group.name))} data-cmd="down" data-groupid="${group.groupId}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
@@ -1295,13 +1374,20 @@ class Somfy {
     // Tilt-only shades drive their tilt with the apron, in the API's own scale.
     openSetPosition(shadeId) { this.openPosPanel(shadeId, 'move'); }
     openSetMyPosition(shadeId) { this.openPosPanel(shadeId, 'my'); }
+    // The position slider is vertical: the venetian blind, the awning and the garage
+    // door move that way and keep their own drawing; the others keep the plain apron.
+    posDraw(s) {
+        const t = parseInt(s.d.getAttribute('data-shadetype'), 10);
+        return [1, 3, 5, 6].includes(t) ? this.vizDraw(t) : '<span class="shutter"></span>';
+    }
     posShade(shadeId) {
         const d = document.querySelector(`.somfyShadeCtl[data-shadeid="${shadeId}"]`);
         if (!d) return null;
         const num = (a, dflt) => { const v = parseInt(d.getAttribute(a), 10); return isNaN(v) ? dflt : v; };
         const flip = makeBool(d.getAttribute('data-flipposition'));
         const tiltType = num('data-tilt', 0);
-        const pos = num('data-position', 0), tilt = num('data-tiltposition', 0), myPos = num('data-mypos', -1);
+        const pos = num('data-position', 0), tiltRaw = num('data-tiltposition', 0), myPos = num('data-mypos', -1);
+        const tilt = shadeOpenness(tiltRaw, flip), myTilt = num('data-mytiltpos', -1);
         const s = {
             d, flip, tiltType,
             tiltOnly: tiltType === 3,
@@ -1309,10 +1395,12 @@ class Somfy {
             status: d.querySelector('.val-pos')?.textContent || '',
             moving: num('data-direction', 0) !== 0 || num('data-tiltdirection', 0) !== 0,
             tilt: tilt,
-            myTilt: num('data-mytiltpos', -1)
+            tiltTarget: shadeOpenness(num('data-tilttarget', tiltRaw), flip),
+            myTilt: myTilt >= 0 ? shadeOpenness(myTilt, flip) : -1
         };
-        // The main axis: the travel, or the tilt of a tilt-only shade.
-        if (s.tiltOnly) Object.assign(s, { cur: tilt, target: num('data-tilttarget', tilt), my: s.myTilt });
+        // The main axis: the travel, or the slats of a tilt-only shade. Slats read as
+        // % open too: 100 flat, 0 closed.
+        if (s.tiltOnly) Object.assign(s, { cur: tilt, target: shadeOpenness(num('data-tilttarget', tiltRaw), flip), my: s.myTilt });
         else Object.assign(s, {
             cur: shadeOpenness(pos, flip),
             target: shadeOpenness(num('data-target', pos), flip),
@@ -1347,14 +1435,14 @@ class Somfy {
         <div class="pos-body">
         <div class="pos-apron-wrap">
         <div class="pos-apron" role="slider" tabindex="0" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(trf(s.tiltOnly ? 'POSP_SLIDER_TILT' : 'POSP_SLIDER', s.name))}">
-        <span class="shutter"></span>
+        ${this.posDraw(s)}
         <span class="pos-now"><span></span></span>
         <span class="pos-grip"></span>
         <span class="pos-pin" aria-hidden="true"><svg><use href="#svg-favori"></use></svg>My</span>
         </div>
         </div>
         <div class="pos-side">
-        <div class="pos-readout"><span class="pos-big"><span class="pos-val"></span><small> %</small></span><span class="pos-what">${esc(tr(s.tiltOnly ? 'POSP_TILT' : 'POSP_OPEN_PCT'))}</span></div>
+        <div class="pos-readout"><span class="pos-big"><span class="pos-val"></span><small> %</small></span><span class="pos-what">${esc(tr(s.tiltOnly ? 'POSP_SLATS_OPEN_PCT' : 'POSP_OPEN_PCT'))}</span></div>
         <div class="pos-chips"></div>
         <p class="pos-note"></p>
         <div class="pos-steps" role="group" aria-label="${esc(tr('POSP_STEPS'))}">
@@ -1366,19 +1454,22 @@ class Somfy {
         </div>
         </div>
         ${hasTilt ? `
-        <div class="pos-tilt">
-        <div class="pos-tilt-head"><span>${esc(tr('POSP_TILT'))}</span><span><b class="pos-tilt-val"></b> %</span></div>
+        <section class="pos-tilt" aria-labelledby="posTiltTitle">
+        <div class="pos-tilt-head"><h3 class="pos-tilt-title" id="posTiltTitle">${this.slatGlyph()}${esc(tr('POSP_SLATS'))}</h3><span class="pos-tilt-read"><b class="pos-tilt-val"></b> %<small>${esc(tr('POSP_SLATS_OPEN'))}</small></span></div>
+        <div class="pos-tilt-chips"></div>
         <div class="pos-tilt-ctl">
-        <button type="button" class="pos-step" data-tstep="-1" aria-label="${esc(tr('POSP_TILT_MINUS'))}">−1</button>
-        <input type="range" class="pos-tilt-range" min="0" max="100" step="1" aria-label="${esc(tr('POSP_TILT'))}">
-        <button type="button" class="pos-step" data-tstep="1" aria-label="${esc(tr('POSP_TILT_PLUS'))}">+1</button>
+        <button type="button" class="pos-step" data-tstep="-10" aria-label="${esc(trf('POSP_TILT_MINUS', 10))}">−10</button>
+        <button type="button" class="pos-step" data-tstep="-5" aria-label="${esc(trf('POSP_TILT_MINUS', 5))}">−5</button>
+        <div class="pos-tilt-bar">${this.slatGlyph(100)}<input type="range" class="pos-tilt-range" min="0" max="100" step="1" aria-label="${esc(trf('POSP_SLIDER_TILT', s.name))}">${this.slatGlyph(0)}</div>
+        <button type="button" class="pos-step" data-tstep="5" aria-label="${esc(trf('POSP_TILT_PLUS', 5))}">+5</button>
+        <button type="button" class="pos-step" data-tstep="10" aria-label="${esc(trf('POSP_TILT_PLUS', 10))}">+10</button>
         </div>
-        </div>` : ''}
+        </section>` : ''}
         <p class="pos-mytext"></p>
         <div class="pos-mybox"><button type="button" class="pos-mybtn"></button><button type="button" class="pos-myclear">${esc(tr('POSP_CLEAR_MY'))}</button></div>
         </div>`;
         document.body.appendChild(el);
-        const p = this.pos = { shadeId, el, tab: 'move', sel: 0, tilt: 0, sendT: null, tiltT: null, dragging: false };
+        const p = this.pos = { shadeId, el, flip: s.flip, tab: 'move', sel: 0, tilt: 0, sendT: null, tiltT: null, dragging: false };
         const q = (c) => el.querySelector(c);
         const apron = q('.pos-apron');
 
@@ -1424,14 +1515,18 @@ class Somfy {
 
         if (hasTilt) {
             const range = q('.pos-tilt-range');
+            // p.tilt is the slats' open share; the API gets its own scale back.
             const setTilt = (v, how) => {
                 p.tilt = Math.max(0, Math.min(100, v));
                 range.value = p.tilt;
-                q('.pos-tilt-val').textContent = p.tilt;
-                if (p.tab !== 'move') { this.renderPosPanel(); return; }
-                clearTimeout(p.tiltT); p.tiltT = null;
-                if (how === 'now') this.sendTiltCommand(shadeId, p.tilt);
-                else if (how === 'later') p.tiltT = setTimeout(() => { p.tiltT = null; this.sendTiltCommand(shadeId, p.tilt); }, 600);
+                if (p.tab === 'move' && how) {
+                    clearTimeout(p.tiltT); p.tiltT = null;
+                    // The board's echo takes a moment: keep the choice on screen meanwhile.
+                    p.tiltHold = Date.now() + 2000;
+                    if (how === 'now') this.sendTiltCommand(shadeId, shadeOpenness(p.tilt, p.flip));
+                    else p.tiltT = setTimeout(() => { p.tiltT = null; this.sendTiltCommand(shadeId, shadeOpenness(p.tilt, p.flip)); }, 600);
+                }
+                this.renderPosPanel();
             };
             // A pointer release sends at once; arrow keys fire "change" on every press,
             // so they are batched like the steps.
@@ -1440,13 +1535,17 @@ class Somfy {
             range.addEventListener('input', () => setTilt(parseInt(range.value, 10)));
             range.addEventListener('change', () => { setTilt(parseInt(range.value, 10), rangePtr ? 'now' : 'later'); rangePtr = false; });
             el.querySelectorAll('[data-tstep]').forEach(b => b.addEventListener('click', () => setTilt(p.tilt + parseInt(b.dataset.tstep, 10), 'later')));
+            q('.pos-tilt-chips').addEventListener('click', (e) => {
+                const b = e.target.closest('.pos-chip[data-val]');
+                if (b && !b.disabled) setTilt(parseInt(b.dataset.val, 10), 'now');
+            });
         }
 
         q('.pos-mybtn').addEventListener('click', () => {
             const cur = this.posShade(shadeId);
             if (!cur || cur.moving) return;
             const pos = cur.tiltOnly ? 0 : shadeOpenness(p.sel, cur.flip);
-            const tilt = cur.tiltOnly ? p.sel : (cur.tiltType > 0 ? p.tilt : 0);
+            const tilt = cur.tiltOnly ? shadeOpenness(p.sel, cur.flip) : (cur.tiltType > 0 ? shadeOpenness(p.tilt, cur.flip) : 0);
             this.closePosPanel();
             this.sendShadeMyPosition(shadeId, pos, tilt);
         });
@@ -1460,8 +1559,8 @@ class Somfy {
             // In <body>, after the panel, so the question stacks above it.
             ui.promptMessage(document.body, esc(msg), { yes: 'POSP_CLEAR_MY', danger: true }, () => {
                 this.closePosPanel();
-                if (cur.tiltOnly) this.sendShadeMyPosition(shadeId, 0, cur.my);
-                else this.sendShadeMyPosition(shadeId, shadeOpenness(cur.my, cur.flip), cur.tiltType > 0 ? cur.myTilt : 0);
+                if (cur.tiltOnly) this.sendShadeMyPosition(shadeId, 0, shadeOpenness(cur.my, cur.flip));
+                else this.sendShadeMyPosition(shadeId, shadeOpenness(cur.my, cur.flip), cur.tiltType > 0 && cur.myTilt >= 0 ? shadeOpenness(cur.myTilt, cur.flip) : 0);
             });
         });
 
@@ -1497,7 +1596,7 @@ class Somfy {
         p.tilt = s.tilt;
         // Presets: the list set in Preferences, then My, or the current position when recording My.
         // Rebuilt per tab only, so keyboard focus survives the live updates.
-        const ends = s.tiltOnly ? ['0', '100'] : [tr('POS_CLOSED'), tr('POS_OPEN')];
+        const ends = s.tiltOnly ? [tr('POSP_SLATS_CLOSED'), tr('POSP_SLATS_FLAT')] : [tr('POS_CLOSED'), tr('POS_OPEN')];
         const chip = (label, val, aria) => `<button type="button" class="pos-chip" data-val="${val}"${aria ? ` aria-label="${esc(aria)}"` : ''}>${label}</button>`;
         const presets = (typeof general !== 'undefined' && general.posPresets) || [0, 25, 50, 75, 100];
         let html = presets.map(v => chip(v === 0 ? esc(ends[0]) : v === 100 ? esc(ends[1]) : String(v), v)).join('');
@@ -1506,6 +1605,15 @@ class Somfy {
         else if (s.my >= 0) html += chip(`${star}${s.my}`, s.my, trf('POSP_GO_MY', s.my));
         else html += `<button type="button" class="pos-chip" disabled aria-label="${esc(tr('POSP_NO_MY'))}">${star}—</button>`;
         p.el.querySelector('.pos-chips').innerHTML = html;
+        // Slats: both ends and the middle, then their own My. No finer: the bar is there
+        // for the rest, and a few % of tilt is a pulse too short to be seen.
+        const tc = p.el.querySelector('.pos-tilt-chips');
+        if (tc) {
+            const tchip = (label, val, t) => `<button type="button" class="pos-chip" data-val="${val}">${this.slatGlyph(t)}${label}</button>`;
+            tc.innerHTML = tchip(esc(tr('POSP_SLATS_CLOSED')), 0, 100) + tchip('50', 50, 50) + tchip(esc(tr('POSP_SLATS_FLAT')), 100, 0)
+                + (s.myTilt >= 0 ? `<button type="button" class="pos-chip" data-val="${s.myTilt}" aria-label="${esc(trf('POSP_GO_MY', s.myTilt))}">${star}${s.myTilt}</button>`
+                    : `<button type="button" class="pos-chip" disabled aria-label="${esc(tr('POSP_NO_MY'))}">${star}—</button>`);
+        }
         this.renderPosPanel();
     }
     setPosSel(v, how) {
@@ -1523,14 +1631,14 @@ class Somfy {
     sendPosTarget(v) {
         const p = this.pos, s = p && this.posShade(p.shadeId);
         if (!s || (!s.moving && v === s.cur)) return;
-        if (s.tiltOnly) this.sendTiltCommand(p.shadeId, v);
+        if (s.tiltOnly) this.sendTiltCommand(p.shadeId, shadeOpenness(v, s.flip));
         else this.sendCommand(p.shadeId, shadeOpenness(v, s.flip));
     }
     flushPosSend() {
         const p = this.pos;
         if (!p) return;
         if (p.sendT) { clearTimeout(p.sendT); p.sendT = null; this.sendPosTarget(p.sel); }
-        if (p.tiltT) { clearTimeout(p.tiltT); p.tiltT = null; this.sendTiltCommand(p.shadeId, p.tilt); }
+        if (p.tiltT) { clearTimeout(p.tiltT); p.tiltT = null; this.sendTiltCommand(p.shadeId, shadeOpenness(p.tilt, p.flip)); }
     }
     renderPosPanel() {
         const p = this.pos;
@@ -1539,12 +1647,14 @@ class Somfy {
         if (!s) { this.closePosPanel(); return; }
         const el = p.el, q = (c) => el.querySelector(c), v = p.sel, my = p.tab === 'my';
         q('.pos-val').textContent = v;
-        q('.pos-apron .shutter').style.height = (100 - v) + '%';
+        const sh = q('.pos-apron .shutter');
+        if (sh) sh.style.height = (100 - v) + '%';
+        q('.pos-apron').style.setProperty('--c', s.tiltOnly ? 100 : 100 - v);
         // Kept whole inside the apron at both ends (the handle is 22 px tall).
         q('.pos-grip').style.top = `clamp(11px, ${100 - v}%, calc(100% - 11px))`;
         const apron = q('.pos-apron');
         apron.setAttribute('aria-valuenow', v);
-        apron.setAttribute('aria-valuetext', s.tiltOnly ? `${v} %` : trf('POSP_VALUETEXT', v));
+        apron.setAttribute('aria-valuetext', trf(s.tiltOnly ? 'POSP_TILT_VALUETEXT' : 'POSP_VALUETEXT', v));
         const now = q('.pos-now');
         now.hidden = !s.moving && s.cur === v;
         now.style.top = (100 - s.cur) + '%';
@@ -1568,10 +1678,19 @@ class Somfy {
         const range = q('.pos-tilt-range');
         if (range) {
             // In "move" the tilt follows the shade, unless the slider is in use.
-            if (!my && document.activeElement !== range && !p.tiltT) p.tilt = s.tilt;
+            if (!my && document.activeElement !== range && !p.tiltT && Date.now() > (p.tiltHold || 0)) p.tilt = s.moving ? s.tiltTarget : s.tilt;
             if (document.activeElement !== range) range.value = p.tilt;
+            range.setAttribute('aria-valuetext', trf('POSP_TILT_VALUETEXT', p.tilt));
             q('.pos-tilt-val').textContent = p.tilt;
+            let tlit = false;
+            el.querySelectorAll('.pos-tilt-chips .pos-chip').forEach(b => {
+                const on = !tlit && parseInt(b.dataset.val, 10) === p.tilt;
+                if (on) tlit = true;
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
         }
+        // The drawing shows the slats as they will be: the selection, not the shade.
+        if (s.tiltOnly || range) q('.pos-sheet').style.setProperty('--t', 100 - (s.tiltOnly ? v : p.tilt));
 
         q('.pos-mybox').hidden = q('.pos-mytext').hidden = !my;
         q('.pos-note').textContent = tr(my ? 'POSP_NOTE_MY' : 'POSP_NOTE_MOVE');
@@ -1666,6 +1785,7 @@ class Somfy {
         for (let i = 0; i < flags.length; i++) {
             flags[i].style.display = state.sunSensor ? '' : 'none';
             flags[i].setAttribute('data-on', (state.flags & 0x01) === 0x01 ? 'true' : 'false');
+            if (flags[i].hasAttribute('aria-pressed')) flags[i].setAttribute('aria-pressed', flags[i].getAttribute('data-on'));
         }
     }
     procShadeState(state) {
@@ -1690,6 +1810,7 @@ class Somfy {
         document.querySelectorAll(`.button-sunflag[data-shadeid="${sId}"]`).forEach(btn => {
             btn.style.display = state.sunSensor ? '' : 'none';
             btn.dataset.on = (state.flags & 0x01) === 0x01;
+            if (btn.hasAttribute('aria-pressed')) btn.setAttribute('aria-pressed', btn.dataset.on);
         });
         document.querySelectorAll(`.somfyShadeCtl[data-shadeid="${sId}"]`).forEach(d => {
             Object.assign(d.dataset, {

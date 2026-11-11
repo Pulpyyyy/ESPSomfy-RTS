@@ -1971,25 +1971,32 @@
                     <h1 class="title" tr="WELCOME">Bienvenue</h1>
                     <p class="lede" tr="WELCOME_DESC"></p>
                 </div>
+                <div class="welcome-lang" role="group" aria-labelledby="hWelcomeLang">
+                    <span id="hWelcomeLang" class="welcome-lang-label">Langue · Language · Sprache · Idioma</span>
+                    <div class="welcome-lang-opts">
+                        <button type="button" data-lang="fr" lang="fr" onclick="general.onLanguageChanged('fr')">Français</button>
+                        <button type="button" data-lang="en" lang="en" onclick="general.onLanguageChanged('en')">English</button>
+                        <button type="button" data-lang="de" lang="de" onclick="general.onLanguageChanged('de')">Deutsch</button>
+                        <button type="button" data-lang="es" lang="es" onclick="general.onLanguageChanged('es')">Español</button>
+                    </div>
+                </div>
                 <ol class="setup-list">
-                    <li><a class="setup-item" href="#pgNetwork" data-grpid="pgNetwork">
-                        <span class="setup-num" aria-hidden="true">1</span>
+                    <li><a class="setup-item" href="#pgNetwork" data-grpid="pgNetwork" data-step="net">
+                        <span class="setup-num" aria-hidden="true"><span>1</span><svg><use href="#svg-succes"></use></svg></span>
                         <span class="setup-text"><span class="setup-title" tr="TAB_NETWORK">Réseau</span><span class="setup-desc" tr="WELCOME_NET_DESC"></span></span>
+                        <span class="setup-done" tr="WELCOME_DONE" hidden></span>
                     </a></li>
-                    <li><a class="setup-item" href="#pgRadio" data-grpid="pgRadio">
-                        <span class="setup-num" aria-hidden="true">2</span>
+                    <li><a class="setup-item" href="#pgRadio" data-grpid="pgRadio" data-step="radio">
+                        <span class="setup-num" aria-hidden="true"><span>2</span><svg><use href="#svg-succes"></use></svg></span>
                         <span class="setup-text"><span class="setup-title" tr="TAB_RADIO">Radio</span><span class="setup-desc" tr="WELCOME_RAD_DESC"></span></span>
+                        <span class="setup-done" tr="WELCOME_DONE" hidden></span>
                     </a></li>
-                    <li><a class="setup-item" href="#pgPreferences" data-grpid="pgPreferences">
-                        <span class="setup-num" aria-hidden="true">3</span>
-                        <span class="setup-text"><span class="setup-title" tr="NAV_PREFS">Préférences</span><span class="setup-desc" tr="WELCOME_SYS_DESC"></span></span>
-                    </a></li>
-                    <li><a class="setup-item setup-main" href="#pgShades" data-grpid="pgShades" data-action="addShade">
-                        <span class="setup-num" aria-hidden="true">4</span>
+                    <li><a class="setup-item" href="#pgShades" data-grpid="pgShades" data-action="addShade" data-step="add">
+                        <span class="setup-num" aria-hidden="true"><span>3</span></span>
                         <span class="setup-text"><span class="setup-title" tr="WELCOME_ADD_SHADE_TITLE">Ajouter un équipement</span><span class="setup-desc" tr="WELCOME_ADD_SHADE_DESC"></span></span>
                     </a></li>
                 </ol>
-                <p class="help" tr="WELCOME_FOOTER_NOTE"></p>
+                <p class="help"><span tr="WELCOME_LATER"></span> <a href="#pgSecurity" data-grpid="pgSecurity" tr="NAV_SECURITY"></a> · <a href="#pgPreferences" data-grpid="pgPreferences" tr="NAV_PREFS"></a><br><span tr="WELCOME_FOOTER_NOTE"></span></p>
             </div>
         </div>
         <div id="divUnauthenticated" style="display:none;">

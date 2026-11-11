@@ -434,6 +434,9 @@ class General {
                         this.onLanguageChanged(e.target.value);
                     };
                 }
+                // Reached through the setup access point, the network is still to be done.
+                somfy.welcomeNet = (parseInt(settings.connType, 10) || 0) > 0 && location.hostname !== '192.168.4.1';
+                somfy.renderWelcome();
             });
             if (settings.accentColor) {
                 applyAccent(settings.accentColor);
