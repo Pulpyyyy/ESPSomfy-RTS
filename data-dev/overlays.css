@@ -1538,8 +1538,7 @@ div.eth-setting-line label {
         -webkit-overflow-scrolling: touch;
     }
 }
-@media (max-width: 640px) {
-    }
+
 @media screen and (max-width: 640px) {
     .idRemoteAddress {
         display: none !important;

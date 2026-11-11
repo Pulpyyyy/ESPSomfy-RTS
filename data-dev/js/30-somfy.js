@@ -38,21 +38,8 @@ class Somfy {
     init() {
         if (this.initialized) return;
         this.bindShadeTabs();
-        this.bindVirtualRemoteKeys();
+        this.vrInit();
         this.initialized = true;
-    }
-    // The virtual remote's keys are drawn as divs driven by mousedown/touchstart:
-    // make them focusable buttons, held from the keyboard like a pointer, and name
-    // the icon-only ones (the others carry a translated title).
-    bindVirtualRemoteKeys() {
-        const names = { stop: 'A11Y_VR_STOP', toggle: 'A11Y_VR_TOGGLE', up: 'A11Y_VR_UP', down: 'A11Y_VR_DOWN', my: 'A11Y_VR_MY', StepUp: 'A11Y_VR_STEP_UP', StepDown: 'A11Y_VR_STEP_DOWN' };
-        get('divVirtualRemote').querySelectorAll('[data-cmd]').forEach(el => {
-            el.setAttribute('role', 'button');
-            el.tabIndex = 0;
-            const key = names[el.getAttribute('data-cmd')];
-            if (key) { el.setAttribute('tr-aria', key); translator.translate(el); }
-            bindHoldKeys(el, () => this.sendVRCommand(el));
-        });
     }
     // Called on every settings load: the pin lists depend on the chip it reports. The
     // first call also binds the board picker and fills placeholder defaults; later ones
@@ -807,22 +794,6 @@ class Somfy {
         shades.sort((a, b) => { return a.sortOrder - b.sortOrder });
         if(DBG) console.log(shades);
         let roomId = document.querySelector('.room-pill.active') ? parseInt(document.querySelector('.room-pill.active').getAttribute('data-roomid'), 10) : 0;
-        let vrList = get('selVRMotor');
-        let optGroup = get('optgrpVRShades');
-        if (typeof shades === 'undefined' || shades.length === 0) {
-            if (optGroup && typeof optGroup !== 'undefined') optGroup.remove();
-        }
-        else {
-            if (typeof optGroup === 'undefined' || !optGroup) {
-                optGroup = document.createElement('optgroup');
-                optGroup.setAttribute('id', 'optgrpVRShades');
-                optGroup.setAttribute('label', tr('VR_OPT_SHADES'));
-                vrList.appendChild(optGroup);
-            }
-            else {
-                optGroup.innerHTML = '';
-            }
-        }
         // Home: one section per room (in room order), "unassigned" last.
         const byRoom = new Map();
         for (const shade of shades) {
@@ -854,17 +825,8 @@ class Somfy {
         for (let i = 0; i < shades.length; i++) {
             let shade = shades[i];
             let room = _rooms.find(x => x.roomId === shade.roomId) || { roomId: 0, name: '' };
-            let opt = document.createElement('option');
-            opt.textContent = shade.name;
-            opt.setAttribute('data-address', shade.remoteAddress);
-            opt.setAttribute('data-type', 'shade');
-            opt.setAttribute('data-shadetype', shade.shadeType);
-            opt.setAttribute('data-shadeid', shade.shadeId);
-            opt.setAttribute('data-bitlength', shade.bitLength);
-            optGroup.appendChild(opt);
         }
-        let sopt = vrList.options[vrList.selectedIndex];
-        get('divVirtualRemote').setAttribute('data-bitlength', sopt ? sopt.getAttribute('data-bitlength') : 'none');
+        this.vrTargets();
         // The list follows Home: a block per room, in room order; a shade moves only
         // within its room, the only place where its order shows.
         for (const rId of roomOrder) {
@@ -1418,21 +1380,6 @@ class Somfy {
         this.groups = groups;
         let divCfg = '';
         let divCtl = '';
-        let vrList = get('selVRMotor');
-        let optGroup = get('optgrpVRGroups');
-
-        if (typeof groups === 'undefined' || groups.length === 0) {
-            if (optGroup) optGroup.remove();
-        } else {
-            if (!optGroup) {
-                optGroup = document.createElement('optgroup');
-                optGroup.setAttribute('id', 'optgrpVRGroups');
-                optGroup.setAttribute('label', tr('VR_OPT_GROUPS'));
-                vrList.appendChild(optGroup);
-            } else {
-                optGroup.innerHTML = '';
-            }
-        }
         let roomId = document.querySelector('.room-pill.active') ? parseInt(document.querySelector('.room-pill.active').getAttribute('data-roomid'), 10) : 0;
 
         if (typeof groups !== 'undefined') {
@@ -1456,18 +1403,9 @@ class Somfy {
                 <div class="btn btn-icon cmd-button${off}" ${a11yBtn(trf('A11Y_CMD_DOWN', group.name))} data-cmd="down" data-groupid="${group.groupId}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
                 </div>
                 </div>`;
-
-                let opt = document.createElement('option');
-                opt.textContent = group.name;
-                opt.setAttribute('data-address', group.remoteAddress);
-                opt.setAttribute('data-type', 'group');
-                opt.setAttribute('data-groupid', group.groupId);
-                opt.setAttribute('data-bitlength', group.bitLength);
-                optGroup.appendChild(opt);
             }
         }
-        let sopt = vrList.options[vrList.selectedIndex];
-        get('divVirtualRemote').setAttribute('data-bitlength', sopt ? sopt.getAttribute('data-bitlength') : 'none');
+        this.vrTargets();
         get('divGroupList').innerHTML = divCfg;
         let groupControls = get('divGroupControls');
         groupControls.innerHTML = divCtl;
@@ -2925,61 +2863,261 @@ class Somfy {
             if (typeof cb === 'function') cb(err, group);
         });
     }
-    sendVRCommand(el) {
-        if (typeof mouseDown === 'undefined') window.mouseDown = false;
-        let pnl = get('divVirtualRemote');
-        let dd = pnl.querySelector('#selVRMotor');
-        let opt = dd.selectedOptions[0];
-        let o = {
-            type: opt.getAttribute('data-type'),
-            address: opt.getAttribute('data-address'),
-            cmd: el.getAttribute('data-cmd')
+    // --- Virtual remote ------------------------------------------------------------
+    // A remote control on screen. The channel screen picks the target (the native list
+    // sits on it, invisible, so a tap opens the phone's own picker), the keys follow the
+    // target's kind and radio generation, and what the board emitted shows on the screen
+    // like the light of a Telis. RTS is one-way: "sent" is all the board can say.
+    vrInit() {
+        const root = get('divVirtualRemote');
+        if (!root) return;
+        root.addEventListener('pointerdown', (e) => {
+            const btn = e.target.closest('.rc-k[data-cmd]');
+            if (!btn || e.button > 0) return;
+            e.preventDefault();
+            this.vrDown(btn, e);
+        });
+        const up = () => this.vrUp();
+        root.addEventListener('pointerup', up);
+        root.addEventListener('pointercancel', () => this.vrUp(true));
+        root.addEventListener('pointermove', (e) => {
+            const h = this.vrHeld;
+            if (h && !h.t0 && Math.hypot(e.clientX - h.x, e.clientY - h.y) > 10) this.vrUp(true);
+        });
+        root.addEventListener('contextmenu', (e) => { if (e.target.closest('.rc-k')) e.preventDefault(); });
+        root.querySelectorAll('details.vr-sec').forEach(d => d.addEventListener('toggle', () => {
+            const st = this.vrSecs();
+            st[d.dataset.sec] = d.open;
+            try { localStorage.setItem('vrSecs', JSON.stringify(st)); } catch (err) { /* private mode */ }
+        }));
+        root.querySelectorAll('.vr-side .rc-k[data-cmd], #vrProg .rc-k').forEach(b => this.vrBindKeys(b));
+        this.vrSensorLabel();
+        this.vrLed('idle', tr('VR_LED_IDLE'));
+    }
+    vrSecs() {
+        try { return JSON.parse(localStorage.getItem('vrSecs') || '{}') || {}; } catch (err) { return {}; }
+    }
+    vrBindKeys(b) {
+        bindHoldKeys(b, () => this.vrDown(b, null), () => this.vrUp());
+    }
+    // The channels, in Home's order: groups, then rooms, devices without a room last.
+    vrTargets() {
+        const sel = get('selVRMotor');
+        if (!sel) return;
+        const keep = sel.value || (() => { try { return localStorage.getItem('vrTarget') || ''; } catch (err) { return ''; } })();
+        const shades = this.shades || [], groups = this.groups || [];
+        const opt = (value, label, data) => `<option value="${value}" ${Object.entries(data).map(([k, v]) => `data-${k}="${esc(String(v))}"`).join(' ')}>${esc(label)}</option>`;
+        let html = '';
+        if (groups.length) {
+            html += `<optgroup label="${esc(tr('SUBTAB_GROUPS'))}">` + groups.map(g => opt(`g:${g.groupId}`, g.name, {
+                type: 'group', id: g.groupId, address: g.remoteAddress, bitlength: g.bitLength,
+                members: (g.linkedShades || []).map(x => x.name).join(', '), count: (g.linkedShades || []).length, room: g.roomId || 0
+            })).join('') + '</optgroup>';
+        }
+        const order = _rooms.filter(r => r.roomId !== 0).map(r => r.roomId).concat([0]);
+        for (const rId of order) {
+            const list = shades.filter(x => (_rooms.some(r => r.roomId === x.roomId && r.roomId !== 0) ? x.roomId : 0) === rId);
+            if (!list.length) continue;
+            const label = rId === 0 ? tr('HOME_UNASSIGNED') : _rooms.find(r => r.roomId === rId).name;
+            html += `<optgroup label="${esc(label)}">` + list.map(x => opt(`s:${x.shadeId}`, x.name, {
+                type: 'shade', id: x.shadeId, address: x.remoteAddress, bitlength: x.bitLength, shadetype: x.shadeType,
+                tilt: x.tiltType || 0, flip: x.flipCommands ? 1 : 0, simmy: x.simMy ? 1 : 0, room: rId
+            })).join('') + '</optgroup>';
+        }
+        sel.innerHTML = html;
+        if (keep && sel.querySelector(`option[value="${keep}"]`)) sel.value = keep;
+        this.vrRender();
+    }
+    vrTarget() {
+        const sel = get('selVRMotor');
+        const o = sel && sel.selectedOptions[0];
+        if (!o) return null;
+        const d = o.dataset;
+        const t = { group: d.type === 'group', id: parseInt(d.id, 10), name: o.textContent, address: d.address, bits: parseInt(d.bitlength, 10) || 56,
+            type: parseInt(d.shadetype, 10) || 0, tilt: parseInt(d.tilt, 10) || 0, flip: d.flip === '1', simMy: d.simmy === '1',
+            members: d.members || '', count: parseInt(d.count, 10) || 0, room: parseInt(d.room, 10) || 0,
+            index: sel.selectedIndex, total: sel.options.length };
+        t.pulse = !t.group && [5, 9, 14, 15, 16].includes(t.type);
+        t.onOff = !t.group && t.type === 10;
+        t.stop = !t.group && this.stopOnly({ shadeType: t.type, simMy: t.simMy });
+        const st = this.shadeTypes.find(x => x.type === t.type);
+        t.sun = t.group || !!(st && st.sun);
+        return t;
+    }
+    vrChanged() {
+        const t = this.vrTarget();
+        try { localStorage.setItem('vrTarget', get('selVRMotor').value); } catch (err) { /* private mode */ }
+        this.vrRender();
+        if (t) cfgAnnounce(t.name);
+    }
+    vrStep(dir) {
+        const sel = get('selVRMotor');
+        if (!sel || !sel.options.length) return;
+        sel.selectedIndex = (sel.selectedIndex + dir + sel.options.length) % sel.options.length;
+        this.vrChanged();
+    }
+    vrKey(cmd, label, opts) {
+        opts = opts || {};
+        return `<button type="button" class="rc-k${opts.cls ? ' ' + opts.cls : ''}" data-cmd="${cmd}"${opts.armed ? ' data-armed' : ''}${opts.aria ? ` aria-label="${esc(opts.aria)}"` : ''}><span class="l">${opts.icon || ''}${esc(label)}</span>${opts.sub ? `<small class="rc-sub">${esc(opts.sub)}</small>` : ''}<small class="rc-cnt"></small></button>`;
+    }
+    vrRender() {
+        const t = this.vrTarget();
+        const main = get('vrMain'), empty = get('vrEmpty');
+        if (!main) return;
+        main.hidden = !t;
+        empty.hidden = !!t;
+        if (!t) return;
+        const up = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>', dn = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+        get('vrChanNo').textContent = trf(t.group ? 'VR_GROUP_N' : 'VR_CHANNEL_N', t.index + 1, t.total);
+        get('vrChanName').textContent = t.name;
+        const room = t.room ? (_rooms.find(r => r.roomId === t.room) || {}).name : tr('HOME_UNASSIGNED');
+        const sub = t.group ? trf(t.count === 1 ? 'GROUP_MEMBERS_1' : 'GROUP_MEMBERS_N', t.count) : room;
+        get('vrChanSub').innerHTML = `${esc(sub)} · ${t.bits} bits${t.flip ? ` · <span class="chan-flip">${esc(tr('VR_FLIPPED'))}</span>` : ''}`;
+        // Keys.
+        const k = this.vrKey.bind(this);
+        let keys;
+        if (t.pulse) keys = k('toggle', tr('VR_PULSE'), { cls: 'rc-pulse', sub: tr(t.type === 9 ? 'VR_PULSE_CONTACT' : t.type === 5 ? 'VR_PULSE_GARAGE' : 'VR_PULSE_GATE') });
+        else if (t.onOff) keys = k('up', tr('VR_ON')) + k('down', tr('VR_OFF'));
+        else keys = k('up', tr('VR_UP'), { icon: up })
+            + (t.stop ? k('my', tr('VR_STOP'), { cls: 'rc-my', icon: '■ ' }) : k('my', 'my', { cls: 'rc-my', aria: tr('A11Y_VR_MY') }))
+            + k('down', tr('VR_DOWN'), { icon: dn })
+            + (t.bits === 80 ? `<div class="rc-two">${k('stop', tr('VR_STOP'), { icon: '■ ' })}${k('favorite', tr('VR_FAVORITE'), { icon: '★ ' })}</div>` : '');
+        const keysEl = get('vrKeys');
+        keysEl.innerHTML = keys;
+        keysEl.querySelectorAll('.rc-k').forEach(b => this.vrBindKeys(b));
+        // Tilt hint for a blind, as its motor reads the keys.
+        const hint = get('vrHint');
+        const tiltKey = !t.group && t.type === 1 && t.tilt ? `VR_TILT_${t.tilt}` : '';
+        hint.hidden = !tiltKey;
+        hint.textContent = tiltKey ? tr(tiltKey) : '';
+        // PROG: never for a one-button device, its Prog goes out as an impulse.
+        get('vrProg').hidden = t.pulse;
+        // Card: what the screen does not say.
+        const typeName = t.group ? tr('SUBTAB_GROUPS') : (get('selShadeType')?.querySelector(`option[value="${t.type}"]`)?.textContent || '');
+        const draw = t.group ? this.groupPile(((this.groups || []).find(g => g.groupId === t.id) || {}).linkedShades)
+            : `<span class="viz shade-mini is-tiny" aria-hidden="true">${this.miniDraw(t.type)}</span>`;
+        get('vrFiche').innerHTML = `<div class="vr-fiche-row">${draw}<div><b>${esc(t.group ? trf('VR_MEMBERS', t.members || tr('GRP_EMPTY')) : typeName)}</b><div class="field-help">${esc(tr('LIST_ADDR'))} ${esc(t.address)}${t.flip ? ' · ' + esc(tr('VR_FLIP_NOTE')) : ''}</div></div></div>`;
+        // Sections that apply, open as the screen and the risk suggest, unless the
+        // visitor chose otherwise before.
+        const show = { step: t.bits === 80 && !t.pulse, other: t.pulse || (t.bits === 80 && !t.onOff), sun: t.sun && !t.pulse && !t.onOff, pair: true, combo: !t.pulse && !t.onOff };
+        const wide = window.matchMedia('(min-width: 900px)').matches;
+        const dflt = { step: true, other: false, sun: wide || t.type === 3, pair: wide, combo: false };
+        const saved = this.vrSecs();
+        document.querySelectorAll('#divVirtualRemote details.vr-sec').forEach(d => {
+            const s = d.dataset.sec;
+            d.hidden = !show[s];
+            const want = s in saved ? saved[s] : dflt[s];
+            if (d.open !== want) d.open = want;
+        });
+        const other = get('vrOther');
+        other.innerHTML = t.pulse ? k('up', tr('VR_UP'), { icon: up }) + k('my', 'my', { aria: tr('A11Y_VR_MY') }) + k('down', tr('VR_DOWN'), { icon: dn }) : k('toggle', tr('VR_PULSE'));
+        other.querySelectorAll('.rc-k').forEach(b => this.vrBindKeys(b));
+        get('vrOtherSub').textContent = t.pulse ? `${tr('VR_UP')}, My, ${tr('VR_DOWN')}` : tr('VR_PULSE');
+        const link = t.group ? `<a href="#" onclick="event.preventDefault(); somfy.vrOpenRecord();">${esc(tr('VR_PAIR_LINK_GROUP'))}</a>` : `<a href="#" onclick="event.preventDefault(); somfy.vrOpenRecord();">${esc(tr('VR_PAIR_LINK'))}</a>`;
+        get('vrPairText').innerHTML = `${esc(tr(t.pulse ? 'VR_PAIR_PULSE' : 'VR_PAIR_HELP'))} ${link}.`;
+        get('vrComboWarn').textContent = t.group ? trf('VR_COMBO_WARN_GROUP', t.count) : tr('VR_COMBO_WARN');
+    }
+    vrOpenRecord() {
+        const t = this.vrTarget();
+        if (!t) return;
+        if (t.group) navGo('divSomfyGroups', { after: () => this.openEditGroup(t.id) });
+        else navGo('pgShades', { after: () => this.openEditShade(t.id) });
+    }
+    vrSensorLabel() {
+        const sun = get('cbSunny')?.checked, wind = get('cbWindy')?.checked;
+        const el = get('vrSensorText');
+        if (el) el.textContent = trf('VR_SEND_SENSOR', tr(sun ? 'VR_SUNNY' : 'VR_NOT_SUNNY'), tr(wind ? 'VR_WINDY' : 'VR_NOT_WINDY'));
+    }
+    vrLed(kind, text) {
+        const led = get('vrLed');
+        if (!led) return;
+        led.className = `led is-${kind}`;
+        get('vrLedText').textContent = text;
+    }
+    vrLabel(btn) {
+        return (btn.querySelector('.l, span:not(.vr-pict):not(.rc-cnt)')?.textContent || btn.getAttribute('aria-label') || btn.dataset.cmd).trim();
+    }
+    // A press sends at once, or after 0,5 s for the keys that change the motor (a
+    // finger resting there to scroll must not pair or reverse anything); held, the
+    // command repeats, and the key shows for how long.
+    vrDown(btn, e) {
+        if (this.vrHeld || !this.vrTarget()) return;
+        const h = this.vrHeld = { btn: btn, cmd: btn.dataset.cmd, t0: 0, x: e ? e.clientX : 0, y: e ? e.clientY : 0, sent: false, err: false, done: false };
+        btn.classList.add('is-pressed');
+        if (e && e.pointerId !== undefined) { try { btn.setPointerCapture(e.pointerId); } catch (err) { /* gone */ } }
+        if (btn.hasAttribute('data-armed')) h.timer = setTimeout(() => this.vrStart(h), 500);
+        else this.vrStart(h);
+    }
+    vrStart(h) {
+        if (this.vrHeld !== h) return;
+        h.t0 = Date.now();
+        mouseDown = true;
+        h.btn.classList.add('is-held');
+        const cnt = h.btn.querySelector('.rc-cnt');
+        h.tick = setInterval(() => {
+            const s = (Date.now() - h.t0) / 1000;
+            if (cnt && s >= 0.3) cnt.textContent = trf('VR_HELD', numLoc(s, 1));
+        }, 100);
+        this.vrLed('busy', trf('VR_LED_SENDING', this.vrLabel(h.btn)));
+        this.vrSend(h, true);
+    }
+    vrSend(h, first) {
+        const t = this.vrTarget();
+        if (!t) return;
+        const cb = (err) => {
+            if (err) { h.err = true; this.vrUp(true); return; }
+            h.sent = true;
+            if (this.vrHeld === h && !h.done && first !== null && !['Sensor', 'SunFlag', 'Flag'].includes(h.cmd)) this.vrSend(h, false);
         };
-        ui.fromElement(el.parentElement.parentElement, o);
-        switch (o.type) {
-            case 'shade':
-                o.shadeId = parseInt(opt.getAttribute('data-shadeId'), 10);
-                o.shadeType = parseInt(opt.getAttribute('data-shadeType'), 10);
-                break;
-            case 'group':
-                o.groupId = parseInt(opt.getAttribute('data-groupId'), 10);
-                break;
+        const step = parseInt(get('vrfldStepSize')?.value, 10) || 1;
+        if (h.cmd === 'Sensor') {
+            const o = { sunny: get('cbSunny').checked ? 1 : 0, windy: get('cbWindy').checked ? 1 : 0 };
+            o[t.group ? 'groupId' : 'shadeId'] = t.id;
+            return this.sendSetSensor(o, cb);
         }
-        if(DBG) console.log(o);
-        let fnRepeatCommand = (err, shade) => {
-            if (this.btnTimer) {
-                clearTimeout(this.btnTimer);
-                this.btnTimer = null;
-            }
-            if (err) return;
-            if (mouseDown) {
-                if (o.cmd === 'Sensor')
-                    somfy.sendSetSensor(o);
-                else if (o.type === 'group')
-                    somfy.sendGroupRepeat(o.groupId, o.cmd, null, fnRepeatCommand);
-                else
-                    somfy.sendCommandRepeat(o, fnRepeatCommand);
-            }
+        if (t.group) {
+            if (first) this.sendGroupCommand(t.id, h.cmd, null, cb, h.cmd.startsWith('Step') ? step : 0);
+            else this.sendGroupRepeat(t.id, h.cmd, null, cb);
+            return;
         }
-        o.command = o.cmd;
-        if (o.cmd === 'Sensor') {
-            somfy.sendSetSensor(o);
+        const o = { shadeId: t.id, command: h.cmd };
+        if (h.cmd === 'my') o.raw = true;
+        if (h.cmd.startsWith('Step')) o.stepSize = step;
+        if (first) this.sendCommand(o, cb);
+        else this.sendCommandRepeat(o, cb);
+    }
+    vrUp(cancel) {
+        const h = this.vrHeld;
+        if (!h) return;
+        this.vrHeld = null;
+        h.done = true;
+        mouseDown = false;
+        clearTimeout(h.timer);
+        clearInterval(h.tick);
+        h.btn.classList.remove('is-pressed', 'is-held');
+        const cnt = h.btn.querySelector('.rc-cnt');
+        if (cnt) cnt.textContent = '';
+        if (!h.t0) {
+            if (!cancel) this.vrLed('idle', tr('VR_LED_HOLD'));
+            return;
         }
-        else if (o.type === 'group')
-            somfy.sendGroupCommand(o.groupId, o.cmd, null, (err, group) => { fnRepeatCommand(err, group); });
-        else
-            somfy.sendCommand(o, (err, shade) => { fnRepeatCommand(err, shade); });
+        if (h.err) return this.vrLed('err', tr('VR_LED_ERR'));
+        const secs = (Date.now() - h.t0) / 1000;
+        const dt = new Date();
+        const time = `${dt.getHours().fmt('00')}:${dt.getMinutes().fmt('00')}:${dt.getSeconds().fmt('00')}`;
+        this.vrLed('ok', trf('VR_LED_SENT', time, this.vrLabel(h.btn)) + (secs >= 0.6 ? trf('VR_LED_HELD', numLoc(secs, 1)) : ''));
     }
     sendSetSensor(obj, cb) {
         putJSON('/setSensor', obj, (err, device) => {
             if (typeof cb === 'function') cb(err, device);
         });
     }
-    sendGroupCommand(groupId, command, repeat, cb) {
+    sendGroupCommand(groupId, command, repeat, cb, stepSize) {
         if(DBG) console.log(`Sending Group command ${groupId}-${command}`);
         let obj = { groupId: groupId };
         if (isNaN(parseInt(command, 10))) obj.command = command;
         if (typeof repeat === 'number') obj.repeat = parseInt(repeat);
+        if (stepSize) obj.stepSize = stepSize;
         putJSON('/groupCommand', obj, (err, group) => {
             if (typeof cb === 'function') cb(err, group);
         });

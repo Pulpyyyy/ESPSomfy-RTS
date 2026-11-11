@@ -147,7 +147,6 @@ body { font-family: var(--font-ui); }
 .buttonUpdate,
 .unibutton,
 .uniGroupButton,
-.vr-progFav,
 .blocRadioHeader,
 .rssi-row,
 .blocsteps-row,
@@ -160,19 +159,6 @@ body { font-family: var(--font-ui); }
 input[type="radio"],
 .step-buttons button,
 div.signal,
-.vr-content,
-.vr-wheel-container,
-.vr-toogle,
-.vr-my-center,
-.vr-wheel-outer,
-.vr-wheel-arrow,
-.segment,
-.btn-prog,
-.btn-fav,
-.toggle-item,
-.vr-button-sunflagL,
-.vr-button-sunflagR,
-.vr-step80-arrow,
 .radioBtnPrec,
 #divUnauthenticated,
 div.wait-overlay,
@@ -205,7 +191,6 @@ div.wait-overlay,
 .nav-item,
 .wifi-right,
 .somfy-status-container,
-.vr-step80,
 .blocRadioHeaderTitle,
 .blocRadioSlider,
 .rssi-right,
@@ -246,14 +231,6 @@ div.wait-overlay,
 .welcome-container,
 .devButtonUpdate,
 .somfy-infoPosTilt,
-.vr-block-center,
-.vr-blockLeft,
-.vr-blockRight,
-.vr-upMy,
-.vr-myDown,
-.vr-upDown,
-.vr-all,
-.vrslidStepSize,
 .error-content,
 .message-content,
 .footer-sticky-content,
@@ -306,7 +283,6 @@ body { font-size: 0.9375rem; line-height: 1.45; background: var(--bg); }
     -webkit-tap-highlight-color: transparent;
 }
 svg, svg * {pointer-events: none;}
-
 
 .linkSoft {
     color: var(--ink);
@@ -1420,5 +1396,4 @@ button:disabled:active {
     height: 48px;
     transform: translate(-50%, -50%);
 }
-
 

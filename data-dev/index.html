@@ -643,105 +643,61 @@
                         <button type="button" role="tab" id="tabVR" class="selected" aria-selected="true" aria-controls="divVirtualRemote" data-grpid="divVirtualRemote" tr="SUBTAB_VIRTUAL_REMOTE_L">Télécommande virtuelle</button>
                         <button type="button" role="tab" id="tabRepeater" aria-selected="false" aria-controls="divRepeater" data-grpid="divRepeater" tabindex="-1" tr="SUBTAB_REPEATER">Répéteur</button>
                     </div>
-                    <div id="divVirtualRemote" role="tabpanel" aria-labelledby="tabVR" class="subtab-content" data-bitlength="56">
-                        <div class="vr-content">
-                            <div class="unibloc">
-                                <label class="label" for="selVRMotor" tr="VR_SELECT_MOTOR_GROUP"></label>
-                                <select id="selVRMotor" class="inputAndSelect" onchange="document.getElementById('divVirtualRemote').setAttribute('data-bitlength', this.options[this.selectedIndex].getAttribute('data-bitlength'));">
-                                </select>
-                            </div>
-                            <div class="vr-button vr-bloctoogle">
-                                <div class="vr-toogle vr-stop vr-80bit animScale" data-cmd="stop" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                    <svg><use href=#svg-toggleHand></use></svg>
-                                </div>
-                                <div class="vr-toogle vr-updownmy animScale" data-cmd="toggle" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                    <svg><use href=#svg-toggle></use></svg>
-                                </div>
-                            </div>
-                            <div class="vr-updownmy vr-wheel-container">
-                                <div class="vr-wheel-outer">
-                                    <div class="vr-wheel-arrow vr-arrow-up animScale" data-cmd="up" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><svg><use href=#vr-up></use></svg></div>
-                                    <div class="vr-wheel-arrow vr-arrow-down animScale" data-cmd="down" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><svg><use href=#vr-down></use></svg></div>
-                                    <div class="vr-my-center animScale" data-cmd="my" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><svg><use href=#svg-my></use></svg></div>
-                                </div>
-                            </div>
-                            <div class="vr-progFav">
-                                <div class=" btn-top">
-                                    <div class="button-outline btn-prog animScale" tr="VR_PROG" title="" data-cmd="Prog" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><span tr="BT_PROG">prog</span></div>
-                                </div>
-                                <div class=" vr-favorite vr-80bit">
-                                    <div class="button-outline btn-top btn-fav animScale" tr="VR_FAVORITE" title="" data-cmd="favorite" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);"><svg><use href=#vr-favori></use></svg></div>
-                                </div>
-                            </div>
-                            <div class="vr-block-boutons">
-                                <div class="vr-blockLeft">
-                                    <div class="vr-upMy animScale" data-cmd="MyUp" tr="VR_MY_UP" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <div class="segment" ><svg><use href=#vr-up></use></svg></div>
-                                        <div class="segment" tr="MY">my</div>
-                                    </div>
-                                    <div class="vr-myDown animScale" data-cmd="MyDown" tr="VR_MY_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <div class="segment" tr="MY">my</div>
-                                        <div class="segment"><svg><use href=#vr-down></use></svg></div>
-                                    </div>
-                                </div>
-                                <div class="vr-block-center">
-                                    <div class="vr-block-centerFlag">
-                                        <div class="vr-button-sunflagL btn-sunflag animScale" data-cmd="SunFlag" tr="VR_SUN_FLAG" title="" data-on="true" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <svg><use href=#vr-sunflag-o></use></svg>
+                    <div id="divVirtualRemote" role="tabpanel" aria-labelledby="tabVR" class="subtab-content">
+                        <div id="vrMain" class="vr2">
+                            <div class="rc" role="group" aria-labelledby="vrChanName">
+                                <div class="chan">
+                                    <div class="chan-top">
+                                        <button type="button" class="chan-arw" id="vrPrev" tr-aria="VR_PREV" onclick="somfy.vrStep(-1)">‹</button>
+                                        <div class="chan-mid">
+                                            <small id="vrChanNo"></small><b id="vrChanName"></b><small id="vrChanSub"></small>
+                                            <select id="selVRMotor" class="chan-sel" tr-aria="VR_TARGET" onchange="somfy.vrChanged()"></select>
                                         </div>
-                                        <div class="vr-button-sunflagR btn-sunflag animScale" data-cmd="Flag" tr="VR_SUN_FLAG" title="" data-on="false" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <svg class="button-outline animScale"><use href=#vr-sunflag-c></use></svg>
-                                        </div>
+                                        <button type="button" class="chan-arw" id="vrNext" tr-aria="VR_NEXT" onclick="somfy.vrStep(1)">›</button>
                                     </div>
-                                    <div>
-                                        <div class="switch-group">
-                                            <div class="switch-soleil">
-                                                <input id="cbSunny" type="checkbox" data-bind="sunny" class="sunwinterbouton">
-                                                <label for="cbSunny" class="toggle-item animScale" tr="VR_SUN"></label>
-                                            </div>
-                                            <div class="switch-windy">
-                                                <input id="cbWindy" type="checkbox" data-bind="windy" class="sunwinterbouton" >
-                                                <label for="cbWindy" class="toggle-item animScale" tr="VR_WIND"></label>
+                                    <div class="led is-idle" id="vrLed" role="status"><i aria-hidden="true"></i><span id="vrLedText"></span></div>
+                                </div>
+                                <div class="rc-keys" id="vrKeys"></div>
+                                <p class="rc-hint" id="vrHint" hidden></p>
+                                <div class="rc-prog" id="vrProg"><button type="button" class="rc-k rc-progk" data-cmd="Prog" data-armed><span>PROG</span><small class="rc-cnt"></small></button><span tr="VR_HOLD_TO_SEND"></span></div>
+                            </div>
+                            <div class="vr-side">
+                                <div class="vr-card vr-fiche" id="vrFiche"></div>
+                                <details class="vr-card vr-sec" data-sec="step"><summary><span tr="VR_SEC_STEP"></span><small>80 bits</small></summary>
+                                    <div class="vr-step">
+                                        <button type="button" class="rc-k" data-cmd="StepUp" tr-aria="A11Y_VR_STEP_UP"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></button>
+                                        <div class="input-number-custom vrStepBox">
+                                            <input id="vrfldStepSize" name="stepSize" type="number" inputmode="numeric" min="1" max="127" step="1" value="1" tr-aria="VR_STEP_SIZE" onchange="clampNumField(this, 1);"/>
+                                            <div class="step-buttons">
+                                                <button type="button" onclick="somfy.stepField('vrfldStepSize', -1, 1);">−</button>
+                                                <button type="button" onclick="somfy.stepField('vrfldStepSize', 1, 1);">+</button>
                                             </div>
                                         </div>
-                                        <div class="btn-send btn-sunflag animScale" data-cmd="Sensor" data-on="false" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);" tr="VR_SEND"></div>
+                                        <button type="button" class="rc-k" data-cmd="StepDown" tr-aria="A11Y_VR_STEP_DOWN"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
                                     </div>
-                                </div>
-                                <div class="vr-blockRight">
-                                    <div class="vr-upDown animScale" data-cmd="UpDown" tr="VR_UP_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <div class="segment"><svg><use href=#vr-up></use></svg></div>
-                                        <div class="segment"><svg><use href=#vr-down></use></svg></div>
+                                    <p class="field-help" tr="VR_STEP_HELP"></p>
+                                </details>
+                                <details class="vr-card vr-sec" data-sec="other"><summary><span tr="VR_SEC_OTHER"></span><small id="vrOtherSub"></small></summary><div class="vr-act" id="vrOther"></div></details>
+                                <details class="vr-card vr-sec" data-sec="sun"><summary><span tr="VR_SEC_SUN"></span><small tr="VR_SUB_SUN"></small></summary>
+                                    <div class="vr-act"><button type="button" class="rc-k" data-cmd="SunFlag"><span tr="VR_SUN_ON"></span></button><button type="button" class="rc-k" data-cmd="Flag"><span tr="VR_SUN_OFF"></span></button></div>
+                                    <p class="field-help" tr="VR_SENSOR_HELP"></p>
+                                    <div class="vr-chk"><label><input type="checkbox" id="cbSunny" onchange="somfy.vrSensorLabel()"><span tr="VR_SUN"></span></label><label><input type="checkbox" id="cbWindy" onchange="somfy.vrSensorLabel()"><span tr="VR_WIND"></span></label></div>
+                                    <button type="button" class="rc-k vr-send" data-cmd="Sensor"><span id="vrSensorText"></span></button>
+                                </details>
+                                <details class="vr-card vr-sec" data-sec="pair"><summary><span tr="VR_SEC_PAIR"></span><small>PROG</small></summary><p class="field-help" id="vrPairText"></p></details>
+                                <details class="vr-card vr-sec" data-sec="combo"><summary><span tr="VR_SEC_COMBO"></span><small tr="VR_SUB_COMBO"></small></summary>
+                                    <p class="vr-warn" id="vrComboWarn"></p>
+                                    <div class="vr-act">
+                                        <button type="button" class="rc-k" data-cmd="MyUp" data-armed><span class="vr-pict" aria-hidden="true"><i class="on"></i><i class="m on"></i><i></i></span><span tr="VR_MY_UP"></span><small class="rc-cnt"></small></button>
+                                        <button type="button" class="rc-k" data-cmd="MyDown" data-armed><span class="vr-pict" aria-hidden="true"><i></i><i class="m on"></i><i class="on"></i></span><span tr="VR_MY_DOWN"></span><small class="rc-cnt"></small></button>
+                                        <button type="button" class="rc-k" data-cmd="UpDown" data-armed><span class="vr-pict" aria-hidden="true"><i class="on"></i><i class="m"></i><i class="on"></i></span><span tr="VR_UP_DOWN"></span><small class="rc-cnt"></small></button>
+                                        <button type="button" class="rc-k" data-cmd="MyUpDown" data-armed><span class="vr-pict" aria-hidden="true"><i class="on"></i><i class="m on"></i><i class="on"></i></span><span tr="VR_MY_UP_DOWN"></span><small class="rc-cnt"></small></button>
                                     </div>
-                                    <div class="vr-all animScale" data-cmd="MyUpDown" tr="VR_MY_UP_DOWN" title="" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <div class="segment" tr="VR_ALL">all</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="vr-button vr-80bit vr-step80">
-                                <div>
-                                    <div class="vr-step80-arrow" data-cmd="StepUp" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <svg class="icon-svg"><use href=#vr-up></use></svg>
-                                    </div>
-                                </div>
-                                <div class="vrslidStepSize">
-                                    <div class="input-number-custom vrStepBox">
-                                        <input id="vrfldStepSize" name="stepSize" type="number" inputmode="numeric" min="1" max="127" step="1" data-bind="stepSize" data-datatype="int" value="1" onchange="clampNumField(this, 1);"/>
-                                        <div class="step-buttons">
-                                            <button type="button" onclick="somfy.stepField('vrfldStepSize', -1, 1);">−</button>
-                                            <button type="button" onclick="somfy.stepField('vrfldStepSize', 1, 1);">+</button>
-                                        </div>
-                                    </div>
-                                    <div class="vr-step80Label">
-                                        <label for="vrfldStepSize" tr="VR_STEP_SIZE"></label>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div class="vr-step80-arrow" data-cmd="StepDown" onmousedown="somfy.sendVRCommand(this);" ontouchstart="event.preventDefault(); somfy.sendVRCommand(this);">
-                                        <svg class="icon-svg"><use href=#vr-down></use></svg>
-                                    </div>
-                                </div>
+                                    <p class="field-help" tr="VR_COMBO_HELP"></p>
+                                </details>
                             </div>
                         </div>
+                        <div id="vrEmpty" class="vr-card vr-empty" hidden><b tr="VR_EMPTY_T"></b><p class="field-help" tr="VR_EMPTY_D"></p><button type="button" onclick="navGo('pgShades', { after: () => { somfy.showEditShade(true); somfy.openEditShade(); } });" tr="BT_ADD_DEVICE"></button></div>
                     </div>
                     <div id="divRepeater" role="tabpanel" aria-labelledby="tabRepeater" style="display:none;" class="subtab-content">
                         <div id="divRepeaterListContainer">
@@ -2091,18 +2047,6 @@
             <path fill="currentColor" d="M11.83 9L15 12.16V12a3 3 0 0 0-3-3zm-4.3.8l1.55 1.55c-.05.21-.08.42-.08.65a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53a5 5 0 0 1-5-5c0-.79.2-1.53.53-2.2M2 4.27l2.28 2.28l.45.45C3.08 8.3 1.78 10 1 12c1.73 4.39 6 7.5 11 7.5c1.55 0 3.03-.3 4.38-.84l.43.42L19.73 22L21 20.73L3.27 3M12 7a5 5 0 0 1 5 5c0 .64-.13 1.26-.36 1.82l2.93 2.93c1.5-1.25 2.7-2.89 3.43-4.75c-1.73-4.39-6-7.5-11-7.5c-1.4 0-2.74.25-4 .7l2.17 2.15C10.74 7.13 11.35 7 12 7" />
         </symbol>
 <!-- Button -->
-        <symbol id="svg-my" viewBox="0 0 48 48">
-            <circle cx="24" cy="24" r="22" fill="currentColor"/>
-            <text x="24" y="30" fill="#fff" font-family="sans-serif" font-size="18" font-weight="700" text-anchor="middle">my</text>
-        </symbol>
-        <symbol id="svg-toggle" viewBox="0 0 96 48">
-            <rect x="2" y="2" width="92" height="44" ry="22" fill="currentColor" />
-            <path d="m45.38 17.37a1.326 1.326 0 0 1 1.326-1.326 1.326 1.326 0 0 1 1.326 1.326v5.927l1.604 0.1724 6.55 2.904c0.7028 0.3182 1.127 1.021 1.127 1.79v5.781c-0.03977 1.087-0.9017 1.949-1.989 1.989h-8.619c-0.5039 0-0.9812-0.1989-1.326-0.5702l-6.497-5.569 0.9812-1.021c0.2519-0.2785 0.6099-0.4243 0.9812-0.4243h0.2917l4.243 2.281zm1.326-5.304a5.304 5.304 0 0 1 5.304 5.304c0 1.989-1.061 3.673-2.652 4.588v-1.618c0.8088-0.7293 1.326-1.79 1.326-2.97a3.978 3.978 0 0 0-3.978-3.978 3.978 3.978 0 0 0-3.978 3.978c0 1.18 0.5171 2.241 1.326 2.97v1.618c-1.591-0.9149-2.652-2.599-2.652-4.588a5.304 5.304 0 0 1 5.304-5.304" fill="#fff"/>
-        </symbol>
-        <symbol id="svg-toggleHand" viewBox="0 0 96 48">
-            <rect x="2" y="2" width="92" height="44" ry="22" fill="currentColor"/>
-            <path d="m56 28c0 4.42-3.58 8-8 8-3.26 0-6.19-1.99-7.4-5.02l-3.03-7.61c-0.313-0.788 0.434-1.58 1.24-1.32l0.79 0.26c0.56 0.18 1.02 0.61 1.24 1.16l1.28 3.21c0.08 0.2 0.26 0.32 0.46 0.32h0.42v-11.8c0-1.67 2.5-1.67 2.5 0v8.25c0 0.28 0.22 0.5 0.5 0.5s0.5-0.22 0.5-0.5v-10.2c0-1.67 2.5-1.67 2.5 0v10.2c0 0.28 0.22 0.5 0.5 0.5s0.5-0.22 0.5-0.5v-8.75c0-1.67 2.5-1.67 2.5 0v8.75c0 0.28 0.22 0.5 0.5 0.5s0.5-0.22 0.5-0.5v-5.75c0-1.67 2.5-1.67 2.5 0z" fill="#fff"/>
-        </symbol>
         <symbol id="svg-arrowDown" viewBox="0 0 24 24">
             <path d="m5 9 7 6 7-6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
         </symbol>
@@ -2113,21 +2057,6 @@
             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m9 5l6 7l-6 7" />
         </symbol>
 <!-- VR REMOTE -->
-        <symbol id="vr-up" viewBox="0 0 24 24">
-            <path d="m4.5 15.5 6.3-8.3c0.6-1 1.8-1 2.4 0l6.3 8.3c0.6 1-0.2 2.5-1.5 2.5h-12c-1.3 0-2.1-1.5-1.5-2.5z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4"/>
-        </symbol>
-        <symbol id="vr-down" viewBox="0 0 24 24">
-            <path d="m19.5 8.95-6.3 8.3c-0.6 1-1.8 1-2.4 0l-6.3-8.3c-0.6-1 0.2-2.5 1.5-2.5h12c1.3 0 2.1 1.5 1.5 2.5z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4"/>
-        </symbol>
-        <symbol id="vr-favori" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M22 10.1c.1-.5-.3-1.1-.8-1.1l-5.7-.8L12.9 3c-.1-.2-.2-.3-.4-.4c-.5-.3-1.1-.1-1.4.4L8.6 8.2L2.9 9q-.45 0-.6.3c-.4.4-.4 1 0 1.4l4.1 4l-1 5.7c0 .2 0 .4.1.6c.3.5.9.7 1.4.4l5.1-2.7l5.1 2.7c.1.1.3.1.5.1h.2c.5-.1.9-.6.8-1.2l-1-5.7l4.1-4c.2-.1.3-.3.3-.5" />
-        </symbol>
-        <symbol id="vr-sunflag-o" viewBox="0 0 24 24">
-            <path fill="currentColor" d="m12 2c.414 0 .75.336.75.75v1.5c0 1-1.5 1-1.5 0v-1.5c0-.414.336-.75.75-.75m0 15c2.76 0 5-2.24 5-5s-2.24-5-5-5c-6.67 0-6.67 10 0 10m9.25-4.25c1 0 1-1.5 0-1.5h-1.5c-1 0-1 1.5 0 1.5zm-9.25 6.25c.414 0 .75.336.75.75v1.5c0 1-1.5 1-1.5 0v-1.5c0-.414.336-.75.75-.75m-7.75-6.25c1 0 1-1.5 0-1.5h-1.5c-1 0-1 1.5 0 1.5zm-.03-8.53c.293-.292.767-.292 1.06 0l1.5 1.5c.658.706-.354 1.72-1.06 1.06l-1.5-1.5c-.292-.293-.292-.767 0-1.06m1.06 15.6c-.706.758-1.82-.354-1.06-1.06l1.5-1.5c.706-.758 1.82.354 1.06 1.06zm14.5-15.6c-.293-.292-.767-.292-1.06 0l-1.5 1.5c-.658.706.354 1.72 1.06 1.06l1.5-1.5c.292-.293.292-.767 0-1.06m-1.06 15.6c.706.758 1.82-.354 1.06-1.06l-1.5-1.5c-.706-.758-1.82.354-1.06 1.06z"/>
-        </symbol>
-        <symbol id="vr-sunflag-c" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M12 2a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 12 2m0 15a5 5 0 1 0 0-10 5 5 0 0 0 0 10m0-1.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7m9.25-2.75a.75.75 0 0 0 0-1.5h-1.5a.75.75 0 0 0 0 1.5zM12 19a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 12 19m-7.75-6.25a.75.75 0 0 0 0-1.5h-1.5a.75.75 0 0 0 0 1.5zm-.03-8.53a.75.75 0 0 1 1.06 0l1.5 1.5a.75.75 0 0 1-1.06 1.06l-1.5-1.5a.75.75 0 0 1 0-1.06m1.06 15.56a.75.75 0 1 1-1.06-1.06l1.5-1.5a.75.75 0 1 1 1.06 1.06zm14.5-15.56a.75.75 0 0 0-1.06 0l-1.5 1.5a.75.75 0 0 0 1.06 1.06l1.5-1.5a.75.75 0 0 0 0-1.06m-1.06 15.56a.75.75 0 1 0 1.06-1.06l-1.5-1.5a.75.75 0 1 0-1.06 1.06z"/>
-        </symbol>
 <!-- Indicators -->
         <symbol id="indic-wind" viewBox="0 0 24 24">
             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M.75 6c3.5-1.75 6.75-2 11.25 0s7.75 1.75 11.25 0l-3.1-1.2M.75 12c3.5-1.75 6.75-2 11.25 0s7.75 1.75 11.25 0l-3.1-1.2M.75 18c3.5-1.75 6.75-2 11.25 0s7.75 1.75 11.25 0l-3.1-1.2"/>
