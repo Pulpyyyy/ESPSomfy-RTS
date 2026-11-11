@@ -263,6 +263,7 @@ class SomfyShade : public SomfyRemote {
     void sendTiltCommand(somfy_commands cmd);
     void sendCommand(somfy_commands cmd);
     void sendCommand(somfy_commands cmd, uint8_t repeat, uint8_t stepSize = 0);
+    void sendRemoteMy(uint8_t repeat);
     bool linkRemote(uint32_t remoteAddress, uint16_t rollingCode = 0);
     bool unlinkRemote(uint32_t remoteAddress);
     void emitState(const char *evt = "shadeState");

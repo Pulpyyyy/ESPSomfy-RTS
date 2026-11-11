@@ -92,12 +92,15 @@ void Web::parseCommandJson(JsonObject &obj, somfy_cmd_req_t &cmd) {
   else if (obj.containsKey("target")) cmd.target = obj["target"].as<uint8_t>();
   if (obj.containsKey("repeat")) cmd.repeat = obj["repeat"].as<uint8_t>();
   if (obj.containsKey("stepSize")) cmd.stepSize = obj["stepSize"].as<uint8_t>();
+  if (obj.containsKey("raw")) cmd.raw = obj["raw"].as<bool>();
 }
 bool Web::execShadeCommand(somfy_cmd_req_t &cmd, JsonResponse &resp) {
   SomfyShade *shade = somfy.getShadeById(cmd.shadeId);
   if (!shade) return false;
   if (cmd.target <= 100)
     shade->moveToTarget(shade->transformPosition(cmd.target));
+  else if (cmd.raw && cmd.command == somfy_commands::My)
+    shade->sendRemoteMy(cmd.repeat > 0 ? cmd.repeat : shade->repeats);
   else
     shade->sendCommand(cmd.command, cmd.repeat > 0 ? cmd.repeat : shade->repeats, cmd.stepSize);
   resp.beginObject();

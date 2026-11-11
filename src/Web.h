@@ -34,6 +34,9 @@ struct somfy_cmd_req_t {
   uint8_t target = 255;
   uint8_t stepSize = 0;
   int8_t repeat = -1;
+  // The virtual remote asks for the frame a remote would send, not the board's
+  // interpretation (simulated favorite, "already there").
+  bool raw = false;
   somfy_commands command = somfy_commands::My;
 };
 class Web {

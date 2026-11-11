@@ -668,6 +668,17 @@ void SomfyShade::moveToMyPosition() {
   else
     SomfyRemote::sendCommand(somfy_commands::My, this->repeats);
 }
+// My as a remote sends it: the frame always leaves, the motor decides. Moving, it is
+// the usual stop. At rest, the board follows to the favorite it knows, if it knows
+// one and does not simulate it.
+void SomfyShade::sendRemoteMy(uint8_t repeat) {
+  if(!this->isIdle()) { this->sendCommand(somfy_commands::My, repeat); return; }
+  this->settingPos = this->settingMyPos = false;
+  SomfyRemote::sendCommand(somfy_commands::My, repeat);
+  if(this->simMy()) return;
+  if(this->tiltType != tilt_types::tiltonly && this->myPos >= 0.0f && this->myPos <= 100.0f) this->p_target(this->myPos);
+  if(this->tiltType != tilt_types::none && this->myTiltPos >= 0.0f && this->myTiltPos <= 100.0f) this->p_tiltTarget(this->myTiltPos);
+}
 void SomfyShade::sendCommand(somfy_commands cmd) { this->sendCommand(cmd, this->repeats); }
 void SomfyShade::sendCommand(somfy_commands cmd, uint8_t repeat, uint8_t stepSize) {
   // This sendCommand function will always be called externally. sendCommand at the remote level
