@@ -412,28 +412,25 @@ div.error-message {
 }
 .instructions-header {
     position: relative;
-    justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
     width: 100%;
-    min-height: 100px;
-    overflow: hidden;
-    padding: 25px;
-    border-radius: var(--radius-button);
-    margin-bottom: 30px;
-    background: linear-gradient(#494949,#333) padding-box, linear-gradient(#000,#434343) border-box;
-    border: 1px solid #0000;
-    box-shadow: 0 6px 5px 0px var(--shadow);
-    color: white;
+    padding: 0 0 16px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
     text-align: left;
 }
     .instructions-header h2 {
         margin: 0;
-        font-size: var(--fs-md);
-        font-weight: bold;
+        font-size: var(--fs-xl);
+        font-weight: 650;
     }
     .instructions-header p {
-        max-width: 85%;
-        margin: 5px 0 0 0;
-        opacity: 0.8;
+        margin: 4px 0 0 0;
+        color: var(--ink-2);
         font-size: var(--fs-sm);
     }
     .instructions-header h2,
@@ -448,25 +445,21 @@ div.error-message {
         gap: 5px;
     }
     .instructions-headerLogo {
-        position: absolute;
-        right: -15px;
-        bottom: -15px;
-        width: 100px;
-        height: 100px;
-        opacity: 0.2;
-        transform: rotate(-15deg);
-        color: white;
+        order: -1;
+        flex: none;
+        box-sizing: border-box;
+        width: 48px;
+        height: 48px;
+        padding: 11px;
+        border-radius: 14px;
+        background: var(--tonal);
+        color: var(--accent-text);
     }
     div.instructions-header svg.instructions-headerLogo {
-        --update-icon-color: white;
-    }
-    #divLinkGroup .instructions-headerLogo,
-    #divPairing .instructions-headerLogo {
-        right: -18px;
-        bottom: -18px;
+        --update-icon-color: currentColor;
     }
     #divLinking .instructions-headerLogo {
-        --crlIndicator: white;
+        --crlIndicator: var(--tonal);
     }
     .instructionsTxt-badge {
         font-weight: bold;
@@ -1385,9 +1378,7 @@ div.eth-setting-line label {
 }
 /* Restore*/
 .instructions-header:has(use[*|href="#svg-restore"]) .instructions-headerLogo {
-    right: -13px;
-    bottom: -20px;
-    transform: rotate(65deg);
+    transform: none;
 }
 #jsUniRestore .uniLabel {
     margin: 2px 0;
