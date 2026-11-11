@@ -692,7 +692,6 @@ div.frame-pulses {
 .radioBtnPrec,
 .divEditDelete-svg,
 .button-my,
-.button-light,
 .button-sunflag,
 .step-btn,
 .help-container { position: relative; }
@@ -700,7 +699,6 @@ div.frame-pulses {
 .password-eye::after,
 .divEditDelete-svg::after,
 .button-my::after,
-.button-light::after,
 .button-sunflag::after,
 .step-btn::after,
 .help-container::after {
@@ -1108,10 +1106,10 @@ html:has(#savebar:not([hidden])) { scroll-padding-bottom: 150px; }
 .tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
 .tile-foot:has(.tile-tools:empty):has(.val-tilt:empty) { display: none; }
 .tile-tools { display: flex; gap: 4px; margin-left: auto; }
-.tile-tools .button-my, .tile-tools .button-light, .tile-tools .button-sunflag {
+.tile-tools .button-my, .tile-tools .button-sunflag {
     width: 36px; height: 36px; border-radius: 8px; color: var(--ink-2); cursor: pointer;
 }
-.tile-tools .button-my:hover, .tile-tools .button-light:hover, .tile-tools .button-sunflag:hover { background: var(--tonal); }
+.tile-tools .button-my:hover, .tile-tools .button-sunflag:hover { background: var(--tonal); }
 .tile-tools svg { width: 26px; height: 26px; }
 .empty-state-container { opacity: 1; color: var(--ink-2); }
 @media (max-width: 899px) {

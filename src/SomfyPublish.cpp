@@ -428,7 +428,6 @@ void SomfyShade::emitState(uint8_t num, const char *evt) {
   json->addElem("flipPosition", this->flipPosition);
   json->addElem("flags", this->flags);
   json->addElem("sunSensor", this->hasSunSensor());
-  json->addElem("light", this->hasLight());
   json->addElem("sortOrder", this->sortOrder);
   if(this->tiltType != tilt_types::none) {
     json->addElem("tiltDirection", this->tiltDirection);

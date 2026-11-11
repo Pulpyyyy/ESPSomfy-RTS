@@ -82,10 +82,13 @@ enum class somfy_flags_t : byte {
     SunFlag = 0x01,
     SunSensor = 0x02,
     DemoMode = 0x04,
-    Light = 0x08,
+    // 0x08 and 0x40 held a "light" that was never wired to anything; they are
+    // cleared when the shades load (ConfigFile) and must not be reused before
+    // every saved configuration went through that.
+    Unused08 = 0x08,
     Windy = 0x10,
     Sunny = 0x20,
-    Lighted = 0x40,
+    Unused40 = 0x40,
     SimMy = 0x80
 };
 enum class gpio_flags_t : byte {
@@ -136,10 +139,8 @@ class SomfyRemote {
     virtual uint16_t getNextRollingCode();
     virtual uint16_t setRollingCode(uint16_t code);
     bool hasSunSensor();
-    bool hasLight();
     bool simMy();
     void setSunSensor(bool bHasSensor);
-    void setLight(bool bHasLight);
     void setSimMy(bool bSimMy);
     virtual void sendCommand(somfy_commands cmd);
     virtual void sendCommand(somfy_commands cmd, uint8_t repeat, uint8_t stepSize = 0);

@@ -124,7 +124,6 @@ int8_t SomfyShade::fromJSON(JsonObject &obj) {
     if(obj.containsKey("proto")) this->proto = static_cast<radio_proto>(obj["proto"].as<uint8_t>());
     if(obj.containsKey("sunSensor")) this->setSunSensor(obj["sunSensor"]);
     if(obj.containsKey("simMy")) this->setSimMy(obj["simMy"]);
-    if(obj.containsKey("light")) this->setLight(obj["light"]);
     if(obj.containsKey("gpioFlags")) this->gpioFlags = obj["gpioFlags"];
     if(obj.containsKey("gpioLLTrigger")) {
       if(obj["gpioLLTrigger"].as<bool>())
@@ -221,7 +220,6 @@ void SomfyShade::toJSONRef(JsonResponse &json, bool includeSecrets) {
   json.addElem("proto", static_cast<uint8_t>(this->proto));
   json.addElem("flags", this->flags);
   json.addElem("sunSensor", this->hasSunSensor());
-  json.addElem("hasLight", this->hasLight());
   json.addElem("repeats", this->repeats);
   //SomfyRemote::toJSON(json);
 }
@@ -257,7 +255,6 @@ void SomfyShade::toJSON(JsonResponse &json, bool includeSecrets) {
   json.addElem("flipPosition", this->flipPosition);
   json.addElem("inGroup", this->isInGroup());
   json.addElem("sunSensor", this->hasSunSensor());
-  json.addElem("light", this->hasLight());
   json.addElem("repeats", this->repeats);
   json.addElem("sortOrder", this->sortOrder);  
   json.addElem("gpioUp", this->gpioUp);
@@ -312,7 +309,6 @@ bool SomfyShade::toJSON(JsonObject &obj) {
   obj["flipPosition"] = this->flipPosition;
   obj["inGroup"] = this->isInGroup();
   obj["sunSensor"] = this->hasSunSensor();
-  obj["light"] = this->hasLight();
   obj["repeats"] = this->repeats;
   obj["sortOrder"] = this->sortOrder;  
   obj["gpioUp"] = this->gpioUp;

@@ -981,7 +981,8 @@ bool ShadeConfigFile::readShadeRecord(SomfyShade *shade) {
     if(this->header.version < 5 && j == 4) break; // Prior to version 5 we only supported 5 linked remotes.
   }
   shade->lastRollingCode = this->readUInt16(0);
-  if(this->header.version > 7) shade->flags = this->readUInt8(0);
+  // The bits of the unfinished "light" are dropped: nothing reads them.
+  if(this->header.version > 7) shade->flags = this->readUInt8(0) & ~(static_cast<uint8_t>(somfy_flags_t::Unused08) | static_cast<uint8_t>(somfy_flags_t::Unused40));
   if(shade->getRemoteAddress() != 0) {
     // If the last rolling code stored on the nvs is less than the rc we currently have
     // then we need to set it.

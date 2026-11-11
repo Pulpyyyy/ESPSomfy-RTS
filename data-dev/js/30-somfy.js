@@ -9,8 +9,8 @@ class Somfy {
         { type: 2, name: 'Drapery (left)', ico: 'svg-ldrapery', lift: true, sun: true, fcmd: true, fpos: true },
         { type: 3, name: 'Awning', ico: 'svg-awning', lift: true, sun: true, fcmd: true, fpos: true },
         { type: 4, name: 'Shutter', ico: 'svg-shutter', lift: true, sun: true, fcmd: true, fpos: true },
-        { type: 5, name: 'Garage (1-button)', ico: 'svg-garage', lift: true, light: true, fpos: true },
-        { type: 6, name: 'Garage (3-button)', ico: 'svg-garage', lift: true, light: true, fcmd: true, fpos: true },
+        { type: 5, name: 'Garage (1-button)', ico: 'svg-garage', lift: true, fpos: true },
+        { type: 6, name: 'Garage (3-button)', ico: 'svg-garage', lift: true, fcmd: true, fpos: true },
         { type: 7, name: 'Drapery (right)', ico: 'svg-rdrapery', lift: true, sun: true, fcmd: true, fpos: true },
         { type: 8, name: 'Drapery (center)', ico: 'svg-cdrapery', lift: true, sun: true, fcmd: true, fpos: true },
         { type: 9, name: 'Dry Contact (1-button)', ico: 'svg-contactBulb', fpos: true },
@@ -873,7 +873,7 @@ class Somfy {
             let cmd = event.currentTarget.getAttribute('data-cmd');
             let shadeId = parseInt(event.currentTarget.getAttribute('data-shadeid'), 10);
             this.btnDown = new Date().getTime();
-            if (cmd === 'light' || cmd === 'sunflag') return;
+            if (cmd === 'sunflag') return;
             if (cmd === 'my') {
                 // A Stop button (garage, gate) has no favorite to set on a long press.
                 if (parseInt(elShade.getAttribute('data-direction'), 10) === 0 && !event.currentTarget.classList.contains('cmd-stop'))
@@ -891,9 +891,6 @@ class Somfy {
                 // Released before the 2s threshold: plain tap, send the command.
                 // Past 2s the long-press action already fired from the timer.
                 if (new Date().getTime() - this.btnDown <= 2000) this.sendCommand(shadeId, cmd);
-            }
-            else if (cmd === 'light') {
-                event.currentTarget.setAttribute('data-on', !makeBool(event.currentTarget.getAttribute('data-on')));
             }
             else if (cmd === 'sunflag') {
                 if (makeBool(event.currentTarget.getAttribute('data-on')))
@@ -1029,7 +1026,6 @@ class Somfy {
     }
     tileHtml(shade, roomId) {
         const st = this.shadeTypes.find(x => x.type === shade.shadeType) || { type: shade.shadeType, ico: 'svg-window-shade' };
-        const isLightOn = (shade.flags & 0x08);
         const isSunOn = (shade.flags & 0x01);
         const pulse = this.isPulseType(shade.shadeType);
         const p = shade.flipPosition ? 100 - shade.position : shade.position;
@@ -1050,7 +1046,6 @@ class Somfy {
         <span class="viz-flags"><span class="badge warn indicator indicator-sun"><svg aria-hidden="true"><use href="#indic-sun"></use></svg>${tr('VR_SUN')}</span><span class="badge danger indicator indicator-wind"><svg aria-hidden="true"><use href="#indic-wind"></use></svg>${tr('VR_WIND')}</span></span>
         </button>
         <span class="tile-tools">
-        <div class="button-light cmd-button tool-chip" role="button" tabindex="0" title="${esc(tr('HOME_LIGHT'))}" aria-label="${esc(tr('HOME_LIGHT'))}, ${esc(shade.name)}" aria-pressed="${isLightOn ? 'true' : 'false'}" data-cmd="light" data-shadeid="${shade.shadeId}" data-on="${isLightOn ? 'true' : 'false'}" style="${!shade.light ? 'display:none' : ''}"><svg aria-hidden="true"><use href="#svg-lightbulb"></use></svg><span>${tr('HOME_LIGHT')}</span></div>
         ${shade.sunSensor ? `<div class="button-sunflag cmd-button tool-chip" role="button" tabindex="0" title="${esc(tr('HOME_SUN_AUTO'))}" aria-label="${esc(tr('HOME_SUN_AUTO'))}, ${esc(shade.name)}" aria-pressed="${isSunOn ? 'true' : 'false'}" data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}"><svg aria-hidden="true"><use href="#indic-sun"></use></svg><span>${tr('HOME_SUN_AUTO')}</span></div>` : ''}
         ${pulse || this.stopOnly(shade) ? '' : `<div class="button-my" ${a11yBtn(trf('A11Y_SET_MY', shade.name))} title="${tr('TT_HOLD_MY')}" onclick="event.stopPropagation(); somfy.openSetMyPosition(${shade.shadeId});"><svg aria-hidden="true"><use href="#svg-favori"></use></svg></div>`}
         </span>
@@ -2059,7 +2054,6 @@ class Somfy {
             disp('divLiftTime', curTilt === 0 && !this.isPulseType(type));
             disp('divSimMy', !this.isPulseType(type));
             disp('divSunSensor', st.sun);
-            disp('divLightSwitch', st.light);
             disp('divFlipPosition', st.fpos);
             disp('divFlipCommands', st.fcmd);
 
@@ -2079,7 +2073,6 @@ class Somfy {
         const myLbl = g('divshowSomfyButtons')?.querySelector('[data-cmd="my"] .cmd-my-label');
         if (myLbl) myLbl.textContent = this.stopOnly({ shadeType: type, simMy: g('cbSimMy')?.checked }) ? '■' : 'My';
 
-        if (!st.light && g('cbHasLight')) g('cbHasLight').checked = false;
         if (!st.sun && g('cbHasSunsensor')) g('cbHasSunsensor').checked = false;
     }
     onShadeBitLengthChanged(el) {
