@@ -126,21 +126,23 @@ void MQTTClass::receive(const char *topic, byte* payload, uint32_t length) {
     SomfyShade* shade = somfy.getShadeById(atoi(entityId));
     if (shade) {
       if(strcmp(command, "target") == 0) shade->moveToTarget(shade->transformPosition(constrain(val, 0, 100)));
-      else if(strcmp(command, "tiltTarget") == 0) shade->moveToTiltTarget(constrain(val, 0, 100));
+      // Every value a shade publishes is in its published scale (mirrored when its
+      // position is flipped), so every value it receives is read back the same way.
+      else if(strcmp(command, "tiltTarget") == 0) shade->moveToTiltTarget(shade->transformPosition(constrain(val, 0, 100)));
       else if(strcmp(command, "direction") == 0) {
         if(val < 0) shade->sendCommand(somfy_commands::Up);
         else if(val > 0) shade->sendCommand(somfy_commands::Down);
         else shade->sendCommand(somfy_commands::My);
       }
-      else if(strcmp(command, "mypos") == 0) shade->setMyPosition(constrain(val, -1, 100));
-      else if(strcmp(command, "myTiltPos") == 0) shade->setMyPosition(shade->myPos, constrain(val, -1, 100));
+      else if(strcmp(command, "mypos") == 0) shade->setMyPosition(shade->transformPosition(constrain(val, -1, 100)));
+      else if(strcmp(command, "myTiltPos") == 0) shade->setMyPosition(shade->myPos, shade->transformPosition(constrain(val, -1, 100)));
       else if(strcmp(command, "sunFlag") == 0) shade->sendCommand(val > 0 ? somfy_commands::SunFlag : somfy_commands::Flag);
       else if(strcmp(command, "position") == 0) {
         shade->target = shade->currentPos = shade->transformPosition((float)constrain(val, 0, 100));
         shade->emitState();
       }
       else if(strcmp(command, "tiltPosition") == 0) {
-        shade->tiltTarget = shade->currentTiltPos = (float)constrain(val, 0, 100);
+        shade->tiltTarget = shade->currentTiltPos = shade->transformPosition((float)constrain(val, 0, 100));
         shade->emitState();
       }
       else if(strcmp(command, "sunny") == 0) shade->sendSensorCommand(-1, constrain(val, 0, 1), shade->repeats);
