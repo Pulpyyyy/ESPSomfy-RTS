@@ -1769,7 +1769,7 @@ class Somfy {
         html += shades.map((shade, i) => `
         ${i > 0 ? '<hr>' : ''}
         <div class="somfyLinkedRemote" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}">
-        <div class="linkedWrap"><svg class="icon-svg"><use href=#svg-simpleShutter></use></svg></div><div class="linkedContent"><div class="label">${esc(shade.name)}</div><div><span class="uniStatus">${tr("ADDR")} ${shade.remoteAddress}</span></div></div><div class="button-outline-svg svgDelete" ${a11yBtn(trf('A11Y_UNLINK_SHADE', shade.name))} onclick="somfy.unlinkGroupShade(${group.groupId}, ${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
+        <div class="linkedWrap"><span class="viz shade-mini is-tiny" aria-hidden="true">${this.miniDraw(shade.shadeType)}</span></div><div class="linkedContent"><div class="label">${esc(shade.name)}</div><div><span class="uniStatus">${tr("ADDR")} ${shade.remoteAddress}</span></div></div><div class="button-outline-svg svgDelete" ${a11yBtn(trf('A11Y_UNLINK_SHADE', shade.name))} onclick="somfy.unlinkGroupShade(${group.groupId}, ${shade.shadeId});"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>
         `).join('');
 
         html += `</div>`;
@@ -1906,6 +1906,13 @@ class Somfy {
             document.body.removeChild(dummy);
         }
     }
+    // A tile's drawing for a type, without its state: the editor and the group list.
+    miniDraw(type) {
+        const t = parseInt(type, 10);
+        const st = this.shadeTypes.find(x => x.type === t);
+        return this.isApronType(t) ? '<span class="shutter"></span>'
+            : this.vizDraw(t) ?? `<svg class="somfy-shade-icon" aria-hidden="true"><use href="#${st?.ico || 'svg-window-shade'}"></use></svg>`;
+    }
     // The editor's small drawing is the tile's, for the type being edited: the
     // closed share (--c) and, for a blind, how closed its slats are (--t).
     paintEditorDraw(s) {
@@ -1930,8 +1937,7 @@ class Somfy {
 
         if (ico && ico.dataset.type !== String(type)) {
             ico.dataset.type = type;
-            ico.innerHTML = this.isApronType(type) ? '<span class="shutter"></span>'
-                : this.vizDraw(type) ?? `<svg class="somfy-shade-icon" aria-hidden="true"><use href="#${st.ico || 'svg-window-shade'}"></use></svg>`;
+            ico.innerHTML = this.miniDraw(type);
         }
         const hasLift = !!st.lift;
         const curTilt = st.tilt ? tilt : 0;
@@ -1962,6 +1968,11 @@ class Somfy {
         disp('hrDldTiltTime', !(curTilt === 0 && bitL === "56"));
         disp('labelPosContainer', hasLift && !isNew);
         disp('labelTiltContainer', curTilt && !isNew);
+        // A pulse device has no position; garage doors and gates stop with their middle
+        // button, as on their tile.
+        disp('labelPosContainer', !isNew && !this.isPulseType(type));
+        const myLbl = g('divshowSomfyButtons')?.querySelector('[data-cmd="my"] .cmd-my-label');
+        if (myLbl) myLbl.textContent = this.stopOnly({ shadeType: type, simMy: g('cbSimMy')?.checked }) ? '■' : 'My';
 
         if (!st.light && g('cbHasLight')) g('cbHasLight').checked = false;
         if (!st.sun && g('cbHasSunsensor')) g('cbHasSunsensor').checked = false;

@@ -233,6 +233,9 @@ div.wifiSignal {
 }
 .viz.shade-mini, .viz.shade-mini:hover { flex: none; width: 120px; height: 64px; border-radius: 8px; cursor: default; filter: none; --t: 30; }
 .viz.shade-mini .somfy-shade-icon { width: 48px; height: 48px; }
+.viz.shade-mini.is-tiny, .viz.shade-mini.is-tiny:hover { display: block; width: 56px; height: 36px; border-radius: 6px; --c: 65; }
+.viz.is-tiny .somfy-shade-icon { width: 28px; height: 28px; }
+.viz.is-tiny .vz-door::before { display: none; }
 #divSomfyGroupButtons {
     display: flex;
     justify-content: center;
@@ -257,7 +260,7 @@ div.wifiSignal {
     pointer-events: none !important;
 }
 .somfy-status-container {
-    gap: 1px;
+    gap: 12px;
 }
 .somfy-infoPosTilt {
     justify-content: center;
