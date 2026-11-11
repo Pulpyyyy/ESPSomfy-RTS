@@ -25,4 +25,8 @@ void parseVersion(const char *ver, version_t &out);
 // and two suffixes compare in natural order, digit runs as numbers (beta.10 >
 // beta.9, rc10 > rc9) and everything else character by character.
 int8_t compareVersion(const version_t &a, const version_t &b);
+// A release named by its version ("v4.3.0", "4.3.0", "v4.3.0-beta.1") written
+// as its git tag, "v" first, into out. False for anything else ("latest",
+// "main", a partial or decorated name) or when out is too small.
+bool releaseTag(const char *ver, char *out, size_t outSize);
 #endif

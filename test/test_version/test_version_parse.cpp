@@ -141,6 +141,49 @@ static void test_compare_is_antisymmetric(void) {
   }
 }
 
+static void assertTag(const char *in, const char *expected) {
+  char out[32];
+  memset(out, 0x7F, sizeof(out));
+  TEST_ASSERT_TRUE_MESSAGE(releaseTag(in, out, sizeof(out)), in);
+  TEST_ASSERT_EQUAL_STRING(expected, out);
+}
+
+static void assertNotTag(const char *in) {
+  char out[32] = "";
+  TEST_ASSERT_FALSE_MESSAGE(releaseTag(in, out, sizeof(out)), in ? in : "(null)");
+}
+
+void test_release_tag_accepts_versions(void) {
+  assertTag("v4.3.0", "v4.3.0");
+  assertTag("4.3.0", "v4.3.0");
+  assertTag("V12.0.10", "v12.0.10");
+  assertTag("v4.3.0-beta.1", "v4.3.0-beta.1");
+  assertTag("v4.1.0-rc1", "v4.1.0-rc1");
+}
+
+void test_release_tag_refuses_everything_else(void) {
+  assertNotTag(nullptr);
+  assertNotTag("");
+  assertNotTag("latest");
+  assertNotTag("main");
+  assertNotTag("v4.3");
+  assertNotTag("v4.3.0.1");
+  assertNotTag("v4..3");
+  assertNotTag("v4.3.");
+  assertNotTag("v4.3.0 beta");
+  assertNotTag("v4.3.0/../x");
+  assertNotTag("v4.3.0-beta?x=1");
+  assertNotTag("v4.3.0: the remotes");
+}
+
+void test_release_tag_respects_the_buffer(void) {
+  char small[6];
+  TEST_ASSERT_FALSE(releaseTag("v4.3.0", small, sizeof(small)));
+  char exact[7];
+  TEST_ASSERT_TRUE(releaseTag("4.3.0", exact, sizeof(exact)));
+  TEST_ASSERT_EQUAL_STRING("v4.3.0", exact);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(test_parses_a_release_tag);
@@ -156,5 +199,8 @@ int main(int, char **) {
   RUN_TEST(test_compare_is_antisymmetric);
   RUN_TEST(test_release_ranks_above_its_pre_releases);
   RUN_TEST(test_pre_releases_compare_in_natural_order);
+  RUN_TEST(test_release_tag_accepts_versions);
+  RUN_TEST(test_release_tag_refuses_everything_else);
+  RUN_TEST(test_release_tag_respects_the_buffer);
   return UNITY_END();
 }

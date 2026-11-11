@@ -81,3 +81,24 @@ int8_t compareVersion(const version_t &a, const version_t &b) {
   }
   return 0;
 }
+bool releaseTag(const char *ver, char *out, size_t outSize) {
+  if(!ver || !out) return false;
+  const char *p = (*ver == 'v' || *ver == 'V') ? ver + 1 : ver;
+  // major.minor.build, then an optional suffix of letters, digits, dots and dashes.
+  const char *c = p;
+  uint8_t dots = 0;
+  if(!isdigit((unsigned char)*c)) return false;
+  for(; *c && (isdigit((unsigned char)*c) || *c == '.'); c++) {
+    if(*c == '.') {
+      if(!isdigit((unsigned char)c[1])) return false;
+      dots++;
+    }
+  }
+  if(dots != 2) return false;
+  if(*c && *c != '-') return false;
+  for(; *c; c++) if(!isalnum((unsigned char)*c) && *c != '.' && *c != '-') return false;
+  if(strlen(p) + 2 > outSize) return false;
+  out[0] = 'v';
+  memcpy(out + 1, p, strlen(p) + 1);
+  return true;
+}

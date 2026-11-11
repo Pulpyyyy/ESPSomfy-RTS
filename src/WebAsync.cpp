@@ -9,6 +9,7 @@
 // guard instead of redeclaring the HTTP_* method enum.
 #include "Web.h"
 #include "GitOTA.h"
+#include "VersionParse.h"
 #include "ConfigSettings.h"
 #include "Utils.h"
 #include "Somfy.h"
@@ -1202,6 +1203,18 @@ void WebAsync::begin() {
     webServer.lastActivity = millis();
     if(request->method() == ASYNC_HTTP_OPTIONS) { request->send(200, "text/plain", "OK"); return; }
     if(!webAsync.ensureAuth(request, true)) return;
+    // A version given as such (the interface and Home Assistant send one) is
+    // installed as named; only "latest" and "main" need the release list.
+    char tag[sizeof(git.targetRelease)];
+    if(request->hasParam("ver") && releaseTag(request->getParam("ver")->value().c_str(), tag, sizeof(tag))) {
+      if(git.status != GIT_STATUS_READY) { request->send(503, "application/json", F("{\"status\":\"ERROR\",\"desc\":\"The board is checking for or installing an update: try again in a moment.\"}")); return; }
+      strlcpy(git.targetRelease, tag, sizeof(git.targetRelease));
+      git.status = GIT_AWAITING_UPDATE;
+      char body[96];
+      snprintf(body, sizeof(body), "{\"name\":\"%s\",\"version\":{\"name\":\"%s\"}}", tag, tag);
+      request->send(200, "application/json", body);
+      return;
+    }
     git.status = GIT_STATUS_CHECK;
     // The request runs in loop(): see GitUpdater::fetchReleases().
     GitRepo *repo = &git.fetched;

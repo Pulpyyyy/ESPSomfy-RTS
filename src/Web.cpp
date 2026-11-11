@@ -15,6 +15,7 @@
 #include "Web.h"
 #include "MQTT.h"
 #include "GitOTA.h"
+#include "VersionParse.h"
 #include "Rollback.h"
 #include "Network.h"
 // LWIP internals for /netDiag: the TCP PCB lists, to watch for socket-pool
@@ -402,6 +403,18 @@ void Web::handleDownloadFirmware(WebServer &server) {
   webServer.sendCORSHeaders(server);
   if(server.method() == HTTP_OPTIONS) { server.send(200, "OK"); return; }
   if(!this->ensureAuth(server, true)) return;
+  // A version given as such (Home Assistant sends one) is installed as named;
+  // only "latest" and "main" need the release list.
+  char tag[sizeof(git.targetRelease)];
+  if(server.hasArg("ver") && releaseTag(server.arg("ver").c_str(), tag, sizeof(tag))) {
+    if(git.status != GIT_STATUS_READY) { server.send(503, _encoding_json, F("{\"status\":\"ERROR\",\"desc\":\"The board is checking for or installing an update: try again in a moment.\"}")); return; }
+    strlcpy(git.targetRelease, tag, sizeof(git.targetRelease));
+    git.status = GIT_AWAITING_UPDATE;
+    char body[96];
+    snprintf(body, sizeof(body), "{\"name\":\"%s\",\"version\":{\"name\":\"%s\"}}", tag, tag);
+    server.send(200, _encoding_json, body);
+    return;
+  }
   GitRepo repo;
   GitRelease *rel = nullptr;
   int8_t err = repo.getReleases();
