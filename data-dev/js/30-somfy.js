@@ -18,9 +18,9 @@ class Somfy {
         { type: 11, name: 'Gate (left)', ico: 'svg-lgate', lift: true, fcmd: true, fpos: true },
         { type: 12, name: 'Gate (center)', ico: 'svg-cgate', lift: true, fcmd: true, fpos: true },
         { type: 13, name: 'Gate (right)', ico: 'svg-rgate', lift: true, fcmd: true, fpos: true },
-        { type: 14, name: 'Gate (1-button left)', ico: 'svg-lgate', lift: true, fcmd: true, fpos: true },
-        { type: 15, name: 'Gate (1-button center)', ico: 'svg-cgate', lift: true, fcmd: true, fpos: true },
-        { type: 16, name: 'Gate (1-button right)', ico: 'svg-rgate', lift: true, fcmd: true, fpos: true },
+        { type: 14, name: 'Gate (1-button left)', ico: 'svg-lgate', lift: true, fpos: true },
+        { type: 15, name: 'Gate (1-button center)', ico: 'svg-cgate', lift: true, fpos: true },
+        { type: 16, name: 'Gate (1-button right)', ico: 'svg-rgate', lift: true, fpos: true },
     ];
     radioBoardTypes = [
         { val: 0, label: 'DEFAULT', showGPIO: false },
@@ -362,13 +362,13 @@ class Somfy {
         let spanBestRSSI = get('spanBestRSSI');
 
         if (spanBestFreq) {
-            spanBestFreq.innerHTML = scan.RSSI !== -100 ? scan.frequency.toFixed(3) : '----';
+            spanBestFreq.innerHTML = scan.RSSI !== -100 ? numLoc(scan.frequency, 3) : '----';
         }
         if (spanBestRSSI) {
             spanBestRSSI.innerHTML = scan.RSSI !== -100 ? scan.RSSI : '----';
         }
         if (spanTestFreq) {
-            spanTestFreq.innerHTML = scan.testFreq.toFixed(3);
+            spanTestFreq.innerHTML = numLoc(scan.testFreq, 3);
         }
         if (spanTestRSSI) {
             spanTestRSSI.innerHTML = scan.testRSSI !== -100 ? scan.testRSSI : '----';
@@ -382,7 +382,7 @@ class Somfy {
         if (phaseDiv) {
             if (scan.phase === 2) phaseDiv.textContent = trf('SCANFREQ_PHASE_FINE', scan.progress);
             else if (scan.phase === 3) {
-                phaseDiv.textContent = scan.fLow ? trf('SCANFREQ_PHASE_DONE', scan.fLow.toFixed(3), scan.fHigh.toFixed(3)) : tr('SCANFREQ_PHASE_DONE_NOEDGE');
+                phaseDiv.textContent = scan.fLow ? trf('SCANFREQ_PHASE_DONE', numLoc(scan.fLow, 3), numLoc(scan.fHigh, 3)) : tr('SCANFREQ_PHASE_DONE_NOEDGE');
                 const btn = get('btnCopyFrequency');
                 if (btn) btn.style.display = '';
             }
@@ -601,7 +601,7 @@ class Somfy {
     renderWelcome() {
         const w = get('divGetStarted');
         if (!w) return;
-        const lang = localStorage.getItem('selectedLang') || 'en';
+        const lang = (typeof LANG_SHOWN !== 'undefined' && LANG_SHOWN) || document.documentElement.lang || 'en';
         w.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === lang ? 'true' : 'false'));
         const done = { net: this.welcomeNet === true, radio: this.welcomeRadio === true };
         let next = null;
@@ -745,9 +745,10 @@ class Somfy {
         rooms.sort((a, b) => a.sortOrder - b.sortOrder);
         rooms.forEach(room => {
             divPills += `<button type="button" class="chip room-pill" aria-pressed="false" data-roomid="${room.roomId}" onclick="somfy.selectRoom(${room.roomId})">${esc(room.name)}<span class="chip-count"></span></button>`;
-            divCfg += `<div class="somfyRoom room-draggable" data-roomid="${room.roomId}">
-            <div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div>
-            <div class="room-name"><span class="name-text">${esc(room.name)}</span></div><span class="vr"></span>
+            divCfg += `<div class="somfyRoom room-draggable cfg-row" data-roomid="${room.roomId}">
+            ${this.cfgHandle(rooms.length > 1)}
+            <span class="cfg-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v9H4z"/><path d="M10 20v-5h4v5"/></svg></span>
+            <div class="room-name"><span class="name-text">${esc(room.name)}</span><span class="cfg-sub"></span></div><span class="vr"></span>
             <div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', room.name))} onclick="somfy.openEditRoom(${room.roomId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div>
             <div class="divEditDelete-svg is-delete" ${a11yBtn(trf('A11Y_DELETE', room.name))} onclick="somfy.deleteRoom(${room.roomId});"><svg class="icon-svg" aria-hidden="true"><use href=#svg-trash></use></svg></div>
             </div>`;
@@ -764,6 +765,8 @@ class Somfy {
         get('selGroupRoom').innerHTML = divOpts;
 
         this.checkEmptyState();
+        this.showDragHelp(get('divRoomList'));
+        setTimeout(() => this.restoreReorderFocus(), 0);
         this.setListDraggable(get('divRoomList'), '.room-draggable', (list) => {
             let order = Array.from(list.querySelectorAll('.room-draggable')).map(item =>
             parseInt(item.getAttribute('data-roomid'), 10)
@@ -776,12 +779,23 @@ class Somfy {
         // Shades are grouped by room: re-render them in the new room order.
         if (this.shades) this.setShadesList(this.shades);
     }
+    // A save rebuilds the list, sometimes twice: for a moment after a move, every
+    // rebuild puts the focus back on the moved row's handle.
+    restoreReorderFocus() {
+        const r = this.reFocus;
+        if (!r || !r.attr) return;
+        if (Date.now() > r.until) { this.reFocus = null; return; }
+        setTimeout(() => {
+            const h = document.querySelector(`${r.cl}[${r.attr}="${r.id}"] .drag-handle`);
+            if (h && document.activeElement !== h) h.focus();
+        }, 0);
+    }
     setRepeaterList(addresses) {
         let divCfg = '';
         if (typeof addresses !== 'undefined') {
             for (let i = 0; i < addresses.length; i++) {
 
-                divCfg += `<div class="somfyRepeater" data-address="${addresses[i]}"><div class="idRemoteAddress"><span class="AddrId-label">${tr("ADDR")}</span><span class="repeater-name">${addresses[i]}</span></div><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_UNLINK_REPEATER', addresses[i]))} onclick="somfy.unlinkRepeater('${addresses[i]}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
+                divCfg += `<div class="somfyRepeater" data-address="${addresses[i]}"><div class="idRemoteAddress"><span class="AddrId-label">${tr("ADDR")}</span><span class="repeater-name">${addresses[i]}</span></div><span class="cfg-sub repeater-who">${esc(rfdiag.deviceNames(addresses[i]).join(', '))}</span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_UNLINK_REPEATER', addresses[i]))} onclick="somfy.unlinkRepeater('${addresses[i]}');"><svg class="icon-svg"><use href=#svg-close></use></svg></div></div>`;
             }
         }
         get('divRepeatList').innerHTML = divCfg;
@@ -840,7 +854,6 @@ class Somfy {
         for (let i = 0; i < shades.length; i++) {
             let shade = shades[i];
             let room = _rooms.find(x => x.roomId === shade.roomId) || { roomId: 0, name: '' };
-            divCfg += `<div class="somfyShade shade-draggable" draggable="true" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div><div class="shade-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', shade.name))} onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg is-delete" ${a11yBtn(trf('A11Y_DELETE', shade.name))} onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg" aria-hidden="true"><use href=#svg-trash></use></svg></div></div>`;
             let opt = document.createElement('option');
             opt.textContent = shade.name;
             opt.setAttribute('data-address', shade.remoteAddress);
@@ -852,7 +865,27 @@ class Somfy {
         }
         let sopt = vrList.options[vrList.selectedIndex];
         get('divVirtualRemote').setAttribute('data-bitlength', sopt ? sopt.getAttribute('data-bitlength') : 'none');
+        // The list follows Home: a block per room, in room order; a shade moves only
+        // within its room, the only place where its order shows.
+        for (const rId of roomOrder) {
+            const list = byRoom.get(rId);
+            if (!list || !list.length) continue;
+            const rName = rId === 0 ? tr('HOME_UNASSIGNED') : _rooms.find(x => x.roomId === rId).name;
+            divCfg += `<h3 class="cfg-room-head">${esc(rName)}${list.length > 1 ? ` <small>${esc(this.membersText(list.length))}</small>` : ''}</h3><div class="cfg-room-list" data-roomid="${rId}">`;
+            for (const shade of list) {
+                divCfg += `<div class="somfyShade shade-draggable cfg-row" data-roomid="${shade.roomId}" data-mypos="${shade.myPos}" data-shadeid="${shade.shadeId}" data-remoteaddress="${shade.remoteAddress}" data-tilt="${shade.tiltType}" data-shadetype="${shade.shadeType}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}">${this.cfgHandle(list.length > 1)}<span class="viz shade-mini is-tiny" aria-hidden="true">${this.miniDraw(shade.shadeType)}</span><div class="shade-name"><div class="name-text">${esc(shade.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("LIST_ADDR")}</span><span class="shade-address">${shade.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', shade.name))} onclick="somfy.openEditShade(${shade.shadeId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg is-delete" ${a11yBtn(trf('A11Y_DELETE', shade.name))} onclick="somfy.deleteShade(${shade.shadeId});"><svg class="icon-svg" aria-hidden="true"><use href=#svg-trash></use></svg></div></div>`;
+            }
+            divCfg += '</div>';
+        }
         get('divShadeList').innerHTML = divCfg;
+        // Each room's line in the room list says how many devices it holds.
+        document.querySelectorAll('#divRoomList .somfyRoom').forEach(r => {
+            const n = (byRoom.get(parseInt(r.getAttribute('data-roomid'), 10)) || []).length;
+            const sub = r.querySelector('.cfg-sub');
+            if (sub) sub.textContent = this.membersText(n);
+        });
+        this.showDragHelp(get('divShadeList'));
+        this.restoreReorderFocus();
         let shadeControls = get('divShadeControls');
         shadeControls.innerHTML = divCtl;
         shadeControls.querySelectorAll('.somfyShadeCtl').forEach(d => this.renderTileState(d));
@@ -943,13 +976,63 @@ class Somfy {
             // detail >= 1, so keying off it runs the plain-tap path exactly once.
             btns[i].addEventListener('click', (event) => { if (event.detail === 0) onCmdUp(event); });
         }
-        this.setListDraggable(get('divShadeList'), '.shade-draggable', (list) => {
-            let items = list.querySelectorAll('.shade-draggable');
-            let order = [];
-            for (let i = 0; i < items.length; i++) order.push(parseInt(items[i].getAttribute('data-shadeid'), 10));
+        const saveShadeOrder = () => {
+            const order = Array.from(get('divShadeList').querySelectorAll('.shade-draggable')).map(it => parseInt(it.getAttribute('data-shadeid'), 10));
             // Home groups the shades by room, so it is rebuilt from the new order.
             putJSONBusy('/shadeSortOrder', order, () => this.updateShadeList());
-        });
+        };
+        get('divShadeList').querySelectorAll('.cfg-room-list').forEach(l => this.setListDraggable(l, '.shade-draggable', saveShadeOrder));
+    }
+    // The reorder handle of a configuration row, or the same room left empty when
+    // there is nothing to reorder, so that the rows stay aligned.
+    cfgHandle(on) {
+        return on ? '<div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div>' : '<span class="drag-spacer"></span>';
+    }
+    // The help line above a list only shows when something can be reordered.
+    showDragHelp(list) {
+        const help = list && list.parentElement && list.parentElement.querySelector(':scope > .dragtxt');
+        if (help) help.hidden = !list.querySelector('.drag-handle');
+    }
+    membersText(n) { return trf(n === 1 ? 'GROUP_MEMBERS_1' : 'GROUP_MEMBERS_N', n); }
+    // Device families as people name them, with the type drawn for each.
+    typeFamily(type) {
+        const t = parseInt(type, 10);
+        if (t === 1) return 'venetian';
+        if ([2, 7, 8].includes(t)) return 'drape';
+        if (t === 3) return 'awning';
+        if (t === 5 || t === 6) return 'garage';
+        if (t === 9 || t === 10) return 'contact';
+        if (t >= 11 && t <= 16) return 'gate';
+        return 'shutter';
+    }
+    // The families of a group's members, the most numerous first.
+    groupFamilies(shades) {
+        const order = ['shutter', 'venetian', 'drape', 'awning', 'garage', 'gate', 'contact'];
+        const n = {};
+        (shades || []).forEach(sh => { const f = this.typeFamily(sh.shadeType); n[f] = (n[f] || 0) + 1; });
+        return Object.keys(n).sort((a, b) => n[b] - n[a] || order.indexOf(a) - order.indexOf(b)).map(f => ({ f, n: n[f] }));
+    }
+    // "4 shutters, 1 gate": what a group really moves, gates and garage doors included.
+    groupComposition(shades) {
+        const fams = this.groupFamilies(shades);
+        if (!fams.length) return tr('GRP_EMPTY');
+        return fams.map(x => trf(`GRP_F_${x.f.toUpperCase()}_${x.n === 1 ? 1 : 'N'}`, x.n)).join(', ');
+    }
+    // A group's picture: a pile of cards. The front card shows the main family, or the
+    // first two side by side; the back card repeats it for one or two families, shows
+    // the third, or the third and fourth; a badge counts the rest. Empty: dashed cards.
+    groupPile(shades) {
+        const fams = this.groupFamilies(shades).map(x => x.f);
+        if (!fams.length) return '<span class="gpile is-empty" aria-hidden="true"><span></span><span></span></span>';
+        const rep = { shutter: 0, venetian: 1, drape: 8, awning: 3, garage: 6, gate: 12, contact: 9 };
+        const card = (a, b) => b === undefined
+            ? `<span class="viz shade-mini is-tiny">${this.miniDraw(rep[a])}</span>`
+            : `<span class="viz shade-mini is-tiny is-split"><span class="half"><span class="viz">${this.miniDraw(rep[a])}</span></span><span class="half r"><span class="viz">${this.miniDraw(rep[b])}</span></span></span>`;
+        const front = card(fams[0], fams[1]);
+        if ((shades || []).length === 1) return `<span class="gpile is-single" aria-hidden="true">${front}</span>`;
+        const back = fams.length <= 2 ? front : card(fams[2], fams[3]);
+        const more = fams.length - 4;
+        return `<span class="gpile" aria-hidden="true">${back}${front}${more > 0 ? `<span class="gpile-more">+${more}</span>` : ''}</span>`;
     }
     // Shade types whose motor has no travel position (a pulse or a toggle).
     isPulseType(shadeType) { return [5, 9, 10, 14, 15, 16].includes(parseInt(shadeType, 10)); }
@@ -992,12 +1075,12 @@ class Somfy {
             ? `<span class="shutter"></span>`
             : this.vizDraw(shade.shadeType) ?? `<svg class="somfy-shade-icon" data-shadeid="${shade.shadeId}" aria-hidden="true" style="--shade-position:${p}; --fpos:${p}%"><use href="#${st.ico}"></use></svg>`;
         const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
-        return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-tilttarget="${shade.tiltTarget ?? shade.tiltPosition}" data-tiltdirection="${shade.tiltDirection || 0}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
+        return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-stoponly="${this.stopOnly(shade)}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-tilttarget="${shade.tiltTarget ?? shade.tiltPosition}" data-tiltdirection="${shade.tiltDirection || 0}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
         <div class="tile-head">
         <div class="tile-id">
         <h3 class="tile-name shadectl-name" id="shName${shade.shadeId}">${esc(shade.name).replace(/_/g, '_<wbr>')}</h3>
         </div>
-        <span class="tile-pct"><span class="pct-num"></span><small aria-hidden="true"> %</small><span class="sr-only"> ${tr('HOME_PCT_OPEN')}</span></span>
+        <span class="tile-pct"><span class="pct-num"></span><small> %</small><span class="sr-only"> ${tr('HOME_PCT_OPEN')}</span></span>
         <span class="status tile-status"><span class="dot pulse" aria-hidden="true"></span><span class="val-pos"></span></span>
         </div>
         <button type="button" class="viz shade-viz" data-shadeid="${shade.shadeId}" aria-label="${esc(trf('A11Y_SET_POS', shade.name))}" ${pulse ? 'disabled' : ''} onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});">
@@ -1052,7 +1135,9 @@ class Somfy {
         d.querySelector('.tile-pct')?.toggleAttribute('hidden', pulse);
         const sh = d.querySelector('.shutter');
         if (sh) sh.style.height = (100 - open) + '%';
-        d.querySelector('.viz')?.style.setProperty('--c', pulse || ax.tiltOnly ? 100 : 100 - open);
+        const viz = d.querySelector('.viz');
+        viz?.style.setProperty('--c', pulse ? 55 : ax.tiltOnly ? 100 : 100 - open);
+        viz?.classList.toggle('is-unknown', pulse);
         // The slats' open share, drawn on the picture through --t (their closed share).
         const tiltType = parseInt(d.getAttribute('data-tilt'), 10) || 0;
         const tRaw = num('data-tiltposition', -1);
@@ -1089,11 +1174,11 @@ class Somfy {
         };
         const all = describe(Array.from(document.querySelectorAll('#divShadeControls .somfyShadeCtl')));
         const sum = get('homeSummary');
-        if (sum) sum.textContent = all.total ? `${trf(all.total === 1 ? 'HOME_DEVICES_1' : 'HOME_DEVICES_N', all.total)} · ${this.openText(all.open, all.shades)}` : '';
+        if (sum) sum.textContent = all.total ? [trf(all.total === 1 ? 'HOME_DEVICES_1' : 'HOME_DEVICES_N', all.total), this.openText(all.open, all.shades)].filter(Boolean).join(' · ') : '';
         document.querySelectorAll('.room-sec').forEach(sec => {
             const d = describe(Array.from(sec.querySelectorAll('.somfyShadeCtl')));
             const el = sec.querySelector('.room-sec-sum');
-            if (el) el.textContent = `· ${this.openText(d.open, d.shades)}`;
+            if (el) { const t = this.openText(d.open, d.shades); el.textContent = t ? `· ${t}` : ''; }
             // The room's Stop only exists while one of its coverings moves.
             sec.classList.toggle('is-moving', this.movingCoverings(sec).length > 0);
         });
@@ -1104,7 +1189,9 @@ class Somfy {
             if (c) c.textContent = n ? ` ${n}` : '';
         });
     }
+    // Gates and pulse devices have no known state: no claim at all rather than "all closed".
     openText(open, total) {
+        if (!total) return '';
         if (open === 0) return tr('HOME_ALL_CLOSED');
         if (open === total) return tr('HOME_ALL_OPEN');
         return open === 1 ? tr('HOME_ONE_OPEN') : trf('HOME_N_OPEN', open);
@@ -1198,6 +1285,7 @@ class Somfy {
         const end = () => {
             unbindWindow();
             stop();
+            pend = null;
             if (gh) { gh.remove(); gh = null; }
             if (el) {
                 el.classList.remove('drag-orig');
@@ -1209,24 +1297,40 @@ class Somfy {
             }
             its.forEach(it => it.style.transform = "");
             if (ch && typeof cb === 'function') cb(list);
+            wasDrag = moved;
             el = null; ch = false; its = [];
         };
+        let moved = false, wasDrag = false, pend = null;
         const move = (e) => {
+            let t = e.touches ? e.touches[0] : e;
+            // The drag only begins past a few pixels: a plain tap or click stays a tap,
+            // reaches the handle and opens the reorder menu.
+            if (pend && !gh) {
+                if (Math.abs(t.clientY - pend.y) <= 4) return;
+                const it = pend.it, y = pend.y;
+                pend = null;
+                begin(it, y);
+            }
             if (!gh) return;
             if (e.cancelable) e.preventDefault();
-            let t = e.touches ? e.touches[0] : e;
             cY = t.clientY;
+            moved = true;
             gh.style.transform = "translateY(" + (cY - sY) + "px)";
             scroll(cY);
             sort();
         };
         const start = (e, it) => {
             if (e.type === 'mousedown') e.preventDefault();
+            const t = e.touches ? e.touches[0] : e;
+            pend = { it: it, y: t.clientY };
+            moved = false;
+            bindWindow();
+        };
+        const begin = (it, y) => {
             el = it;
             r = el.getBoundingClientRect();
             its = Array.prototype.slice.call(list.querySelectorAll(cl));
-            let t = e.touches ? e.touches[0] : e;
-            sY = cY = t.clientY;
+            sY = cY = y;
 
             gh = el.cloneNode(true);
             gh.className = 'drag-ghost';
@@ -1241,7 +1345,6 @@ class Somfy {
             document.body.appendChild(gh);
             el.classList.add('drag-orig');
             if (navigator.vibrate) navigator.vibrate(30);
-            bindWindow();
         };
 
         // The per-item handlers die with the items, which are replaced wholesale on every
@@ -1264,18 +1367,49 @@ class Somfy {
                 // drop uses, so both paths persist identically.
                 h.setAttribute('role', 'button');
                 h.setAttribute('tabindex', '0');
-                h.setAttribute('aria-label', tr('A11Y_REORDER'));
+                h.setAttribute('aria-label', trf('A11Y_REORDER_NAMED', it.querySelector('.name-text')?.textContent || ''));
+                const shift = (up) => {
+                    const items = Array.prototype.slice.call(list.querySelectorAll(cl));
+                    const i = items.indexOf(it), j = up ? i - 1 : i + 1;
+                    if (i < 0 || j < 0 || j >= items.length) return false;
+                    if (up) list.insertBefore(it, items[j]);
+                    else list.insertBefore(items[j], it);
+                    h.focus();
+                    // The save rebuilds the list: find this row's handle again afterwards.
+                    const key = ['data-shadeid', 'data-groupid', 'data-roomid'].find(a => it.hasAttribute(a));
+                    somfy.reFocus = { cl: cl, attr: key, id: it.getAttribute(key), until: Date.now() + 2500 };
+                    cfgAnnounce(trf('REORDER_POS', j + 1, items.length));
+                    persist();
+                    return true;
+                };
                 h.addEventListener('keydown', (e) => {
                     const up = e.key === 'ArrowUp', down = e.key === 'ArrowDown';
                     if (!up && !down) return;
                     e.preventDefault();
+                    shift(up);
+                });
+                // A tap, a click or Enter without a drag offers Move up / Move down:
+                // reordering must not depend on a fine drag gesture.
+                h.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (wasDrag) { wasDrag = false; return; }
+                    document.querySelectorAll('.reorder-menu').forEach(m => m.remove());
                     const items = Array.prototype.slice.call(list.querySelectorAll(cl));
-                    const i = items.indexOf(it), j = up ? i - 1 : i + 1;
-                    if (i < 0 || j < 0 || j >= items.length) return;
-                    if (up) list.insertBefore(it, items[j]);
-                    else list.insertBefore(items[j], it);
-                    h.focus();
-                    persist();
+                    const i = items.indexOf(it);
+                    const menu = document.createElement('div');
+                    menu.className = 'reorder-menu';
+                    menu.setAttribute('role', 'menu');
+                    menu.innerHTML = `<button type="button" role="menuitem" data-up="1"${i <= 0 ? ' disabled' : ''}>↑ ${esc(tr('REORDER_UP'))}</button><button type="button" role="menuitem"${i >= items.length - 1 ? ' disabled' : ''}>↓ ${esc(tr('REORDER_DOWN'))}</button>`;
+                    const close = () => { menu.remove(); document.removeEventListener('click', close, true); };
+                    menu.addEventListener('click', (ev) => {
+                        const b = ev.target.closest('button');
+                        if (b && !b.disabled) shift(!!b.dataset.up);
+                        close();
+                    });
+                    menu.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { close(); h.focus(); } });
+                    it.appendChild(menu);
+                    setTimeout(() => document.addEventListener('click', close, true), 0);
+                    (menu.querySelector('button:not([disabled])') || menu).focus();
                 });
             }
         });
@@ -1307,18 +1441,19 @@ class Somfy {
             for (let i = 0; i < groups.length; i++) {
                 let group = groups[i];
                 let room = _rooms.find(x => x.roomId === group.roomId) || { roomId: 0, name: '' };
-                divCfg += `<div class="somfyGroup group-draggable" draggable="true" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}"><div class="drag-handle"><svg class="icon-svg"><use href=#svg-drag></use></svg></div> <div class="group-name"><div class="cfg-room">${esc(room.name)}</div><div class="name-text">${esc(group.name)}</div></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("ID")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', group.name))} onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg is-delete" ${a11yBtn(trf('A11Y_DELETE', group.name))} onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" aria-hidden="true"><use href=#svg-trash></use></svg></div></div>`;
+                divCfg += `<div class="somfyGroup group-draggable cfg-row" data-roomid="${group.roomId}" data-groupid="${group.groupId}" data-remoteaddress="${group.remoteAddress}">${this.cfgHandle(groups.length > 1)}${this.groupPile(group.linkedShades)}<div class="group-name"><div class="name-text">${esc(group.name)}</div><span class="cfg-sub">${room.roomId ? esc(room.name) + ' · ' : ''}${esc(this.groupComposition(group.linkedShades))}</span></div><div class="idRemoteAddress"><span class="AddrId-label">${tr("LIST_ADDR")}</span><span class="group-address">${group.remoteAddress}</span></div><span class="vr"></span><div class="divEditDelete-svg" ${a11yBtn(trf('A11Y_EDIT', group.name))} onclick="somfy.openEditGroup(${group.groupId});"><svg class="icon-svg"><use href=#svg-edit></use></svg></div><div class="divEditDelete-svg is-delete" ${a11yBtn(trf('A11Y_DELETE', group.name))} onclick="somfy.deleteGroup(${group.groupId});"><svg class="icon-svg" aria-hidden="true"><use href=#svg-trash></use></svg></div></div>`;
                 const members = typeof group.linkedShades !== 'undefined' ? group.linkedShades.length : 0;
+                const off = members === 0 ? ' is-disabled" aria-disabled="true' : '';
                 divCtl += `<div class="somfyGroupCtl gtile" style="${roomId === 0 || roomId === room.roomId ? '' : 'display:none'}" data-groupId="${group.groupId}" data-roomid="${group.roomId}" data-remoteaddress="${group.remoteAddress}">
                 <div class="gtile-text">
                 <span class="gtile-name groupctl-name">${esc(group.name)}</span>
-                <span class="small muted">${room.roomId ? esc(room.name) + ' · ' : ''}${trf(members === 1 ? 'GROUP_MEMBERS_1' : 'GROUP_MEMBERS_N', members)}</span>
+                <span class="small muted">${room.roomId ? esc(room.name) + ' · ' : ''}${esc(this.groupComposition(group.linkedShades))}</span>
                 </div>
                 <div class="gtile-buttons groupctl-buttons">
                 <div class="button-sunflag cmd-button tool-chip" role="button" tabindex="0" title="${esc(tr('HOME_SUN_AUTO'))}" aria-label="${esc(tr('HOME_SUN_AUTO'))}, ${esc(group.name)}" aria-pressed="${(group.flags & 0x01) ? 'true' : 'false'}" data-cmd="sunflag" data-groupid="${group.groupId}" data-on="${(group.flags & 0x01) ? 'true' : 'false'}" style="${!group.sunSensor ? 'display:none' : ''}"><svg aria-hidden="true"><use href="#indic-sun"></use></svg><span>${tr('HOME_SUN_AUTO')}</span></div>
-                <div class="btn btn-icon cmd-button" ${a11yBtn(trf('A11Y_CMD_UP', group.name))} data-cmd="up" data-groupid="${group.groupId}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></div>
-                <div class="btn cmd-button" role="button" tabindex="0" data-cmd="my" data-groupid="${group.groupId}">My<span class="sr-only">${esc(trf('A11Y_CMD_MY', group.name))}</span></div>
-                <div class="btn btn-icon cmd-button" ${a11yBtn(trf('A11Y_CMD_DOWN', group.name))} data-cmd="down" data-groupid="${group.groupId}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
+                <div class="btn btn-icon cmd-button${off}" ${a11yBtn(trf('A11Y_CMD_UP', group.name))} data-cmd="up" data-groupid="${group.groupId}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></div>
+                <div class="btn cmd-button${off}" role="button" tabindex="0" data-cmd="my" data-groupid="${group.groupId}">My<span class="sr-only">${esc(trf('A11Y_CMD_MY', group.name))}</span></div>
+                <div class="btn btn-icon cmd-button${off}" ${a11yBtn(trf('A11Y_CMD_DOWN', group.name))} data-cmd="down" data-groupid="${group.groupId}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
                 </div>
                 </div>`;
 
@@ -1355,6 +1490,8 @@ class Somfy {
                 }
             }, true);
         }
+        this.showDragHelp(get('divGroupList'));
+        setTimeout(() => this.restoreReorderFocus(), 0);
         this.setListDraggable(get('divGroupList'), '.group-draggable', (list) => {
             let items = list.querySelectorAll('.group-draggable');
             let order = [];
@@ -1391,6 +1528,7 @@ class Somfy {
             name: d.querySelector('.tile-name')?.textContent || '',
             status: d.querySelector('.val-pos')?.textContent || '',
             moving: num('data-direction', 0) !== 0 || num('data-tiltdirection', 0) !== 0,
+            stopOnly: d.dataset.stoponly === 'true',
             tilt: tilt,
             tiltTarget: shadeOpenness(num('data-tilttarget', tiltRaw), flip),
             myTilt: myTilt >= 0 ? shadeOpenness(myTilt, flip) : -1
@@ -1425,7 +1563,7 @@ class Somfy {
         <div class="pos-head-text"><h2 class="pos-title">${esc(s.name)}</h2><span class="pos-state" aria-live="polite"></span></div>
         <button type="button" class="pos-close" aria-label="${esc(tr('BT_CLOSE'))}"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
-        <div class="pos-tabs" role="group">
+        <div class="pos-tabs" role="group"${s.stopOnly ? ' hidden' : ''}>
         <button type="button" class="pos-tab" data-tab="move">${esc(tr('POSP_GO_TO'))}</button>
         <button type="button" class="pos-tab" data-tab="my"><svg aria-hidden="true"><use href="#svg-favori"></use></svg>${esc(tr('POSP_MY_TAB'))}</button>
         </div>
@@ -1443,10 +1581,10 @@ class Somfy {
         <div class="pos-chips"></div>
         <p class="pos-note"></p>
         <div class="pos-steps" role="group" aria-label="${esc(tr('POSP_STEPS'))}">
+        <button type="button" class="pos-step" data-step="-10">−10</button>
         <button type="button" class="pos-step" data-step="-5">−5</button>
-        <button type="button" class="pos-step" data-step="-1">−1</button>
-        <button type="button" class="pos-step" data-step="1">+1</button>
         <button type="button" class="pos-step" data-step="5">+5</button>
+        <button type="button" class="pos-step" data-step="10">+10</button>
         </div>
         </div>
         </div>
@@ -1487,16 +1625,30 @@ class Somfy {
         // The apron is tall enough for an absolute mapping: where the finger is, the
         // bottom of the apron goes. The order leaves on release only.
         const fromY = (e) => { const r = apron.getBoundingClientRect(); return 100 - Math.max(0, Math.min(100, (e.clientY - r.top) / r.height * 100)); };
+        // On a touch screen a swipe over the drawing must scroll the sheet: a finger
+        // drags from the grip only, and a tap elsewhere places the shade there. The
+        // mouse can drag from anywhere, it never scrolls by dragging.
+        let tap = null;
         apron.addEventListener('pointerdown', (e) => {
             if (e.button > 0) return;
+            if (e.pointerType !== 'mouse' && !e.target.closest('.pos-grip')) { tap = { x: e.clientX, y: e.clientY }; return; }
             p.dragging = true;
             try { apron.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
             this.setPosSel(fromY(e));
         });
         apron.addEventListener('pointermove', (e) => { if (p.dragging) this.setPosSel(fromY(e)); });
-        apron.addEventListener('pointerup', () => { if (!p.dragging) return; p.dragging = false; if (p.tab === 'move') this.setPosSel(p.sel, 'now'); });
+        apron.addEventListener('pointerup', (e) => {
+            if (tap) {
+                const still = Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 8;
+                tap = null;
+                if (still) this.setPosSel(fromY(e), p.tab === 'move' ? 'now' : undefined);
+                return;
+            }
+            if (!p.dragging) return; p.dragging = false; if (p.tab === 'move') this.setPosSel(p.sel, 'now');
+        });
         // A cancelled drag sends nothing: put the selection back on the shade.
         apron.addEventListener('pointercancel', () => {
+            tap = null;
             p.dragging = false;
             const cur = this.posShade(shadeId);
             if (cur && p.tab === 'move') this.setPosSel(cur.moving ? cur.target : cur.cur);
@@ -1599,6 +1751,7 @@ class Somfy {
         let html = presets.map(v => chip(v === 0 ? esc(ends[0]) : v === 100 ? esc(ends[1]) : String(v), v)).join('');
         const star = '<svg aria-hidden="true"><use href="#svg-favori"></use></svg>';
         if (tab === 'my') html += chip(esc(tr('POSP_CURRENT')), here, trf('POSP_CURRENT_A11Y', here));
+        else if (s.stopOnly) { /* no favorite on this device */ }
         else if (s.my >= 0) html += chip(`${star}${s.my}`, s.my, trf('POSP_GO_MY', s.my));
         else html += `<button type="button" class="pos-chip" disabled aria-label="${esc(tr('POSP_NO_MY'))}">${star}—</button>`;
         p.el.querySelector('.pos-chips').innerHTML = html;
@@ -1648,7 +1801,7 @@ class Somfy {
         if (sh) sh.style.height = (100 - v) + '%';
         q('.pos-apron').style.setProperty('--c', s.tiltOnly ? 100 : 100 - v);
         // Kept whole inside the apron at both ends (the handle is 22 px tall).
-        q('.pos-grip').style.top = `clamp(11px, ${100 - v}%, calc(100% - 11px))`;
+        q('.pos-grip').style.top = `clamp(22px, ${100 - v}%, calc(100% - 22px))`;
         const apron = q('.pos-apron');
         apron.setAttribute('aria-valuenow', v);
         apron.setAttribute('aria-valuetext', trf(s.tiltOnly ? 'POSP_TILT_VALUETEXT' : 'POSP_VALUETEXT', v));
@@ -1752,6 +1905,8 @@ class Somfy {
             container.style.display = 'block';
         }
         const hasShades = shades.length > 0;
+        const hint = get('grpEmptyHint');
+        if (hint) hint.hidden = hasShades;
         if (btnContainer) {
             if (!hasShades) {
                 btnContainer.classList.add('disabled');
@@ -1839,8 +1994,10 @@ class Somfy {
         qs('spanFrameCount').innerHTML = parseInt(qs('spanFrameCount').innerHTML || 0, 10) + 1;
         rfdiag.onRemoteFrame(frame);
 
+        // The first frame heard may be a neighbour's: show what was heard and let the
+        // user link it or keep listening.
         const lnk = qs('divLinking') || qs('divLinkRepeater');
-        if (lnk) {
+        if (lnk && !lnk.dataset.pending) {
             const isRepeater = lnk.id === 'divLinkRepeater';
             const url = isRepeater ? '/linkRepeater' : '/linkRemote';
             const obj = isRepeater ? {address: frame.address} : {
@@ -1848,14 +2005,23 @@ class Somfy {
                 remoteAddress: frame.address,
                 rollingCode: frame.rcode
             };
-
-            const overlay = ui.waitMessage(lnk);
-            putJSON(url, obj, (err, data) => {
-                overlay.remove();
-                lnk.remove();
-                if (err) ui.serviceError(err);
-                else isRepeater ? this.setRepeaterList(data) : this.setLinkedRemotesList(data);
-            });
+            lnk.dataset.pending = '1';
+            const known = rfdiag.deviceNames(frame.address);
+            const box = document.createElement('div');
+            box.className = 'detect-box';
+            box.innerHTML = `<p><b>${esc(trf('LINK_DETECTED', frame.address))}</b>${known.length ? `<br>${esc(trf('LINK_DETECTED_KNOWN', known.join(', ')))}` : ''}</p><div class="button-container-row"><button type="button" line class="btn-ignore">${esc(tr('BT_IGNORE'))}</button><button type="button" class="btn-link">${esc(tr(isRepeater ? 'BT_REPEAT_THIS' : 'BT_LINK_THIS'))}</button></div>`;
+            (lnk.querySelector('.overlay-scroll-content') || lnk).appendChild(box);
+            box.querySelector('.btn-link').focus();
+            box.querySelector('.btn-ignore').onclick = () => { box.remove(); delete lnk.dataset.pending; };
+            box.querySelector('.btn-link').onclick = () => {
+                const overlay = ui.waitMessage(lnk);
+                putJSON(url, obj, (err, data) => {
+                    overlay.remove();
+                    lnk.remove();
+                    if (err) ui.serviceError(err);
+                    else isRepeater ? this.setRepeaterList(data) : this.setLinkedRemotesList(data);
+                });
+            };
         }
         const dt = new Date();
         const timeStr = `${dt.getHours().fmt('00')}:${dt.getMinutes().fmt('00')}:${dt.getSeconds().fmt('00')}.${dt.getMilliseconds().fmt('000')}`;
@@ -1952,7 +2118,8 @@ class Somfy {
             disp('divLiftSettings', showLiftSettings);
             // The slat lift time only applies to shades without tilt; the firmware
             // ignores it for the other types through effectiveLiftTime.
-            disp('divLiftTime', curTilt === 0);
+            disp('divLiftTime', curTilt === 0 && !this.isPulseType(type));
+            disp('divSimMy', !this.isPulseType(type));
             disp('divSunSensor', st.sun);
             disp('divLightSwitch', st.light);
             disp('divFlipPosition', st.fpos);
@@ -2096,6 +2263,7 @@ class Somfy {
                     tiltTime: 7000, tiltType: 0, flipCommands: 0, flipPosition: 0, paired: 0, sunSensor: 0, simMy: 0, repeats: DEFAULT_REPEATS
                 });
             }
+            this.editRadio = isNew ? null : { addr: shade.remoteAddress, bits: shade.bitLength, proto: shade.proto, paired: !!shade.paired };
             if (!isNew) {
                 s('labelPosContainer', 'block');
                 s('blocPairDevice', 'flex');
@@ -2124,7 +2292,8 @@ class Somfy {
             if (g('shEditTitle')) g('shEditTitle').textContent = isNew ? tr('SH_NEW') : shade.name;
             // A new device has no remote to link yet: its tab would be empty.
             if (g('shtabRemotes')) g('shtabRemotes').hidden = isNew;
-            this.shSelectTab('General');
+            this.shSelectTab(this.openTab || 'General');
+            this.openTab = null;
             if (g('selShadeBitLength')) g('somfyShade').setAttribute('data-bitlength', g('selShadeBitLength').value);
             this.onShadeTypeChanged(g('selShadeType'));
             this.showEditShade(true);
@@ -2164,9 +2333,10 @@ class Somfy {
 
             if (isNew) {
                 Object.assign(group, {
-                    name: '', flipCommands: false, shades: []
+                    name: '', flipCommands: false, shades: [], repeats: DEFAULT_REPEATS
                 });
             }
+            this.editRadio = isNew ? null : { addr: group.remoteAddress, bits: group.bitLength, proto: group.proto, members: (group.linkedShades || []).length };
             if (!isNew) {
                 s(btnLink, 'inline-block');
                 s(blocPairParent, 'flex');
@@ -2289,6 +2459,23 @@ class Somfy {
             }
         }
     }
+    // A paired motor only knows the identity it was paired with (address, frame length,
+    // protocol): changing it leaves the motor deaf to this device and the old identity
+    // stuck in its memory. Said once, before saving; confirming saves anyway.
+    radioChanged(obj) {
+        const was = this.editRadio;
+        const n = (v) => parseInt(v, 10);
+        return !this.radioConfirmed && (n(obj.remoteAddress) !== n(was.addr)
+            || (obj.bitLength !== undefined && n(obj.bitLength) !== n(was.bits))
+            || (obj.proto !== undefined && n(obj.proto) !== n(was.proto)));
+    }
+    confirmRadioChange(name, key, save) {
+        const p = ui.promptMessage(esc(trf('PROMPT_RADIO_ID_TITLE', name)), { yes: 'BT_CHANGE_ANYWAY', danger: true }, () => {
+            this.radioConfirmed = true;
+            try { save(); } finally { this.radioConfirmed = false; }
+        });
+        p.querySelector('.sub-message').innerHTML = `<p>${esc(tr(key))}</p>`;
+    }
     saveShade() {
         const g = get,
         sId = parseInt(g('spanShadeId').innerText, 10),
@@ -2323,6 +2510,9 @@ class Somfy {
         }
         const isNew = isNaN(sId) || sId >= 255;
         if (!isNew) obj.shadeId = sId;
+        if (!isNew && this.editRadio && this.editRadio.paired && this.radioChanged(obj)) {
+            return this.confirmRadioChange(obj.name, 'PROMPT_RADIO_ID_SHADE', () => this.saveShade());
+        }
 
         putJSONBusy(isNew ? '/addShade' : '/saveShade', obj, (err, shade) => {
             if (err) return ui.serviceError(err);
@@ -2350,6 +2540,9 @@ class Somfy {
         const error = checks.find(c => c[0]);
         if (error) return ui.fieldError(g(error[2]), tr(error[1]));
         if (!isNew) obj.groupId = groupId;
+        if (!isNew && this.editRadio && this.editRadio.members > 0 && this.radioChanged(obj)) {
+            return this.confirmRadioChange(obj.name, 'PROMPT_RADIO_ID_GROUP', () => this.saveGroup());
+        }
 
         putJSONBusy(isNew ? '/addGroup' : '/saveGroup', obj, (err, group) => {
             if (err) return ui.serviceError(err);
@@ -2431,20 +2624,35 @@ class Somfy {
         }
         if (valid) {
             getJSONBusy(`/shade?shadeId=${shadeId}`, (err, shade) => {
-                if (err) ui.serviceError(err);
-                else if (shade.inGroup) ui.errorMessage(tr('ERR_DEVICE_IN_GROUP'));
-                else {
-                    let prompt = ui.promptMessage(tr('PROMPT_DELETE_SHADE'), { yes: 'BT_DELETE', danger: true }, () => {
-                        ui.clearErrors();
-                        putJSONBusy('/deleteShade', { shadeId: shadeId }, (err, shade) => {
-                            if (err) ui.serviceError(err);
-                            else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
-                            this.updateShadeList();
-                            prompt.remove();
-                        });
+                if (err) return ui.serviceError(err);
+                const del = () => {
+                    ui.clearErrors();
+                    putJSONBusy('/deleteShade', { shadeId: shadeId }, (err) => {
+                        if (err) ui.serviceError(err);
+                        else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
+                        this.updateShadeList();
                     });
-                    prompt.querySelector('.sub-message').innerHTML = `<p>${tr("PROMPT_DELETE_SHADE_WARNING")}</p><p>${tr("PROMPT_DELETE_SHADE_CONFIRM").replace("{SHADE_NAME}", esc(shade.name))}</p>`;
+                };
+                if (shade.inGroup) {
+                    // Name the groups and lead to them: each removal goes through the motor.
+                    const groups = (this.groups || []).filter(gr => (gr.linkedShades || []).some(x => x.shadeId === shadeId));
+                    const p = ui.promptMessage(esc(trf('ERR_DEVICE_IN_GROUP_NAMED', shade.name, groups.map(gr => gr.name).join(', '))), { yes: 'BT_OPEN_GROUP' }, () => {
+                        if (groups.length) navGo('divSomfyGroups', { after: () => this.openEditGroup(groups[0].groupId) });
+                    });
+                    p.querySelector('.sub-message').innerHTML = `<p>${esc(tr('ERR_DEVICE_IN_GROUP_HOW'))}</p>`;
+                    return;
                 }
+                if (shade.paired) {
+                    // Still paired: deleted as is, its address stays in the motor for good.
+                    const p = ui.promptMessage(esc(trf('PROMPT_DELETE_PAIRED', shade.name)), { yes: 'BT_UNPAIR_FIRST' }, () => {
+                        this.openTab = 'Advanced';
+                        this.openEditShade(shadeId);
+                    });
+                    p.querySelector('.sub-message').innerHTML = `<p>${esc(tr('PROMPT_DELETE_PAIRED_DESC'))}</p><p><button type="button" class="link-danger">${esc(tr('BT_DELETE_ANYWAY'))}</button></p>`;
+                    p.querySelector('.link-danger').onclick = del;
+                    return;
+                }
+                ui.promptMessage(esc(trf('PROMPT_DELETE_NAMED', shade.name)), { yes: 'BT_DELETE', danger: true }, del);
             });
         }
     }
@@ -2459,18 +2667,17 @@ class Somfy {
                 if (err) ui.serviceError(err);
                 else {
                     if (group.linkedShades.length > 0) {
-                        ui.errorMessage(tr('ERR_GROUP_NOT_EMPTY'));
+                        const p = ui.promptMessage(esc(trf('ERR_GROUP_NOT_EMPTY_NAMED', group.name, group.linkedShades.length)), { yes: 'BT_OPEN_GROUP' }, () => this.openEditGroup(groupId));
+                        p.querySelector('.sub-message').innerHTML = `<p>${esc(tr('ERR_DEVICE_IN_GROUP_HOW'))}</p>`;
                     }
                     else {
-                        let prompt = ui.promptMessage(tr('PROMPT_DELETE_GROUP'), { yes: 'BT_DELETE', danger: true }, () => {
-                            putJSONBusy('/deleteGroup', { groupId: groupId }, (err, g) => {
+                        ui.promptMessage(esc(trf('PROMPT_DELETE_GROUP_NAMED', group.name)), { yes: 'BT_DELETE', danger: true }, () => {
+                            putJSONBusy('/deleteGroup', { groupId: groupId }, (err) => {
                                 if (err) ui.serviceError(err);
                                 else ui.successMessage(tr('MSG_DELETE_SUCCESS'));
                                 this.updateGroupList();
-                                prompt.remove();
                             });
                         });
-                        prompt.querySelector('.sub-message').innerHTML = `<p>${tr("PROMPT_DELETE_GROUP_CONFIRM").replace("{GROUP_NAME}", esc(group.name))}</p>`;
                     }
                 }
             });
@@ -2607,11 +2814,10 @@ class Somfy {
         ${it('a', 2, 1)} ${it('b', 2, 2)} ${!isG ? it('c', 2, 3) : ''}
         </div>
         ${!isG ? inf(2, 4) : ''}
-        <div class="button-container-col wizard-step marginB" data-expert data-stepid="3">
+        <div class="button-container-col wizard-step marginB wiz-expert-only" data-expert data-stepid="3">
         <button id="btnWizMarkSuc" type="button" class="btn-success" onclick="${sucAction}">${tr(isUnpair ? "BT_UNPAIRING_SUCCESS" : "BT_PAIRING_SUCCESS")}</button>
         </div>
         <div class="uniblocStep wizard-step" data-stepid="3">${it('a', 3, 1)}</div>
-        <div class="empty-state wizard-step" data-stepid="3"><svg class="empty-icon"><use href=#svg-succes></use></svg></div>
         </div>
         </div>
         <div class="hrDivFooter"></div>
@@ -2620,9 +2826,10 @@ class Somfy {
         </div>
         <div class="button-container-overlay">
         <button id="${stopId}" class="wizard-step" data-stepid="1" line type="button">${tr("BT_CLOSE")}</button>
-        <button id="btnWizPrev" class="wizard-step" data-mstepid="2,3" line type="button" onclick="ui.wizSetPrevStep(this.closest('.wizard'));">${tr("BT_GO_BACK")}</button>
+        <button id="btnWizPrev" class="wizard-step" data-mstepid="2" line type="button" onclick="ui.wizSetPrevStep(this.closest('.wizard'));">${tr("BT_GO_BACK")}</button>
         <button id="btnWizNext" class="wizard-step" data-mstepid="1,2" type="button" onclick="ui.wizSetNextStep(this.closest('.wizard'));">${tr("BT_NEXT")}</button>
-        <button id="btnWizEnd" class="wizard-step" data-stepid="3" type="button">${tr(isG ? "BT_CLOSE" : "BT_CANCEL_1")}</button>
+        <button id="btnWizRetry" class="wizard-step" data-stepid="3" line type="button" onclick="ui.wizSetPrevStep(this.closest('.wizard'));">${tr("BT_DID_NOT_MOVE")}</button>
+        <button id="btnWizEnd" class="wizard-step" data-stepid="3" type="button" onclick="${sucAction}">${tr(isUnpair ? "BT_MOVED_UNPAIRED" : "BT_MOVED_PAIRED")}</button>
         </div>
         </div>`;
 
@@ -2640,9 +2847,13 @@ class Somfy {
             btnProg.addEventListener('touchstart', (e) => { e.preventDefault(); onP(); }, true);
             bindHoldKeys(btnProg, onP);
         }
-        div.querySelectorAll(`#${stopId}, #btnWizEnd`).forEach(btn => {
-            btn.onclick = () => closeOverlay(div, clearT);
-        });
+        div.querySelector(`#${stopId}`).onclick = () => closeOverlay(div, clearT);
+        // Next stays off at step 2 until Prog has been sent at least once.
+        let progSent = false;
+        btnProg?.addEventListener('mousedown', () => { progSent = true; div.querySelector('#btnWizNext').disabled = false; }, true);
+        btnProg?.addEventListener('touchstart', () => { progSent = true; div.querySelector('#btnWizNext').disabled = false; }, true);
+        btnProg?.addEventListener('keydown', () => { progSent = true; div.querySelector('#btnWizNext').disabled = false; }, true);
+        div.addEventListener('stepchanged', (e) => { div.querySelector('#btnWizNext').disabled = e.detail.newStep === 2 && !progSent; });
 
         ui.wizSetStep(div, 1);
         shOverlay(div, clearT);
@@ -2889,13 +3100,14 @@ class Somfy {
         <div class="blocGroupsteps">
         ${inf(1, 1)}
         <div class="uniblocStep wizard-step" data-stepid="1">
-        ${it('a', 1, 2)} ${it('c', 1, 3)}
+        ${it('a', 1, 2)} ${it('b', 1, 3)}
         </div>
         ${!isUnlink ? `
         <div class="unibloc LinkGroupSelect wizard-step" data-expert data-stepid="2">
         <label class="label" for="selAvailShades">${tr("LINK_GROUP_SELECT_SHADE")}</label>
         <select id="selAvailShades" class="inputAndSelect" data-bind="shadeId" onchange="document.querySelectorAll('.divWizShadeName').forEach(el => el.textContent = this.options[this.selectedIndex].text);"></select>
         </div>
+        <div class="warning grp-mix-warn wizard-step" data-expert data-stepid="2" hidden><svg><use href=#svg-warning></use></svg><div><b>${tr('MSG_ALERT')}</b><span></span></div></div>
         <div class="uniblocStep wizard-step" data-stepid="2">
         ${it('a', 2, 1)} ${it('b', 2, 2)}
         </div>
@@ -3034,6 +3246,20 @@ class Somfy {
                     let selAvail = div.querySelector('#selAvailShades');
                     data.availShades.forEach(s => selAvail.options.add(new Option(s.name, s.shadeId)));
                     div.querySelectorAll('.divWizShadeName').forEach(el => el.textContent = data.availShades[0].name);
+                    // One radio order moves every member: say so before a gate or a garage
+                    // door joins window coverings, or the other way round.
+                    const moving = (t) => ['gate', 'garage'].includes(this.typeFamily(t));
+                    const warnMix = () => {
+                        const pick = data.availShades.find(x => x.shadeId === parseInt(selAvail.value, 10));
+                        const members = (data.linkedShades || []).concat(pick ? [pick] : []);
+                        const risky = members.filter(x => moving(x.shadeType));
+                        const show = !!pick && risky.length > 0 && members.some(x => !moving(x.shadeType));
+                        const box = div.querySelector('.grp-mix-warn');
+                        box.querySelector('span').textContent = show ? trf('GRP_WARN_MIX', risky.map(x => x.name).join(', ')) : '';
+                        box.hidden = !show;
+                    };
+                    selAvail.addEventListener('change', warnMix);
+                    warnMix();
                     canShow = true;
                 } else {
                     ui.errorMessage(tr('ERR_NO_DEVICE_AVAILABLE_GROUP'));
@@ -3071,12 +3297,21 @@ class Somfy {
                 this.setLinkedRemotesList(shade);
             });
         });
+        prompt.querySelector('.sub-message').innerHTML = `<p>${esc(tr('PROMPT_UNLINK_REMOTE_DESC'))}</p>`;
     }
     deviationChanged(el) {
         get('spanDeviation').innerText = (el.value / 100).fmt('#,##0.00');
     }
     rxBandwidthChanged(el) {
         get('spanRxBandwidth').innerText = (el.value / 100).fmt('#,##0.00');
+    }
+    // Back to the RTS frequency in one gesture, as the help advises when in doubt.
+    radioDefaultFreq() {
+        const s = get('slidFrequency');
+        if (!s) return;
+        s.value = 433420;
+        s.dispatchEvent(new Event('input', { bubbles: true }));
+        s.dispatchEvent(new Event('change', { bubbles: true }));
     }
     frequencyChanged(el) {
         get('spanFrequency').innerText = (el.value / 1000).fmt('#,##0.000');

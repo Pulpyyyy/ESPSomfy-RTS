@@ -420,6 +420,7 @@ function navConnRender() {
         txt = `${tr('NAV_CONNECTED')} · ${kind}${rssi}`;
     }
     document.querySelectorAll('.conn-text').forEach(e => { e.textContent = txt; });
+    document.querySelectorAll('.conn-mtext').forEach(e => { e.textContent = txt; e.classList.toggle('sr-only', on); });
     document.querySelectorAll('.conn-status .dot, .conn-dot').forEach(d => d.classList.toggle('off', !on));
 }
 // --- Unsaved-changes navigation guard --------------------------------------
@@ -642,9 +643,9 @@ function stepDeviceGpio(pinKey, direction, prefix, boardSelectId, isManualCallba
     return newValue;
 }
 function overlayHeader(title, desc, icon = 'svg-simpleShutter', showExpert = false) {
-    const expertSwitch = showExpert ? `<div class="expert-mode-container"><span class="expert-label">${tr("BT_EXPERT_MODE")}</span><span class="switch expert-switch"><input id="cbExpertMode" type="checkbox" ${ui.isExpertMode ? 'checked' : ''} onchange="ui.toggleExpertMode(this.closest('.inst-overlay'));" onclick="event.stopPropagation();"><div></div></span></div>` : '';
+    const expertSwitch = showExpert ? `<label class="expert-mode-container"><span class="expert-label">${tr("BT_EXPERT_MODE")}</span><span class="switch expert-switch"><input id="cbExpertMode" type="checkbox" ${ui.isExpertMode ? 'checked' : ''} onchange="ui.toggleExpertMode(this.closest('.inst-overlay'));" onclick="event.stopPropagation();"><div></div></span></label>` : '';
 
-    return `<div class="overlay-header">${expertSwitch}<div close ${a11yBtn(tr('A11Y_CLOSE'))} onclick="closeOverlay(this.closest('.inst-overlay'))"><svg class="closeShow-desktop"><use href=#svg-close></use></svg></div></div><div class="instructions-header"><div><h2>${tr(title)}</h2><p>${tr(desc)}</p></div><svg class="instructions-headerLogo"><use href=#${icon}></use></svg></div>`;
+    return `<div class="overlay-header">${expertSwitch}<div close ${a11yBtn(tr('A11Y_CLOSE'))} onclick="closeOverlay(this.closest('.inst-overlay'))"><svg class="closeShow-desktop"><use href=#svg-close></use></svg></div></div><div class="instructions-header"><div><h2 tabindex="-1" data-autofocus>${tr(title)}</h2><p>${tr(desc)}</p></div><svg class="instructions-headerLogo"><use href=#${icon}></use></svg></div>`;
 }
 function wizardStepper(stepsData, translationPrefix) {
     let stepsHtml = '';
@@ -737,7 +738,7 @@ function calWizButtons(list) {
     const c = get('calWizBtns'); if (!c) return; c.innerHTML = '';
     (list || []).forEach(function (b) {
         const d = document.createElement('div'); d.className = 'divButton';
-        const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'buttonUpdate';
+        const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'buttonUpdate' + (b.line ? ' is-secondary' : '');
         btn.innerHTML = '<div class="devButtonUpdate"><div>' + b.l + '</div></div>';
         btn.onclick = b.f; d.appendChild(btn); c.appendChild(d);
     });
@@ -924,7 +925,7 @@ function calWizCopyWarn(srcDown, tgtDown) {
     if (!srcDown || !tgtDown) return '';
     const pct = Math.round((tgtDown - srcDown) * 100 / srcDown);
     if (Math.abs(pct) <= 15) return '';
-    return ' <span style="opacity:.8">⚠ descente ' + (pct > 0 ? '+' : '') + pct + ' %</span>';
+    return ' <span style="opacity:.8">⚠ ' + esc(trf('CAL_COPY_WARN', (pct > 0 ? '+' : '') + pct)) + '</span>';
 }
 // Checklist of every other shade; the selected ones receive `vals`. Saves them one
 // at a time (the ESP web server is synchronous and each save() rewrites shades.cfg,
@@ -982,11 +983,19 @@ function calWizRecopy(sId) {
     calWizButtons([]);
     getJSON('/shades', function (err, shades) {
         if (err || !Array.isArray(shades)) { ui.serviceError(err || {}); return; }
-        const list = shades.filter(function (s) { return s.shadeId < 255; });
+        // Only window coverings carry a travel worth copying, and only to their own kind.
+        const list = shades.filter(function (s) { return s.shadeId < 255 && somfy.isCoveringType(s.shadeType); });
+        const fam = function (s) { return somfy.typeFamily(s.shadeType); };
+        const secs = function (ms) { return numLoc((ms || 0) / 1000, 1) + ' s'; };
+        // Opening the copy from a shade usually means filling that shade: default to
+        // another calibrated one of the same kind as the source, and tick the edited one.
+        const self = list.find(function (s) { return s.shadeId === sId; });
+        const other = self && list.find(function (s) { return s.shadeId !== sId && fam(s) === fam(self); });
+        let firstRender = true;
         if (list.length < 2) { calWizText(tr('CAL_RECOPY_NEED_TWO'), ''); calWizButtons([{ l: tr('BT_CLOSE'), f: function () { closeOverlay(document.getElementById('divCalWizard')); calWizStop(); } }]); return; }
         const srcOf = function () {
             const sel = document.getElementById('calSrcSel');
-            return sel ? parseInt(sel.value, 10) : sId;
+            return sel ? parseInt(sel.value, 10) : (other ? other.shadeId : sId);
         };
         // Re-render source + targets; called on load and whenever the source changes
         // (so the chosen source is excluded from the target list).
@@ -998,17 +1007,22 @@ function calWizRecopy(sId) {
                 + list.map(function (s) {
                     return '<option value="' + s.shadeId + '"' + (s.shadeId === srcId ? ' selected' : '') + '>'
                         + esc(s.name || ('#' + s.shadeId))
-                        + '  (↑' + s.upTime + ' ↓' + s.downTime + ' lift' + s.liftTime + ' k' + (s.curveGain || 0) + ')</option>';
+                        + '  (' + esc(trf('CAL_COPY_VALUES', secs(s.upTime), secs(s.downTime))) + ')</option>';
                 }).join('')
                 + '</select>'
                 + '<label class="calRow calRow-all"><input type="checkbox" id="calCopyAll"><span class="custom-checkbox"></span><span>' + tr('CAL_TO_CHECK_ALL') + '</span></label>'
                 + '<div class="calList">';
             const src = list.find(function (s) { return s.shadeId === srcId; });
-            list.filter(function (s) { return s.shadeId !== srcId; }).forEach(function (s) {
+            list.filter(function (s) { return s.shadeId !== srcId && (!src || fam(s) === fam(src)); }).forEach(function (s) {
                 html += '<label class="calRow"><input type="checkbox" class="calCopyChk" value="' + s.shadeId + '"><span class="custom-checkbox"></span><span>' + esc(s.name || ('#' + s.shadeId)) + calWizCopyWarn(src && src.downTime, s.downTime) + '</span></label>';
             });
-            html += '</div></div>';
+            html += '</div><p class="field-help">' + esc(tr('CAL_COPY_WARN_LEGEND')) + '</p></div>';
             if (get('calWizResult')) get('calWizResult').innerHTML = html;
+            if (firstRender) {
+                firstRender = false;
+                const own = document.querySelector('.calCopyChk[value="' + sId + '"]');
+                if (own) own.checked = true;
+            }
             const sel = document.getElementById('calSrcSel');
             if (sel) sel.onchange = render;
             const chkAll = document.getElementById('calCopyAll');
@@ -1045,7 +1059,7 @@ function calWizRecopy(sId) {
                 };
                 step();
             } },
-            { l: tr('BT_CANCEL_1'), f: close }
+            { l: tr('BT_CANCEL_1'), f: close, line: true }
         ]);
     });
 }

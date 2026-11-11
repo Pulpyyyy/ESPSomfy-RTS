@@ -254,7 +254,7 @@ class RfDiag {
                 const margin = level - noiseRef;
                 const reco = this.recoRepeats(margin);
                 const cur = typeof shade.repeats === 'number' ? shade.repeats : DEFAULT_REPEATS;
-                status = trf('RFDIAG_RECO_MARGIN', margin.toFixed(1));
+                status = trf('RFDIAG_RECO_MARGIN', numLoc(margin, 1));
                 status += best.guided ? ' \u{1F4CD}' : ` · ${tr('RFDIAG_RECO_PASSIVE')}`;
                 if (margin < 8) status += ` · ${tr('RFDIAG_RECO_ADVICE')}`;
                 const badge = document.createElement('span');
@@ -319,10 +319,10 @@ class RfDiag {
         // Under an hour of data a frames/day extrapolation would be noise: show --.
         const perDay = e.seconds >= 3600 ? Math.round(e.frames * 86400 / e.seconds) : null;
         return trf('RFDIAG_EPOCH_LINE',
-            e.frequency.toFixed(3),
+            numLoc(e.frequency, 3),
             perDay !== null ? perDay : '--',
             e.floor || '--',
-            e.noiseAvg ? e.noiseAvg.toFixed(1) : '--',
+            e.noiseAvg ? numLoc(e.noiseAvg, 1) : '--',
             e.start ? this.lastSeenText(e.start) : tr('RFDIAG_EPOCH_THISBOOT'));
     }
     setEpochs(stats) {
@@ -340,13 +340,13 @@ class RfDiag {
         else prevDiv.style.display = 'none';
     }
     setStats(stats) {
-        get('spanRfDiagFreq').textContent = typeof stats.frequency === 'number' ? `${stats.frequency.toFixed(3)} MHz` : '--';
+        get('spanRfDiagFreq').textContent = typeof stats.frequency === 'number' ? `${numLoc(stats.frequency, 3)} MHz` : '--';
         get('spanRfDiagRemotes').textContent = stats.remotes || 0;
         get('spanRfDiagFrames').textContent = stats.frames || 0;
         const noise = get('spanRfDiagNoise');
         if (stats.noiseSamples > 0) {
-            noise.textContent = `${stats.noise.toFixed(1)} dBm`;
-            noise.title = trf('RFDIAG_NOISE_BASELINE', stats.noiseBaseline.toFixed(1));
+            noise.textContent = `${numLoc(stats.noise, 1)} dBm`;
+            noise.title = trf('RFDIAG_NOISE_BASELINE', numLoc(stats.noiseBaseline, 1));
             // A floor sitting well above its long-term baseline means something is jamming.
             noise.classList.toggle('rfdiag-alert', stats.noiseSamples > 360 && stats.noise - stats.noiseBaseline >= 6);
         }
@@ -379,8 +379,8 @@ class RfDiag {
             const names = this.deviceNames(e.address);
             const name = names.length ? names.join(', ') : tr('RFDIAG_UNKNOWN_REMOTE');
             const detail = e.guided
-                ? `${tr('RFDIAG_GUIDED_MEASURED')} - ${trf('RFDIAG_RSSI_DETAIL', e.avg.toFixed(1), e.min, e.max)}`
-                : trf('RFDIAG_RSSI_DETAIL', e.avg.toFixed(1), e.min, e.max);
+                ? `${tr('RFDIAG_GUIDED_MEASURED')} - ${trf('RFDIAG_RSSI_DETAIL', numLoc(e.avg, 1), e.min, e.max)}`
+                : trf('RFDIAG_RSSI_DETAIL', numLoc(e.avg, 1), e.min, e.max);
             // Only a drop matters: a link running well under its own history hints at
             // a dying remote battery or a new obstacle, before commands start failing.
             const drift = e.frames >= 5 && (e.recent - e.avg) <= -8;
@@ -422,8 +422,17 @@ class MQTT {
                 get('divDiscoveryTopic').style.display = settings.pubDisco ? '' : 'none';
                 get('hrIdDiscoveryTopic').style.display = settings.pubDisco ? '' : 'none';
                 this.syncEnabled();
+                this.showState(settings);
             }
         });
+    }
+    // Whether the broker accepted the board, as the firmware sees it right now.
+    showState(settings) {
+        const el = get('mqttState');
+        if (!el) return;
+        el.hidden = !settings.enabled || typeof settings.connected === 'undefined';
+        el.classList.toggle('is-ok', !!settings.connected);
+        el.textContent = tr(settings.connected ? 'MQTT_STATE_OK' : 'MQTT_STATE_FAIL');
     }
     // With MQTT off, its settings are greyed and out of reach (inert): they are still
     // read and saved as they are, so switching it back on finds them intact.
@@ -495,6 +504,8 @@ class MQTT {
                 ui.successMessage(tr('MSG_SAVE_SUCCESS'));
                 navSaved();
                 if(DBG) console.log(response);
+                // The connection takes a moment: look once, a few seconds later.
+                setTimeout(() => getJSON('/mqttsettings', (e, s) => { if (!e && s) this.showState(s); }), 4000);
             }
         });
     }
@@ -693,11 +704,11 @@ class Firmware {
     procMemoryStatus(mem) {
         if(DBG) console.log(mem);
         let sp = get('spanFreeMemory');
-        if (sp) sp.innerHTML = mem.free.fmt("#,##0 ");
+        if (sp) sp.innerHTML = numLoc(mem.free, 0) + ' ';
         sp = get('spanMaxMemory');
-        if (sp) sp.innerHTML = mem.max.fmt('#,##0 ');
+        if (sp) sp.innerHTML = numLoc(mem.max, 0) + ' ';
         sp = get('spanMinMemory');
-        if (sp) sp.innerHTML = mem.min.fmt('#,##0 ');
+        if (sp) sp.innerHTML = numLoc(mem.min, 0) + ' ';
     }
     procFwStatus(rel) {
         // Remembered so the update dialog opens on the version the board offers.
@@ -754,6 +765,11 @@ class Firmware {
                 btn.disabled = true;
                 if (ghTitle) ghTitle.innerHTML = tr('FW_UPDATE_UPTODATE');
                 if (ghDesc) ghDesc.innerHTML = tr('FW_UPDATE_ACTION_DESC');
+                // An interface image from another version than the firmware is the
+                // classic half-done manual update: say which one to install.
+                const v = (id) => (get(id)?.innerText || '').trim().replace(/^v/, '');
+                const fw = v('spanFwVersion'), app = v('spanAppVersion');
+                if (ghDesc && fw && app && /\d/.test(fw) && /\d/.test(app) && fw !== app) ghDesc.textContent = trf('FW_UI_MISMATCH', 'v' + app, 'v' + fw);
             }
         }
     }
@@ -1137,7 +1153,7 @@ class Firmware {
             btnB.onclick = () => firmware.backup();
         }
     }
-    async uploadFile(service, el, data) {
+    async uploadFile(service, el, data, confirmed) {
         let field = el.querySelector('input[type="file"]'),
         filename = field.value,
         file = field.files[0],
@@ -1166,7 +1182,16 @@ class Firmware {
             ui.errorMessage(title).querySelector('.sub-message').innerHTML = tr(err);
             return;
         }
-        if (service !== '/restore' && !this.isMobile()) {
+        if (service === '/restore' && !confirmed) {
+            // A restore replaces what is chosen and restarts: name it, and keep a copy
+            // of the current configuration first, as an update does.
+            const what = [['shades', 'RST_W_SHADES'], ['repeaters', 'RST_W_REPEATERS'], ['settings', 'RST_W_SETTINGS'], ['network', 'RST_W_NETWORK'], ['mqtt', 'RST_W_MQTT'], ['transceiver', 'RST_W_RADIO']]
+                .filter(x => data[x[0]]).map(x => tr(x[1])).join(', ');
+            const p = ui.promptMessage(esc(tr('PROMPT_RESTORE_REPLACE')), { yes: 'BT_RESTORE', danger: true }, () => this.uploadFile(service, el, data, true));
+            p.querySelector('.sub-message').innerHTML = `<p>${esc(trf('PROMPT_RESTORE_WHAT', what))}</p><p>${esc(tr(this.isMobile() ? 'PROMPT_RESTORE_BACKUP_HINT' : 'PROMPT_RESTORE_BACKUP_AUTO'))}</p>`;
+            return;
+        }
+        if (!this.isMobile()) {
             try { await firmware.backup(); }
             catch (e) { return ui.serviceError(el, e); }
         }

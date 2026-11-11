@@ -82,7 +82,7 @@
         <a class="brand" href="#" data-grpid="divHomePnl">
             <span class="brand-mark"><svg aria-hidden="true"><use href="#svg-logo"></use></svg></span>
             <span class="brand-name">ESPSomfy RTS</span>
-            <span class="dot conn-dot" aria-hidden="true"></span>
+            <span class="dot conn-dot" aria-hidden="true"></span><span class="conn-mtext sr-only"></span>
         </a>
         <details class="mmenu">
             <summary class="btn btn-icon" tr-aria="NAV_MENU" aria-label="Menu">
@@ -139,7 +139,7 @@
                                 <p class="empty-subtext" tr="EMPTY_DEVICE_DESC"></p>
                             </div>
                             <div id="divShadeListContent">
-                                <div class="dragtxt" tr="DRAG_SORT"></div>
+                                <div class="dragtxt"><span tr="DRAG_SORT_SHADES"></span> <span tr="DRAG_SORT_ROOMS_AT"></span> <a href="#divSomfyRooms" data-grpid="divSomfyRooms" tr="NAV_ROOMSGROUPS">Pièces et groupes</a>.</div>
                                 <div id="divShadeList" class="edit-motorlist"></div>
                             </div>
                             <div class="footer-overlay">
@@ -263,11 +263,13 @@
                                         <div>
                                             <label class="label" for="fldShadeLiftTime" tr="SHADE_LIFT_TIME"></label>
                                             <input id="fldShadeLiftTime" class="inputAndSelect" name="shadeLiftTime" type="number" min="0" max="60000" step="1" data-bind="liftTime" data-datatype="int" maxlength=5 tr="SHADE_MS_PLH"  placeholder="milliseconds" onchange="clampNumField(this, 0);"/>
+                                            <p class="field-help" tr="SHADE_LIFT_TIME_HELP"></p>
                                         </div>
                                         <hr>
                                         <div>
                                             <label class="label" for="fldShadeCurveGain" tr="SHADE_CURVE_GAIN"></label>
                                             <input id="fldShadeCurveGain" class="inputAndSelect" name="shadeCurveGain" type="number" data-bind="curveGain" data-datatype="float" min="0" max="0.95" step="0.01" placeholder="0.00 - 0.95" onchange="clampNumField(this, 0);"/>
+                                            <p class="field-help" tr="SHADE_CURVE_GAIN_HELP"></p>
                                         </div>
                                         <hr>
                                         <div class="divButton">
@@ -331,7 +333,7 @@
                                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                         </div>
                                         <div class="button-outline btn-somfy-svg-wide animScale" role="button" tabindex="0" tr-aria="A11Y_VR_TOGGLE" data-cmd="toggle" onclick="somfy.sendCommand(parseInt(document.getElementById('spanShadeId').innerText, 10), 'toggle');">
-                                            <svg><use href="#svg-toggle"></use></svg>
+                                            <span tr="BT_TRIGGER">Actionner</span>
                                         </div>
                                     </div>
 
@@ -503,7 +505,7 @@
                             </div>
 
                             <div id="divRoomListContent">
-                                <div class="dragtxt" tr="DRAG_SORT"></div>
+                                <div class="dragtxt" tr="DRAG_SORT_ROOMS"></div>
                                 <div id="divRoomList" class="edit-roomlist"></div>
                             </div>
 
@@ -532,7 +534,7 @@
                             </div>
 
                             <div id="divGroupListContent">
-                                <div class="dragtxt" tr="DRAG_SORT"></div>
+                                <div class="dragtxt" tr="DRAG_SORT_GROUPS"></div>
                                 <div id="divGroupList" class="edit-grouplist"></div>
                             </div>
 
@@ -589,6 +591,7 @@
                                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                         </div>
                                     </div>
+                                    <p id="grpEmptyHint" class="uniStatus grp-empty-hint" tr="GROUP_EMPTY_HINT" hidden></p>
                                 </div>
                                 <div class="unibloc">
                                     <button id="btnLinkShade" type="button" onclick="somfy.linkGroupShade(parseInt(document.getElementById('spanGroupId').innerText, 10));" class="unibutton">
@@ -596,6 +599,7 @@
                                             <div tr="BT_LINK_DEVICE"></div>
                                             <div class="uniStatus" tr="GROUP_LINK_DESC"></div>
                                         </div>
+                                        <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg>
                                     </button>
                                 </div>
                             </div>
@@ -787,6 +791,7 @@
                                     </span>
                                 </div>
                             </label>
+                            <p id="mqttState" class="mqtt-state" role="status" hidden></p>
                             <hr>
                             <label class="uniRow">
                                 <div class="uniText">
@@ -1320,10 +1325,11 @@
                         <div class="unibloc">
                             <div class="rssi-row">
                                 <div class="rssi-left">
-                                    <span tr="SCANFREQ_DIV_RSSI"></span>
+                                    <span tr="RADIO_FRAMES_HEARD"></span>
                                     <span id="spanFrameCount">0</span>
                                 </div>
                                 <div class="rssi-right">
+                                    <span class="rssi-label" tr="RADIO_LAST_SIGNAL"></span>
                                     <span id="spanRssi" name="rssi">--</span>
                                     <span class="rssi-unit" tr="DBM"></span>
                                 </div>
@@ -1363,6 +1369,7 @@
                                         <svg class="radioArrowSvg"><use href=#svg-arrowRight></use></svg>
                                     </button>
                                     <div id="stepButtons" class="radioStepButtons">
+                                        <button type="button" class="step-btn step-reset" onclick="somfy.radioDefaultFreq()" tr="RADIO_DEFAULT_FREQ"></button>
                                         <button type="button" class="step-btn" onclick="somfy.setStep('freq', 1)">1</button>
                                         <button type="button" class="step-btn" onclick="somfy.setStep('freq', 10)">10</button>
                                         <button type="button" class="step-btn" onclick="somfy.setStep('freq', 100)">100</button>
@@ -1586,7 +1593,10 @@
                             <hr>
                             <button id="btnReloadApplication" type="button" onclick="general.reload();" class="buttonUpdate">
                                 <svg><use href=#svg-clear></use></svg>
-                                <span class="buttonUpdateCache" tr="FW_REFRESH_CACHE"></span>
+                                <div class="devButtonUpdate">
+                                    <div tr="FW_REFRESH_CACHE"></div>
+                                    <div class="uniStatus" tr="FW_REFRESH_CACHE_DESC"></div>
+                                </div>
                             <svg class="btnArrowRight" aria-hidden="true"><use href=#svg-arrowRight></use></svg></button>
                         </div>
 <div class="button-container-row">

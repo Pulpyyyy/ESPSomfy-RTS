@@ -459,7 +459,7 @@ div.error-message {
         --update-icon-color: currentColor;
     }
     #divLinking .instructions-headerLogo {
-        --crlIndicator: var(--tonal);
+        --crlIndicator: currentColor;
     }
     .instructionsTxt-badge {
         font-weight: bold;
@@ -1571,3 +1571,11 @@ div.eth-setting-line label {
 .boot-result.is-ok { color: var(--ok); }
 .boot-result.is-error { color: var(--danger); }
 @media (prefers-reduced-motion: reduce) { .boot-steps li.is-active::before { animation: none; border-top-color: var(--accent-color); } }
+.pos-apron { touch-action: pan-y; }
+.pos-grip { height: 44px; transform: translateY(-22px); pointer-events: auto; touch-action: none; cursor: ns-resize; }
+.pos-grip::before { top: 20px; }
+.pos-sheet .pos-step, .pos-sheet .pos-chip, .pos-sheet .pos-tab { min-height: 44px; }
+.pos-steps .pos-step[data-step="5"] { margin-left: 6px; }
+.expert-mode-container { cursor: pointer; }
+@media (max-width: 640px) { .expert-label { display: inline; } }
+.instructions-header h2[data-autofocus]:focus:not(:focus-visible) { outline: none; }

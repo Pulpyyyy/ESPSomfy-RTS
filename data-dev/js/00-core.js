@@ -110,7 +110,7 @@ function openDialog(el) {
     }
     const opener = document.activeElement;
     _dlgStack.push({ el: el, opener: (opener && opener !== document.body) ? opener : null });
-    const first = dlgFocusables(el)[0];
+    const first = el.querySelector('[data-autofocus]') || dlgFocusables(el)[0];
     if (first) first.focus();
     else {
         if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
@@ -279,6 +279,15 @@ function bindHoldKeys(el, down, up) {
 function shadeOpenness(position, flip) {
     return flip ? position : (100 - position);
 }
+// The language the page was loaded in, which the board's setting may later differ from.
+var LANG_SHOWN = '';
+// Polite announcements outside Home (reordering in the configuration lists).
+function cfgAnnounce(msg) {
+    let el = document.getElementById('cfgLive');
+    if (!el) { el = document.createElement('p'); el.id = 'cfgLive'; el.className = 'sr-only'; el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+    el.textContent = '';
+    setTimeout(() => { el.textContent = msg; }, 50);
+}
 function loadLang(callback) {
     if (Object.keys(LANG).length > 0) {
         if(DBG) console.log("Language already in memory, using the cache.");
@@ -291,6 +300,7 @@ function loadLang(callback) {
     // build and the chosen language - so a change always misses the cache.
     const _lv = (document.querySelector('script[src*="index.js"]')?.getAttribute('src') || '').split('v=')[1] || '';
     const _ll = localStorage.getItem('selectedLang') || '';
+    LANG_SHOWN = _ll;
     fetch(`${baseUrl}/lang?v=${encodeURIComponent(_lv)}&l=${encodeURIComponent(_ll)}`)
     .then(r => r.json())
     .then(dict => {
@@ -376,6 +386,10 @@ Date.prototype.toJSON = function () {
     return `${this.getFullYear()}-${f(this.getMonth() + 1, 2)}-${f(this.getDate(), 2)}T${f(this.getHours(), 2)}:${f(this.getMinutes(), 2)}:${f(this.getSeconds(), 2)}.${f(this.getMilliseconds(), 3)}${sign}${f(Math.floor(absTz / 60), 2)}${f(absTz % 60, 2)}`;
 };
 Number.prototype.round = function (dec) { return Number(Math.round(this + 'e' + dec) + 'e-' + dec); };
+// Numbers as the reader writes them: 433,420 in French, 433.420 in English.
+function numLoc(v, d) {
+    return Number(v).toLocaleString(document.documentElement.lang || 'en', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
 Number.prototype.fmt = function (format, empty) {
     if (isNaN(this)) return empty || '';
     if (typeof format === 'undefined') return this.toString();

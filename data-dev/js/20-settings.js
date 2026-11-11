@@ -933,6 +933,7 @@ class Wifi {
                 get('cbHardwired').checked = settings.connType >= 2;
                 get('cbFallbackWireless').checked = settings.connType === 3;
                 ui.toElement(pnl, settings);
+                this.netLoaded = { ssid: (settings.wifi && settings.wifi.ssid) || '', connType: settings.connType };
 
                 // The passphrase is never sent by the server; show a presence
                 // placeholder instead of prefilling the field.
@@ -1233,20 +1234,31 @@ class Wifi {
                 btn.style.background = ok ? "var(--danger)" : "#ccc";
                 btn.style.cursor = ok ? "pointer" : "not-allowed";
             };
-            btn.onclick = () => { this.sendNetworkSettings(obj); closeOverlay(div); };
+            btn.onclick = () => { this.sendNetworkSettings(obj, 'ETH'); closeOverlay(div); };
             div.querySelector('#btnCancel').onclick = () => closeOverlay(div);
         } else {
-            this.sendNetworkSettings(obj);
+            // A new network, a new password or leaving Ethernet restarts the board a
+            // second after saving: say so first, and where to find it if it fails.
+            const was = this.netLoaded || {};
+            const w = obj.wifi || {};
+            if (obj.connType !== was.connType || (w.ssid || '') !== was.ssid || !!w.passphrase) {
+                const p = ui.promptMessage(esc(trf('PROMPT_WIFI_RESTART', w.ssid || '')), { yes: 'BT_SAVE_RESTART' }, () => this.sendNetworkSettings(obj, w.ssid || ''));
+                p.querySelector('.sub-message').innerHTML = `<p>${esc(tr('PROMPT_WIFI_RESTART_DESC'))}</p>`;
+            }
+            else this.sendNetworkSettings(obj);
         }
     }
-    sendNetworkSettings(obj) {
+    sendNetworkSettings(obj, restarting) {
         putJSONBusy('/setNetwork', obj, (err, response) => {
             if (err) {
                 ui.serviceError(err);
             } else {
-                ui.successMessage(tr('MSG_SAVE_SUCCESS'));
                 navSaved();
                 if(DBG) console.log("Network settings updated:", response);
+                if (restarting === undefined) return ui.successMessage(tr('MSG_SAVE_SUCCESS'));
+                if (typeof socket !== 'undefined') socket.close(3000, 'reboot');
+                ui.waitMessage(get('divContainer'), esc(restarting === 'ETH' ? tr('NET_RESTARTING_ETH') : trf('NET_RESTARTING', restarting)) + '<br>' + esc(tr('NET_RESTARTING_HELP')));
+                setTimeout(() => window.location.reload(), 25000);
             }
         });
     }
