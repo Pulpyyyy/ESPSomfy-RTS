@@ -186,6 +186,12 @@ void SomfyShade::publishDisco() {
     if(this->tiltType != tilt_types::none) {
       obj["tilt_command_topic"] = "~/tiltTarget/set";
       obj["tilt_status_topic"] = "~/tiltPosition";
+      // Unflipped, 0 is flat (open) and 100 closed: an inverted range lets Home
+      // Assistant show the same % open as the web interface.
+      obj["tilt_min"] = this->flipPosition ? 0 : 100;
+      obj["tilt_max"] = this->flipPosition ? 100 : 0;
+      obj["tilt_opened_value"] = this->flipPosition ? 100 : 0;
+      obj["tilt_closed_value"] = this->flipPosition ? 0 : 100;
     }
     component = "cover";
   }

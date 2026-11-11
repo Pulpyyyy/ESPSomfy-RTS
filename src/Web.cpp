@@ -121,6 +121,8 @@ void Web::emitNetworkSettings(JsonResponse &resp, const char *name) {
 void Web::emitMqttSettings(JsonResponse &resp, const char *name) {
   resp.beginObject(name);
   settings.MQTT.toJSON(resp);
+  // Read once when the page opens: saving says nothing about whether the broker took it.
+  resp.addElem("connected", settings.MQTT.enabled && mqtt.connected());
   resp.endObject();
 }
 void Web::emitRadio(JsonResponse &resp) {
