@@ -1089,7 +1089,7 @@
     "VR_NOT_SUNNY": "no sun",
     "VR_WINDY": "wind",
     "VR_NOT_WINDY": "no wind",
-    "VR_PAIR_HELP": "PROG opens the motor's memory: this remote is added or removed depending on its state. To pair step by step, with a confirmation:",
+    "VR_PAIR_HELP": "Hold about 3 s: the motor jogs and waits 2 min in programming mode, then leaves it on its own. Do not press PROG again: a short press would remove this remote from the motor. To pair step by step, with a confirmation:",
     "VR_PAIR_PULSE": "For a one-button device, PROG would send an impulse: pair with the wizard of its record:",
     "VR_PAIR_LINK": "open the device record",
     "VR_PAIR_LINK_GROUP": "open the group record",

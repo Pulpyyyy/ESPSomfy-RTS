@@ -1089,7 +1089,7 @@
     "VR_NOT_SUNNY": "pas de soleil",
     "VR_WINDY": "vent",
     "VR_NOT_WINDY": "pas de vent",
-    "VR_PAIR_HELP": "PROG ouvre la mémoire du moteur : cette télécommande y est ajoutée ou retirée selon son état. Pour appairer pas à pas, avec confirmation :",
+    "VR_PAIR_HELP": "Maintien d'environ 3 s : le moteur fait un aller-retour et attend 2 min en programmation, puis en sort seul. N'appuyez pas de nouveau sur PROG : un appui bref retirerait cette télécommande du moteur. Pour appairer pas à pas, avec confirmation :",
     "VR_PAIR_PULSE": "Pour un équipement à touche unique, PROG émettrait une impulsion : appairez avec l'assistant de la fiche :",
     "VR_PAIR_LINK": "ouvrir la fiche de l'équipement",
     "VR_PAIR_LINK_GROUP": "ouvrir la fiche du groupe",

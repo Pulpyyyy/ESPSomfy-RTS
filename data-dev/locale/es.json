@@ -1089,7 +1089,7 @@
     "VR_NOT_SUNNY": "sin sol",
     "VR_WINDY": "viento",
     "VR_NOT_WINDY": "sin viento",
-    "VR_PAIR_HELP": "PROG abre la memoria del motor: este mando se añade o se quita según su estado. Para emparejar paso a paso, con confirmación:",
+    "VR_PAIR_HELP": "Mantener unos 3 s: el motor hace un vaivén y espera 2 min en modo de programación, del que sale solo. No vuelva a pulsar PROG: una pulsación corta borraría este mando del motor. Para emparejar paso a paso, con confirmación:",
     "VR_PAIR_PULSE": "En un dispositivo de una sola tecla, PROG emitiría un impulso: empareja con el asistente de su ficha:",
     "VR_PAIR_LINK": "abrir la ficha del dispositivo",
     "VR_PAIR_LINK_GROUP": "abrir la ficha del grupo",

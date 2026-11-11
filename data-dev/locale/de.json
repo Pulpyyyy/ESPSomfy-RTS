@@ -1089,7 +1089,7 @@
     "VR_NOT_SUNNY": "keine Sonne",
     "VR_WINDY": "Wind",
     "VR_NOT_WINDY": "kein Wind",
-    "VR_PAIR_HELP": "PROG öffnet den Speicher des Motors: diese Fernbedienung wird je nach Zustand hinzugefügt oder entfernt. Schrittweise anlernen, mit Bestätigung:",
+    "VR_PAIR_HELP": "Etwa 3 s halten: Der Motor ruckt kurz und wartet 2 min im Programmiermodus, den er danach selbst verlässt. PROG nicht erneut drücken: Ein kurzer Druck würde diese Fernbedienung aus dem Motor löschen. Schrittweise anlernen, mit Bestätigung:",
     "VR_PAIR_PULSE": "Bei einem Gerät mit einer Taste würde PROG einen Impuls senden: mit dem Assistenten im Datenblatt anlernen:",
     "VR_PAIR_LINK": "Datenblatt des Geräts öffnen",
     "VR_PAIR_LINK_GROUP": "Datenblatt der Gruppe öffnen",
