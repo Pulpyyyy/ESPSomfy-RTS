@@ -3026,7 +3026,11 @@ class Somfy {
     vrSensorLabel() {
         const sun = get('cbSunny')?.checked, wind = get('cbWindy')?.checked;
         const el = get('vrSensorText');
-        if (el) el.textContent = trf('VR_SEND_SENSOR', tr(sun ? 'VR_SUNNY' : 'VR_NOT_SUNNY'), tr(wind ? 'VR_WINDY' : 'VR_NOT_WINDY'));
+        const sw = [tr(sun ? 'VR_SUNNY' : 'VR_NOT_SUNNY'), tr(wind ? 'VR_WINDY' : 'VR_NOT_WINDY')];
+        if (el) {
+            el.textContent = trf('VR_SEND_SENSOR', ...sw);
+            el.closest('button').dataset.label = trf('VR_SENSOR_SENT', ...sw);
+        }
     }
     vrLed(kind, text) {
         const led = get('vrLed');
@@ -3035,7 +3039,7 @@ class Somfy {
         get('vrLedText').textContent = text;
     }
     vrLabel(btn) {
-        return (btn.querySelector('.l, span:not(.vr-pict):not(.rc-cnt)')?.textContent || btn.getAttribute('aria-label') || btn.dataset.cmd).trim();
+        return (btn.dataset.label || btn.querySelector('.l, span:not(.vr-pict):not(.rc-cnt)')?.textContent || btn.getAttribute('aria-label') || btn.dataset.cmd).trim();
     }
     // A press sends at once, or after 0,5 s for the keys that change the motor (a
     // finger resting there to scroll must not pair or reverse anything); held, the

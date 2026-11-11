@@ -1085,6 +1085,7 @@
     "VR_SUN_OFF": "Turn sun automation off",
     "VR_SENSOR_HELP": "Simulate a frame of the Sun-Wind sensor:",
     "VR_SEND_SENSOR": "Send: {0}, {1}",
+    "VR_SENSOR_SENT": "Sensor: {0}, {1}",
     "VR_SUNNY": "sun",
     "VR_NOT_SUNNY": "no sun",
     "VR_WINDY": "wind",

@@ -1085,6 +1085,7 @@
     "VR_SUN_OFF": "Sonnenautomatik aus",
     "VR_SENSOR_HELP": "Einen Rahmen des Sonne-Wind-Sensors simulieren:",
     "VR_SEND_SENSOR": "Senden: {0}, {1}",
+    "VR_SENSOR_SENT": "Sensor: {0}, {1}",
     "VR_SUNNY": "Sonne",
     "VR_NOT_SUNNY": "keine Sonne",
     "VR_WINDY": "Wind",

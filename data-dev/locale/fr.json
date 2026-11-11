@@ -1085,6 +1085,7 @@
     "VR_SUN_OFF": "Désactiver l'auto soleil",
     "VR_SENSOR_HELP": "Simuler une trame du capteur Soleil-Vent :",
     "VR_SEND_SENSOR": "Envoyer : {0}, {1}",
+    "VR_SENSOR_SENT": "Capteur : {0}, {1}",
     "VR_SUNNY": "soleil",
     "VR_NOT_SUNNY": "pas de soleil",
     "VR_WINDY": "vent",
