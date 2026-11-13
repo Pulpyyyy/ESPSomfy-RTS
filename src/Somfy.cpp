@@ -77,6 +77,7 @@ void SomfyShade::clear() {
   this->stepSize = 100;
   this->repeats = SOMFY_MIN_REPEATS;
   this->sortOrder = 255;
+  this->flags = 0;
 }
 void SomfyRoom::clear() {
   this->roomId = 0;

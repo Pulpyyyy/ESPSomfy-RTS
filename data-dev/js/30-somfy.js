@@ -1033,7 +1033,7 @@ class Somfy {
             ? `<span class="shutter"></span>`
             : this.vizDraw(shade.shadeType) ?? `<svg class="somfy-shade-icon" data-shadeid="${shade.shadeId}" aria-hidden="true" style="--shade-position:${p}; --fpos:${p}%"><use href="#${st.ico}"></use></svg>`;
         const tiltTitle = shade.tiltType !== 0 ? ` title="${tr('TT_HOLD_TILT')}"` : '';
-        return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-stoponly="${this.stopOnly(shade)}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-tilttarget="${shade.tiltTarget ?? shade.tiltPosition}" data-tiltdirection="${shade.tiltDirection || 0}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}">
+        return `<article class="somfyShadeCtl tile${pulse ? ' is-pulse' : ''}" style="${roomId === 0 || roomId === shade.roomId ? '' : 'display:none'}" aria-labelledby="shName${shade.shadeId}" data-shadeid="${shade.shadeId}" data-roomid="${shade.roomId}" data-direction="${shade.direction}" data-remoteaddress="${shade.remoteAddress}" data-position="${shade.position}" data-target="${shade.target}" data-mypos="${shade.myPos}" data-mytiltpos="${shade.myTiltPos}" data-shadetype="${shade.shadeType}" data-stoponly="${this.stopOnly(shade)}" data-tilt="${shade.tiltType}" data-tiltposition="${shade.tiltPosition}" data-tilttarget="${shade.tiltTarget ?? shade.tiltPosition}" data-tiltdirection="${shade.tiltDirection || 0}" data-flipposition="${shade.flipPosition ? 'true' : 'false'}" data-windy="${(shade.flags & 0x10) === 0x10 ? 'true' : 'false'}" data-sunny="${(shade.flags & 0x20) === 0x20 ? 'true' : 'false'}" data-sunsensor="${shade.sunSensor ? 'true' : 'false'}">
         <div class="tile-head">
         <div class="tile-id">
         <h3 class="tile-name shadectl-name" id="shName${shade.shadeId}">${esc(shade.name).replace(/_/g, '_<wbr>')}</h3>
@@ -1043,7 +1043,7 @@ class Somfy {
         </div>
         <button type="button" class="viz shade-viz" data-shadeid="${shade.shadeId}" aria-label="${esc(trf('A11Y_SET_POS', shade.name))}" ${pulse ? 'disabled' : ''} onclick="event.stopPropagation(); somfy.openSetPosition(${shade.shadeId});">
         ${viz}
-        <span class="viz-flags"><span class="badge warn indicator indicator-sun"><svg aria-hidden="true"><use href="#indic-sun"></use></svg>${tr('VR_SUN')}</span><span class="badge danger indicator indicator-wind"><svg aria-hidden="true"><use href="#indic-wind"></use></svg>${tr('VR_WIND')}</span></span>
+        <span class="viz-flags"><span class="badge warn indicator indicator-sun" title="${esc(tr('VR_SUN'))}"><svg aria-hidden="true"><use href="#indic-sun"></use></svg><span class="ind-txt">${tr('VR_SUN')}</span></span><span class="badge danger indicator indicator-wind" title="${esc(tr('VR_WIND'))}"><svg aria-hidden="true"><use href="#indic-wind"></use></svg><span class="ind-txt">${tr('VR_WIND')}</span></span></span>
         </button>
         <span class="tile-tools">
         ${shade.sunSensor ? `<div class="button-sunflag cmd-button tool-chip" role="button" tabindex="0" title="${esc(tr('HOME_SUN_AUTO'))}" aria-label="${esc(tr('HOME_SUN_AUTO'))}, ${esc(shade.name)}" aria-pressed="${isSunOn ? 'true' : 'false'}" data-cmd="sunflag" data-shadeid="${shade.shadeId}" data-on="${isSunOn ? 'true' : 'false'}"><svg aria-hidden="true"><use href="#indic-sun"></use></svg><span>${tr('HOME_SUN_AUTO')}</span></div>` : ''}
@@ -1909,6 +1909,7 @@ class Somfy {
                 mytiltpos: state.myTiltPos ?? -1
             });
             if (typeof state.flipPosition !== 'undefined') d.dataset.flipposition = state.flipPosition ? 'true' : 'false';
+            if (typeof state.sunSensor !== 'undefined') d.dataset.sunsensor = state.sunSensor ? 'true' : 'false';
             if (state.tiltType !== 0) {
                 Object.assign(d.dataset, {
                     tiltdirection: state.tiltDirection,

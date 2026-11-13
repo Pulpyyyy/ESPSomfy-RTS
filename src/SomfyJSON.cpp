@@ -163,6 +163,10 @@ int8_t SomfyShade::fromJSON(JsonObject &obj) {
     }
     if(obj.containsKey("flipCommands")) this->flipCommands = obj["flipCommands"].as<bool>();
     if(obj.containsKey("flipPosition")) this->flipPosition = obj["flipPosition"].as<bool>();
+    if(!this->hasSunSensor()) {
+      this->flags &= ~(static_cast<uint8_t>(somfy_flags_t::SunFlag) | static_cast<uint8_t>(somfy_flags_t::Sunny));
+      if(this->shadeType != shade_types::awning) this->flags &= ~static_cast<uint8_t>(somfy_flags_t::Windy);
+    }
     if(obj.containsKey("repeats")) this->repeats = constrain(obj["repeats"].as<int>(), 0, SOMFY_MAX_TX_REPEATS);
     if(obj.containsKey("tiltType")) {
       if(obj["tiltType"].is<const char *>()) {
